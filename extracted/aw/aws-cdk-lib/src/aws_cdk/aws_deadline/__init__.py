@@ -1246,7 +1246,7 @@ class CfnFleet(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_deadline as deadline
                 
-                accelerator_total_memory_mi_bRange_property = deadline.CfnFleet.AcceleratorTotalMemoryMiBRangeProperty(
+                accelerator_total_memory_mi_b_range_property = deadline.CfnFleet.AcceleratorTotalMemoryMiBRangeProperty(
                     min=123,
                 
                     # the properties below are optional
@@ -2433,7 +2433,7 @@ class CfnFleet(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_deadline as deadline
                 
-                memory_mi_bRange_property = deadline.CfnFleet.MemoryMiBRangeProperty(
+                memory_mi_b_range_property = deadline.CfnFleet.MemoryMiBRangeProperty(
                     min=123,
                 
                     # the properties below are optional

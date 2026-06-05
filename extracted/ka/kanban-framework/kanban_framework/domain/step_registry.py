@@ -8,8 +8,6 @@ Topological sort ensures correct execution order.
 """
 from __future__ import annotations
 from kanban_framework.domain.steps_types import StepDef
-from kanban_framework.domain.steps_lightweight import LIGHTWEIGHT_STEPS
-from kanban_framework.domain.steps_quick import QUICK_STEPS
 from kanban_framework.infra.scheduler import Scheduler
 
 
@@ -47,8 +45,7 @@ def _topo_sort(steps: list[dict]) -> list[dict]:
     return result
 
 
-def build_step_dag(lightweight: bool = False, quick: bool = False,
-                   custom_order: list[str] | None = None,
+def build_step_dag(custom_order: list[str] | None = None,
                    custom_steps: dict[str, list[StepDef]] | None = None,
                    mode: str | None = None,
                    workflow: dict | None = None,
@@ -63,23 +60,15 @@ def build_step_dag(lightweight: bool = False, quick: bool = False,
     if custom_steps is not None and custom_order is not None:
         steps_map = custom_steps
         phase_order = custom_order
-    elif mode and mode not in Scheduler.BUILTIN_MODE_NAMES:
-        # Custom mode: load steps and phase order from workflow definition
+    else:
+        from kanban_framework.infra.consts import Consts
+        resolved_mode = mode or Consts.DEFAULT_MODE
         from kanban_framework.domain.steps import _get_steps
-        steps_map = _get_steps(mode)
+        steps_map = _get_steps(resolved_mode)
         str_order = [p.value if hasattr(p, "value") else str(p)
-                     for p in Scheduler.dispatch_order(mode=mode, workflow=workflow,
+                     for p in Scheduler.dispatch_order(mode=resolved_mode, workflow=workflow,
                                                        kanban_dir=kanban_dir)]
         phase_order = str_order
-    elif quick:
-        steps_map = QUICK_STEPS
-        phase_order = Scheduler.QUICK_PHASE_ORDER
-    elif lightweight:
-        steps_map = LIGHTWEIGHT_STEPS
-        phase_order = Scheduler.LIGHTWEIGHT_PHASE_ORDER
-    else:
-        steps_map = LIGHTWEIGHT_STEPS
-        phase_order = Scheduler.PHASE_ORDER
 
     has_explicit_after = any(
         getattr(s, "after", None) for phase_steps in steps_map.values()
@@ -154,7 +143,7 @@ def build_step_dag(lightweight: bool = False, quick: bool = False,
     if has_explicit_after:
         steps = _topo_sort(steps)
 
-    return {"steps": steps, "lightweight": lightweight, "quick": quick}
+    return {"steps": steps}
 
 
 def get_available_steps(dag: dict, completed: set[str],
@@ -187,34 +176,22 @@ def resolve_step(step_id: str) -> tuple[str, str]:
     return parts[0], ""
 
 
-def find_step_def(step_id: str, lightweight: bool = False,
-                  quick: bool = False, mode: str | None = None) -> StepDef | None:
-    """Find the StepDef for a given flat step ID.
-
-    Searches: workflow.json loaded steps → hardcoded builtins.
-    """
-    if mode and mode not in Scheduler.BUILTIN_MODE_NAMES:
-        mode = mode
-    else:
-        mode = "quick" if quick else "lightweight"
-    # Priority 1: workflow.json loaded steps (includes extensions + per-mode)
+def find_step_def(step_id: str, mode: str | None = None) -> StepDef | None:
+    """Find the StepDef for a given flat step ID."""
+    from kanban_framework.infra.consts import Consts
+    resolved_mode = mode or Consts.DEFAULT_MODE
     from kanban_framework.domain.steps import _get_steps
     try:
-        steps_map = _get_steps(mode)
+        steps_map = _get_steps(resolved_mode)
         for phase_steps in steps_map.values():
             for step in phase_steps:
                 if step.id == step_id:
                     return step
     except Exception:
         pass
-    # Priority 2: hardcoded defaults
-    if quick:
-        steps_map = QUICK_STEPS
-    elif lightweight:
-        steps_map = LIGHTWEIGHT_STEPS
-    else:
-        steps_map = LIGHTWEIGHT_STEPS
-    for phase_steps in steps_map.values():
+    # Fallback: use default mode steps
+    from kanban_framework.domain.steps_lightweight import LIGHTWEIGHT_STEPS
+    for phase_steps in LIGHTWEIGHT_STEPS.values():
         for step in phase_steps:
             if step.id == step_id:
                 return step

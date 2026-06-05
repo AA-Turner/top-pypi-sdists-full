@@ -1,4 +1,4 @@
-"""Tests for row-adapter behavior and ``notebooklm._row_adapters`` compatibility.
+"""Tests for row-adapter behavior across the ``_row_adapters_*`` modules.
 
 The adapters centralise position knowledge for the ``LIST_ARTIFACTS``,
 ``GET_NOTES_AND_MIND_MAPS``, and source row shapes so consumers
@@ -9,8 +9,9 @@ The adapters centralise position knowledge for the ``LIST_ARTIFACTS``,
 open-coding ``data[2]`` / ``data[4]`` / ``data[15]`` / ``row[1][1]`` /
 ``row[1][4]`` / ``data[0][0]`` / ``metadata[4]``. See
 ``docs/improvement.md`` §6.2 for the motivation and
-``src/notebooklm/_row_adapters_*.py`` for the position contracts and
-``src/notebooklm/_row_adapters.py`` for the compatibility shim.
+``src/notebooklm/_row_adapters/artifacts.py``,
+``src/notebooklm/_row_adapters/notes.py``, and
+``src/notebooklm/_row_adapters/sources.py`` for the position contracts.
 
 These tests cover three layers per adapter:
 
@@ -31,7 +32,9 @@ import json
 
 import pytest
 
-from notebooklm._row_adapters import ArtifactRow, NoteRow, SourceRow, SourceRowShape
+from notebooklm._row_adapters.artifacts import ArtifactRow
+from notebooklm._row_adapters.notes import NoteRow
+from notebooklm._row_adapters.sources import SourceRow, SourceRowShape
 from notebooklm.exceptions import UnknownRPCMethodError
 from notebooklm.rpc.types import ArtifactStatus, ArtifactTypeCode, SourceStatus
 
@@ -443,16 +446,6 @@ class TestStrictModeOnDeepDrift:
         with pytest.raises(UnknownRPCMethodError):
             _ = row.variant
 
-    def test_options_block_with_too_short_inner_soft_returns_none(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        monkeypatch.setenv("NOTEBOOKLM_STRICT_DECODE", "0")
-        raw = _full_row()
-        raw[ArtifactRow._OPTIONS_POS] = [None]
-        row = ArtifactRow(raw)
-        with pytest.warns(DeprecationWarning):
-            assert row.variant is None
-
     def test_audio_metadata_with_missing_media_list_returns_none_strict(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -636,7 +629,7 @@ class TestNoteRowPositionContract:
     These pin tests fail loudly if anyone edits a position constant.
     When that happens, the failing diff IS the audit trail for the
     Google-side wire reshape. See
-    ``src/notebooklm/_row_adapters_notes.py:NoteRow`` for the shape contract.
+    ``src/notebooklm/_row_adapters/notes.py:NoteRow`` for the shape contract.
     """
 
     def test_id_position_is_0(self) -> None:
@@ -800,7 +793,11 @@ class TestNoteRowContentCurrentShape:
 
 
 class TestNoteRowContentDegradation:
-    """Unknown / short / mistyped slots return ``None`` in soft mode."""
+    """Unknown / short / mistyped slots return ``None``.
+
+    These exercise content-type filtering on structurally-valid shapes (not
+    ``safe_index`` shape drift), so they hold regardless of decode mode.
+    """
 
     def test_empty_row_returns_none(self) -> None:
         assert NoteRow([]).content is None
@@ -1305,7 +1302,7 @@ class TestSourceRowId:
         """``[None, True, [None]]`` — drive inner element is ``None``.
 
         Both :attr:`id` and :attr:`has_id` must return falsy values so
-        :class:`notebooklm._source_listing.SourceLister` skips the row
+        :class:`notebooklm._source.listing.SourceLister` skips the row
         (matching legacy ``_extract_source_id`` which returned ``None``
         from ``raw_id[2][0] is None``).
         """

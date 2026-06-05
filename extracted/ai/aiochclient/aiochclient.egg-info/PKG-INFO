@@ -1,7 +1,7 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: aiochclient
-Version: 2.6.0
-Summary: Async http clickhouse client for python 3.6+
+Version: 2.7.0
+Summary: Async http clickhouse client for python 3.10+
 Home-page: https://github.com/maximdanilchenko/aiochclient
 Author: Danilchenko Maksim
 Author-email: dmax.dev@gmail.com
@@ -11,18 +11,39 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
-Provides-Extra: aiohttp
-Provides-Extra: aiohttp-speedups
-Provides-Extra: httpx
-Provides-Extra: httpx-speedups
 License-File: LICENSE
+Requires-Dist: sqlparse>=0.4.4
+Provides-Extra: aiohttp
+Requires-Dist: aiohttp>=3.8.4; extra == "aiohttp"
+Provides-Extra: aiohttp-speedups
+Requires-Dist: aiodns; extra == "aiohttp-speedups"
+Requires-Dist: faust-cchardet; extra == "aiohttp-speedups"
+Requires-Dist: ciso8601>=2.3.0; extra == "aiohttp-speedups"
+Requires-Dist: aiohttp>=3.8.4; extra == "aiohttp-speedups"
+Provides-Extra: httpx
+Requires-Dist: httpx>=0.27; extra == "httpx"
+Provides-Extra: httpx-speedups
+Requires-Dist: ciso8601>=2.3.0; extra == "httpx-speedups"
+Requires-Dist: httpx>=0.27; extra == "httpx-speedups"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # aiochclient
 
@@ -33,7 +54,7 @@ License-File: LICENSE
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/ambv/black)
 
 
-An async http(s) ClickHouse client for python 3.6+ supporting type
+An async http(s) ClickHouse client for python 3.10+ supporting type
 conversion in both directions, streaming, lazy decoding on select queries, and a
 fully typed interface.
 

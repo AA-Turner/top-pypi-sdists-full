@@ -738,7 +738,7 @@ class LocationEFSReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_datasync as interfaces_datasync
             
-            location_eFSReference = interfaces_datasync.LocationEFSReference(
+            location_efs_reference = interfaces_datasync.LocationEFSReference(
                 location_arn="locationArn"
             )
         '''
@@ -787,7 +787,7 @@ class LocationFSxLustreReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_datasync as interfaces_datasync
             
-            location_fSx_lustre_reference = interfaces_datasync.LocationFSxLustreReference(
+            location_f_sx_lustre_reference = interfaces_datasync.LocationFSxLustreReference(
                 location_arn="locationArn"
             )
         '''
@@ -836,7 +836,7 @@ class LocationFSxONTAPReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_datasync as interfaces_datasync
             
-            location_fSx_oNTAPReference = interfaces_datasync.LocationFSxONTAPReference(
+            location_f_sx_ontap_reference = interfaces_datasync.LocationFSxONTAPReference(
                 location_arn="locationArn"
             )
         '''
@@ -885,7 +885,7 @@ class LocationFSxOpenZFSReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_datasync as interfaces_datasync
             
-            location_fSx_open_zFSReference = interfaces_datasync.LocationFSxOpenZFSReference(
+            location_f_sx_open_zfs_reference = interfaces_datasync.LocationFSxOpenZFSReference(
                 location_arn="locationArn"
             )
         '''
@@ -934,7 +934,7 @@ class LocationFSxWindowsReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_datasync as interfaces_datasync
             
-            location_fSx_windows_reference = interfaces_datasync.LocationFSxWindowsReference(
+            location_f_sx_windows_reference = interfaces_datasync.LocationFSxWindowsReference(
                 location_arn="locationArn"
             )
         '''
@@ -983,7 +983,7 @@ class LocationHDFSReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_datasync as interfaces_datasync
             
-            location_hDFSReference = interfaces_datasync.LocationHDFSReference(
+            location_hdfs_reference = interfaces_datasync.LocationHDFSReference(
                 location_arn="locationArn"
             )
         '''
@@ -1032,7 +1032,7 @@ class LocationNFSReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_datasync as interfaces_datasync
             
-            location_nFSReference = interfaces_datasync.LocationNFSReference(
+            location_nfs_reference = interfaces_datasync.LocationNFSReference(
                 location_arn="locationArn"
             )
         '''
@@ -1179,7 +1179,7 @@ class LocationSMBReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_datasync as interfaces_datasync
             
-            location_sMBReference = interfaces_datasync.LocationSMBReference(
+            location_smb_reference = interfaces_datasync.LocationSMBReference(
                 location_arn="locationArn"
             )
         '''

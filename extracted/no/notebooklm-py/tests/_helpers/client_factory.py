@@ -8,17 +8,19 @@ from typing import TYPE_CHECKING, Any
 
 import httpx
 
+from notebooklm._chat import ChatAPI
 from notebooklm._client_composed import ClientComposed
 from notebooklm._client_seams import resolve_client_seams
-from notebooklm._session_config import (
+from notebooklm._runtime.config import (
     DEFAULT_CONNECT_TIMEOUT,
     DEFAULT_KEEPALIVE_MIN_INTERVAL,
     DEFAULT_MAX_CONCURRENT_RPCS,
     DEFAULT_MAX_CONCURRENT_UPLOADS,
     DEFAULT_TIMEOUT,
 )
-from notebooklm._session_init import compose_client_internals
-from notebooklm._session_lifecycle import CookieRotator, CookieSaver
+from notebooklm._runtime.init import compose_client_internals
+from notebooklm._runtime.lifecycle import CookieRotator, CookieSaver
+from notebooklm._source.upload import SourceUploadPipeline
 from notebooklm.auth import AuthTokens
 from notebooklm.client import NotebookLMClient
 from notebooklm.types import RpcTelemetryEvent
@@ -91,4 +93,30 @@ def build_client_shell_for_tests(
     client._composed = composed
     client._collaborators = internals.collaborators
     client._rpc_executor = internals.executor
+    # The shell skips feature-API construction, but ``ClientLifecycle.open``
+    # (driven via ``client.__aenter__``) now resets the upload semaphore's
+    # loop binding through ``client._source_uploader`` (issue #1196 upload
+    # variant), so the shell must wire a real uploader the same way
+    # ``NotebookLMClient.__init__`` does.
+    client._source_uploader = SourceUploadPipeline(
+        rpc=internals.executor,
+        drain=internals.collaborators.drain_tracker,
+        lifecycle=internals.collaborators.lifecycle,
+        kernel=internals.collaborators.kernel,
+        auth=auth,
+        max_concurrent_uploads=max_concurrent_uploads,
+        record_upload_queue_wait=internals.collaborators.metrics.record_upload_queue_wait,
+    )
+    # ``ClientLifecycle.open`` (driven via ``client.__aenter__``) also resets
+    # the ChatAPI conversation-lock loop binding through ``client.chat``
+    # (issue #1225), so the shell must wire a real ChatAPI the same way
+    # ``NotebookLMClient.__init__`` does. Defaults are sufficient: the shell
+    # exercises lifecycle open/close + cross-loop reset, not the full chat
+    # graph, so a bare ChatAPI over the composed collaborators is enough.
+    client.chat = ChatAPI(
+        rpc=internals.executor,
+        transport=composed.transport,
+        reqid=internals.collaborators.reqid,
+        loop_guard=internals.collaborators.lifecycle,
+    )
     return client

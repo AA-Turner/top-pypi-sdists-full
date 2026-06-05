@@ -407,7 +407,7 @@ class CfnDetector(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_guardduty as guardduty
                 
-                c_fNData_source_configurations_property = guardduty.CfnDetector.CFNDataSourceConfigurationsProperty(
+                c_fn_data_source_configurations_property = guardduty.CfnDetector.CFNDataSourceConfigurationsProperty(
                     kubernetes=guardduty.CfnDetector.CFNKubernetesConfigurationProperty(
                         audit_logs=guardduty.CfnDetector.CFNKubernetesAuditLogsConfigurationProperty(
                             enable=False
@@ -506,7 +506,7 @@ class CfnDetector(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_guardduty as guardduty
                 
-                c_fNFeature_additional_configuration_property = guardduty.CfnDetector.CFNFeatureAdditionalConfigurationProperty(
+                c_fn_feature_additional_configuration_property = guardduty.CfnDetector.CFNFeatureAdditionalConfigurationProperty(
                     name="name",
                     status="status"
                 )
@@ -582,7 +582,7 @@ class CfnDetector(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_guardduty as guardduty
                 
-                c_fNFeature_configuration_property = guardduty.CfnDetector.CFNFeatureConfigurationProperty(
+                c_fn_feature_configuration_property = guardduty.CfnDetector.CFNFeatureConfigurationProperty(
                     name="name",
                     status="status",
                 
@@ -673,7 +673,7 @@ class CfnDetector(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_guardduty as guardduty
                 
-                c_fNKubernetes_audit_logs_configuration_property = guardduty.CfnDetector.CFNKubernetesAuditLogsConfigurationProperty(
+                c_fn_kubernetes_audit_logs_configuration_property = guardduty.CfnDetector.CFNKubernetesAuditLogsConfigurationProperty(
                     enable=False
                 )
             '''
@@ -729,7 +729,7 @@ class CfnDetector(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_guardduty as guardduty
                 
-                c_fNKubernetes_configuration_property = guardduty.CfnDetector.CFNKubernetesConfigurationProperty(
+                c_fn_kubernetes_configuration_property = guardduty.CfnDetector.CFNKubernetesConfigurationProperty(
                     audit_logs=guardduty.CfnDetector.CFNKubernetesAuditLogsConfigurationProperty(
                         enable=False
                     )
@@ -791,7 +791,7 @@ class CfnDetector(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_guardduty as guardduty
                 
-                c_fNMalware_protection_configuration_property = guardduty.CfnDetector.CFNMalwareProtectionConfigurationProperty(
+                c_fn_malware_protection_configuration_property = guardduty.CfnDetector.CFNMalwareProtectionConfigurationProperty(
                     scan_ec2_instance_with_findings=guardduty.CfnDetector.CFNScanEc2InstanceWithFindingsConfigurationProperty(
                         ebs_volumes=False
                     )
@@ -850,7 +850,7 @@ class CfnDetector(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_guardduty as guardduty
                 
-                c_fNS3_logs_configuration_property = guardduty.CfnDetector.CFNS3LogsConfigurationProperty(
+                c_fns3_logs_configuration_property = guardduty.CfnDetector.CFNS3LogsConfigurationProperty(
                     enable=False
                 )
             '''
@@ -906,7 +906,7 @@ class CfnDetector(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_guardduty as guardduty
                 
-                c_fNScan_ec2_instance_with_findings_configuration_property = guardduty.CfnDetector.CFNScanEc2InstanceWithFindingsConfigurationProperty(
+                c_fn_scan_ec2_instance_with_findings_configuration_property = guardduty.CfnDetector.CFNScanEc2InstanceWithFindingsConfigurationProperty(
                     ebs_volumes=False
                 )
             '''
@@ -2071,7 +2071,7 @@ class CfnIPSet(
         # The values are placeholders you should change.
         from aws_cdk import aws_guardduty as guardduty
         
-        cfn_iPSet = guardduty.CfnIPSet(self, "MyCfnIPSet",
+        cfn_ip_set = guardduty.CfnIPSet(self, "MyCfnIPSet",
             format="format",
             location="location",
         
@@ -2342,7 +2342,7 @@ class CfnIPSetProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_guardduty as guardduty
             
-            cfn_iPSet_props = guardduty.CfnIPSetProps(
+            cfn_ip_set_props = guardduty.CfnIPSetProps(
                 format="format",
                 location="location",
             
@@ -2805,7 +2805,7 @@ class CfnMalwareProtectionPlan(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_guardduty as guardduty
                 
-                c_fNActions_property = guardduty.CfnMalwareProtectionPlan.CFNActionsProperty(
+                c_fn_actions_property = guardduty.CfnMalwareProtectionPlan.CFNActionsProperty(
                     tagging=guardduty.CfnMalwareProtectionPlan.CFNTaggingProperty(
                         status="status"
                     )
@@ -2866,7 +2866,7 @@ class CfnMalwareProtectionPlan(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_guardduty as guardduty
                 
-                c_fNProtected_resource_property = guardduty.CfnMalwareProtectionPlan.CFNProtectedResourceProperty(
+                c_fn_protected_resource_property = guardduty.CfnMalwareProtectionPlan.CFNProtectedResourceProperty(
                     s3_bucket=guardduty.CfnMalwareProtectionPlan.S3BucketProperty(
                         bucket_name="bucketName",
                         object_prefixes=["objectPrefixes"]
@@ -2929,7 +2929,7 @@ class CfnMalwareProtectionPlan(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_guardduty as guardduty
                 
-                c_fNStatus_reasons_property = guardduty.CfnMalwareProtectionPlan.CFNStatusReasonsProperty(
+                c_fn_status_reasons_property = guardduty.CfnMalwareProtectionPlan.CFNStatusReasonsProperty(
                     code="code",
                     message="message"
                 )
@@ -2997,7 +2997,7 @@ class CfnMalwareProtectionPlan(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_guardduty as guardduty
                 
-                c_fNTagging_property = guardduty.CfnMalwareProtectionPlan.CFNTaggingProperty(
+                c_fn_tagging_property = guardduty.CfnMalwareProtectionPlan.CFNTaggingProperty(
                     status="status"
                 )
             '''
@@ -4163,7 +4163,7 @@ class CfnPublishingDestination(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_guardduty as guardduty
                 
-                c_fNDestination_properties_property = guardduty.CfnPublishingDestination.CFNDestinationPropertiesProperty(
+                c_fn_destination_properties_property = guardduty.CfnPublishingDestination.CFNDestinationPropertiesProperty(
                     destination_arn="destinationArn",
                     kms_key_arn="kmsKeyArn"
                 )

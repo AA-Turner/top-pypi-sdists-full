@@ -121,7 +121,7 @@ class DNSSECReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_route53 as interfaces_route53
             
-            d_nSSECReference = interfaces_route53.DNSSECReference(
+            d_nssec_reference = interfaces_route53.DNSSECReference(
                 hosted_zone_id="hostedZoneId"
             )
         '''

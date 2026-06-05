@@ -11,6 +11,7 @@ export declare function _get_resolution(resolution_secs: number, span_secs: numb
 export declare function _mktime(t: number): number[];
 export declare function _strftime(t: number, format: string): string;
 export declare function _us(t: number): number;
+export declare function _ns(t: number): number;
 export declare namespace DatetimeTickFormatter {
     type Attrs = p.AttrsOf<Props>;
     type Props = TickFormatter.Props & {

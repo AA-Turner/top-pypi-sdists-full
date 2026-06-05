@@ -566,13 +566,46 @@ class GetInternalWorkingTokenRequest(_message.Message):
     ) -> None: ...
 
 class GetInternalWorkingTokenResponse(_message.Message):
-    __slots__ = ("access_token", "expires_at")
+    __slots__ = ("access_token", "expires_at", "engines", "grpc_engines", "environment_id_to_name")
+    class EnginesEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
+    class GrpcEnginesEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
+    class EnvironmentIdToNameEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
     ACCESS_TOKEN_FIELD_NUMBER: _ClassVar[int]
     EXPIRES_AT_FIELD_NUMBER: _ClassVar[int]
+    ENGINES_FIELD_NUMBER: _ClassVar[int]
+    GRPC_ENGINES_FIELD_NUMBER: _ClassVar[int]
+    ENVIRONMENT_ID_TO_NAME_FIELD_NUMBER: _ClassVar[int]
     access_token: str
     expires_at: _timestamp_pb2.Timestamp
+    engines: _containers.ScalarMap[str, str]
+    grpc_engines: _containers.ScalarMap[str, str]
+    environment_id_to_name: _containers.ScalarMap[str, str]
     def __init__(
         self,
         access_token: _Optional[str] = ...,
         expires_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        engines: _Optional[_Mapping[str, str]] = ...,
+        grpc_engines: _Optional[_Mapping[str, str]] = ...,
+        environment_id_to_name: _Optional[_Mapping[str, str]] = ...,
     ) -> None: ...

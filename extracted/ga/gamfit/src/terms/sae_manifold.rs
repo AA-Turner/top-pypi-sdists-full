@@ -312,6 +312,69 @@ impl SaeAtomBasisKind {
             Self::Duchon | Self::EuclideanPatch | Self::Precomputed(_) => LatentManifold::Euclidean,
         }
     }
+
+    /// Dense candidate coordinates spanning compact latents for fixed-decoder
+    /// out-of-sample projection. Unbounded/basis-linear latents return `None`
+    /// because their PCA seed already lies in the convex training hull.
+    fn projection_seed_grid(&self, latent_dim: usize, resolution: usize) -> Option<Array2<f64>> {
+        match self {
+            Self::Periodic => torus_projection_seed_grid(latent_dim, resolution),
+            Self::Sphere if latent_dim == 2 => sphere_projection_seed_grid(resolution),
+            Self::Sphere => None,
+            Self::Torus => torus_projection_seed_grid(latent_dim, resolution),
+            Self::Duchon | Self::EuclideanPatch | Self::Precomputed(_) => None,
+        }
+    }
+}
+
+fn sphere_projection_seed_grid(resolution: usize) -> Option<Array2<f64>> {
+    use std::f64::consts::PI;
+    let r = resolution.max(2);
+    let mut grid = Array2::<f64>::zeros((r * r, 2));
+    for i in 0..r {
+        let lat = -PI / 2.0 + PI * (i as f64 + 0.5) / r as f64;
+        for j in 0..r {
+            let lon = -PI + 2.0 * PI * (j as f64) / r as f64;
+            grid[[i * r + j, 0]] = lat;
+            grid[[i * r + j, 1]] = lon;
+        }
+    }
+    Some(grid)
+}
+
+fn torus_projection_seed_grid(latent_dim: usize, resolution: usize) -> Option<Array2<f64>> {
+    if latent_dim == 0 || latent_dim >= usize::BITS as usize {
+        return None;
+    }
+    const MAX_GRID_POINTS: usize = 4096;
+    let min_points = 1usize << latent_dim;
+    if min_points > MAX_GRID_POINTS {
+        return None;
+    }
+    let requested = resolution.max(2);
+    let mut per_axis = requested;
+    while per_axis.saturating_pow(latent_dim as u32) > MAX_GRID_POINTS {
+        per_axis -= 1;
+        if per_axis < 2 {
+            return None;
+        }
+    }
+    let total: usize = (0..latent_dim).fold(1usize, |acc, _| acc.saturating_mul(per_axis));
+    let mut grid = Array2::<f64>::zeros((total, latent_dim));
+    let mut idx = vec![0usize; latent_dim];
+    for flat in 0..total {
+        for axis in 0..latent_dim {
+            grid[[flat, axis]] = idx[axis] as f64 / per_axis as f64;
+        }
+        for axis in (0..latent_dim).rev() {
+            idx[axis] += 1;
+            if idx[axis] < per_axis {
+                break;
+            }
+            idx[axis] = 0;
+        }
+    }
+    Some(grid)
 }
 
 /// Per-axis ARD coordinate prior, evaluated as a smooth energy in the latent
@@ -393,31 +456,44 @@ impl ArdAxisPrior {
     }
 }
 
+/// Modified Bessel function of the first kind, order zero, `I0(x)`.
+///
+/// Abramowitz & Stegun 9.8.1 (|x| <= 3.75) and 9.8.2 (|x| > 3.75) polynomial
+/// approximations; relative error < 1.6e-7 / 1.9e-7 respectively, which is far
+/// below the precision tolerance the ARD normaliser is read at. `I0` is even,
+/// so only `|x|` enters. Used for the exact von-Mises precision log-partition.
+fn bessel_i0(x: f64) -> f64 {
+    let ax = x.abs();
+    if ax < 3.75 {
+        let t = x / 3.75;
+        let t2 = t * t;
+        1.0 + t2
+            * (3.5156229
+                + t2 * (3.0899424
+                    + t2 * (1.2067492 + t2 * (0.2659732 + t2 * (0.0360768 + t2 * 0.0045813)))))
+    } else {
+        let y = 3.75 / ax;
+        let poly = 0.39894228
+            + y * (0.01328592
+                + y * (0.00225319
+                    + y * (-0.00157565
+                        + y * (0.00916281
+                            + y * (-0.02057706
+                                + y * (0.02635537 + y * (-0.01647633 + y * 0.00392377)))))));
+        (ax.exp() / ax.sqrt()) * poly
+    }
+}
+
 pub trait SaeBasisEvaluator: Send + Sync + std::fmt::Debug {
     fn evaluate(&self, coords: ArrayView2<'_, f64>) -> Result<(Array2<f64>, Array3<f64>), String>;
 
     /// Object-safe forwarder to [`SaeBasisSecondJet::second_jet`] for callers
     /// holding `&dyn SaeBasisEvaluator` / `Arc<dyn SaeBasisEvaluator>`.
     ///
-    /// Default returns `None`, meaning "this evaluator has no analytic second
-    /// jet". Evaluators that also implement [`SaeBasisSecondJet`] override
-    /// this to wrap the typed call in `Some(...)`. This sidesteps the lack of
-    /// dyn-downcasting for non-`Any` traits while keeping `SaeBasisSecondJet`
-    /// as the strongly-typed compile-time bound for tests / generics.
-    ///
-    /// `coords` is part of the trait contract — every override consumes it as
-    /// the evaluation grid for the analytic second jet — so the default
-    /// signature must accept it. The default has no analytic surface to
-    /// evaluate at those points; referencing the grid shape keeps the
-    /// otherwise-unused parameter a lint-clean no-op before reporting None.
-    /// (`drop(coords)` is a no-op on the `Copy` view and trips
-    /// `dropping_copy_types` under `-D warnings`; discard patterns and
-    /// underscore-prefixed parameters are rejected by the source-hygiene gate in
-    /// `build.rs`.)
-    fn second_jet_dyn(&self, coords: ArrayView2<'_, f64>) -> Option<Result<Array4<f64>, String>> {
-        coords.dim();
-        None
-    }
+    /// Implementations return `Some(result)` only when an analytic second jet
+    /// exists for this evaluator. Returning `None` is an explicit capability
+    /// declaration, not a default sentinel hidden in the trait.
+    fn second_jet_dyn(&self, coords: ArrayView2<'_, f64>) -> Option<Result<Array4<f64>, String>>;
 
     /// Object-safe forwarder to the basis third jet
     /// `T[n, m, a, c, e] = ∂³Φ_m / ∂t_a ∂t_c ∂t_e`, for callers holding
@@ -427,50 +503,10 @@ pub trait SaeBasisEvaluator: Send + Sync + std::fmt::Debug {
     /// that exact Hessian silently drops the residual and collapses to
     /// Gauss-Newton (issue #458).
     ///
-    /// Default returns `None`, meaning "this evaluator has no analytic third
-    /// jet". Every evaluator that supplies a closed-form Hessian
-    /// ([`SaeBasisSecondJet`]) also supplies a closed-form third jet
-    /// ([`SaeBasisThirdJet`]) and overrides this to wrap the typed call in
-    /// `Some(...)`, so the exact path is always taken — there is no
-    /// finite-difference fallback. (Mirrors [`Self::second_jet_dyn`]; the
-    /// `coords.dim()` touch keeps the otherwise-unused grid parameter
-    /// lint-clean under the source-hygiene gate, matching that default.)
-    fn third_jet_dyn(&self, coords: ArrayView2<'_, f64>) -> Option<Result<Array5<f64>, String>> {
-        coords.dim();
-        None
-    }
-
-    /// A dense grid of candidate latent coordinates spanning this atom's
-    /// manifold, used to *globally* seed the fixed-decoder OOS projection
-    /// `t*_i = argmin_t ‖x_i − Φ(t)·B‖²`.
-    ///
-    /// For a frozen decoder the exact out-of-sample encoding of a row is its
-    /// orthogonal projection onto the decoder's image manifold. That objective
-    /// is non-convex on a compact latent — a trigonometric polynomial for the
-    /// periodic / torus harmonic bases, a chart function on the sphere — so a
-    /// cold local seed (PCA-`atan2`) plus a few Newton steps routinely lands in
-    /// the wrong basin and mis-routes the row. Evaluating the decoder on this
-    /// grid and taking the per-row global argmin lands every row in the correct
-    /// basin before the Newton refinement polishes it to full precision.
-    ///
-    /// Returns `None` for evaluators whose latent is unbounded or whose image
-    /// is otherwise not naturally griddable (the affine / Euclidean-patch /
-    /// Duchon bases, whose PCA seed is already in the convex hull of the
-    /// training coordinates). `resolution` is the target number of points along
-    /// each compact axis; implementations cap the total grid for `d > 1`.
-    ///
-    /// The default touches `resolution` via a wildcard assignment so the
-    /// otherwise-unused parameter stays lint-clean under the source-hygiene
-    /// gate (mirrors the jet forwarders). `let _ = resolution;` is rejected by
-    /// `scan_for_let_underscore`; `_resolution`, `drop(resolution)` on a `Copy`
-    /// usize, and `hint::black_box(resolution)` are all rejected as dodge-family
-    /// equivalents. The wildcard-assignment form `_ = resolution;` is the
-    /// Rust 2024 idiom for the same effect and is the form the gate recognizes
-    /// by name (see `strip_leading_wildcard_assignment` in `build.rs`).
-    fn projection_seed_grid(&self, resolution: usize) -> Option<Array2<f64>> {
-        _ = resolution;
-        None
-    }
+    /// Implementations return `Some(result)` only when an analytic third jet
+    /// exists for this evaluator. Evaluators without one return `None`
+    /// explicitly; there is no finite-difference fallback.
+    fn third_jet_dyn(&self, coords: ArrayView2<'_, f64>) -> Option<Result<Array5<f64>, String>>;
 }
 
 /// Bases that expose an analytic second jet
@@ -568,17 +604,6 @@ impl SaeBasisEvaluator for PeriodicHarmonicEvaluator {
         }
         Ok((phi, jet))
     }
-
-    /// `resolution` evenly spaced phases on the circle `[0, 1)` (endpoint
-    /// excluded — `0` and `1` are the same point on `S¹`).
-    fn projection_seed_grid(&self, resolution: usize) -> Option<Array2<f64>> {
-        let r = resolution.max(2);
-        let mut grid = Array2::<f64>::zeros((r, 1));
-        for i in 0..r {
-            grid[[i, 0]] = i as f64 / r as f64;
-        }
-        Some(grid)
-    }
 }
 
 impl SaeBasisSecondJet for PeriodicHarmonicEvaluator {
@@ -674,6 +699,28 @@ impl RawPeriodicCircleEvaluator {
 }
 
 impl SaeBasisEvaluator for RawPeriodicCircleEvaluator {
+    fn second_jet_dyn(&self, coords: ArrayView2<'_, f64>) -> Option<Result<Array4<f64>, String>> {
+        if coords.ncols() != self.latent_dim {
+            return Some(Err(format!(
+                "RawPeriodicCircleEvaluator::second_jet_dyn: expected latent_dim {}, got {}",
+                self.latent_dim,
+                coords.ncols()
+            )));
+        }
+        None
+    }
+
+    fn third_jet_dyn(&self, coords: ArrayView2<'_, f64>) -> Option<Result<Array5<f64>, String>> {
+        if coords.ncols() != self.latent_dim {
+            return Some(Err(format!(
+                "RawPeriodicCircleEvaluator::third_jet_dyn: expected latent_dim {}, got {}",
+                self.latent_dim,
+                coords.ncols()
+            )));
+        }
+        None
+    }
+
     fn evaluate(&self, coords: ArrayView2<'_, f64>) -> Result<(Array2<f64>, Array3<f64>), String> {
         if coords.ncols() != self.latent_dim {
             return Err(format!(
@@ -798,26 +845,6 @@ impl SaeBasisEvaluator for SphereChartEvaluator {
 
     fn evaluate(&self, coords: ArrayView2<'_, f64>) -> Result<(Array2<f64>, Array3<f64>), String> {
         sphere_chart_basis_jet(coords)
-    }
-
-    /// A `resolution × resolution` lat/lon chart grid. Latitude is sampled on
-    /// the open interval `(-π/2, π/2)` (the poles are chart-degenerate) and
-    /// longitude on `[-π, π)`, matching [`sphere_chart_basis_jet`]'s
-    /// convention and the chart box the sphere retraction enforces.
-    fn projection_seed_grid(&self, resolution: usize) -> Option<Array2<f64>> {
-        use std::f64::consts::PI;
-        let r = resolution.max(2);
-        let mut grid = Array2::<f64>::zeros((r * r, 2));
-        for i in 0..r {
-            // Midpoints of `r` equal latitude bins, strictly interior to the chart.
-            let lat = -PI / 2.0 + PI * (i as f64 + 0.5) / r as f64;
-            for j in 0..r {
-                let lon = -PI + 2.0 * PI * (j as f64) / r as f64;
-                grid[[i * r + j, 0]] = lat;
-                grid[[i * r + j, 1]] = lon;
-            }
-        }
-        Some(grid)
     }
 }
 
@@ -1122,72 +1149,6 @@ impl SaeBasisEvaluator for TorusHarmonicEvaluator {
             }
         }
         Ok((phi, jet))
-    }
-
-    /// The Cartesian product of per-axis `[0, 1)` phase grids. Each axis is a
-    /// circle, so its endpoint is excluded. The per-axis resolution is shrunk
-    /// geometrically so the *total* grid `per_axis^d` stays under a fixed cap —
-    /// a dense seed in low dimensions, a coarse-but-still-global seed as `d`
-    /// grows (the Newton refinement closes the remaining gap).
-    fn projection_seed_grid(&self, resolution: usize) -> Option<Array2<f64>> {
-        let d = self.latent_dim;
-        if d == 0 {
-            return None;
-        }
-        // Cap the total number of grid points; pick the largest per-axis count
-        // whose d-th power stays within the cap (at least 2 per axis).
-        const MAX_GRID_POINTS: usize = 4096;
-        // Even the coarsest dense grid is `2^d` points: above `d = 12` that
-        // already exceeds the cap, so no on-manifold grid can satisfy it (the
-        // `per_axis > 2` loop floors at 2 and would otherwise emit a runaway
-        // `2^d`-row grid that the per-row global-argmin scan must then walk). A
-        // dense seed grid is infeasible for such a high-dimensional torus
-        // anyway, so fall back to the incoming (PCA) seed exactly as the
-        // unbounded / basis-linear evaluators do.
-        let mut floor_total: usize = 1;
-        for _ in 0..d {
-            match floor_total.checked_mul(2) {
-                Some(v) => floor_total = v,
-                None => return None,
-            }
-        }
-        if floor_total > MAX_GRID_POINTS {
-            return None;
-        }
-        let mut per_axis = resolution.max(2);
-        while per_axis > 2 {
-            let mut total: usize = 1;
-            let mut overflow = false;
-            for _ in 0..d {
-                match total.checked_mul(per_axis) {
-                    Some(v) => total = v,
-                    None => {
-                        overflow = true;
-                        break;
-                    }
-                }
-            }
-            if !overflow && total <= MAX_GRID_POINTS {
-                break;
-            }
-            per_axis -= 1;
-        }
-        let total: usize = (0..d).fold(1usize, |acc, _| acc.saturating_mul(per_axis));
-        let mut grid = Array2::<f64>::zeros((total, d));
-        let mut idx = vec![0usize; d];
-        for flat in 0..total {
-            for axis in 0..d {
-                grid[[flat, axis]] = idx[axis] as f64 / per_axis as f64;
-            }
-            for axis in (0..d).rev() {
-                idx[axis] += 1;
-                if idx[axis] < per_axis {
-                    break;
-                }
-                idx[axis] = 0;
-            }
-        }
-        Some(grid)
     }
 }
 
@@ -2473,7 +2434,8 @@ pub struct SaeManifoldRho {
     pub log_lambda_sparse: f64,
     /// `log(lambda_smooth)` shared by the per-atom decoder penalties.
     pub log_lambda_smooth: f64,
-    /// Per-atom, per-axis `log(alpha_kj)` ARD strengths.
+    /// Per-atom, per-axis `log(alpha_kj)` ARD strengths. An empty per-atom
+    /// block disables native coordinate ARD for that atom.
     pub log_ard: Vec<Array1<f64>>,
 }
 
@@ -2488,20 +2450,34 @@ impl SaeManifoldRho {
     }
 
     pub fn lambda_sparse(&self) -> f64 {
-        self.log_lambda_sparse.exp()
+        // Clamp the log-strength into the finite-normal band before
+        // exponentiating: a raw `exp(log_lambda)` overflows to `inf` for
+        // `log_lambda ≳ 709`, and `inf · 0.0` / `inf / inf` then injects NaN
+        // into the penalty value/grad/Hessian and poisons the solve.
+        Self::stable_exp_strength(self.log_lambda_sparse)
     }
 
     pub fn lambda_smooth(&self) -> f64 {
-        self.log_lambda_smooth.exp()
+        Self::stable_exp_strength(self.log_lambda_smooth)
+    }
+
+    /// Exponentiate a learnable log-strength with the exponent clamped into the
+    /// finite-normal band, so the resulting strength is always a finite,
+    /// strictly-positive `f64` (no overflow to `inf`, no underflow to `0.0`).
+    fn stable_exp_strength(log_strength: f64) -> f64 {
+        const MAX_LOG_STRENGTH: f64 = 700.0;
+        const MIN_LOG_STRENGTH: f64 = -700.0;
+        log_strength.clamp(MIN_LOG_STRENGTH, MAX_LOG_STRENGTH).exp()
     }
 
     /// Flatten ρ into the contiguous outer-coordinate vector the generic
     /// `OuterObjective` engine optimises over.
     ///
-    /// Layout: `[log_lambda_sparse, log_lambda_smooth, <ARD>]`, where the
-    /// ARD tail concatenates each atom `k`'s per-axis `log_ard[k][j]` in
-    /// atom order, axis `j` in `0..d_k`. [`Self::from_flat`] is the exact
-    /// inverse and reads the per-atom dims from `self`.
+    /// Layout: `[log_lambda_sparse, log_lambda_smooth, <ARD>]`, where enabled
+    /// ARD blocks concatenate each atom `k`'s per-axis `log_ard[k][j]` in atom
+    /// order, axis `j` in `0..d_k`. Empty per-atom blocks contribute no outer
+    /// coordinates. [`Self::from_flat`] is the exact inverse and reads this
+    /// fixed per-atom layout from `self`.
     pub fn to_flat(&self) -> Array1<f64> {
         let ard_len: usize = self.log_ard.iter().map(|a| a.len()).sum();
         let mut out = Array1::<f64>::zeros(2 + ard_len);
@@ -2522,7 +2498,7 @@ impl SaeManifoldRho {
     ///
     /// The per-atom dims are taken from `&self` (the ARD layout is a fixed
     /// property of the term shape; the engine only moves the values). The
-    /// flat vector must have length `2 + Σ_k d_k`.
+    /// flat vector must have length `2 + Σ_k len(log_ard[k])`.
     pub fn from_flat(&self, flat: ArrayView1<'_, f64>) -> SaeManifoldRho {
         let ard_len: usize = self.log_ard.iter().map(|a| a.len()).sum();
         assert_eq!(
@@ -2930,9 +2906,10 @@ pub struct SaeManifoldTerm {
 }
 
 /// Snapshot of exactly the mutable term state that an `apply_newton_step` +
-/// `loss` line-search trial perturbs: per-atom decoder coefficients and the
+/// `loss` line-search trial perturbs: per-atom decoder coefficients, the
 /// `refresh_basis`-rebuilt basis evaluations (`basis_values`, `basis_jacobian`),
-/// plus the assignment logits and latent coordinates.
+/// and the live intrinsic smoothness Gram read by the objective, plus the
+/// assignment logits and latent coordinates.
 ///
 /// Static fields (atom names, basis kinds, basis-evaluator `Arc`s, assignment
 /// mode, temperature schedule) are *not* snapshotted: they are invariant across
@@ -2942,17 +2919,16 @@ pub struct SaeManifoldTerm {
 /// before the search, one restore per rejected trial) instead of firing it on
 /// every Armijo backtrack.
 ///
-/// The intrinsic roughness Gram `smooth_penalty` (issue #673) is likewise not
-/// snapshotted: the metric reweight is frozen at the last
-/// [`SaeManifoldTerm::assemble_arrow_schur_scaled`] and is only recomputed at
-/// the *next* assembly, so it is invariant across a line search by
-/// construction — the trial objective must use the same frozen penalty
-/// quadratic the Newton step was built from (lagged diffusivity). The
-/// canonical `smooth_penalty_raw` / `smooth_penalty_order` are static.
+/// The canonical `smooth_penalty_raw` / `smooth_penalty_order` are static, but
+/// the live intrinsic roughness Gram `smooth_penalty` is mutable state: it is
+/// refreshed by assembly from the current decoder and basis Jacobian, and the
+/// line-search objective reads it directly. Restoring it with the decoder and
+/// basis caches keeps every rejected trial's baseline and nonlinear objective
+/// on the same lagged-diffusivity quadratic.
 #[derive(Debug)]
 struct SaeManifoldMutableState {
-    /// Per-atom `(basis_values, basis_jacobian, decoder_coefficients)`.
-    atoms: Vec<(Array2<f64>, Array3<f64>, Array2<f64>)>,
+    /// Per-atom `(basis_values, basis_jacobian, decoder_coefficients, smooth_penalty)`.
+    atoms: Vec<(Array2<f64>, Array3<f64>, Array2<f64>, Array2<f64>)>,
     logits: Array2<f64>,
     coords: Vec<LatentCoordValues>,
     last_row_layout: Option<SaeRowLayout>,
@@ -3569,6 +3545,34 @@ impl SaeManifoldTerm {
         Ok(value)
     }
 
+    /// Energy of the COORDINATE-tier isometry penalty(ies) at the converged
+    /// SAE state. This is the per-atom `½μ Σ_n ‖J_n^T W_n J_n − g_ref‖²`
+    /// summed over atoms, evaluated through `corrected_isometry_penalty` so the
+    /// live decoder/coordinate caches drive the value exactly as the assemble
+    /// path does. It has no `SaeManifoldLoss` twin (the loss carries only
+    /// data-fit / assignment / smoothness / ARD), so the Laplace/REML criterion
+    /// must add it explicitly to score the same penalized objective the inner
+    /// solve descends.
+    pub fn isometry_penalty_value_total(
+        &self,
+        registry: &AnalyticPenaltyRegistry,
+    ) -> Result<f64, ArrowSchurError> {
+        let rho_global = Array1::<f64>::zeros(registry.total_rho_count());
+        let layout = registry.rho_layout();
+        let mut value = 0.0_f64;
+        for (penalty, (rho_slice, _tier, _name)) in registry.penalties.iter().zip(layout.iter()) {
+            if let AnalyticPenaltyKind::Isometry(iso) = penalty {
+                let rho_local = rho_global.slice(s![rho_slice.clone()]);
+                for atom_idx in 0..self.k_atoms() {
+                    let coord = &self.assignment.coords[atom_idx];
+                    let corrected_kind = self.corrected_isometry_penalty(iso, atom_idx, coord)?;
+                    value += corrected_kind.value(coord.as_flat().view(), rho_local);
+                }
+            }
+        }
+        Ok(value)
+    }
+
     pub fn penalized_objective_total(
         &self,
         target: ArrayView2<'_, f64>,
@@ -3622,6 +3626,9 @@ impl SaeManifoldTerm {
         let mut acc = 0.0;
         for (atom_idx, coord) in self.assignment.coords.iter().enumerate() {
             let d = coord.latent_dim();
+            if rho.log_ard[atom_idx].is_empty() {
+                continue;
+            }
             if rho.log_ard[atom_idx].len() != d {
                 return Err(format!(
                     "ARD rho atom {atom_idx} has len {} but atom dim is {d}",
@@ -3642,10 +3649,25 @@ impl SaeManifoldTerm {
                 }
                 // Negative-log prior for precision alpha. The data-dependent
                 // energy is the (Gaussian or von-Mises) coordinate prior; the
-                // `-0.5 n log alpha` normaliser is the precision log-partition,
-                // unchanged because the von-Mises energy matches the Gaussian
-                // curvature `alpha` at the origin (same leading normaliser).
-                acc += energy - 0.5 * (n as f64) * log_alpha;
+                // accompanying normaliser is the precision log-partition.
+                //
+                // Euclidean axes keep the Gaussian normaliser `-0.5 n log α`.
+                // Periodic (von-Mises) axes use the EXACT von-Mises precision
+                // log-partition `n[-η + log I0(η)]`, η = α/κ², κ = 2π/P, rather
+                // than the Gaussian surrogate: the von-Mises partition function
+                // is `2π I0(η)` (up to the κ Jacobian), so the per-observation
+                // normaliser is `-η + log I0(η)` and is exact across the cut.
+                match period {
+                    None => {
+                        acc += energy - 0.5 * (n as f64) * log_alpha;
+                    }
+                    Some(p) => {
+                        let kappa = std::f64::consts::TAU / p;
+                        let eta = alpha / (kappa * kappa);
+                        let log_i0 = bessel_i0(eta).ln();
+                        acc += energy + (n as f64) * (-eta + log_i0);
+                    }
+                }
             }
         }
         Ok(acc)
@@ -3705,6 +3727,16 @@ impl SaeManifoldTerm {
                 rho.log_ard.len(),
                 self.k_atoms()
             ));
+        }
+        for (atom_idx, coord) in self.assignment.coords.iter().enumerate() {
+            let ard_len = rho.log_ard[atom_idx].len();
+            let d = coord.latent_dim();
+            if ard_len != 0 && ard_len != d {
+                return Err(format!(
+                    "SaeManifoldTerm::assemble_arrow_schur: log_ard atom {atom_idx} \
+                     has len {ard_len}; expected 0 (disabled) or atom dim {d}"
+                ));
+            }
         }
         // Reparameterize each atom's roughness Gram into arc length at the
         // current decoder/coordinates (issue #673). This is the single
@@ -4072,6 +4104,9 @@ impl SaeManifoldTerm {
                 for (j, &k) in active.iter().enumerate() {
                     let coord = &self.assignment.coords[k];
                     let d = coord.latent_dim();
+                    if rho.log_ard[k].is_empty() {
+                        continue;
+                    }
                     if rho.log_ard[k].len() != d {
                         return Err(format!(
                             "ARD rho atom {k} has len {} but atom dim is {d}",
@@ -4111,6 +4146,9 @@ impl SaeManifoldTerm {
                 for atom_idx in 0..k_atoms {
                     let coord = &self.assignment.coords[atom_idx];
                     let d = coord.latent_dim();
+                    if rho.log_ard[atom_idx].is_empty() {
+                        continue;
+                    }
                     if rho.log_ard[atom_idx].len() != d {
                         return Err(format!(
                             "ARD rho atom {atom_idx} has len {} but atom dim is {d}",
@@ -4658,13 +4696,20 @@ impl SaeManifoldTerm {
             let grad_norm = grad_norm_sq.sqrt();
             let iterate_scale = 1.0 + iterate_norm_sq.sqrt();
             // Relative parameter-step tolerance for Δ (well-conditioned charts)
-            // and a scaled KKT-gradient tolerance. SAE manifold fits can contain
-            // gauge-like coordinate/decoder directions where the raw undamped step
-            // remains large after the line search has exhausted useful descent;
-            // judge stationarity by the gradient at the same parameter scale the
-            // step audit uses instead of demanding near-machine residuals.
+            // and a scaled KKT-gradient tolerance. Convergence is accepted on
+            // EITHER a small KKT gradient OR a small undamped Newton step: SAE
+            // manifold fits contain gauge-like coordinate/decoder directions (the
+            // circle's rotation gauge, decoder column-space rotations) where the
+            // shared-block Hessian is near-singular, so the undamped step can stay
+            // large in that flat direction even at a genuine stationary point; the
+            // gradient, which is not amplified by the inverse, recognises it. With
+            // the isometry Gauss-Newton block now a coherent PSD pullback (no
+            // indefinite Schur pivot), the inner solve reaches true stationarity,
+            // so the gradient tolerance is a standard relative KKT residual rather
+            // than the 0.1.154-regression band-aid (3e-3) that masked the
+            // non-convergence the indefinite curvature caused.
             let step_tolerance = 1.0e-4 * iterate_scale;
-            let grad_tolerance = 3.0e-3 * iterate_scale;
+            let grad_tolerance = 1.0e-5 * iterate_scale;
             if grad_norm <= grad_tolerance || step_norm <= step_tolerance {
                 let log_det = arrow_log_det_from_cache(&cache).ok_or_else(|| {
                     "SaeManifoldTerm::reml_criterion: arrow_log_det_from_cache returned None at \
@@ -4720,7 +4765,19 @@ impl SaeManifoldTerm {
             None => 0.0,
         };
 
-        let v = loss.total() + decoder_penalty_energy + 0.5 * log_det - occam;
+        // Coordinate-tier isometry penalty value (the stated objective's
+        // metric-distortion term). The inner solve descends it (it enters the
+        // coord blocks gt/htt) but it has no `loss.*` twin, so without this the
+        // Laplace criterion would score a different objective than the one
+        // minimized. Add it so the ρ-sweep ranks the full penalized deviance.
+        let isometry_energy = match registry {
+            Some(reg) => self
+                .isometry_penalty_value_total(reg)
+                .map_err(|err| format!("SaeManifoldTerm::reml_criterion: {err}"))?,
+            None => 0.0,
+        };
+
+        let v = loss.total() + decoder_penalty_energy + isometry_energy + 0.5 * log_det - occam;
         Ok((v, loss, cache))
     }
 
@@ -4764,8 +4821,14 @@ impl SaeManifoldTerm {
                 .map_err(|err| format!("SaeManifoldTerm::reml_criterion_streaming_exact: {err}"))?,
             None => 0.0,
         };
+        let isometry_energy = match registry {
+            Some(reg) => self
+                .isometry_penalty_value_total(reg)
+                .map_err(|err| format!("SaeManifoldTerm::reml_criterion_streaming_exact: {err}"))?,
+            None => 0.0,
+        };
         Ok((
-            loss.total() + decoder_penalty_energy + 0.5 * log_det - occam,
+            loss.total() + decoder_penalty_energy + isometry_energy + 0.5 * log_det - occam,
             loss,
         ))
     }
@@ -4995,10 +5058,10 @@ impl SaeManifoldTerm {
     ///   * decoder β: `beta_dim − tr(λ_smooth · S_β⁻¹ · ⊕_k S_k⊗I_p)`, the
     ///     smoothness effective-dof already assembled for the Fellner-Schall
     ///     step (penalty-shrunk directions do not cost a full parameter);
-    ///   * latent coordinates: the exact ARD-shrunk trace
-    ///     `Σ_k Σ_j (n_active_k − α_{kj}·tr_{kj}(H⁻¹))` — each per-token
-    ///     coordinate is a latent variable whose effective dof is reduced from
-    ///     1 by its ARD prior, so a fully prior-shrunk axis costs ~0 parameters.
+    ///   * latent coordinates: enabled ARD axes use the exact ARD-shrunk trace
+    ///     `Σ_k Σ_j (n_active_k − α_{kj}·tr_{kj}(H⁻¹))`; atoms with disabled
+    ///     native ARD charge the full active coordinate count because those
+    ///     latent variables are estimated without an ARD precision.
     ///
     /// The coordinate term is the **exact** ARD-shrunk effective dof of the
     /// latent block: along axis `(k,j)` the MacKay/Fellner-Schall edf is
@@ -5041,12 +5104,18 @@ impl SaeManifoldTerm {
         let mut coord_edf = 0.0_f64;
         for (k, atom) in self.atoms.iter().enumerate() {
             let d_k = atom.latent_dim;
-            if rho.log_ard[k].len() != d_k || traces[k].len() != d_k {
+            if traces[k].len() != d_k {
+                return Err(format!(
+                    "reconstruction_dispersion: trace shape mismatch at atom {k} \
+                     (traces={}, d_k={d_k})",
+                    traces[k].len()
+                ));
+            }
+            let ard_len = rho.log_ard[k].len();
+            if ard_len != 0 && ard_len != d_k {
                 return Err(format!(
                     "reconstruction_dispersion: ARD shape mismatch at atom {k} \
-                     (log_ard={}, traces={}, d_k={d_k})",
-                    rho.log_ard[k].len(),
-                    traces[k].len()
+                     (log_ard={ard_len}, d_k={d_k})"
                 ));
             }
             // Scalar count matched to the trace support (see fn doc).
@@ -5058,6 +5127,10 @@ impl SaeManifoldTerm {
                     .count() as f64,
                 None => n as f64,
             };
+            if ard_len == 0 {
+                coord_edf += n_active_k * d_k as f64;
+                continue;
+            }
             for j in 0..d_k {
                 let alpha = rho.log_ard[k][j].exp();
                 // edf_kj ∈ [0, n_active_k]; clamp against numerical drift.
@@ -5505,6 +5578,35 @@ impl SaeManifoldTerm {
         let beta_block = m * p;
         let jet = &atom.basis_jacobian;
         let mu = corrected.scalar_weight * rho_local[corrected.rho_index].exp();
+        // A negligible (or non-finite) effective isometry weight contributes a
+        // zero curvature block; writing zeros would still flip the solver onto
+        // the dense-supplement Schur path (and invalidate caches) for no model
+        // change. Skip entirely so `isometry_weight≈0` is bit-identical to the
+        // no-isometry assembly. (`isometry_weight=0` never constructs the
+        // penalty at all; this guards the ρ-sweep driving `exp(ρ)` to ~0.)
+        if !(mu.is_finite() && mu > 0.0) {
+            return;
+        }
+        // Coherence invariant for the coupled Gauss-Newton block. The isometry
+        // residual `r_{ab} = (JᵀWJ − G_ref)_{ab}` yields one residual Jacobian
+        // `A = [A_t | A_β]`, so `[[htt,cross],[crossᵀ,hbb]] = μ AᵀA` is PSD *as a
+        // whole* and its Schur complement is PSD — but ONLY while all three
+        // blocks stay that exact pullback. After assembly the latent blocks pass
+        // through `apply_riemannian_latent_geometry`, which rewrites `htt` with
+        // the (indefinite) Riemannian connection term and column-projects the
+        // `htbeta` cross-block to `T_tM`, while the shared `hbb` is left
+        // untouched. For a non-Euclidean chart that projection breaks the
+        // `μ AᵀA` coherence: the cross-block is then a nonzero coupling NOT paired
+        // with diagonals from the same Jacobian, and the Schur complement
+        // `hbb − Σ crossᵀ htt⁻¹ cross` can go indefinite (the #681 circle/sphere
+        // failure mode flagged in the math review). For a Euclidean chart the
+        // projection is the identity, so the coupled block survives exactly and
+        // we keep the full cross-coupling (faster Newton). For any non-Euclidean
+        // chart we contribute only the PSD `htt` diagonal block and DROP the
+        // cross-block: a block-diagonal `diag(μ A_tᵀA_t, μ A_βᵀA_β)` of two PSD
+        // blocks is still PSD, so the Schur stays PSD by construction while the
+        // gradient (which alone fixes the stationary point) is unchanged.
+        let couple_cross_block = coord.manifold().is_euclidean();
         let mut metric_coord_jac = Array2::<f64>::zeros((d * d, d));
         let mut metric_beta_jac = Array2::<f64>::zeros((d * d, beta_block));
         let mut wrote_dense_cross = false;
@@ -5531,16 +5633,18 @@ impl SaeManifoldTerm {
                     }
                 }
             }
-            metric_beta_jac.fill(0.0);
-            for a in 0..d {
-                for b in 0..d {
-                    let metric_row = a * d + b;
-                    for basis_col in 0..m {
-                        let jet_a = jet[[row, basis_col, a]];
-                        let jet_b = jet[[row, basis_col, b]];
-                        for output in 0..p {
-                            metric_beta_jac[[metric_row, basis_col * p + output]] =
-                                jet_a * wj[[output, b]] + wj[[output, a]] * jet_b;
+            if couple_cross_block {
+                metric_beta_jac.fill(0.0);
+                for a in 0..d {
+                    for b in 0..d {
+                        let metric_row = a * d + b;
+                        for basis_col in 0..m {
+                            let jet_a = jet[[row, basis_col, a]];
+                            let jet_b = jet[[row, basis_col, b]];
+                            for output in 0..p {
+                                metric_beta_jac[[metric_row, basis_col * p + output]] =
+                                    jet_a * wj[[output, b]] + wj[[output, a]] * jet_b;
+                            }
                         }
                     }
                 }
@@ -5553,6 +5657,9 @@ impl SaeManifoldTerm {
                             metric_coord_jac[[metric_row, c]] * metric_coord_jac[[metric_row, e]];
                     }
                     sys.rows[row].htt[[row_off + c, row_off + e]] += mu * acc;
+                }
+                if !couple_cross_block {
+                    continue;
                 }
                 for beta_col in 0..beta_block {
                     let mut acc = 0.0;
@@ -6044,6 +6151,7 @@ impl SaeManifoldTerm {
                     atom.basis_values.clone(),
                     atom.basis_jacobian.clone(),
                     atom.decoder_coefficients.clone(),
+                    atom.smooth_penalty.clone(),
                 )
             })
             .collect();
@@ -6059,12 +6167,13 @@ impl SaeManifoldTerm {
     /// Assigns into the existing arrays in place so the restore reuses the
     /// already-allocated buffers rather than reallocating per trial.
     fn restore_mutable_state(&mut self, snapshot: &SaeManifoldMutableState) {
-        for (atom, (basis_values, basis_jacobian, decoder)) in
+        for (atom, (basis_values, basis_jacobian, decoder, smooth_penalty)) in
             self.atoms.iter_mut().zip(snapshot.atoms.iter())
         {
             atom.basis_values.assign(basis_values);
             atom.basis_jacobian.assign(basis_jacobian);
             atom.decoder_coefficients.assign(decoder);
+            atom.smooth_penalty.assign(smooth_penalty);
         }
         self.assignment.logits.assign(&snapshot.logits);
         self.assignment.coords.clone_from(&snapshot.coords);
@@ -6270,14 +6379,14 @@ impl SaeManifoldTerm {
     /// a handful of Newton steps frequently converges into the wrong basin and
     /// mis-routes the row — the root cause of the negative-`R²`, near-uniform
     /// assignment OOS failures. We evaluate each atom's decoder once on a dense
-    /// manifold-spanning grid (provided by the basis evaluator), take the per-row
+    /// manifold-spanning grid (provided by the atom basis kind), take the per-row
     /// global argmin as the coordinate seed, refresh the atom basis there, and
     /// let the subsequent Newton refinement polish to full precision from inside
     /// the correct basin. Because the residual-based softmax logit seed reads the
     /// freshly decoded rows, routing then follows the true per-atom projection
     /// error rather than the cold-seed error.
     ///
-    /// Atoms whose evaluator exposes no [`SaeBasisEvaluator::projection_seed_grid`]
+    /// Atoms whose basis kind exposes no projection seed grid
     /// (unbounded / basis-linear latents) are left at their incoming seed. The
     /// decoder, assignment logits, smoothness penalties and ρ are all untouched;
     /// only the latent coordinates and the basis caches that depend on them move.
@@ -6295,13 +6404,16 @@ impl SaeManifoldTerm {
             ));
         }
         for atom_idx in 0..self.k_atoms() {
+            let d = self.atoms[atom_idx].latent_dim;
+            let Some(grid) = self.atoms[atom_idx]
+                .basis_kind
+                .projection_seed_grid(d, resolution)
+            else {
+                continue;
+            };
             let Some(evaluator) = self.atoms[atom_idx].basis_evaluator.clone() else {
                 continue;
             };
-            let Some(grid) = evaluator.projection_seed_grid(resolution) else {
-                continue;
-            };
-            let d = self.atoms[atom_idx].latent_dim;
             if grid.ncols() != d {
                 return Err(format!(
                     "SaeManifoldTerm::seed_coords_by_decoder_projection: atom {atom_idx} grid has {} columns but latent_dim is {d}",
@@ -7418,13 +7530,65 @@ impl SaeManifoldOuterObjective {
     /// Consume the objective, returning the inner-fitted term, the last ρ the
     /// engine evaluated, and the inner loss breakdown at that ρ.
     pub fn into_fitted(self) -> (SaeManifoldTerm, SaeManifoldRho, SaeManifoldLoss) {
-        let loss = self.last_loss.unwrap_or_else(|| SaeManifoldLoss {
+        let Self {
+            term,
+            mut baseline_term,
+            target,
+            registry,
+            current_rho,
+            inner_max_iter,
+            learning_rate,
+            ridge_ext_coord,
+            ridge_beta,
+            last_loss,
+            ..
+        } = self;
+        let loss = last_loss.unwrap_or_else(|| SaeManifoldLoss {
             data_fit: 0.0,
             assignment_sparsity: 0.0,
             smoothness: 0.0,
             ard: 0.0,
         });
-        (self.term, self.current_rho, loss)
+        // Basin guard against the multi-atom routing-collapse failure mode
+        // (#629 #630). The outer ρ cascade mutates `term` cumulatively across
+        // candidate ρ evaluations and never restores it between evals, so a
+        // single ill-conditioned ρ poll can drag the per-row routing off the
+        // decisive seed basin (the EM routing-seed / decoder-projection start)
+        // into the near-uniform saddle. The settled `term` then reports that
+        // collapsed routing even though the seed basin reconstructs the planted
+        // disjoint atoms far better. `baseline_term` preserves the pristine
+        // seeded geometry; re-solve the inner joint fit from it at the SAME
+        // settled ρ the engine selected (smoothing choice is untouched) and
+        // keep whichever converged state attains the lower penalized objective.
+        // For an already-routed fit the two coincide (the seed basin is the
+        // optimum), so this is a no-op there and never weakens the criterion;
+        // for a drifted fit it recovers the routed solution the seed reached.
+        let settled_objective =
+            term.penalized_objective_total(target.view(), &current_rho, registry.as_ref(), 1.0);
+        let mut rho_seed = current_rho.clone();
+        let seed_solve = baseline_term.run_joint_fit_arrow_schur(
+            target.view(),
+            &mut rho_seed,
+            registry.as_ref(),
+            inner_max_iter,
+            learning_rate,
+            ridge_ext_coord,
+            ridge_beta,
+        );
+        if let (Ok(settled_total), Ok(seed_loss)) = (settled_objective, seed_solve) {
+            let seed_total = baseline_term.penalized_objective_total(
+                target.view(),
+                &current_rho,
+                registry.as_ref(),
+                1.0,
+            );
+            if let Ok(seed_total) = seed_total {
+                if seed_total.is_finite() && seed_total < settled_total {
+                    return (baseline_term, current_rho, seed_loss);
+                }
+            }
+        }
+        (term, current_rho, loss)
     }
 
     /// Posterior shape uncertainty of the fitted atoms — per-atom decoder
@@ -7949,12 +8113,20 @@ fn canonicalize_softmax_logits(logits: &mut Array2<f64>) {
 /// Beta(α, 1) stick-breaking construction, which is the motivation for the
 /// schedule, but no sticks are drawn here.
 fn ibp_stick_breaking_prior(k_atoms: usize, alpha: f64) -> Array1<f64> {
+    // Accumulate the geometric schedule `π_k = ratio^k` in LOG space so the
+    // prior stays a finite *soft* weight even for large `K`. The naive product
+    // `acc *= ratio` underflows to exact `0.0` once `ratio^k < f64::MIN_POSITIVE`
+    // (e.g. `(0.1/1.1)^320`), which would turn the soft shrinkage prior into a
+    // HARD mask: such atoms would receive zero assignment AND zero logit
+    // gradient (the gradient is multiplied by `π_k`), so they could never
+    // reactivate. Working in log-space and flooring the exponentiated weight at
+    // the smallest positive normal keeps every atom's gradient path alive while
+    // preserving the geometric ordering.
     let mut out = Array1::<f64>::zeros(k_atoms);
-    let ratio = alpha / (alpha + 1.0);
-    let mut acc = 1.0;
+    let log_ratio = (alpha / (alpha + 1.0)).ln();
     for k in 0..k_atoms {
-        out[k] = acc;
-        acc *= ratio;
+        let log_pi = (k as f64) * log_ratio;
+        out[k] = log_pi.exp().max(f64::MIN_POSITIVE);
     }
     out
 }
@@ -8240,7 +8412,7 @@ fn assignment_prior_value(assignment: &SaeAssignment, rho: &SaeManifoldRho) -> f
             // prior gradients part of the objective evaluated by line search,
             // while data-fit reconstruction remains hard-gated by
             // `jumprelu_row`.
-            let sparsity_strength = rho.log_lambda_sparse.exp();
+            let sparsity_strength = rho.lambda_sparse();
             let mut acc = 0.0;
             for &logit in target.iter() {
                 if jumprelu_in_optimization_band(logit, threshold, temperature) {
@@ -8309,7 +8481,7 @@ fn assignment_prior_grad_hdiag(
             // (logit > θ − MARGIN·τ) so a gated-off atom near the boundary keeps
             // prior gradient. Data-fit JVP support is narrower and follows the
             // hard forward gate.
-            let sparsity_strength = rho.log_lambda_sparse.exp();
+            let sparsity_strength = rho.lambda_sparse();
             let inv_tau = 1.0 / temperature;
             let inv_tau2 = inv_tau * inv_tau;
             let mut g = Array1::<f64>::zeros(target.len());
@@ -9711,14 +9883,29 @@ mod tests {
             [0.45, -0.05, 0.10, 0.30],
         ];
         let rho = SaeManifoldRho::new(0.0, -6.0, vec![Array1::<f64>::zeros(1)]);
+        let baseline = term
+            .assemble_arrow_schur(target.view(), &rho, None)
+            .unwrap();
         let sys = term
             .assemble_arrow_schur(target.view(), &rho, Some(&registry))
             .unwrap();
 
         assert_eq!(sys.gb.len(), m * p, "gb should match flatten_beta length");
+        assert_eq!(
+            baseline.gb.len(),
+            m * p,
+            "baseline gb should match flatten_beta length"
+        );
         let mut absmax = 0.0_f64;
-        for v in sys.gb.iter().copied() {
+        let mut penalty_grad = Array1::<f64>::zeros(m * p);
+        for ((dst, sys_g), baseline_g) in penalty_grad
+            .iter_mut()
+            .zip(sys.gb.iter())
+            .zip(baseline.gb.iter())
+        {
+            let v = *sys_g - *baseline_g;
             assert!(v.is_finite());
+            *dst = v;
             absmax = absmax.max(v.abs());
         }
         assert!(
@@ -9727,9 +9914,9 @@ mod tests {
              arrow-Schur gb; absmax={absmax:.3e}"
         );
 
-        // The gb gradient must equal the analytic spectral gradient of the
-        // per-atom `(M, p)` block (penalty_scale defaults to 1.0 in
-        // assemble_arrow_schur). Reconstruct the reference directly.
+        // The penalty contribution to gb must equal the analytic spectral
+        // gradient of the per-atom `(M, p)` block (penalty_scale defaults to
+        // 1.0 in assemble_arrow_schur). Reconstruct the reference directly.
         let per_atom = NuclearNormPenalty::new(
             PsiSlice {
                 range: 0..m * p,
@@ -9746,9 +9933,9 @@ mod tests {
         let ref_grad = per_atom.grad_target(beta.view(), Array1::<f64>::zeros(0).view());
         for j in 0..m * p {
             assert!(
-                (sys.gb[j] - ref_grad[j]).abs() <= 1.0e-9,
-                "gb[{j}]={:.12e} must equal analytic spectral grad {:.12e}",
-                sys.gb[j],
+                (penalty_grad[j] - ref_grad[j]).abs() <= 1.0e-9,
+                "penalty gb[{j}]={:.12e} must equal analytic spectral grad {:.12e}",
+                penalty_grad[j],
                 ref_grad[j]
             );
         }
@@ -9758,10 +9945,8 @@ mod tests {
         let base_norm = smoothed_nuclear_norm(&decoder, eps);
         let step = 1.0e-2;
         let mut shrunk = decoder.clone();
-        for row in 0..m {
-            for feat in 0..p {
-                shrunk[[row, feat]] -= step * sys.gb[row * p + feat];
-            }
+        for ((row, feat), value) in shrunk.indexed_iter_mut() {
+            *value -= step * penalty_grad[row * p + feat];
         }
         let shrunk_norm = smoothed_nuclear_norm(&shrunk, eps);
         assert!(
@@ -9785,6 +9970,32 @@ mod tests {
     struct TestPeriodicEvaluator;
 
     impl SaeBasisEvaluator for TestPeriodicEvaluator {
+        fn second_jet_dyn(
+            &self,
+            coords: ArrayView2<'_, f64>,
+        ) -> Option<Result<Array4<f64>, String>> {
+            if coords.ncols() != 1 {
+                return Some(Err(format!(
+                    "TestPeriodicEvaluator::second_jet_dyn: expected latent_dim 1, got {}",
+                    coords.ncols()
+                )));
+            }
+            None
+        }
+
+        fn third_jet_dyn(
+            &self,
+            coords: ArrayView2<'_, f64>,
+        ) -> Option<Result<Array5<f64>, String>> {
+            if coords.ncols() != 1 {
+                return Some(Err(format!(
+                    "TestPeriodicEvaluator::third_jet_dyn: expected latent_dim 1, got {}",
+                    coords.ncols()
+                )));
+            }
+            None
+        }
+
         fn evaluate(
             &self,
             coords: ArrayView2<'_, f64>,
@@ -10612,9 +10823,8 @@ mod tests {
         }
     }
 
-    /// The compact-latent evaluators must each expose a
-    /// [`SaeBasisEvaluator::projection_seed_grid`] that spans their manifold,
-    /// and the unbounded / basis-linear evaluators must expose none (their PCA
+    /// The compact-latent basis kinds must each expose a projection seed grid
+    /// that spans their manifold, and the unbounded / basis-linear kinds expose none (their PCA
     /// seed already lands in the convex hull of the training coordinates).
     /// Pins the grid extents the fixed-decoder OOS seed (#628) relies on.
     #[test]
@@ -10623,9 +10833,8 @@ mod tests {
 
         // Periodic S¹: `resolution` phases evenly on `[0, 1)` (endpoint
         // excluded — `0` and `1` are the same point on the circle).
-        let periodic = PeriodicHarmonicEvaluator::new(3)
-            .unwrap()
-            .projection_seed_grid(16)
+        let periodic = SaeAtomBasisKind::Periodic
+            .projection_seed_grid(1, 16)
             .unwrap();
         assert_eq!(periodic.dim(), (16, 1));
         for i in 0..16 {
@@ -10636,7 +10845,7 @@ mod tests {
         // Sphere lat/lon chart: an `r × r` grid, latitude strictly interior to
         // the chart (poles are degenerate), longitude on `[-π, π)`.
         let r = 6usize;
-        let sphere = SphereChartEvaluator.projection_seed_grid(r).unwrap();
+        let sphere = SaeAtomBasisKind::Sphere.projection_seed_grid(2, r).unwrap();
         assert_eq!(sphere.dim(), (r * r, 2));
         for row in 0..r * r {
             let lat = sphere[[row, 0]];
@@ -10653,10 +10862,10 @@ mod tests {
 
         // Unbounded / basis-linear latents expose no grid (default `None`).
         assert!(
-            AffineCoordinateEvaluator::new(2)
-                .projection_seed_grid(64)
+            SaeAtomBasisKind::EuclideanPatch
+                .projection_seed_grid(2, 64)
                 .is_none(),
-            "affine (unbounded) evaluator must not expose a projection seed grid"
+            "Euclidean-patch (unbounded) atoms must not expose a projection seed grid"
         );
     }
 
@@ -10668,17 +10877,15 @@ mod tests {
     #[test]
     fn torus_projection_seed_grid_caps_total_points() {
         // d == 1: dense, no cap (256¹ ≤ 4096).
-        let g1 = TorusHarmonicEvaluator::new(1, 3)
-            .unwrap()
-            .projection_seed_grid(256)
+        let g1 = SaeAtomBasisKind::Torus
+            .projection_seed_grid(1, 256)
             .unwrap();
         assert_eq!(g1.dim(), (256, 1));
 
         // d == 3: per-axis shrunk to the largest `p` with `p³ ≤ 4096`, i.e.
         // `p = 16` ⇒ exactly 4096 points.
-        let g3 = TorusHarmonicEvaluator::new(3, 3)
-            .unwrap()
-            .projection_seed_grid(256)
+        let g3 = SaeAtomBasisKind::Torus
+            .projection_seed_grid(3, 256)
             .unwrap();
         assert_eq!(g3.ncols(), 3);
         assert_eq!(g3.nrows(), 16 * 16 * 16);
@@ -10706,9 +10913,8 @@ mod tests {
 
         // d == 12: the coarsest dense grid is `2^12 = 4096`, exactly the cap —
         // still emitted (per_axis floors at 2).
-        let g12 = TorusHarmonicEvaluator::new(12, 2)
-            .unwrap()
-            .projection_seed_grid(256)
+        let g12 = SaeAtomBasisKind::Torus
+            .projection_seed_grid(12, 256)
             .unwrap();
         assert_eq!(g12.nrows(), 1usize << 12);
         assert!(g12.nrows() <= 4096);
@@ -10718,9 +10924,8 @@ mod tests {
         // `None` and let the row fall back to its PCA seed rather than allocate
         // a runaway `2^d`-row grid for the per-row global-argmin scan to walk.
         assert!(
-            TorusHarmonicEvaluator::new(13, 2)
-                .unwrap()
-                .projection_seed_grid(256)
+            SaeAtomBasisKind::Torus
+                .projection_seed_grid(13, 256)
                 .is_none(),
             "torus d=13 seed grid (2^13 > 4096) must fall back to None, not blow up the cap"
         );
@@ -12669,6 +12874,43 @@ mod tests {
         assert_eq!(atom.smooth_penalty_order, 2);
     }
 
+    #[test]
+    fn line_search_snapshot_restores_intrinsic_smooth_penalty() {
+        let atom = intrinsic_test_atom(1.0);
+        let n = atom.n_obs();
+        let logits = Array2::<f64>::zeros((n, 1));
+        let coords = vec![Array2::<f64>::zeros((n, 1))];
+        let assignment = SaeAssignment::from_blocks_with_mode_and_manifolds(
+            logits,
+            coords,
+            vec![LatentManifold::Euclidean],
+            AssignmentMode::softmax(1.0),
+        )
+        .unwrap();
+        let mut term = SaeManifoldTerm::new(vec![atom], assignment).unwrap();
+        let original = term.atoms[0].smooth_penalty.clone();
+        let snapshot = term.snapshot_mutable_state();
+
+        term.atoms[0].decoder_coefficients[[0, 0]] *= 3.0;
+        term.atoms[0].refresh_intrinsic_smooth_penalty();
+        let changed = (&term.atoms[0].smooth_penalty - &original)
+            .mapv(f64::abs)
+            .sum();
+        assert!(
+            changed > 1e-6,
+            "test setup must perturb the live intrinsic smoothness Gram"
+        );
+
+        term.restore_mutable_state(&snapshot);
+        let restored = (&term.atoms[0].smooth_penalty - &original)
+            .mapv(f64::abs)
+            .sum();
+        assert!(
+            restored < 1e-12,
+            "line-search restore left a stale intrinsic smoothness Gram: {restored}"
+        );
+    }
+
     /// Gauge invariance (issue #673): a global reparameterization of the latent
     /// coordinate scales every per-sample speed by a common factor, which
     /// cancels in the centered reweighting — so the intrinsic Gram `S̃` (and
@@ -12781,18 +13023,46 @@ pub fn sae_pca_seed_initial_coords(
     if n_obs == 0 || z.ncols() == 0 {
         return Ok(out);
     }
+    // Reject non-finite input up front so a clean error surfaces here rather
+    // than a silent non-finite seed (or an opaque SVD failure) downstream.
+    for ((row, col), &value) in z.indexed_iter() {
+        if !value.is_finite() {
+            return Err(format!(
+                "sae_pca_seed: Z must be finite; Z[{row}, {col}] = {value}"
+            ));
+        }
+    }
+    // Accumulate the column mean with Welford's running update
+    // `mean += (x − mean) / count` instead of a plain running sum. The plain
+    // sum overflows to `±inf` for huge finite columns (e.g. two rows of
+    // `1e308` sum to `2e308 = inf`), which poisons the centered matrix and the
+    // SVD. Welford's update keeps the accumulator bounded by the column's data
+    // range, so the mean is finite whenever the inputs are.
     let mut col_means = Array1::<f64>::zeros(z.ncols());
     for col in 0..z.ncols() {
-        let mut acc = 0.0_f64;
-        for row in 0..n_obs {
-            acc += z[[row, col]];
+        let mut mean = 0.0_f64;
+        for (count, row) in (0..n_obs).enumerate() {
+            let x = z[[row, col]];
+            mean += (x - mean) / (count as f64 + 1.0);
         }
-        col_means[col] = acc / n_obs as f64;
+        col_means[col] = mean;
     }
     let mut centered = z.to_owned();
     for row in 0..n_obs {
         for col in 0..z.ncols() {
             centered[[row, col]] -= col_means[col];
+        }
+    }
+    // Centering can still overflow if the data span itself is non-finite
+    // (e.g. `+1e308` and `−1e308` in one column give a finite mean but an
+    // `inf` deviation). Surface that as a clean error rather than feeding a
+    // non-finite matrix to the SVD.
+    for ((row, col), &value) in centered.indexed_iter() {
+        if !value.is_finite() {
+            return Err(format!(
+                "sae_pca_seed: centered Z is non-finite at [{row}, {col}] \
+                 (data span exceeds f64 range); rescale Z before seeding"
+            ));
         }
     }
     let (u_opt, s_vals, vt_opt) = centered

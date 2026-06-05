@@ -3513,7 +3513,7 @@ class CfnDevice(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_networkmanager as networkmanager
                 
-                a_wSLocation_property = networkmanager.CfnDevice.AWSLocationProperty(
+                a_ws_location_property = networkmanager.CfnDevice.AWSLocationProperty(
                     subnet_arn="subnetArn",
                     zone="zone"
                 )

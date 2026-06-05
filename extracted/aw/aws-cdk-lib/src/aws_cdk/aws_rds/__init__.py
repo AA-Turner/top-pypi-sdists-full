@@ -235,21 +235,21 @@ cluster.metric_serverless_database_capacity(
     evaluation_periods=3
 )
 
-cluster.metric_aCUUtilization(
+cluster.metric_acu_utilization(
     period=Duration.minutes(10)
 ).create_alarm(self, "alarm",
     evaluation_periods=3,
     threshold=90
 )
 
-cluster.metric_volume_read_iOPs(
+cluster.metric_volume_read_io_ps(
     period=Duration.minutes(10)
 ).create_alarm(self, "VolumeReadIOPsAlarm",
     threshold=1000,
     evaluation_periods=3
 )
 
-cluster.metric_volume_write_iOPs(
+cluster.metric_volume_write_io_ps(
     period=Duration.minutes(10)
 ).create_alarm(self, "VolumeWriteIOPsAlarm",
     threshold=1000,
@@ -261,14 +261,14 @@ instance = rds.DatabaseInstance(self, "Instance",
     vpc=vpc
 )
 
-instance.metric_read_iOPS(
+instance.metric_read_iops(
     period=Duration.minutes(10)
 ).create_alarm(self, "ReadIOPSAlarm",
     threshold=1000,
     evaluation_periods=3
 )
 
-instance.metric_write_iOPS(
+instance.metric_write_iops(
     period=Duration.minutes(10)
 ).create_alarm(self, "WriteIOPSAlarm",
     threshold=1000,
@@ -1210,7 +1210,7 @@ Database instances and clusters both expose metrics (`cloudwatch.Metric`):
 # cluster: rds.DatabaseCluster
 
 db_connections = instance.metric_database_connections()
-cpu_utilization = cluster.metric_cPUUtilization()
+cpu_utilization = cluster.metric_cpu_utilization()
 
 # The average amount of time taken per disk I/O operation (average over 1 minute)
 read_latency = instance.metric("ReadLatency", statistic="Average", period=Duration.seconds(60))
@@ -4155,25 +4155,45 @@ class AuroraPostgresEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_18")
     def VER_13_18(cls) -> "AuroraPostgresEngineVersion":
-        '''Version "13.18".'''
+        '''(deprecated) Version "13.18".
+
+        :deprecated: Version 13.18 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_13_18"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_20")
     def VER_13_20(cls) -> "AuroraPostgresEngineVersion":
-        '''Version "13.20".'''
+        '''(deprecated) Version "13.20".
+
+        :deprecated: Version 13.20 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_13_20"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_21")
     def VER_13_21(cls) -> "AuroraPostgresEngineVersion":
-        '''Version "13.21".'''
+        '''(deprecated) Version "13.21".
+
+        :deprecated: Version 13.21 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_13_21"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_22")
     def VER_13_22(cls) -> "AuroraPostgresEngineVersion":
-        '''Version "13.22".'''
+        '''(deprecated) Version "13.22".
+
+        :deprecated: Version 13.22 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_13_22"))
 
     @jsii.python.classproperty
@@ -4582,6 +4602,12 @@ class AuroraPostgresEngineVersion(
     def VER_16_13(cls) -> "AuroraPostgresEngineVersion":
         '''Version "16.13".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_16_13"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_16_13_LIMITLESS")
+    def VER_16_13_LIMITLESS(cls) -> "AuroraPostgresEngineVersion":
+        '''Version "16.13 limitless".'''
+        return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_16_13_LIMITLESS"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_2")
@@ -5029,7 +5055,7 @@ class CfnCustomDBEngineVersion(
         # The values are placeholders you should change.
         from aws_cdk import aws_rds as rds
         
-        cfn_custom_dBEngine_version = rds.CfnCustomDBEngineVersion(self, "MyCfnCustomDBEngineVersion",
+        cfn_custom_db_engine_version = rds.CfnCustomDBEngineVersion(self, "MyCfnCustomDBEngineVersion",
             engine="engine",
             engine_version="engineVersion",
         
@@ -5438,7 +5464,7 @@ class CfnCustomDBEngineVersionProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_rds as rds
             
-            cfn_custom_dBEngine_version_props = rds.CfnCustomDBEngineVersionProps(
+            cfn_custom_db_engine_version_props = rds.CfnCustomDBEngineVersionProps(
                 engine="engine",
                 engine_version="engineVersion",
             
@@ -5725,7 +5751,7 @@ class CfnDBCluster(
         # The values are placeholders you should change.
         from aws_cdk import aws_rds as rds
         
-        cfn_dBCluster = rds.CfnDBCluster(self, "MyCfnDBCluster",
+        cfn_db_cluster = rds.CfnDBCluster(self, "MyCfnDBCluster",
             allocated_storage=123,
             associated_roles=[rds.CfnDBCluster.DBClusterRoleProperty(
                 role_arn="roleArn",
@@ -7152,7 +7178,7 @@ class CfnDBCluster(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_rds as rds
                 
-                d_bCluster_role_property = rds.CfnDBCluster.DBClusterRoleProperty(
+                d_b_cluster_role_property = rds.CfnDBCluster.DBClusterRoleProperty(
                     role_arn="roleArn",
                 
                     # the properties below are optional
@@ -7715,7 +7741,7 @@ class CfnDBClusterParameterGroup(
         
         # parameters: Any
         
-        cfn_dBCluster_parameter_group = rds.CfnDBClusterParameterGroup(self, "MyCfnDBClusterParameterGroup",
+        cfn_db_cluster_parameter_group = rds.CfnDBClusterParameterGroup(self, "MyCfnDBClusterParameterGroup",
             description="description",
             family="family",
             parameters=parameters,
@@ -7940,7 +7966,7 @@ class CfnDBClusterParameterGroupProps:
             
             # parameters: Any
             
-            cfn_dBCluster_parameter_group_props = rds.CfnDBClusterParameterGroupProps(
+            cfn_db_cluster_parameter_group_props = rds.CfnDBClusterParameterGroupProps(
                 description="description",
                 family="family",
                 parameters=parameters,
@@ -8281,7 +8307,7 @@ class CfnDBClusterProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_rds as rds
             
-            cfn_dBCluster_props = rds.CfnDBClusterProps(
+            cfn_db_cluster_props = rds.CfnDBClusterProps(
                 allocated_storage=123,
                 associated_roles=[rds.CfnDBCluster.DBClusterRoleProperty(
                     role_arn="roleArn",
@@ -11824,7 +11850,7 @@ class CfnDBInstance(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_rds as rds
                 
-                d_bInstance_role_property = rds.CfnDBInstance.DBInstanceRoleProperty(
+                d_b_instance_role_property = rds.CfnDBInstance.DBInstanceRoleProperty(
                     feature_name="featureName",
                     role_arn="roleArn"
                 )
@@ -11906,7 +11932,7 @@ class CfnDBInstance(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_rds as rds
                 
-                d_bInstance_status_info_property = rds.CfnDBInstance.DBInstanceStatusInfoProperty(
+                d_b_instance_status_info_property = rds.CfnDBInstance.DBInstanceStatusInfoProperty(
                     message="message",
                     normal=False,
                     status="status",
@@ -12499,7 +12525,7 @@ class CfnDBInstanceProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_rds as rds
             
-            cfn_dBInstance_props = rds.CfnDBInstanceProps(
+            cfn_db_instance_props = rds.CfnDBInstanceProps(
                 additional_storage_volumes=[rds.CfnDBInstance.AdditionalStorageVolumeProperty(
                     allocated_storage="allocatedStorage",
                     iops=123,
@@ -14533,7 +14559,7 @@ class CfnDBParameterGroup(
         
         # parameters: Any
         
-        cfn_dBParameter_group = rds.CfnDBParameterGroup(self, "MyCfnDBParameterGroup",
+        cfn_db_parameter_group = rds.CfnDBParameterGroup(self, "MyCfnDBParameterGroup",
             description="description",
             family="family",
         
@@ -14797,7 +14823,7 @@ class CfnDBParameterGroupProps:
             
             # parameters: Any
             
-            cfn_dBParameter_group_props = rds.CfnDBParameterGroupProps(
+            cfn_db_parameter_group_props = rds.CfnDBParameterGroupProps(
                 description="description",
                 family="family",
             
@@ -14964,7 +14990,7 @@ class CfnDBProxy(
         # The values are placeholders you should change.
         from aws_cdk import aws_rds as rds
         
-        cfn_dBProxy = rds.CfnDBProxy(self, "MyCfnDBProxy",
+        cfn_db_proxy = rds.CfnDBProxy(self, "MyCfnDBProxy",
             db_proxy_name="dbProxyName",
             engine_family="engineFamily",
             role_arn="roleArn",
@@ -15572,7 +15598,7 @@ class CfnDBProxyEndpoint(
         # The values are placeholders you should change.
         from aws_cdk import aws_rds as rds
         
-        cfn_dBProxy_endpoint = rds.CfnDBProxyEndpoint(self, "MyCfnDBProxyEndpoint",
+        cfn_db_proxy_endpoint = rds.CfnDBProxyEndpoint(self, "MyCfnDBProxyEndpoint",
             db_proxy_endpoint_name="dbProxyEndpointName",
             db_proxy_name="dbProxyName",
             vpc_subnet_ids=["vpcSubnetIds"],
@@ -15967,7 +15993,7 @@ class CfnDBProxyEndpointProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_rds as rds
             
-            cfn_dBProxy_endpoint_props = rds.CfnDBProxyEndpointProps(
+            cfn_db_proxy_endpoint_props = rds.CfnDBProxyEndpointProps(
                 db_proxy_endpoint_name="dbProxyEndpointName",
                 db_proxy_name="dbProxyName",
                 vpc_subnet_ids=["vpcSubnetIds"],
@@ -16163,7 +16189,7 @@ class CfnDBProxyProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_rds as rds
             
-            cfn_dBProxy_props = rds.CfnDBProxyProps(
+            cfn_db_proxy_props = rds.CfnDBProxyProps(
                 db_proxy_name="dbProxyName",
                 engine_family="engineFamily",
                 role_arn="roleArn",
@@ -16437,7 +16463,7 @@ class CfnDBProxyTargetGroup(
         # The values are placeholders you should change.
         from aws_cdk import aws_rds as rds
         
-        cfn_dBProxy_target_group = rds.CfnDBProxyTargetGroup(self, "MyCfnDBProxyTargetGroup",
+        cfn_db_proxy_target_group = rds.CfnDBProxyTargetGroup(self, "MyCfnDBProxyTargetGroup",
             db_proxy_name="dbProxyName",
             target_group_name="targetGroupName",
         
@@ -16833,7 +16859,7 @@ class CfnDBProxyTargetGroupProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_rds as rds
             
-            cfn_dBProxy_target_group_props = rds.CfnDBProxyTargetGroupProps(
+            cfn_db_proxy_target_group_props = rds.CfnDBProxyTargetGroupProps(
                 db_proxy_name="dbProxyName",
                 target_group_name="targetGroupName",
             
@@ -16957,7 +16983,7 @@ class CfnDBSecurityGroup(
         # The values are placeholders you should change.
         from aws_cdk import aws_rds as rds
         
-        cfn_dBSecurity_group = rds.CfnDBSecurityGroup(self, "MyCfnDBSecurityGroup",
+        cfn_db_security_group = rds.CfnDBSecurityGroup(self, "MyCfnDBSecurityGroup",
             db_security_group_ingress=[rds.CfnDBSecurityGroup.IngressProperty(
                 cidrip="cidrip",
                 ec2_security_group_id="ec2SecurityGroupId",
@@ -17279,7 +17305,7 @@ class CfnDBSecurityGroupIngress(
         # The values are placeholders you should change.
         from aws_cdk import aws_rds as rds
         
-        cfn_dBSecurity_group_ingress = rds.CfnDBSecurityGroupIngress(self, "MyCfnDBSecurityGroupIngress",
+        cfn_db_security_group_ingress = rds.CfnDBSecurityGroupIngress(self, "MyCfnDBSecurityGroupIngress",
             db_security_group_name="dbSecurityGroupName",
         
             # the properties below are optional
@@ -17497,7 +17523,7 @@ class CfnDBSecurityGroupIngressProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_rds as rds
             
-            cfn_dBSecurity_group_ingress_props = rds.CfnDBSecurityGroupIngressProps(
+            cfn_db_security_group_ingress_props = rds.CfnDBSecurityGroupIngressProps(
                 db_security_group_name="dbSecurityGroupName",
             
                 # the properties below are optional
@@ -17626,7 +17652,7 @@ class CfnDBSecurityGroupProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_rds as rds
             
-            cfn_dBSecurity_group_props = rds.CfnDBSecurityGroupProps(
+            cfn_db_security_group_props = rds.CfnDBSecurityGroupProps(
                 db_security_group_ingress=[rds.CfnDBSecurityGroup.IngressProperty(
                     cidrip="cidrip",
                     ec2_security_group_id="ec2SecurityGroupId",
@@ -17740,7 +17766,7 @@ class CfnDBShardGroup(
         # The values are placeholders you should change.
         from aws_cdk import aws_rds as rds
         
-        cfn_dBShard_group = rds.CfnDBShardGroup(self, "MyCfnDBShardGroup",
+        cfn_db_shard_group = rds.CfnDBShardGroup(self, "MyCfnDBShardGroup",
             db_cluster_identifier="dbClusterIdentifier",
             max_acu=123,
         
@@ -18029,7 +18055,7 @@ class CfnDBShardGroupProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_rds as rds
             
-            cfn_dBShard_group_props = rds.CfnDBShardGroupProps(
+            cfn_db_shard_group_props = rds.CfnDBShardGroupProps(
                 db_cluster_identifier="dbClusterIdentifier",
                 max_acu=123,
             
@@ -18192,7 +18218,7 @@ class CfnDBSubnetGroup(
         # The values are placeholders you should change.
         from aws_cdk import aws_rds as rds
         
-        cfn_dBSubnet_group = rds.CfnDBSubnetGroup(self, "MyCfnDBSubnetGroup",
+        cfn_db_subnet_group = rds.CfnDBSubnetGroup(self, "MyCfnDBSubnetGroup",
             db_subnet_group_description="dbSubnetGroupDescription",
             subnet_ids=["subnetIds"],
         
@@ -18393,7 +18419,7 @@ class CfnDBSubnetGroupProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_rds as rds
             
-            cfn_dBSubnet_group_props = rds.CfnDBSubnetGroupProps(
+            cfn_db_subnet_group_props = rds.CfnDBSubnetGroupProps(
                 db_subnet_group_description="dbSubnetGroupDescription",
                 subnet_ids=["subnetIds"],
             
@@ -19545,7 +19571,7 @@ class CfnIntegration(
         *,
         source_arn: builtins.str,
         target_arn: builtins.str,
-        additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        additional_encryption_context: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         data_filter: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         integration_name: typing.Optional[builtins.str] = None,
@@ -19705,14 +19731,14 @@ class CfnIntegration(
     @jsii.member(jsii_name="additionalEncryptionContext")
     def additional_encryption_context(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''An optional set of non-secret key–value pairs that contains additional contextual information about the data.'''
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], jsii.get(self, "additionalEncryptionContext"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "additionalEncryptionContext"))
 
     @additional_encryption_context.setter
     def additional_encryption_context(
         self,
-        value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f7fbdfa17cddec711beb6235c912d759435b5df9d3a68892f8c59ac577e099e8)
@@ -19805,7 +19831,7 @@ class CfnIntegrationProps:
         *,
         source_arn: builtins.str,
         target_arn: builtins.str,
-        additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        additional_encryption_context: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         data_filter: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         integration_name: typing.Optional[builtins.str] = None,
@@ -19901,7 +19927,7 @@ class CfnIntegrationProps:
     @builtins.property
     def additional_encryption_context(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''An optional set of non-secret key–value pairs that contains additional contextual information about the data.
 
         For more information, see `Encryption context <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#encrypt_context>`_ in the *AWS Key Management Service Developer Guide* .
@@ -19911,7 +19937,7 @@ class CfnIntegrationProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-integration.html#cfn-rds-integration-additionalencryptioncontext
         '''
         result = self._values.get("additional_encryption_context")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
     @builtins.property
     def data_filter(self) -> typing.Optional[builtins.str]:
@@ -21005,7 +21031,7 @@ class ClusterInstanceBindOptions:
             from aws_cdk.interfaces import aws_iam as interfaces_iam
             from aws_cdk.interfaces import aws_rds as interfaces_rds
             
-            # d_bSubnet_group_ref: interfaces_rds.IDBSubnetGroupRef
+            # d_b_subnet_group_ref: interfaces_rds.IDBSubnetGroupRef
             # role_ref: interfaces_iam.IRoleRef
             
             cluster_instance_bind_options = rds.ClusterInstanceBindOptions(
@@ -21013,7 +21039,7 @@ class ClusterInstanceBindOptions:
                 monitoring_role=role_ref,
                 promotion_tier=123,
                 removal_policy=cdk.RemovalPolicy.DESTROY,
-                subnet_group=d_bSubnet_group_ref
+                subnet_group=d_b_subnet_group_ref
             )
         '''
         if __debug__:
@@ -25820,7 +25846,7 @@ class DatabaseInstanceNewProps:
             
             # bucket: s3.Bucket
             # ca_certificate: rds.CaCertificate
-            # d_bSubnet_group_ref: interfaces_rds.IDBSubnetGroupRef
+            # d_b_subnet_group_ref: interfaces_rds.IDBSubnetGroupRef
             # key_ref: interfaces_kms.IKeyRef
             # option_group: rds.OptionGroup
             # parameter_group: rds.ParameterGroup
@@ -25879,7 +25905,7 @@ class DatabaseInstanceNewProps:
                 security_groups=[security_group],
                 storage_throughput=123,
                 storage_type=rds.StorageType.STANDARD,
-                subnet_group=d_bSubnet_group_ref,
+                subnet_group=d_b_subnet_group_ref,
                 vpc_subnets=ec2.SubnetSelection(
                     availability_zones=["availabilityZones"],
                     one_per_az=False,
@@ -27644,7 +27670,7 @@ class DatabaseInstanceSourceProps(DatabaseInstanceNewProps):
             
             # bucket: s3.Bucket
             # ca_certificate: rds.CaCertificate
-            # d_bSubnet_group_ref: interfaces_rds.IDBSubnetGroupRef
+            # d_b_subnet_group_ref: interfaces_rds.IDBSubnetGroupRef
             # instance_engine: rds.IInstanceEngine
             # instance_type: ec2.InstanceType
             # key_ref: interfaces_kms.IKeyRef
@@ -27714,7 +27740,7 @@ class DatabaseInstanceSourceProps(DatabaseInstanceNewProps):
                 security_groups=[security_group],
                 storage_throughput=123,
                 storage_type=rds.StorageType.STANDARD,
-                subnet_group=d_bSubnet_group_ref,
+                subnet_group=d_b_subnet_group_ref,
                 timezone="timezone",
                 vpc_subnets=ec2.SubnetSelection(
                     availability_zones=["availabilityZones"],
@@ -28834,14 +28860,14 @@ class DatabaseProxyEndpointProps(DatabaseProxyEndpointOptions):
             from aws_cdk import aws_rds as rds
             from aws_cdk.interfaces import aws_rds as interfaces_rds
             
-            # d_bProxy_ref: interfaces_rds.IDBProxyRef
+            # d_b_proxy_ref: interfaces_rds.IDBProxyRef
             # security_group: ec2.SecurityGroup
             # subnet: ec2.Subnet
             # subnet_filter: ec2.SubnetFilter
             # vpc: ec2.Vpc
             
             database_proxy_endpoint_props = rds.DatabaseProxyEndpointProps(
-                db_proxy=d_bProxy_ref,
+                db_proxy=d_b_proxy_ref,
                 vpc=vpc,
             
                 # the properties below are optional
@@ -29696,10 +29722,10 @@ class DatabaseSecret(
             cluster_identifier="db-endpoint-test",
             default_database_name="demos"
         )
-        rds_dS = api.add_rds_data_source("rds", cluster, secret, "demos")
+        rds_ds = api.add_rds_data_source("rds", cluster, secret, "demos")
         
         # Set up a resolver for an RDS query.
-        rds_dS.create_resolver("QueryGetDemosRdsResolver",
+        rds_ds.create_resolver("QueryGetDemosRdsResolver",
             type_name="Query",
             field_name="getDemosRds",
             request_mapping_template=appsync.MappingTemplate.from_string("""
@@ -29716,7 +29742,7 @@ class DatabaseSecret(
         )
         
         # Set up a resolver for an RDS mutation.
-        rds_dS.create_resolver("MutationAddDemoRdsResolver",
+        rds_ds.create_resolver("MutationAddDemoRdsResolver",
             type_name="Mutation",
             field_name="addDemoRds",
             request_mapping_template=appsync.MappingTemplate.from_string("""
@@ -29848,10 +29874,10 @@ class DatabaseSecretProps:
                 cluster_identifier="db-endpoint-test",
                 default_database_name="demos"
             )
-            rds_dS = api.add_rds_data_source("rds", cluster, secret, "demos")
+            rds_ds = api.add_rds_data_source("rds", cluster, secret, "demos")
             
             # Set up a resolver for an RDS query.
-            rds_dS.create_resolver("QueryGetDemosRdsResolver",
+            rds_ds.create_resolver("QueryGetDemosRdsResolver",
                 type_name="Query",
                 field_name="getDemosRds",
                 request_mapping_template=appsync.MappingTemplate.from_string("""
@@ -29868,7 +29894,7 @@ class DatabaseSecretProps:
             )
             
             # Set up a resolver for an RDS mutation.
-            rds_dS.create_resolver("MutationAddDemoRdsResolver",
+            rds_ds.create_resolver("MutationAddDemoRdsResolver",
                 type_name="Mutation",
                 field_name="addDemoRds",
                 request_mapping_template=appsync.MappingTemplate.from_string("""
@@ -35870,19 +35896,28 @@ class MysqlEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_5_7_44_RDS_20240408")
     def VER_5_7_44_RDS_20240408(cls) -> "MysqlEngineVersion":
-        '''Version "5.7.44-rds.20240408".'''
+        '''Version "5.7.44-rds.20240408".
+
+        :deprecate: MySQL 5.7.44-rds.20240408 is no longer supported by Amazon RDS.
+        '''
         return typing.cast("MysqlEngineVersion", jsii.sget(cls, "VER_5_7_44_RDS_20240408"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_5_7_44_RDS_20240529")
     def VER_5_7_44_RDS_20240529(cls) -> "MysqlEngineVersion":
-        '''Version "5.7.44-rds.20240529".'''
+        '''Version "5.7.44-rds.20240529".
+
+        :deprecate: MySQL 5.7.44-rds.20240529 is no longer supported by Amazon RDS.
+        '''
         return typing.cast("MysqlEngineVersion", jsii.sget(cls, "VER_5_7_44_RDS_20240529"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_5_7_44_RDS_20240808")
     def VER_5_7_44_RDS_20240808(cls) -> "MysqlEngineVersion":
-        '''Version "5.7.44-rds.20240808".'''
+        '''Version "5.7.44-rds.20240808".
+
+        :deprecate: MySQL 5.7.44-rds.20240808 is no longer supported by Amazon RDS.
+        '''
         return typing.cast("MysqlEngineVersion", jsii.sget(cls, "VER_5_7_44_RDS_20240808"))
 
     @jsii.python.classproperty
@@ -35914,6 +35949,12 @@ class MysqlEngineVersion(
     def VER_5_7_44_RDS_20251212(cls) -> "MysqlEngineVersion":
         '''Version "5.7.44-rds.20251212".'''
         return typing.cast("MysqlEngineVersion", jsii.sget(cls, "VER_5_7_44_RDS_20251212"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_5_7_44_RDS_20260212")
+    def VER_5_7_44_RDS_20260212(cls) -> "MysqlEngineVersion":
+        '''Version "5.7.44-rds.20260212".'''
+        return typing.cast("MysqlEngineVersion", jsii.sget(cls, "VER_5_7_44_RDS_20260212"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_8_0")
@@ -36211,6 +36252,12 @@ class MysqlEngineVersion(
         return typing.cast("MysqlEngineVersion", jsii.sget(cls, "VER_8_0_45"))
 
     @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_8_0_46")
+    def VER_8_0_46(cls) -> "MysqlEngineVersion":
+        '''Version "8.0.46".'''
+        return typing.cast("MysqlEngineVersion", jsii.sget(cls, "VER_8_0_46"))
+
+    @jsii.python.classproperty
     @jsii.member(jsii_name="VER_8_4_3")
     def VER_8_4_3(cls) -> "MysqlEngineVersion":
         '''Version "8.4.3".'''
@@ -36245,6 +36292,12 @@ class MysqlEngineVersion(
     def VER_8_4_8(cls) -> "MysqlEngineVersion":
         '''Version "8.4.8".'''
         return typing.cast("MysqlEngineVersion", jsii.sget(cls, "VER_8_4_8"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_8_4_9")
+    def VER_8_4_9(cls) -> "MysqlEngineVersion":
+        '''Version "8.4.9".'''
+        return typing.cast("MysqlEngineVersion", jsii.sget(cls, "VER_8_4_9"))
 
     @builtins.property
     @jsii.member(jsii_name="mysqlFullVersion")
@@ -41159,10 +41212,10 @@ class ServerlessCluster(
             cluster_identifier="db-endpoint-test",
             default_database_name="demos"
         )
-        rds_dS = api.add_rds_data_source("rds", cluster, secret, "demos")
+        rds_ds = api.add_rds_data_source("rds", cluster, secret, "demos")
         
         # Set up a resolver for an RDS query.
-        rds_dS.create_resolver("QueryGetDemosRdsResolver",
+        rds_ds.create_resolver("QueryGetDemosRdsResolver",
             type_name="Query",
             field_name="getDemosRds",
             request_mapping_template=appsync.MappingTemplate.from_string("""
@@ -41179,7 +41232,7 @@ class ServerlessCluster(
         )
         
         # Set up a resolver for an RDS mutation.
-        rds_dS.create_resolver("MutationAddDemoRdsResolver",
+        rds_ds.create_resolver("MutationAddDemoRdsResolver",
             type_name="Mutation",
             field_name="addDemoRds",
             request_mapping_template=appsync.MappingTemplate.from_string("""
@@ -42186,10 +42239,10 @@ class ServerlessClusterProps:
                 cluster_identifier="db-endpoint-test",
                 default_database_name="demos"
             )
-            rds_dS = api.add_rds_data_source("rds", cluster, secret, "demos")
+            rds_ds = api.add_rds_data_source("rds", cluster, secret, "demos")
             
             # Set up a resolver for an RDS query.
-            rds_dS.create_resolver("QueryGetDemosRdsResolver",
+            rds_ds.create_resolver("QueryGetDemosRdsResolver",
                 type_name="Query",
                 field_name="getDemosRds",
                 request_mapping_template=appsync.MappingTemplate.from_string("""
@@ -42206,7 +42259,7 @@ class ServerlessClusterProps:
             )
             
             # Set up a resolver for an RDS mutation.
-            rds_dS.create_resolver("MutationAddDemoRdsResolver",
+            rds_ds.create_resolver("MutationAddDemoRdsResolver",
                 type_name="Mutation",
                 field_name="addDemoRds",
                 request_mapping_template=appsync.MappingTemplate.from_string("""
@@ -50649,14 +50702,14 @@ class DatabaseProxyEndpoint(
         from aws_cdk import aws_rds as rds
         from aws_cdk.interfaces import aws_rds as interfaces_rds
         
-        # d_bProxy_ref: interfaces_rds.IDBProxyRef
+        # d_b_proxy_ref: interfaces_rds.IDBProxyRef
         # security_group: ec2.SecurityGroup
         # subnet: ec2.Subnet
         # subnet_filter: ec2.SubnetFilter
         # vpc: ec2.Vpc
         
         database_proxy_endpoint = rds.DatabaseProxyEndpoint(self, "MyDatabaseProxyEndpoint",
-            db_proxy=d_bProxy_ref,
+            db_proxy=d_b_proxy_ref,
             vpc=vpc,
         
             # the properties below are optional
@@ -54819,7 +54872,7 @@ def _typecheckingstub__0596ec891883071cc8cc2bad7e4e8120eefe68f759bfc17fdbfc1a525
     *,
     source_arn: builtins.str,
     target_arn: builtins.str,
-    additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    additional_encryption_context: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     data_filter: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     integration_name: typing.Optional[builtins.str] = None,
@@ -54866,7 +54919,7 @@ def _typecheckingstub__6dd8ff906d13523a9100f3e1da8891fd48222fa9aef07e443b5b2ab9f
     pass
 
 def _typecheckingstub__f7fbdfa17cddec711beb6235c912d759435b5df9d3a68892f8c59ac577e099e8(
-    value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -54905,7 +54958,7 @@ def _typecheckingstub__69f4caa1fd2b447a305e7c18241756ad629a86b97bd052f17e677fc84
     *,
     source_arn: builtins.str,
     target_arn: builtins.str,
-    additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    additional_encryption_context: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     data_filter: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     integration_name: typing.Optional[builtins.str] = None,

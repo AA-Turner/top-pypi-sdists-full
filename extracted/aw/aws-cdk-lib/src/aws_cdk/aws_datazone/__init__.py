@@ -157,7 +157,7 @@ class CfnConnection(
             environment_identifier="environmentIdentifier",
             project_identifier="projectIdentifier",
             props=datazone.CfnConnection.ConnectionPropertiesInputProperty(
-                amazon_qProperties=datazone.CfnConnection.AmazonQPropertiesInputProperty(
+                amazon_q_properties=datazone.CfnConnection.AmazonQPropertiesInputProperty(
                     auth_mode="authMode",
                     is_enabled=False,
                     profile_arn="profileArn"
@@ -651,7 +651,7 @@ class CfnConnection(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_datazone as datazone
                 
-                amazon_qProperties_input_property = datazone.CfnConnection.AmazonQPropertiesInputProperty(
+                amazon_q_properties_input_property = datazone.CfnConnection.AmazonQPropertiesInputProperty(
                     auth_mode="authMode",
                     is_enabled=False,
                     profile_arn="profileArn"
@@ -779,7 +779,7 @@ class CfnConnection(
             *,
             authentication_type: typing.Optional[builtins.str] = None,
             basic_authentication_credentials: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnection.BasicAuthenticationCredentialsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            custom_authentication_credentials: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            custom_authentication_credentials: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             kms_key_arn: typing.Optional[builtins.str] = None,
             o_auth2_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnection.OAuth2PropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             secret_arn: typing.Optional[builtins.str] = None,
@@ -881,13 +881,13 @@ class CfnConnection(
         @builtins.property
         def custom_authentication_credentials(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''The custom authentication credentials of a connection.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-connection-authenticationconfigurationinput.html#cfn-datazone-connection-authenticationconfigurationinput-customauthenticationcredentials
             '''
             result = self._values.get("custom_authentication_credentials")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def kms_key_arn(self) -> typing.Optional[builtins.str]:
@@ -1187,7 +1187,7 @@ class CfnConnection(
             self,
             *,
             classification: typing.Optional[builtins.str] = None,
-            properties: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         ) -> None:
             '''A configuration of the connection.
 
@@ -1232,13 +1232,13 @@ class CfnConnection(
         @builtins.property
         def properties(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''Property Map.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-connection-connectionconfiguration.html#cfn-datazone-connection-connectionconfiguration-properties
             '''
             result = self._values.get("properties")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1316,7 +1316,7 @@ class CfnConnection(
                 # workflows_serverless_properties: Any
                 
                 connection_properties_input_property = datazone.CfnConnection.ConnectionPropertiesInputProperty(
-                    amazon_qProperties=datazone.CfnConnection.AmazonQPropertiesInputProperty(
+                    amazon_q_properties=datazone.CfnConnection.AmazonQPropertiesInputProperty(
                         auth_mode="authMode",
                         is_enabled=False,
                         profile_arn="profileArn"
@@ -1671,16 +1671,16 @@ class CfnConnection(
         def __init__(
             self,
             *,
-            athena_properties: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            athena_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             authentication_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnection.AuthenticationConfigurationInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            connection_properties: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            connection_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             connection_type: typing.Optional[builtins.str] = None,
             description: typing.Optional[builtins.str] = None,
             match_criteria: typing.Optional[builtins.str] = None,
             name: typing.Optional[builtins.str] = None,
             physical_connection_requirements: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnection.PhysicalConnectionRequirementsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            python_properties: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
-            spark_properties: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            python_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
+            spark_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             validate_credentials: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             validate_for_compute_environments: typing.Optional[typing.Sequence[builtins.str]] = None,
         ) -> None:
@@ -1811,13 +1811,13 @@ class CfnConnection(
         @builtins.property
         def athena_properties(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''The Amazon Athena properties of the AWS Glue connection.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-connection-glueconnectioninput.html#cfn-datazone-connection-glueconnectioninput-athenaproperties
             '''
             result = self._values.get("athena_properties")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def authentication_configuration(
@@ -1833,13 +1833,13 @@ class CfnConnection(
         @builtins.property
         def connection_properties(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''The connection properties of the AWS Glue connection.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-connection-glueconnectioninput.html#cfn-datazone-connection-glueconnectioninput-connectionproperties
             '''
             result = self._values.get("connection_properties")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def connection_type(self) -> typing.Optional[builtins.str]:
@@ -1891,24 +1891,24 @@ class CfnConnection(
         @builtins.property
         def python_properties(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''The Python properties of the AWS Glue connection.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-connection-glueconnectioninput.html#cfn-datazone-connection-glueconnectioninput-pythonproperties
             '''
             result = self._values.get("python_properties")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def spark_properties(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''The Spark properties of the AWS Glue connection.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-connection-glueconnectioninput.html#cfn-datazone-connection-glueconnectioninput-sparkproperties
             '''
             result = self._values.get("spark_properties")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def validate_credentials(
@@ -1978,7 +1978,7 @@ class CfnConnection(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_datazone as datazone
                 
-                glue_oAuth2_credentials_property = datazone.CfnConnection.GlueOAuth2CredentialsProperty(
+                glue_o_auth2_credentials_property = datazone.CfnConnection.GlueOAuth2CredentialsProperty(
                     access_token="accessToken",
                     jwt_token="jwtToken",
                     refresh_token="refreshToken",
@@ -2535,7 +2535,7 @@ class CfnConnection(
             o_auth2_credentials: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnection.GlueOAuth2CredentialsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             o_auth2_grant_type: typing.Optional[builtins.str] = None,
             token_url: typing.Optional[builtins.str] = None,
-            token_url_parameters_map: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            token_url_parameters_map: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         ) -> None:
             '''The OAuth2 properties.
 
@@ -2653,13 +2653,13 @@ class CfnConnection(
         @builtins.property
         def token_url_parameters_map(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''The OAuth2 token URL parameter map of the OAuth2 properties.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-connection-oauth2properties.html#cfn-datazone-connection-oauth2properties-tokenurlparametersmap
             '''
             result = self._values.get("token_url_parameters_map")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3846,7 +3846,7 @@ class CfnConnectionProps:
                 environment_identifier="environmentIdentifier",
                 project_identifier="projectIdentifier",
                 props=datazone.CfnConnection.ConnectionPropertiesInputProperty(
-                    amazon_qProperties=datazone.CfnConnection.AmazonQPropertiesInputProperty(
+                    amazon_q_properties=datazone.CfnConnection.AmazonQPropertiesInputProperty(
                         auth_mode="authMode",
                         is_enabled=False,
                         profile_arn="profileArn"
@@ -8086,7 +8086,7 @@ class CfnEnvironmentBlueprintConfiguration(
         enabled_regions: typing.Sequence[builtins.str],
         environment_blueprint_identifier: builtins.str,
         environment_role_permission_boundary: typing.Optional[builtins.str] = None,
-        global_parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        global_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         manage_access_role_arn: typing.Optional[builtins.str] = None,
         provisioning_configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEnvironmentBlueprintConfiguration.ProvisioningConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         provisioning_role_arn: typing.Optional[builtins.str] = None,
@@ -8281,14 +8281,14 @@ class CfnEnvironmentBlueprintConfiguration(
     @jsii.member(jsii_name="globalParameters")
     def global_parameters(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''Region-agnostic environment blueprint parameters.'''
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], jsii.get(self, "globalParameters"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "globalParameters"))
 
     @global_parameters.setter
     def global_parameters(
         self,
-        value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7ca022caecfc4112e662c62e43c15f92fe597cca888fd042fb8981ce06c43219)
@@ -8502,7 +8502,7 @@ class CfnEnvironmentBlueprintConfiguration(
         def __init__(
             self,
             *,
-            parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             region: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The regional parameters in the environment blueprint.
@@ -8539,13 +8539,13 @@ class CfnEnvironmentBlueprintConfiguration(
         @builtins.property
         def parameters(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''A string to string map containing parameters for the region.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-environmentblueprintconfiguration-regionalparameter.html#cfn-datazone-environmentblueprintconfiguration-regionalparameter-parameters
             '''
             result = self._values.get("parameters")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def region(self) -> typing.Optional[builtins.str]:
@@ -8591,7 +8591,7 @@ class CfnEnvironmentBlueprintConfigurationProps:
         enabled_regions: typing.Sequence[builtins.str],
         environment_blueprint_identifier: builtins.str,
         environment_role_permission_boundary: typing.Optional[builtins.str] = None,
-        global_parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        global_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         manage_access_role_arn: typing.Optional[builtins.str] = None,
         provisioning_configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEnvironmentBlueprintConfiguration.ProvisioningConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         provisioning_role_arn: typing.Optional[builtins.str] = None,
@@ -8717,13 +8717,13 @@ class CfnEnvironmentBlueprintConfigurationProps:
     @builtins.property
     def global_parameters(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''Region-agnostic environment blueprint parameters.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datazone-environmentblueprintconfiguration.html#cfn-datazone-environmentblueprintconfiguration-globalparameters
         '''
         result = self._values.get("global_parameters")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
     @builtins.property
     def manage_access_role_arn(self) -> typing.Optional[builtins.str]:
@@ -16955,7 +16955,7 @@ def _typecheckingstub__bede0f21a390e4991cddbe5e8b7fc491f05c5af9d778e5f1ecb4a57c9
     *,
     authentication_type: typing.Optional[builtins.str] = None,
     basic_authentication_credentials: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnection.BasicAuthenticationCredentialsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    custom_authentication_credentials: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    custom_authentication_credentials: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     kms_key_arn: typing.Optional[builtins.str] = None,
     o_auth2_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnection.OAuth2PropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     secret_arn: typing.Optional[builtins.str] = None,
@@ -16992,7 +16992,7 @@ def _typecheckingstub__7ee4cc1ea0ba5d5144e8b2c837d252087208460444755cfb7f5128e74
 def _typecheckingstub__57f781a50aad4f0321eb97aa8bb1e35b3125927b7c9fbbd0b58c1804f660a26a(
     *,
     classification: typing.Optional[builtins.str] = None,
-    properties: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17018,16 +17018,16 @@ def _typecheckingstub__afac89e500a9d5f348ce1c21e174ddef9825d543c744b00c3ff73a0c8
 
 def _typecheckingstub__647e7cf0ba0ee1ab7c75fea7d6b34c8a50c95526cd1ec69c86c54c920adef3a9(
     *,
-    athena_properties: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    athena_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     authentication_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnection.AuthenticationConfigurationInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    connection_properties: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    connection_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     connection_type: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     match_criteria: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
     physical_connection_requirements: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnection.PhysicalConnectionRequirementsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    python_properties: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-    spark_properties: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    python_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
+    spark_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     validate_credentials: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     validate_for_compute_environments: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
@@ -17101,7 +17101,7 @@ def _typecheckingstub__4cba63b68fdb8bbf2e7a537a629e7f6c6d51267f6c2af7395b1464f0e
     o_auth2_credentials: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnection.GlueOAuth2CredentialsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     o_auth2_grant_type: typing.Optional[builtins.str] = None,
     token_url: typing.Optional[builtins.str] = None,
-    token_url_parameters_map: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    token_url_parameters_map: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17893,7 +17893,7 @@ def _typecheckingstub__48d8677ae22ff2da132402ace39f998c6b914f7464ce38abe9373fdbc
     enabled_regions: typing.Sequence[builtins.str],
     environment_blueprint_identifier: builtins.str,
     environment_role_permission_boundary: typing.Optional[builtins.str] = None,
-    global_parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    global_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     manage_access_role_arn: typing.Optional[builtins.str] = None,
     provisioning_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironmentBlueprintConfiguration.ProvisioningConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     provisioning_role_arn: typing.Optional[builtins.str] = None,
@@ -17945,7 +17945,7 @@ def _typecheckingstub__0142557047b6391f0c0d7425b73085935e7a1d5e07139d87dcb9c9ab7
     pass
 
 def _typecheckingstub__7ca022caecfc4112e662c62e43c15f92fe597cca888fd042fb8981ce06c43219(
-    value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17991,7 +17991,7 @@ def _typecheckingstub__29b5e41d02462ac9818fbf0e54d1556527c5ab2ab685686237dee244c
 
 def _typecheckingstub__563b6d6aa110d6b77fcca8e42c3020852fa0c12036e1ba7f6ee62b2ce30826ff(
     *,
-    parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     region: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -18003,7 +18003,7 @@ def _typecheckingstub__ca96f6fc24dc164f6fafb08d94645f48f6b4fc5c0a2ad8a3b95e17093
     enabled_regions: typing.Sequence[builtins.str],
     environment_blueprint_identifier: builtins.str,
     environment_role_permission_boundary: typing.Optional[builtins.str] = None,
-    global_parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    global_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     manage_access_role_arn: typing.Optional[builtins.str] = None,
     provisioning_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironmentBlueprintConfiguration.ProvisioningConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     provisioning_role_arn: typing.Optional[builtins.str] = None,

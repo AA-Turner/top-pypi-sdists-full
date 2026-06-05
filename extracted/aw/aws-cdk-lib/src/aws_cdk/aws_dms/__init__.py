@@ -1117,7 +1117,7 @@ class CfnDataProvider(
                     # the properties below are optional
                     certificate_arn="certificateArn"
                 ),
-                ibm_db2_zOs_settings=dms.CfnDataProvider.IbmDb2zOsSettingsProperty(
+                ibm_db2_z_os_settings=dms.CfnDataProvider.IbmDb2zOsSettingsProperty(
                     database_name="databaseName",
                     port=123,
                     server_name="serverName",
@@ -2835,7 +2835,7 @@ class CfnDataProvider(
                         # the properties below are optional
                         certificate_arn="certificateArn"
                     ),
-                    ibm_db2_zOs_settings=dms.CfnDataProvider.IbmDb2zOsSettingsProperty(
+                    ibm_db2_z_os_settings=dms.CfnDataProvider.IbmDb2zOsSettingsProperty(
                         database_name="databaseName",
                         port=123,
                         server_name="serverName",
@@ -3299,7 +3299,7 @@ class CfnDataProviderProps:
                         # the properties below are optional
                         certificate_arn="certificateArn"
                     ),
-                    ibm_db2_zOs_settings=dms.CfnDataProvider.IbmDb2zOsSettingsProperty(
+                    ibm_db2_z_os_settings=dms.CfnDataProvider.IbmDb2zOsSettingsProperty(
                         database_name="databaseName",
                         port=123,
                         server_name="serverName",
@@ -3569,7 +3569,7 @@ class CfnEndpoint(
                 keep_csv_files=False,
                 load_timeout=123,
                 max_file_size=123,
-                max_kBytes_per_read=123,
+                max_k_bytes_per_read=123,
                 secrets_manager_access_role_arn="secretsManagerAccessRoleArn",
                 secrets_manager_secret_id="secretsManagerSecretId",
                 set_data_capture_changes=False,
@@ -3694,7 +3694,7 @@ class CfnEndpoint(
                 spatial_data_option_to_geo_json_function_name="spatialDataOptionToGeoJsonFunctionName",
                 standby_delay_time=123,
                 use_alternate_folder_for_online=False,
-                use_bFile=False,
+                use_b_file=False,
                 use_direct_path_full_load=False,
                 use_logminer_reader=False,
                 use_path_prefix="usePathPrefix"
@@ -4907,7 +4907,7 @@ class CfnEndpoint(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_dms as dms
                 
-                gcp_my_sQLSettings_property = dms.CfnEndpoint.GcpMySQLSettingsProperty(
+                gcp_my_sql_settings_property = dms.CfnEndpoint.GcpMySQLSettingsProperty(
                     after_connect_script="afterConnectScript",
                     clean_source_metadata_on_mismatch=False,
                     database_name="databaseName",
@@ -5181,7 +5181,7 @@ class CfnEndpoint(
                     keep_csv_files=False,
                     load_timeout=123,
                     max_file_size=123,
-                    max_kBytes_per_read=123,
+                    max_k_bytes_per_read=123,
                     secrets_manager_access_role_arn="secretsManagerAccessRoleArn",
                     secrets_manager_secret_id="secretsManagerSecretId",
                     set_data_capture_changes=False,
@@ -7105,7 +7105,7 @@ class CfnEndpoint(
                     spatial_data_option_to_geo_json_function_name="spatialDataOptionToGeoJsonFunctionName",
                     standby_delay_time=123,
                     use_alternate_folder_for_online=False,
-                    use_bFile=False,
+                    use_b_file=False,
                     use_direct_path_full_load=False,
                     use_logminer_reader=False,
                     use_path_prefix="usePathPrefix"
@@ -9863,7 +9863,7 @@ class CfnEndpointProps:
                     keep_csv_files=False,
                     load_timeout=123,
                     max_file_size=123,
-                    max_kBytes_per_read=123,
+                    max_k_bytes_per_read=123,
                     secrets_manager_access_role_arn="secretsManagerAccessRoleArn",
                     secrets_manager_secret_id="secretsManagerSecretId",
                     set_data_capture_changes=False,
@@ -9988,7 +9988,7 @@ class CfnEndpointProps:
                     spatial_data_option_to_geo_json_function_name="spatialDataOptionToGeoJsonFunctionName",
                     standby_delay_time=123,
                     use_alternate_folder_for_online=False,
-                    use_bFile=False,
+                    use_b_file=False,
                     use_direct_path_full_load=False,
                     use_logminer_reader=False,
                     use_path_prefix="usePathPrefix"

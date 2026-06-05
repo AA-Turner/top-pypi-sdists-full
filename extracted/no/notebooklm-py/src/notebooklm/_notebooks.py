@@ -1,17 +1,17 @@
 """Notebook operations API."""
 
 import logging
-import warnings
 from typing import Any
 
+from ._deprecation import warn_deprecated
 from ._idempotency import idempotent_create
 from ._notebook_metadata import (
     NotebookMetadataService,
     NotebookSourceLister,
     create_default_source_lister,
 )
-from ._row_adapters_sources import SourceRow
-from ._session_contracts import RpcCaller
+from ._row_adapters.sources import SourceRow
+from ._runtime.contracts import RpcCaller
 from ._settings import build_get_user_settings_params, extract_account_limits
 from ._sharing_manager import ShareManager
 from .exceptions import (
@@ -210,7 +210,7 @@ class NotebooksAPI:
             below and converted to an empty list. Per-row id-envelope
             decoding (including the drive-backed ``[None, True, [id]]``
             shape) is delegated to
-            :class:`notebooklm._row_adapters_sources.SourceRow`; this method only
+            :class:`notebooklm._row_adapters.sources.SourceRow`; this method only
             performs the envelope walk down to ``notebook[0][1]``.
         """
         notebook_data = await self.get_raw(notebook_id)
@@ -253,7 +253,7 @@ class NotebooksAPI:
                 # and stringifies non-string ids. The legacy code here
                 # additionally required ``isinstance(sid, str)``; that
                 # check was inconsistent with the sibling
-                # ``_source_listing._extract_source_id`` path (which
+                # ``_source.listing._extract_source_id`` path (which
                 # accepts any non-None id via ``str(src_id)`` at the
                 # ``Source(id=...)`` boundary). Unifying both call sites
                 # through ``SourceRow.id`` aligns behavior — integer-ids
@@ -354,7 +354,7 @@ class NotebooksAPI:
 
         async def _probe() -> Notebook | None:
             # Transport- and auth-level errors during the probe MUST
-            # propagate (P1-2): the original create may have committed
+            # propagate: the original create may have committed
             # server-side and we have no way to confirm. Silently
             # returning None would let ``idempotent_create`` re-issue the
             # create on the next attempt and duplicate the notebook.
@@ -374,8 +374,7 @@ class NotebooksAPI:
                 # Transport- and auth-level probe failures must propagate.
                 # Silently returning None here lets ``idempotent_create``
                 # re-issue the create on top of a broken probe, which is
-                # exactly the duplicate-resource bug we are guarding against
-                # (P1-2).
+                # exactly the duplicate-resource bug we are guarding against.
                 logger.warning(
                     "create: probe list() failed with transport/auth error; "
                     "propagating so the caller can avoid a duplicate-resource retry"
@@ -508,19 +507,45 @@ class NotebooksAPI:
             )
         return notebook
 
-    async def delete(self, notebook_id: str) -> bool:
+    async def get_or_none(self, notebook_id: str) -> Notebook | None:
+        """Get notebook details, returning ``None`` when it does not exist.
+
+        The sanctioned ``None``-on-miss lookup (ADR-0019): a companion to
+        :meth:`get`, which raises :class:`~notebooklm.exceptions.NotebookNotFoundError`
+        on a miss. This catches *only* that genuine-absence signal and returns
+        ``None``; transport, auth, and decode faults — including the broader
+        :class:`~notebooklm.exceptions.RPCError` subtree
+        :class:`NotebookNotFoundError` also inherits — propagate unchanged.
+
+        Args:
+            notebook_id: The notebook ID.
+
+        Returns:
+            The :class:`~notebooklm.types.Notebook`, or ``None`` if not found.
+        """
+        try:
+            return await self.get(notebook_id)
+        except NotebookNotFoundError:
+            return None
+
+    async def delete(self, notebook_id: str) -> None:
         """Delete a notebook.
+
+        Idempotent: deleting an already-absent notebook succeeds (returns
+        ``None``) and never raises ``NotebookNotFoundError``. Real failures
+        (``403``/``5xx``/auth/transport) still propagate.
 
         Args:
             notebook_id: The notebook ID to delete.
 
-        Returns:
-            True if deletion succeeded.
+        .. versionchanged:: 0.7.0
+            **Breaking change:** previously returned a hardcoded ``True``;
+            now returns ``None`` (issue #1211). ``if await notebooks.delete(...):``
+            no longer enters its block.
         """
         logger.debug("Deleting notebook: %s", notebook_id)
         params = [[notebook_id], [2]]
         await self._rpc.rpc_call(RPCMethod.DELETE_NOTEBOOK, params)
-        return True
 
     async def rename(self, notebook_id: str, new_title: str) -> Notebook:
         """Rename a notebook.
@@ -684,14 +709,16 @@ class NotebooksAPI:
         Returns:
             Dict with 'public' status, 'url', and 'artifact_id'.
         """
-        warnings.warn(
+        warn_deprecated(
             "NotebooksAPI.share() is deprecated; use client.sharing.set_public() "
             "for the canonical notebook-level public-sharing toggle (paired with "
             "client.sharing.add_user(), set_view_level(), get_status()). Return "
             "shape is unchanged in this release; the wrapper will be removed in "
             "a future major release.",
-            DeprecationWarning,
-            stacklevel=2,
+            # No pinned removal version yet (re-pin tracked by #1363); the
+            # message already says "a future major release".
+            removal=None,
+            stacklevel=3,
         )
         return await self._share_manager.share(notebook_id, public, artifact_id)
 

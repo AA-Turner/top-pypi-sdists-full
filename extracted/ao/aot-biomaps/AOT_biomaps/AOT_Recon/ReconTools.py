@@ -31,121 +31,8 @@ from AOT_biomaps.AOT_Recon.ReconEnums import PotentialShapeType, PotentialType, 
 
 def clamp_positive(SMatrix, x):
     """Clamp array values to be non-negative. Uses CUDA kernel when available."""   
-    if check_gpu_available(SMatrix):
-        sparse_mod = SMatrix.sparse_mod
-        if sparse_mod is not None:
-            try:
-                x_gpu = cp.asarray(x) if not isinstance(x, cp.ndarray) else x
-                N = x_gpu.size
-                threads = 256
-                blocks = (N + threads - 1) // threads
-                clamp_kernel = sparse_mod.get_function('clamp_positive_kernel')
-                clamp_kernel(grid=(blocks, 1), block=(threads, 1, 1),
-                           args=[x_gpu.data.ptr, np.int32(N)])
-                cp.cuda.Stream.null.synchronize()
-                return x_gpu
-            except Exception:
-                pass
-    
     xp = get_array_module(SMatrix)
     return xp.maximum(x, 0.0)
-
-# =============================================================================
-# VECTOR OPERATIONS
-# =============================================================================
-
-def axpby(SMatrix, x, y, a, b):
-    """Compute a*x + b*y. Uses CUDA kernel when available."""    
-    if check_gpu_available(SMatrix):
-        sparse_mod = SMatrix.sparse_mod
-        if sparse_mod is not None:
-            try:
-                x_gpu = cp.asarray(x) if not isinstance(x, cp.ndarray) else x
-                y_gpu = cp.asarray(y) if not isinstance(y, cp.ndarray) else y
-                N = x_gpu.size
-                z_gpu = cp.empty(N, dtype=cp.float32)
-                threads = 256
-                blocks = (N + threads - 1) // threads
-                axpby_kernel = sparse_mod.get_function('vector_axpby_kernel')
-                axpby_kernel(grid=(blocks, 1), block=(threads, 1, 1),
-                           args=[z_gpu.data.ptr, x_gpu.data.ptr, y_gpu.data.ptr,
-                                 np.float32(a), np.float32(b), np.int32(N)])
-                cp.cuda.Stream.null.synchronize()
-                return z_gpu
-            except Exception:
-                pass
-    
-    return a * x + b * y
-
-def axpy(SMatrix, x, y, a):
-    """Compute x + a*y. Uses CUDA kernel when available."""   
-    if check_gpu_available(SMatrix):
-        sparse_mod = SMatrix.sparse_mod
-        if sparse_mod is not None:
-            try:
-                x_gpu = cp.asarray(x) if not isinstance(x, cp.ndarray) else x
-                y_gpu = cp.asarray(y) if not isinstance(y, cp.ndarray) else y
-                N = x_gpu.size
-                threads = 256
-                blocks = (N + threads - 1) // threads
-                axpy_kernel = sparse_mod.get_function('vector_axpy_kernel')
-                # Note: vector_plus_axpy_kernel does r = r + alpha * z
-                # We need to copy x first since it modifies in place
-                r_gpu = x_gpu.copy()
-                axpy_kernel(grid=(blocks, 1), block=(threads, 1, 1),
-                            args=[r_gpu.data.ptr, y_gpu.data.ptr, np.float32(a), np.int32(N)])
-                cp.cuda.Stream.null.synchronize()
-                return r_gpu
-            except Exception:
-                pass
-    
-    return x + a * y
-
-def dot_product(SMatrix, x, y):
-    """Compute dot product of two vectors."""
-    xp = get_array_module(SMatrix)
-    return xp.sum(x * y)
-
-def vector_divide(SMatrix, x, y, epsilon=1e-12):
-    """Element-wise division: x / y with protection against division by zero."""
-    if check_gpu_available(SMatrix):
-        if isinstance(x, np.ndarray):
-            x = cp.asarray(x)
-        if isinstance(y, np.ndarray):
-            y = cp.asarray(y)
-        xp = cp
-    else:
-        if isinstance(x, cp.ndarray):
-            x = cp.asnumpy(x)
-        if isinstance(y, cp.ndarray):
-            y = cp.asnumpy(y)
-        xp = np
-
-    if check_gpu_available(SMatrix):
-        sparse_mod = SMatrix.sparse_mod
-        if sparse_mod is not None:
-            try:
-                N = x.size
-                result_gpu = xp.empty(N, dtype=xp.float32)
-                threads = 256
-                blocks = (N + threads - 1) // threads
-                invert_kernel = sparse_mod.get_function('invert_vector_kernel')
-                invert_kernel(
-                    grid=(blocks, 1),
-                    block=(threads, 1, 1),
-                    args=[result_gpu.data.ptr, y.data.ptr, np.float32(epsilon), np.int32(N)]
-                )
-                result_gpu = x * result_gpu
-                cp.cuda.Stream.null.synchronize()
-                return result_gpu
-            except Exception:
-                pass
-
-    return x / (y + epsilon)
-
-def apply_normalization(SMatrix, x, norm_factor):
-    """Apply normalization to vector."""
-    return x * norm_factor
 
 # =============================================================================
 # MATRIX-VECTOR OPERATIONS (delegated to SMatrix implementation)
@@ -155,7 +42,6 @@ def apply_normalization(SMatrix, x, norm_factor):
 def forward_projection(SMatrix, theta):
     """Forward projection: q = A * theta. Uses SMatrix.forward_projection() which calls CUDA kernels."""
     return SMatrix.forward_projection(theta)
-
 
 def backward_projection(SMatrix, e):
     """Backprojection: c = A^T * e. Uses SMatrix.backward_projection() which calls CUDA kernels."""
@@ -186,7 +72,6 @@ def calculate_step_size_reg(SMatrix, gamma, num_subsets, num_iters, show_logs):
     Args:
         - SMatrix: The system matrix, used to estimate the Lipschitz constant.
         - gamma: Regularization parameter
-        - eta: Parameter for the step size calculation when alpha or sigma is "auto". Must be > 1 for convergence and < 2 for optimal convergence.
         - num_subsets: Number of subsets used in the algorithm (affects the effective Lipschitz constant)
         - num_iters: Number of iterations to use for the power method estimation of the Lipschitz constant
         - show_logs: If True, prints the estimated Lipschitz constant and chosen step sizes
@@ -196,12 +81,13 @@ def calculate_step_size_reg(SMatrix, gamma, num_subsets, num_iters, show_logs):
     L_total = (L_estimate**2) + L_grad
     # Calculate Chambolle-Pock step sizes
     tau_val = float(0.99 / (np.sqrt(L_total) * gamma))
-    sigma_val = float((0.99 * gamma / np.sqrt(L_total)) * num_subsets)
-    
+    sigma_q_val = float((0.99 * gamma / np.sqrt(L_total)) * num_subsets)
+    sigma_p_val = float(0.99 * gamma / np.sqrt(L_total))
     if show_logs:
-        print(f"Estimated Lipschitz: {L_estimate:.4f} | tau: {tau_val:.5e} | sigma: {sigma_val:.5e}")
+        print(f"Estimated Lipschitz: {L_estimate:.4f} | tau: {tau_val:.5e} | sigma_q: {sigma_q_val:.5e} | sigma_p: {sigma_p_val:.5e}")
         
-    return tau_val, sigma_val
+    return tau_val, sigma_q_val, sigma_p_val
+
 def calculate_step_size(SMatrix, eta, num_iters, show_logs):
     """
     Calculate the step size for the optimization algorithm if alpha is "auto".
@@ -239,7 +125,7 @@ def estimate_operator_norm(SMatrix, num_iters: int = 15) -> float:
         Av = forward_projection(SMatrix, v)
         AtAv = backward_projection(SMatrix, Av)
 
-        eig = xp.dot(v, AtAv)
+        eig = float(xp.vdot(v, AtAv))
 
         norm = xp.linalg.norm(AtAv)
         if norm > 1e-12:
@@ -251,320 +137,352 @@ def estimate_operator_norm(SMatrix, num_iters: int = 15) -> float:
 # POTENTIAL FUNCTIONS
 # =============================================================================
 
-def build_neighborhood_offsets(SMatrix, shape=PotentialShapeType.CROSS, radius=1):
-    """
-    Generates the spatial offsets (dz, dx) and associated weights for MRF gradients.
-    It returns only the "half-neighborhood" to prevent computing identical edges twice 
-    (since edge A-B is the same as B-A), which doubles GPU performance.
-    
-    Args:
-        SMatrix: The system matrix.
-        shape (PotentialShapeType): The shape of the neighborhood.
-        radius (int): Maximum neighborhood distance.
-        
-    Returns:
-        list of tuples: [(dz, dx, weight), ...]
-    """
-    xp = get_array_module(SMatrix)
-    # 1. Vérification de la forme AVANT la boucle (Sécurité)
-    if shape not in [PotentialShapeType.CROSS, PotentialShapeType.SQUARE, PotentialShapeType.CIRCLE]:
-        raise ValueError(f"Unsupported neighborhood shape: {shape}, must be one of {list(PotentialShapeType)}.")
+# =====================================================================
+# GPU KERNELS (CuPy) - Zero Allocation & Gather Paradigm
+# =====================================================================
 
-    offsets = []
+if CUPY_AVAILABLE:
+    mrf_potential_kernel = cp.ElementwiseKernel(
+        'int32 Z, int32 X, raw float32 U, raw int32 dz, raw int32 dx, raw float32 w, int32 num_neighbors, float32 beta, float32 delta, bool is_huber, int32 hessian_mode',
+        'float32 grad_out, float32 hess_out, float32 energy_out',
+        '''
+        int z = i / X;
+        int x = i % X;
+        float u_i = U[i];
+        
+        float g = 0.0f;
+        float h = 0.0f;
+        float e = 0.0f;
+        
+        for(int k = 0; k < num_neighbors; ++k) {
+            int nz = z + dz[k];
+            int nx = x + dx[k];
+            
+            if (nz >= 0 && nz < Z && nx >= 0 && nx < X) {
+                float u_j = U[nz * X + nx];
+                float diff = u_i - u_j;
+                float abs_diff = abs(diff);
+                float weight = w[k];
+                
+                if (is_huber) {
+                    if (abs_diff <= delta) {
+                        // Quadratic Region
+                        g += beta * weight * diff;
+                        h += beta * weight;
+                        e += 0.5f * beta * weight * diff * diff;
+                    } else {
+                        // Linear Region (Edges)
+                        g += beta * weight * delta * (diff > 0.0f ? 1.0f : -1.0f);
+                        if (hessian_mode == 1) {
+                            h += beta * weight * delta / abs_diff; // De Pierro Surrogate (phi'/t)
+                        } else {
+                            h += 0.0f; // Exact Hessian phi''(t)
+                        }
+                        e += beta * weight * delta * (abs_diff - 0.5f * delta);
+                    }
+                } else { 
+                    // Strictly Quadratic
+                    g += beta * weight * diff;
+                    h += beta * weight;
+                    e += 0.5f * beta * weight * diff * diff;
+                }
+            }
+        }
+        grad_out = g;
+        hess_out = h;
+        energy_out = e;
+        ''',
+        'fused_mrf_potential_kernel'
+    )
+
+    # Dedicated kernel for Relative Difference Prior (RDP)
+    rdp_potential_kernel = cp.ElementwiseKernel(
+        'int32 Z, int32 X, raw float32 U, raw int32 dz, raw int32 dx, raw float32 w, int32 num_neighbors, float32 beta, float32 delta, int32 hessian_mode',
+        'float32 grad_out, float32 hess_out, float32 energy_out',
+        '''
+        int z = i / X;
+        int x = i % X;
+        float u_i = U[i];
+        float eps = 1e-8f;
+        
+        float g = 0.0f;
+        float h = 0.0f;
+        float e = 0.0f;
+        
+        for(int k = 0; k < num_neighbors; ++k) {
+            int nz = z + dz[k];
+            int nx = x + dx[k];
+            
+            if (nz >= 0 && nz < Z && nx >= 0 && nx < X) {
+                float u_j = U[nz * X + nx];
+                float diff = u_i - u_j;
+                float abs_diff = abs(diff);
+                float sum_ij = u_i + u_j;
+                float weight = w[k];
+                
+                float denom = sum_ij + delta * abs_diff + eps;
+                float denom_sq = denom * denom;
+                
+                float sign_diff = diff > 0.0f ? 1.0f : (diff < 0.0f ? -1.0f : 0.0f);
+                float d_denom = 1.0f + delta * sign_diff;
+                
+                g += beta * weight * (2.0f * diff * denom - (diff * diff) * d_denom) / denom_sq;
+                
+                // The exact Hessian of RDP is non-convex. We use the standard 
+                // pragmatic approximation 2.0 / denom to guarantee stability.
+                h += beta * weight * 2.0f / denom;
+                
+                e += beta * weight * (diff * diff) / denom;
+            }
+        }
+        grad_out = g;
+        hess_out = h;
+        energy_out = e;
+        ''',
+        'fused_rdp_potential_kernel'
+    )
+
+_OFFSET_CACHE = {}
+
+def build_full_neighborhood_offsets(SMatrix, shape=PotentialShapeType.CROSS, radius=1):
+    """Generates the FULL neighborhood (Gather) and caches it."""
+    xp = get_array_module(SMatrix)
+    if shape not in [PotentialShapeType.CROSS, PotentialShapeType.SQUARE, PotentialShapeType.CIRCLE]:
+        raise ValueError(f"Unsupported neighborhood shape: {shape}")
+
+    offsets_dz, offsets_dx, weights = [], [], []
     total_weight = 0.0
     
-    # Iterate over the lower half of the 2D space (dz >= 0)
-    for dz in range(0, radius + 1):
+    for dz in range(-radius, radius + 1):
         for dx in range(-radius, radius + 1):
-            # Skip the center pixel itself, and skip the left half of the same row (dz=0)
-            # to strictly capture only half of the neighborhood edges.
-            if dz == 0 and dx <= 0:
+            if dz == 0 and dx == 0:
                 continue
                 
-            dist_l2 = xp.sqrt(dz**2 + dx**2)
+            dist_l2 = np.sqrt(dz**2 + dx**2)
             dist_l1 = abs(dz) + abs(dx)
             dist_linf = max(abs(dz), abs(dx))
             
-            # 2. Vérification géométrique de l'appartenance du pixel
             is_valid = False
-            if shape == PotentialShapeType.CROSS:
-                is_valid = (dist_l1 <= radius)
-            elif shape == PotentialShapeType.SQUARE:
-                is_valid = (dist_linf <= radius)
-            elif shape == PotentialShapeType.CIRCLE:
-                is_valid = (dist_l2 <= radius + 1e-5)
+            if shape == PotentialShapeType.CROSS: is_valid = (dist_l1 <= radius)
+            elif shape == PotentialShapeType.SQUARE: is_valid = (dist_linf <= radius)
+            elif shape == PotentialShapeType.CIRCLE: is_valid = (dist_l2 <= radius + 1e-5)
 
             if is_valid:
-                # Standard isotropic weight is 1 / Euclidean distance
                 weight = 1.0 / dist_l2
-                offsets.append((dz, dx, weight))
-                total_weight += weight * 2.0 # Multiply by 2 since we only compute half-edges
+                offsets_dz.append(dz)
+                offsets_dx.append(dx)
+                weights.append(weight)
+                total_weight += weight
                 
-    # Normalize weights so the sum equals the standard 4-connectivity base (sum = 4.0).
-    # This ensures your 'beta' parameter keeps the same scale regardless of the radius.
     normalization_factor = 4.0 / (total_weight + 1e-10)
-    offsets = [(dz, dx, w * normalization_factor) for dz, dx, w in offsets]
+    weights = [w * normalization_factor for w in weights]
     
-    return offsets
+    return xp.array(offsets_dz, dtype=xp.int32), xp.array(offsets_dx, dtype=xp.int32), xp.array(weights, dtype=xp.float32)
 
-def get_potential_function(potential_type, SMatrix, U, beta, shape, radius, delta=None, compute_grad=True, compute_hess=True, compute_energy=True):
+def get_potential_function(
+    potential_type: PotentialType, 
+    SMatrix, 
+    U, 
+    beta: float, 
+    shape: PotentialShapeType, 
+    radius: int, 
+    delta: float = 1.0, 
+    compute_grad: bool = True, 
+    compute_hess: bool = True, 
+    compute_energy: bool = True,
+    use_surrogate_hessian: bool = False
+):
     """
-    Get potential function derivatives and energy dynamically.
-    Returns (grad_U, hess_U, U_value). Elements are None if their compute flag is False.
+    Compute the potential function value, gradient, and Hessian for a given image U based on the specified potential type and neighborhood.
+    Supports GPU acceleration with zero allocations using custom CUDA kernels when available, and falls back to CPU implementation when not.
+    
+    Args:
+    - potential_type: Type of potential function to compute (e.g., QUADRATIC, HUBER, RELATIVE_DIFFERENCE).
+    - SMatrix: The system matrix, used to determine the array module (NumPy or CuPy) and dimensions.
+    - U: The input image (flattened) for which to compute the potential, gradient and Hessian.
+    - beta: Regularization strength parameter.
+    - shape: The shape of the neighborhood (CROSS, SQUARE, CIRCLE). 
+    - radius: The radius of the neighborhood.
+    - delta: The threshold parameter for Huber and Relative Difference potentials.
+    - compute_grad: Whether to compute and return the gradient.
+    - compute_hess: Whether to compute and return the Hessian.
+    - compute_energy: Whether to compute and return the potential energy value.
+    - use_surrogate_hessian: For Huber potential, whether to use the De Pierro surrogate (phi'/t) for the Hessian in the linear region instead of the exact phi''(t). This can improve convergence speed at the cost of not being the true Hessian.
     """
+    
     xp = get_array_module(SMatrix)
     
     if potential_type == PotentialType.NONE:
         return (xp.zeros_like(U) if compute_grad else None, xp.zeros_like(U) if compute_hess else None, 0.0 if compute_energy else None)
-    if potential_type == PotentialType.QUADRATIC:
-        return quadratic_potential(SMatrix, U, beta, shape, radius, compute_grad, compute_hess, compute_energy)
-    elif potential_type == PotentialType.HUBER:
-        return huber_potential(SMatrix, U, beta, delta, shape, radius, compute_grad, compute_hess, compute_energy)
-    elif potential_type == PotentialType.RELATIVE_DIFFERENCE:
-        return relative_difference_potential(SMatrix, U, beta, delta, shape, radius, compute_grad, compute_hess, compute_energy)
-    elif potential_type == PotentialType.TOTAL_VARIATION:
-        raise ValueError("Total Variation potential is not differentiable and thus not implemented in this framework. Consider using Huber potential with a small delta for an edge-preserving approximation.")
+    
+    Z, X = SMatrix.Z, SMatrix.X
+    is_gpu = (xp.__name__ == 'cupy')
+    hessian_mode = 1 if use_surrogate_hessian else 0
+
+    # Offset Cache Management
+    cache_key = (shape, radius, xp.__name__)
+    if cache_key not in _OFFSET_CACHE:
+        _OFFSET_CACHE[cache_key] = build_full_neighborhood_offsets(SMatrix, shape, radius)
+    dz_arr, dx_arr, w_arr = _OFFSET_CACHE[cache_key]
+
+    # GPU Execution (Zero Allocation)
+    if is_gpu:
+        grad_out = xp.empty_like(U, dtype=xp.float32)
+        hess_out = xp.empty_like(U, dtype=xp.float32)
+        energy_out = xp.empty_like(U, dtype=xp.float32) if compute_energy else grad_out # Dummy buffer if false
+        
+        if potential_type in [PotentialType.QUADRATIC, PotentialType.HUBER]:
+            mrf_potential_kernel(
+                Z, X, U, dz_arr, dx_arr, w_arr, len(dz_arr), 
+                beta, delta, potential_type == PotentialType.HUBER, hessian_mode,
+                grad_out, hess_out, energy_out
+            )
+        elif potential_type == PotentialType.RELATIVE_DIFFERENCE:
+            rdp_potential_kernel(
+                Z, X, U, dz_arr, dx_arr, w_arr, len(dz_arr), 
+                beta, delta, hessian_mode,
+                grad_out, hess_out, energy_out
+            )
+        else:
+            raise ValueError(f"Unsupported potential: {potential_type}")
+
+        # The loop traverses the full neighborhood, each edge is counted twice (A->B and B->A)
+        U_value = float(xp.sum(energy_out) / 2.0) if compute_energy else 0.0
+        
+        return (
+            grad_out if compute_grad else None,
+            hess_out if compute_hess else None,
+            U_value
+        )
+    
+    # CPU Fallback (Numpy)
     else:
-        raise ValueError(f"Unsupported potential type: {potential_type}")
+        # For CPU, we loop over the full neighborhood.
+        # This is not optimized for RAM, but it guarantees strictly identical results.
+        U_img = U.reshape(Z, X)
+        grad_img = xp.zeros_like(U_img) if compute_grad else None
+        hess_img = xp.zeros_like(U_img) if compute_hess else None
+        U_value = 0.0
+        
+        for k in range(len(dz_arr)):
+            dz, dx, w = int(dz_arr[k]), int(dx_arr[k]), float(w_arr[k])
+            
+            slice_c_z = slice(max(0, -dz), min(Z, Z - dz))
+            slice_n_z = slice(max(0, dz), min(Z, Z + dz))
+            slice_c_x = slice(max(0, -dx), min(X, X - dx))
+            slice_n_x = slice(max(0, dx), min(X, X + dx))
+            
+            u_i = U_img[slice_c_z, slice_c_x]
+            u_j = U_img[slice_n_z, slice_n_x]
+            diff = u_i - u_j
+            
+            if potential_type == PotentialType.QUADRATIC:
+                g = beta * w * diff
+                h = beta * w
+                e = 0.5 * beta * w * diff**2
+                
+            elif potential_type == PotentialType.HUBER:
+                abs_diff = xp.abs(diff)
+                mask_quad = abs_diff <= delta
+                mask_lin = ~mask_quad
+                
+                g = xp.zeros_like(diff)
+                g[mask_quad] = beta * w * diff[mask_quad]
+                g[mask_lin] = beta * w * delta * xp.sign(diff[mask_lin])
+                
+                h = xp.zeros_like(diff)
+                h[mask_quad] = beta * w
+                if hessian_mode == 1:
+                    h[mask_lin] = beta * w * delta / (abs_diff[mask_lin] + 1e-8)
+                    
+                e = xp.zeros_like(diff)
+                e[mask_quad] = 0.5 * beta * w * diff[mask_quad]**2
+                e[mask_lin] = beta * w * delta * (abs_diff[mask_lin] - 0.5 * delta)
+                
+            elif potential_type == PotentialType.RELATIVE_DIFFERENCE:
+                denom = u_i + u_j + delta * xp.abs(diff) + 1e-8
+                d_denom = 1.0 + delta * xp.sign(diff)
+                g = beta * w * (2.0 * diff * denom - (diff**2) * d_denom) / (denom**2)
+                h = beta * w * 2.0 / denom
+                e = beta * w * (diff**2) / denom
 
-def quadratic_potential(SMatrix, U, beta, shape="cross", radius=1, compute_grad=True, compute_hess=True, compute_energy=True):
-    """
-    True Spatial Quadratic Potential (Tikhonov / Markov Random Field).
-    Penalizes the squared difference between neighboring pixels to smooth the image.
-    Uses vectorized 2D array shifting for extreme GPU performance (no atomics).
+            if compute_grad: grad_img[slice_c_z, slice_c_x] += g
+            if compute_hess: hess_img[slice_c_z, slice_c_x] += h
+            if compute_energy: U_value += float(xp.sum(e))
+
+        if compute_energy: U_value /= 2.0
+        return (grad_img.flatten() if compute_grad else None, 
+                hess_img.flatten() if compute_hess else None, 
+                U_value)
     
-    Returns:
-        tuple: (grad_U, hess_U, U_value). Elements are None if compute flag is False.
-    """
-    xp = get_array_module(SMatrix)
-    Z, X = SMatrix.Z, SMatrix.X
-    U_img = U.reshape(Z, X)
-    
-    grad_img = xp.zeros_like(U_img) if compute_grad else None
-    hess_img = xp.zeros_like(U_img) if compute_hess else None
-    U_value = 0.0 if compute_energy else None
-    
-    # Get dynamic neighborhood offsets
-    offsets = build_neighborhood_offsets(SMatrix, shape=shape, radius=radius)
-    
-    for dz, dx, weight in offsets:
-        # Create dynamic slices for the center pixel and its neighbor
-        slice_c_z = slice(None, -dz) if dz > 0 else slice(None)
-        slice_n_z = slice(dz, None) if dz > 0 else slice(None)
-        
-        if dx > 0:
-            slice_c_x = slice(None, -dx)
-            slice_n_x = slice(dx, None)
-        elif dx < 0:
-            slice_c_x = slice(-dx, None)
-            slice_n_x = slice(None, dx)
-        else:
-            slice_c_x = slice(None)
-            slice_n_x = slice(None)
-
-        # Calculate spatial difference: U_i - U_j
-        diff = U_img[slice_c_z, slice_c_x] - U_img[slice_n_z, slice_n_x]
-        
-        # Accumulate Gradient
-        if compute_grad:
-            g = beta * weight * diff
-            grad_img[slice_c_z, slice_c_x] += g
-            grad_img[slice_n_z, slice_n_x] -= g
-            
-        # Accumulate Hessian (Constant for quadratic MRF)
-        if compute_hess:
-            h = beta * weight
-            hess_img[slice_c_z, slice_c_x] += h
-            hess_img[slice_n_z, slice_n_x] += h
-            
-        # Accumulate Energy
-        if compute_energy:
-            # e = 0.5 * beta * weight * (U_i - U_j)^2
-            U_value += 0.5 * beta * weight * float(xp.sum(diff**2))
-
-    return (grad_img.flatten() if compute_grad else None, 
-            hess_img.flatten() if compute_hess else None, 
-            U_value)
-
-def huber_potential(SMatrix, U, beta, delta=0.01, shape="cross", radius=1, compute_grad=True, compute_hess=True, compute_energy=True):
-    """
-    True Spatial Huber Potential.
-    Acts as a quadratic penalty for small differences (smoothing noise) 
-    and a linear penalty for large differences (preserving edges).
-    Uses vectorized 2D array shifting for extreme GPU performance.
-    """
-    xp = get_array_module(SMatrix)
-    Z, X = SMatrix.Z, SMatrix.X
-    U_img = U.reshape(Z, X)
-    
-    grad_img = xp.zeros_like(U_img) if compute_grad else None
-    hess_img = xp.zeros_like(U_img) if compute_hess else None
-    U_value = 0.0 if compute_energy else None
-
-    # Get dynamic neighborhood offsets
-    offsets = build_neighborhood_offsets(SMatrix, shape=shape, radius=radius)
-
-    for dz, dx, weight in offsets:
-        # Create dynamic slices
-        slice_c_z = slice(None, -dz) if dz > 0 else slice(None)
-        slice_n_z = slice(dz, None) if dz > 0 else slice(None)
-        
-        if dx > 0:
-            slice_c_x = slice(None, -dx)
-            slice_n_x = slice(dx, None)
-        elif dx < 0:
-            slice_c_x = slice(-dx, None)
-            slice_n_x = slice(None, dx)
-        else:
-            slice_c_x = slice(None)
-            slice_n_x = slice(None)
-
-        # Calculate spatial difference
-        diff = U_img[slice_c_z, slice_c_x] - U_img[slice_n_z, slice_n_x]
-        
-        # Huber Logic (split into quadratic and linear regions)
-        abs_diff = xp.abs(diff)
-        mask_quad = abs_diff <= delta
-        mask_lin = ~mask_quad
-        
-        if compute_grad:
-            g = xp.zeros_like(diff)
-            g[mask_quad] = beta * weight * diff[mask_quad]
-            g[mask_lin] = beta * weight * delta * xp.sign(diff[mask_lin])
-            
-            grad_img[slice_c_z, slice_c_x] += g
-            grad_img[slice_n_z, slice_n_x] -= g
-            
-        if compute_hess:
-            h = xp.zeros_like(diff)
-            h[mask_quad] = beta * weight
-            # Hessian in the linear region is technically 0
-            
-            hess_img[slice_c_z, slice_c_x] += h
-            hess_img[slice_n_z, slice_n_x] += h
-            
-        if compute_energy:
-            e = xp.zeros_like(diff)
-            e[mask_quad] = 0.5 * beta * weight * diff[mask_quad]**2
-            e[mask_lin] = beta * weight * delta * (abs_diff[mask_lin] - 0.5 * delta)
-            
-            U_value += float(xp.sum(e))
-
-    return (grad_img.flatten() if compute_grad else None, 
-            hess_img.flatten() if compute_hess else None, 
-            U_value)
-
-def relative_difference_potential(SMatrix, U, beta, delta=1.0, shape="cross", radius=1, compute_grad=True, compute_hess=True, compute_energy=True):
-    """
-    Relative Difference Prior (RDP).
-    Designed specifically for emission tomography (PET/SPECT) and Poisson noise.
-    Smooths low-contrast regions strongly while preserving high-contrast edges.
-    """
-    xp = get_array_module(SMatrix)
-    Z, X = SMatrix.Z, SMatrix.X
-    eps = 1e-8 # Safety constant to prevent division by zero (0/0)
-    
-    U_img = U.reshape(Z, X)
-    grad_img = xp.zeros_like(U_img) if compute_grad else None
-    hess_img = xp.zeros_like(U_img) if compute_hess else None
-    U_value = 0.0 if compute_energy else None
-
-    # Get dynamic neighborhood offsets
-    offsets = build_neighborhood_offsets(SMatrix, shape=shape, radius=radius)
-
-    for dz, dx, weight in offsets:
-        # Create dynamic slices
-        slice_c_z = slice(None, -dz) if dz > 0 else slice(None)
-        slice_n_z = slice(dz, None) if dz > 0 else slice(None)
-        
-        if dx > 0:
-            slice_c_x = slice(None, -dx)
-            slice_n_x = slice(dx, None)
-        elif dx < 0:
-            slice_c_x = slice(-dx, None)
-            slice_n_x = slice(None, dx)
-        else:
-            slice_c_x = slice(None)
-            slice_n_x = slice(None)
-
-        # Extract neighbors: u_i and u_j
-        u_i = U_img[slice_c_z, slice_c_x]
-        u_j = U_img[slice_n_z, slice_n_x]
-        
-        diff = u_i - u_j
-        abs_diff = xp.abs(diff)
-        sum_ij = u_i + u_j
-        
-        # Denominator: u_i + u_j + gamma * |u_i - u_j| + eps
-        denom = sum_ij + delta * abs_diff + eps
-        
-        if compute_grad:
-            # Gradient formulation for RDP
-            sign_diff = xp.sign(diff)
-            d_denom_dui = 1.0 + delta * sign_diff
-            
-            g = beta * weight * (2.0 * diff * denom - (diff**2) * d_denom_dui) / (denom**2)
-            
-            grad_img[slice_c_z, slice_c_x] += g
-            grad_img[slice_n_z, slice_n_x] -= g
-            
-        if compute_hess:
-            # We use an approximated constant Hessian for stability in OSL/De Pierro
-            # Exact Hessian for RDP can easily go negative, causing algorithms to explode
-            h = beta * weight * 2.0 / denom
-            
-            hess_img[slice_c_z, slice_c_x] += h
-            hess_img[slice_n_z, slice_n_x] += h
-            
-        if compute_energy:
-            # e = beta * weight * (u_i - u_j)^2 / denom
-            e = beta * weight * (diff**2) / denom
-            U_value += float(xp.sum(e))
-
-    return (grad_img.flatten() if compute_grad else None, 
-            hess_img.flatten() if compute_hess else None, 
-            U_value)
-
 # =============================================================================
 # STOPPING CRITERIA
 # =============================================================================
 
-def check_stopping_criterion(SMatrix, current_lambda, prev_lambda, criterion_type, threshold, history = None, ground_truth = None):
+def check_stopping_criterion(SMatrix, current_lambda, prev_lambda, criterion_type, threshold, window_size, history=None, ground_truth=None, gradient=None, window_history=None):
     """
-    Evaluates stopping criteria including MSE against ground truth.
-    
-    Args:
-        current_lambda: Current reconstruction state.
-        prev_lambda: State from previous iteration.
-        iteration: Current iteration index.
-        criterion_type: 'relative_change', 'cost_stagnation', or 'mse'.
-        threshold: The epsilon value for the criterion.
-        history: List of cost values.
-        ground_truth: The reference image (required for 'mse').
+    Evaluates stopping criteria by calculating the average relative variation (stagnation) 
+    of the chosen metric over a sliding window. The returned value strictly converges to 0.
     """
     xp = get_array_module(SMatrix)
-    
+
+    # Initialize window_history if not provided
+    if window_history is None:
+        window_history = []
+
     if criterion_type == StopCriterionType.MAX_ITERATIONS:
-        return False, None  # This criterion is handled in the main loop, not here.
-    elif criterion_type == StopCriterionType.RELATIVE_CHANGE:
-        relative_change = xp.linalg.norm(current_lambda - prev_lambda) / (xp.linalg.norm(current_lambda) + 1e-10)
-        return bool(relative_change < threshold), float(relative_change)
+        return False, 0.0
+
+    raw_metric = 0.0
+
+    # 1. Extract raw metric (Cast to standard float to avoid polluting RAM with GPU pointers)
+    if criterion_type == StopCriterionType.RELATIVE_CHANGE:
+        # RELATIVE_CHANGE is by definition an image variation
+        raw_metric = float(xp.linalg.norm(current_lambda - prev_lambda) / (xp.linalg.norm(current_lambda) + 1e-10))
+        
     elif criterion_type == StopCriterionType.COST_FUNCTION:
-        if history is None or len(history) < 2:
-            return False, history[-1]
-        relative_diff = abs(history[-2] - history[-1]) / (abs(history[-2]) + 1e-10)
-        return bool(relative_diff < threshold), float(relative_diff)
+        if not history: return False, 0.0
+        raw_metric = float(history[-1])
+        
     elif criterion_type == StopCriterionType.MSE:
         if ground_truth is None:
             raise ValueError("Ground truth image required for MSE stopping criterion.")
-        mse = mse(SMatrix, ground_truth, current_lambda)
-        return bool(mse < threshold), float(mse)
-    elif criterion_type == StopCriterionType.GRADIENT_NORM:
-        grad_norm = xp.linalg.norm(current_lambda)
-        return bool(grad_norm < threshold), float(grad_norm)
-    else:
-        raise ValueError(f"Unsupported stopping criterion type: {criterion_type}, must be one of {list(StopCriterionType)}.")
+        # Assuming mse() returns a scalar
+        raw_metric = float(mse(SMatrix, ground_truth, current_lambda))
         
+    elif criterion_type == StopCriterionType.GRADIENT_NORM:
+        if gradient is None:
+            raise ValueError("Gradient stop criterion is not supported with this optimizer.")
+        raw_metric = float(xp.linalg.norm(gradient))
+        
+    else:
+        raise ValueError(f"Unsupported stopping criterion type: {criterion_type}")
+
+    # 2. Sliding window management
+    window_history.append(raw_metric)
+    
+    # Keep 'window_size + 1' elements to compute 'window_size' consecutive differences
+    if len(window_history) > window_size + 1:
+        window_history.pop(0)
+
+    # If there is not enough history to compute a difference
+    if len(window_history) < 2:
+        return False, 0.0
+
+    # 3. Compute Average Stagnation (which will converge to 0)
+    if criterion_type in [StopCriterionType.RELATIVE_CHANGE, StopCriterionType.GRADIENT_NORM]:
+        # These metrics ALREADY evaluate a quantity tending to 0 by mathematical nature
+        avg_diff = sum(window_history[1:]) / window_size
+    else:
+        # For COST_FUNCTION and MSE, compute the average relative variation between iterations
+        diffs = [
+            abs(window_history[i] - window_history[i-1]) / (abs(window_history[i-1]) + 1e-10) 
+            for i in range(1, len(window_history))
+        ]
+        avg_diff = sum(diffs) / len(diffs)
+
+    return bool(avg_diff < threshold), avg_diff    
+
 # =============================================================================
 # GRADIENT AND DIVERGENCE OPERATIONS (for TV regularization)
 # =============================================================================
@@ -588,8 +506,9 @@ def gradient_2d(SMatrix, x):
     # Reshape into standard 2D space to apply spatial stencils safely
     x_img = x.reshape(Z, X)
     
-    grad_x_img = xp.zeros_like(x_img)
-    grad_z_img = xp.zeros_like(x_img)
+    # FORCED FLOAT32: Prevent silent float64 upcasting from external scalar math
+    grad_x_img = xp.zeros_like(x_img, dtype=xp.float32)
+    grad_z_img = xp.zeros_like(x_img, dtype=xp.float32)
     
     # Forward differences: ∂x / ∂x and ∂x / ∂z
     grad_x_img[:, :-1] = x_img[:, 1:] - x_img[:, :-1]
@@ -618,8 +537,9 @@ def divergence_2d(SMatrix, p_x, p_z):
     p_x_img = p_x.reshape(Z, X)
     p_z_img = p_z.reshape(Z, X)
     
-    div_x = xp.zeros_like(p_x_img)
-    div_z = xp.zeros_like(p_z_img)
+    # FORCED FLOAT32: Prevent silent float64 upcasting
+    div_x = xp.zeros_like(p_x_img, dtype=xp.float32)
+    div_z = xp.zeros_like(p_z_img, dtype=xp.float32)
     
     div_x[:, 0] = -p_x_img[:, 0]
     div_x[:, 1:-1] = p_x_img[:, :-2] - p_x_img[:, 1:-1]

@@ -1068,7 +1068,7 @@ class CfnIPSet(
         # The values are placeholders you should change.
         from aws_cdk import aws_wafregional as wafregional
         
-        cfn_iPSet = wafregional.CfnIPSet(self, "MyCfnIPSet",
+        cfn_ip_set = wafregional.CfnIPSet(self, "MyCfnIPSet",
             name="name",
         
             # the properties below are optional
@@ -1241,7 +1241,7 @@ class CfnIPSet(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_wafregional as wafregional
                 
-                i_pSet_descriptor_property = {
+                i_p_set_descriptor_property = {
                     "type": "type",
                     "value": "value"
                 }
@@ -1323,7 +1323,7 @@ class CfnIPSetProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_wafregional as wafregional
             
-            cfn_iPSet_props = wafregional.CfnIPSetProps(
+            cfn_ip_set_props = wafregional.CfnIPSetProps(
                 name="name",
             
                 # the properties below are optional
@@ -3545,7 +3545,7 @@ class CfnWebACL(
         # The values are placeholders you should change.
         from aws_cdk import aws_wafregional as wafregional
         
-        cfn_web_aCL = wafregional.CfnWebACL(self, "MyCfnWebACL",
+        cfn_web_acl = wafregional.CfnWebACL(self, "MyCfnWebACL",
             default_action=wafregional.CfnWebACL.ActionProperty(
                 type="type"
             ),
@@ -3921,7 +3921,7 @@ class CfnWebACLAssociation(
         # The values are placeholders you should change.
         from aws_cdk import aws_wafregional as wafregional
         
-        cfn_web_aCLAssociation = wafregional.CfnWebACLAssociation(self, "MyCfnWebACLAssociation",
+        cfn_web_acl_association = wafregional.CfnWebACLAssociation(self, "MyCfnWebACLAssociation",
             resource_arn="resourceArn",
             web_acl_id="webAclId"
         )
@@ -4066,7 +4066,7 @@ class CfnWebACLAssociationProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_wafregional as wafregional
             
-            cfn_web_aCLAssociation_props = wafregional.CfnWebACLAssociationProps(
+            cfn_web_acl_association_props = wafregional.CfnWebACLAssociationProps(
                 resource_arn="resourceArn",
                 web_acl_id="webAclId"
             )
@@ -4147,7 +4147,7 @@ class CfnWebACLProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_wafregional as wafregional
             
-            cfn_web_aCLProps = wafregional.CfnWebACLProps(
+            cfn_web_acl_props = wafregional.CfnWebACLProps(
                 default_action=wafregional.CfnWebACL.ActionProperty(
                     type="type"
                 ),

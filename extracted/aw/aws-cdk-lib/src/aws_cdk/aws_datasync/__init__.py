@@ -1415,7 +1415,7 @@ class CfnLocationEFS(
         # The values are placeholders you should change.
         from aws_cdk import aws_datasync as datasync
         
-        cfn_location_eFS = datasync.CfnLocationEFS(self, "MyCfnLocationEFS",
+        cfn_location_efs = datasync.CfnLocationEFS(self, "MyCfnLocationEFS",
             ec2_config=datasync.CfnLocationEFS.Ec2ConfigProperty(
                 security_group_arns=["securityGroupArns"],
                 subnet_arn="subnetArn"
@@ -1782,7 +1782,7 @@ class CfnLocationEFSProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_datasync as datasync
             
-            cfn_location_eFSProps = datasync.CfnLocationEFSProps(
+            cfn_location_efs_props = datasync.CfnLocationEFSProps(
                 ec2_config=datasync.CfnLocationEFS.Ec2ConfigProperty(
                     security_group_arns=["securityGroupArns"],
                     subnet_arn="subnetArn"
@@ -1936,7 +1936,7 @@ class CfnLocationFSxLustre(
         # The values are placeholders you should change.
         from aws_cdk import aws_datasync as datasync
         
-        cfn_location_fSx_lustre = datasync.CfnLocationFSxLustre(self, "MyCfnLocationFSxLustre",
+        cfn_location_f_sx_lustre = datasync.CfnLocationFSxLustre(self, "MyCfnLocationFSxLustre",
             security_group_arns=["securityGroupArns"],
         
             # the properties below are optional
@@ -2155,7 +2155,7 @@ class CfnLocationFSxLustreProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_datasync as datasync
             
-            cfn_location_fSx_lustre_props = datasync.CfnLocationFSxLustreProps(
+            cfn_location_f_sx_lustre_props = datasync.CfnLocationFSxLustreProps(
                 security_group_arns=["securityGroupArns"],
             
                 # the properties below are optional
@@ -2261,7 +2261,7 @@ class CfnLocationFSxONTAP(
         # The values are placeholders you should change.
         from aws_cdk import aws_datasync as datasync
         
-        cfn_location_fSx_oNTAP = datasync.CfnLocationFSxONTAP(self, "MyCfnLocationFSxONTAP",
+        cfn_location_f_sx_ontap = datasync.CfnLocationFSxONTAP(self, "MyCfnLocationFSxONTAP",
             security_group_arns=["securityGroupArns"],
             storage_virtual_machine_arn="storageVirtualMachineArn",
         
@@ -2744,7 +2744,7 @@ class CfnLocationFSxONTAP(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_datasync as datasync
                 
-                n_fSProperty = datasync.CfnLocationFSxONTAP.NFSProperty(
+                n_fs_property = datasync.CfnLocationFSxONTAP.NFSProperty(
                     mount_options=datasync.CfnLocationFSxONTAP.NfsMountOptionsProperty(
                         version="version"
                     )
@@ -2988,7 +2988,7 @@ class CfnLocationFSxONTAP(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_datasync as datasync
                 
-                s_mBProperty = datasync.CfnLocationFSxONTAP.SMBProperty(
+                s_mb_property = datasync.CfnLocationFSxONTAP.SMBProperty(
                     mount_options=datasync.CfnLocationFSxONTAP.SmbMountOptionsProperty(
                         version="version"
                     ),
@@ -3242,7 +3242,7 @@ class CfnLocationFSxONTAPProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_datasync as datasync
             
-            cfn_location_fSx_oNTAPProps = datasync.CfnLocationFSxONTAPProps(
+            cfn_location_f_sx_ontap_props = datasync.CfnLocationFSxONTAPProps(
                 security_group_arns=["securityGroupArns"],
                 storage_virtual_machine_arn="storageVirtualMachineArn",
             
@@ -3394,7 +3394,7 @@ class CfnLocationFSxOpenZFS(
         # The values are placeholders you should change.
         from aws_cdk import aws_datasync as datasync
         
-        cfn_location_fSx_open_zFS = datasync.CfnLocationFSxOpenZFS(self, "MyCfnLocationFSxOpenZFS",
+        cfn_location_f_sx_open_zfs = datasync.CfnLocationFSxOpenZFS(self, "MyCfnLocationFSxOpenZFS",
             protocol=datasync.CfnLocationFSxOpenZFS.ProtocolProperty(
                 nfs=datasync.CfnLocationFSxOpenZFS.NFSProperty(
                     mount_options=datasync.CfnLocationFSxOpenZFS.MountOptionsProperty(
@@ -3684,7 +3684,7 @@ class CfnLocationFSxOpenZFS(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_datasync as datasync
                 
-                n_fSProperty = datasync.CfnLocationFSxOpenZFS.NFSProperty(
+                n_fs_property = datasync.CfnLocationFSxOpenZFS.NFSProperty(
                     mount_options=datasync.CfnLocationFSxOpenZFS.MountOptionsProperty(
                         version="version"
                     )
@@ -3821,7 +3821,7 @@ class CfnLocationFSxOpenZFSProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_datasync as datasync
             
-            cfn_location_fSx_open_zFSProps = datasync.CfnLocationFSxOpenZFSProps(
+            cfn_location_f_sx_open_zfs_props = datasync.CfnLocationFSxOpenZFSProps(
                 protocol=datasync.CfnLocationFSxOpenZFS.ProtocolProperty(
                     nfs=datasync.CfnLocationFSxOpenZFS.NFSProperty(
                         mount_options=datasync.CfnLocationFSxOpenZFS.MountOptionsProperty(
@@ -3946,7 +3946,7 @@ class CfnLocationFSxWindows(
         # The values are placeholders you should change.
         from aws_cdk import aws_datasync as datasync
         
-        cfn_location_fSx_windows = datasync.CfnLocationFSxWindows(self, "MyCfnLocationFSxWindows",
+        cfn_location_f_sx_windows = datasync.CfnLocationFSxWindows(self, "MyCfnLocationFSxWindows",
             security_group_arns=["securityGroupArns"],
             user="user",
         
@@ -4498,7 +4498,7 @@ class CfnLocationFSxWindowsProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_datasync as datasync
             
-            cfn_location_fSx_windows_props = datasync.CfnLocationFSxWindowsProps(
+            cfn_location_f_sx_windows_props = datasync.CfnLocationFSxWindowsProps(
                 security_group_arns=["securityGroupArns"],
                 user="user",
             
@@ -4681,7 +4681,7 @@ class CfnLocationHDFS(
         # The values are placeholders you should change.
         from aws_cdk import aws_datasync as datasync
         
-        cfn_location_hDFS = datasync.CfnLocationHDFS(self, "MyCfnLocationHDFS",
+        cfn_location_hdfs = datasync.CfnLocationHDFS(self, "MyCfnLocationHDFS",
             agent_arns=["agentArns"],
             authentication_type="authenticationType",
             name_nodes=[datasync.CfnLocationHDFS.NameNodeProperty(
@@ -5520,7 +5520,7 @@ class CfnLocationHDFSProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_datasync as datasync
             
-            cfn_location_hDFSProps = datasync.CfnLocationHDFSProps(
+            cfn_location_hdfs_props = datasync.CfnLocationHDFSProps(
                 agent_arns=["agentArns"],
                 authentication_type="authenticationType",
                 name_nodes=[datasync.CfnLocationHDFS.NameNodeProperty(
@@ -5803,7 +5803,7 @@ class CfnLocationNFS(
         # The values are placeholders you should change.
         from aws_cdk import aws_datasync as datasync
         
-        cfn_location_nFS = datasync.CfnLocationNFS(self, "MyCfnLocationNFS",
+        cfn_location_nfs = datasync.CfnLocationNFS(self, "MyCfnLocationNFS",
             on_prem_config=datasync.CfnLocationNFS.OnPremConfigProperty(
                 agent_arns=["agentArns"]
             ),
@@ -6171,7 +6171,7 @@ class CfnLocationNFSProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_datasync as datasync
             
-            cfn_location_nFSProps = datasync.CfnLocationNFSProps(
+            cfn_location_nfs_props = datasync.CfnLocationNFSProps(
                 on_prem_config=datasync.CfnLocationNFS.OnPremConfigProperty(
                     agent_arns=["agentArns"]
                 ),
@@ -7600,7 +7600,7 @@ class CfnLocationSMB(
         # The values are placeholders you should change.
         from aws_cdk import aws_datasync as datasync
         
-        cfn_location_sMB = datasync.CfnLocationSMB(self, "MyCfnLocationSMB",
+        cfn_location_smb = datasync.CfnLocationSMB(self, "MyCfnLocationSMB",
             agent_arns=["agentArns"],
         
             # the properties below are optional
@@ -8363,7 +8363,7 @@ class CfnLocationSMBProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_datasync as datasync
             
-            cfn_location_sMBProps = datasync.CfnLocationSMBProps(
+            cfn_location_smb_props = datasync.CfnLocationSMBProps(
                 agent_arns=["agentArns"],
             
                 # the properties below are optional

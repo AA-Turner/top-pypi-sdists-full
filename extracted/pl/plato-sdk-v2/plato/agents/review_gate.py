@@ -87,6 +87,7 @@ def attach_review_gate(
     merge_fn: Callable[[], Awaitable[bool | ReviewGateMergeResult]] | None = None,
     reviewed_commit_fn: Callable[[], str | None] | None = None,
     max_continuations: int = 2,
+    compaction_instruction: str | Callable[[], str] | None = None,
     checkpoint_fn: Callable[[str], Awaitable[None]] | None = None,
     result_dir: Path | None = None,
     exhaustion_policy: Literal["fail", "merge", "raise"] = "fail",
@@ -108,6 +109,10 @@ def attach_review_gate(
         reviewed_commit_fn: Optional function that returns the commit SHA currently
             under review. Attached to the span as ``plato.review.commit_sha`` when available.
         max_continuations: Max retry attempts after the initial run.
+        compaction_instruction: Optional ``/compact <instructions>`` message run on
+            the live session after each execution and before review (see
+            AgentTask._run_session_compaction), to shrink the continued session
+            while its cache is warm.
         checkpoint_fn: Optional async function called after successful merge.
         result_dir: Optional directory to persist review results as JSON.
         exhaustion_policy: Behavior when review continuations are exhausted without
@@ -120,6 +125,7 @@ def attach_review_gate(
     _last_failure_kind = ""
     _last_exhaustion_policy_override: Literal["fail", "merge", "raise"] | None = None
     _last_continuation_cap_cost = 1.0
+    _last_reviewed_commit: str | None = None
 
     if result_dir is not None:
         _results_path = result_dir / ".pr-review-results" / f"{branch_name}.json"
@@ -128,6 +134,7 @@ def attach_review_gate(
 
     async def _review_and_merge_passed() -> bool:
         nonlocal _last_failure_kind, _last_exhaustion_policy_override, _last_continuation_cap_cost
+        nonlocal _last_reviewed_commit
         from opentelemetry import trace
 
         tracer = trace.get_tracer("plato.agents.review_gate")
@@ -143,6 +150,7 @@ def attach_review_gate(
             },
         ) as review_span:
             reviewed_commit = reviewed_commit_fn() if reviewed_commit_fn is not None else None
+            _last_reviewed_commit = reviewed_commit
             gate_result = await review_fn(hostname, attempt_number=attempt_number)
 
             result_dict = gate_result.result_data
@@ -291,6 +299,16 @@ def attach_review_gate(
             ]
         else:
             parts = [f"Your code did not pass the automated review (attempt {len(_review_history)})."]
+        # Ground the (possibly just-compacted) session in the exact commit it
+        # produced last cycle, so it can re-orient even after its detailed
+        # working memory was summarized away.
+        if _last_reviewed_commit:
+            parts.append(
+                f"This feedback is for the commit you just made on this branch: "
+                f"`{_last_reviewed_commit}`. Run `git show {_last_reviewed_commit} --stat` "
+                "(or `git diff`) to see exactly what you changed last cycle before "
+                "applying the fixes below."
+            )
         if feedback:
             parts.append(f"Here is the review feedback:\n\n{feedback}")
         elif merge_error:
@@ -351,5 +369,6 @@ def attach_review_gate(
         continuation_instruction=_build_continuation_instruction,
         on_exhausted=_handle_review_exhaustion,
         continuation_cap_cost=lambda: _last_continuation_cap_cost,
+        compaction_instruction=compaction_instruction,
     )
     return runner

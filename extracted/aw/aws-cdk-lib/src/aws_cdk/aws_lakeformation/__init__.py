@@ -3260,7 +3260,7 @@ class CfnPrincipalPermissions(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_lakeformation as lakeformation
                 
-                l_fTag_key_resource_property = lakeformation.CfnPrincipalPermissions.LFTagKeyResourceProperty(
+                l_f_tag_key_resource_property = lakeformation.CfnPrincipalPermissions.LFTagKeyResourceProperty(
                     catalog_id="catalogId",
                     tag_key="tagKey",
                     tag_values=["tagValues"]
@@ -3352,7 +3352,7 @@ class CfnPrincipalPermissions(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_lakeformation as lakeformation
                 
-                l_fTag_policy_resource_property = lakeformation.CfnPrincipalPermissions.LFTagPolicyResourceProperty(
+                l_f_tag_policy_resource_property = lakeformation.CfnPrincipalPermissions.LFTagPolicyResourceProperty(
                     catalog_id="catalogId",
                     expression=[lakeformation.CfnPrincipalPermissions.LFTagProperty(
                         tag_key="tagKey",
@@ -3443,7 +3443,7 @@ class CfnPrincipalPermissions(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_lakeformation as lakeformation
                 
-                l_fTag_property = lakeformation.CfnPrincipalPermissions.LFTagProperty(
+                l_f_tag_property = lakeformation.CfnPrincipalPermissions.LFTagProperty(
                     tag_key="tagKey",
                     tag_values=["tagValues"]
                 )

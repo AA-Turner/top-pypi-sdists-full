@@ -1677,6 +1677,8 @@ def main(
     _wants_help = "--help" in sys.argv or "-h" in sys.argv or getattr(ctx, "resilient_parsing", False)
 
     if cmd is not None and cmd not in _AUTH_EXEMPT and not _wants_help:
+        if os.environ.get("SAGE_TESTING") == "1":
+            return
         from sage.core.cli_auth import load_auth, _is_expired, _refresh_token
         auth = load_auth()
         if auth is None:

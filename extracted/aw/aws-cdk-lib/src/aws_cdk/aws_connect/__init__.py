@@ -17954,7 +17954,7 @@ class CfnRule(
             self,
             *,
             user_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-            user_tags: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            user_tags: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         ) -> None:
             '''The type of notification recipient.
 
@@ -17999,7 +17999,7 @@ class CfnRule(
         @builtins.property
         def user_tags(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''The tags used to organize, track, or control access for this resource.
 
             For example, { "tags": {"key1":"value1", "key2":"value2"} }. Connect Customer users with the specified tags will be notified.
@@ -18007,7 +18007,7 @@ class CfnRule(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-rule-notificationrecipienttype.html#cfn-connect-rule-notificationrecipienttype-usertags
             '''
             result = self._values.get("user_tags")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -29898,7 +29898,7 @@ def _typecheckingstub__b775c6c3e6b1c930720eb9500ebf63cc475488f7c2d8ed565fb6a0294
 def _typecheckingstub__4d577395a2866fe40fdf75bbcc932da0701cd7985bbb4de4e2ef65243ba9d387(
     *,
     user_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-    user_tags: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    user_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

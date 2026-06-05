@@ -59,7 +59,7 @@ def _collect_scores(fs: Filesystem, tm: TaskManager, task_id: str) -> dict:
         from kanban_framework.infra.scheduler import Scheduler
         mode = getattr(task, 'mode', None)
         mode_roles = [r["name"] for r in Scheduler.eval_roles(
-            lightweight=task.lightweight, mode=mode, kanban_dir=fs.kanban_dir)]
+            mode=mode, kanban_dir=fs.kanban_dir)]
         all_roles = list(dict.fromkeys(mode_roles + [
             "code_reviewer", "qa", "product_reviewer", "pm", "designer", "review"]))
         for role in all_roles:

@@ -1650,7 +1650,7 @@ class CfnSolution(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_personalize as personalize
                 
-                auto_mLConfig_property = personalize.CfnSolution.AutoMLConfigProperty(
+                auto_ml_config_property = personalize.CfnSolution.AutoMLConfigProperty(
                     metric_name="metricName",
                     recipe_list=["recipeList"]
                 )
@@ -2250,10 +2250,10 @@ class CfnSolution(
         def __init__(
             self,
             *,
-            algorithm_hyper_parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            algorithm_hyper_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             auto_ml_config: typing.Any = None,
             event_value_threshold: typing.Optional[builtins.str] = None,
-            feature_transformation_parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            feature_transformation_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             hpo_config: typing.Any = None,
         ) -> None:
             '''Describes the configuration properties for the solution.
@@ -2310,13 +2310,13 @@ class CfnSolution(
         @builtins.property
         def algorithm_hyper_parameters(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''Lists the algorithm hyperparameters and their values.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-personalize-solution-solutionconfig.html#cfn-personalize-solution-solutionconfig-algorithmhyperparameters
             '''
             result = self._values.get("algorithm_hyper_parameters")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def auto_ml_config(self) -> typing.Any:
@@ -2339,13 +2339,13 @@ class CfnSolution(
         @builtins.property
         def feature_transformation_parameters(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''Lists the feature transformation parameters.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-personalize-solution-solutionconfig.html#cfn-personalize-solution-solutionconfig-featuretransformationparameters
             '''
             result = self._values.get("feature_transformation_parameters")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def hpo_config(self) -> typing.Any:
@@ -2949,10 +2949,10 @@ def _typecheckingstub__ab41d3c62be2abf54857b89fc5f04495187be9a0397f3c839f5dcbcbf
 
 def _typecheckingstub__ced9838e4439e4bc1ac0405cb84c759dc1da0cf5422f515a7b0d86711bcce840(
     *,
-    algorithm_hyper_parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    algorithm_hyper_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     auto_ml_config: typing.Any = None,
     event_value_threshold: typing.Optional[builtins.str] = None,
-    feature_transformation_parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    feature_transformation_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     hpo_config: typing.Any = None,
 ) -> None:
     """Type checking stubs"""

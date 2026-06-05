@@ -736,7 +736,7 @@
 },
 /* version.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    exports.version = "3.9.0";
+    exports.version = "3.9.1";
 },
 /* embed/index.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
@@ -20251,6 +20251,26 @@
             this._initial_default_span = this.default_span;
             this._plot_bounds = new Map();
         }
+        connect_signals() {
+            super.connect_signals();
+            const { range_padding, range_padding_units, flipped, follow, follow_interval, default_span, only_visible, } = this.properties;
+            this.on_change([
+                range_padding,
+                range_padding_units,
+                flipped,
+                follow,
+                follow_interval,
+                default_span,
+                only_visible,
+            ], () => this._invalidate_dataranges());
+        }
+        _invalidate_dataranges() {
+            this.have_updated_interactively = false;
+            for (const plot of this.linked_plots) {
+                plot.invalidate_dataranges = true;
+                plot.request_repaint();
+            }
+        }
         get min() {
             return Math.min(this.start, this.end);
         }
@@ -23932,7 +23952,7 @@
             });
         }
         is_empty() {
-            return this.indices.length == 0 && this.line_indices.length == 0 && this.image_indices.length == 0;
+            return this.indices.length == 0 && this.line_indices.length == 0 && this.image_indices.length == 0 && this.selected_glyphs.length == 0;
         }
         _union_image_indices(...collection) {
             const is = new Map();
@@ -29709,6 +29729,7 @@
                 await this._init_major_labels();
             });
             this.connect(this.model.change, () => this.plot_view.request_layout());
+            this.connect(this.model.ticker.change, () => this.plot_view.request_layout());
         }
         get needs_clip() {
             return this.model.fixed_location != null;
@@ -33388,38 +33409,32 @@
      * @param {number} nodeSize
      */
     function sort(values, boxes, indices, left, right, nodeSize) {
-        if (Math.floor(left / nodeSize) >= Math.floor(right / nodeSize))
-            return;
-        // apply median of three method
-        const start = values[left];
-        const mid = values[(left + right) >> 1];
-        const end = values[right];
-        let pivot = end;
-        const x = Math.max(start, mid);
-        if (end > x) {
-            pivot = x;
+        const stack = [left, right];
+        while (stack.length) {
+            const r = stack.pop() || 0;
+            const l = stack.pop() || 0;
+            if (r - l <= nodeSize && Math.floor(l / nodeSize) >= Math.floor(r / nodeSize))
+                continue;
+            const a = values[l];
+            const b = values[(l + r) >> 1];
+            const c = values[r];
+            const pivot = ((a > b) !== (a > c)) ? a :
+                ((b < a) !== (b < c)) ? b : c;
+            let i = l - 1;
+            let j = r + 1;
+            while (true) {
+                do
+                    i++;
+                while (values[i] < pivot);
+                do
+                    j--;
+                while (values[j] > pivot);
+                if (i >= j)
+                    break;
+                swap(values, boxes, indices, i, j);
+            }
+            stack.push(l, j, j + 1, r);
         }
-        else if (x === start) {
-            pivot = Math.max(mid, end);
-        }
-        else if (x === mid) {
-            pivot = Math.max(start, end);
-        }
-        let i = left - 1;
-        let j = right + 1;
-        while (true) {
-            do
-                i++;
-            while (values[i] < pivot);
-            do
-                j--;
-            while (values[j] > pivot);
-            if (i >= j)
-                break;
-            swap(values, boxes, indices, i, j);
-        }
-        sort(values, boxes, indices, left, j, nodeSize);
-        sort(values, boxes, indices, j + 1, right, nodeSize);
     }
     /**
      * Swap two values and two corresponding boxes.
@@ -33856,8 +33871,8 @@
                 }
             }
             ctx.closePath();
-            this.visuals.fill.apply(ctx);
-            this.visuals.hatch.apply(ctx);
+            this.visuals.fill.apply(ctx, "evenodd");
+            this.visuals.hatch.apply(ctx, "evenodd");
             this.visuals.line.apply(ctx);
         }
         draw_legend_for_index(ctx, bbox, _index) {
@@ -33865,7 +33880,36 @@
         }
         _hit_point(geometry) {
             const result = new selection_1.Selection();
-            if (hittest.point_in_poly(geometry.sx, geometry.sy, this.sx, this.sy)) {
+            const { sx, sy } = geometry;
+            // Collect NaN-separated sub-paths
+            const sub_paths_sx = [];
+            const sub_paths_sy = [];
+            const n = this.sx.length;
+            let k = 0;
+            for (let j = 0; j <= n; j++) {
+                if (j == n || isNaN(this.sx[j])) {
+                    if (j > k) {
+                        // Use subarray to create views (like patches.ts does)
+                        sub_paths_sx.push(this.sx.subarray(k, j));
+                        sub_paths_sy.push(this.sy.subarray(k, j));
+                    }
+                    k = j + 1;
+                }
+            }
+            if (sub_paths_sx.length == 0) {
+                return result;
+            }
+            // Use "evenodd" fill rule (matches Canvas2D rendering):
+            // A point is inside the filled region if it's contained by an odd number of sub-paths.
+            // This handles both holes (even count = outside) and disjoint polygons (each adds to count).
+            let inside_count = 0;
+            for (let i = 0; i < sub_paths_sx.length; i++) {
+                if (hittest.point_in_poly(sx, sy, sub_paths_sx[i], sub_paths_sy[i])) {
+                    inside_count++;
+                }
+            }
+            // Odd count = inside filled region, Even count = inside hole or outside
+            if (inside_count % 2 === 1) {
                 result.add_to_selected_glyphs(this.model);
                 result.view = this;
             }
@@ -34655,6 +34699,7 @@
     exports._mktime = _mktime;
     exports._strftime = _strftime;
     exports._us = _us;
+    exports._ns = _ns;
     const enums_1 = require(21) /* ../../core/enums */;
     const assert_1 = require(12) /* ../../core/util/assert */;
     const templating_1 = require(259) /* ../../core/util/templating */;
@@ -34722,6 +34767,21 @@
         // Use a regular expression to replace %f directive with microseconds.
         const microsecond_replacement_string = (0, templating_1.sprintf)("$1%06d", _us(t));
         format = format.replace(/((^|[^%])(%%)*)%f/, microsecond_replacement_string);
+        format = format.replace(/((^|[^%])(%%)*)%[0-9]*N/, match => {
+            // By default use 9 digits for nanoseconds, this is applied not only in case of no padding
+            // (%N) but also for padding out of range (i.e. %0N, %15N)
+            let padding = 9;
+            const str_padding_matched = match.match(/%([1-9])N/);
+            if (str_padding_matched != null) {
+                const padding_parsed = parseInt(str_padding_matched[1], 10);
+                if (!Number.isNaN(padding_parsed)) {
+                    padding = padding_parsed;
+                }
+            }
+            const ns = _ns(t);
+            const nanosecond_replacement_string = (0, templating_1.sprintf)("%09d", ns).substring(0, padding);
+            return match.replace(/%[0-9]*N/, nanosecond_replacement_string);
+        });
         // timezone seems to ignore any strings without any formatting directives,
         // and just return the time argument back instead of the string argument.
         // But we want the string argument, in case a user supplies a format string
@@ -34743,6 +34803,11 @@
             us = (1000000 + us) % 1000000;
         }
         return us;
+    }
+    function _ns(t) {
+        // Use rounded microsecond result as a baseline as the precision is not sufficient
+        // for the sub microsecond range anyway.
+        return _us(t) * 1000;
     }
     class DatetimeTickFormatter extends tick_formatter_1.TickFormatter {
         constructor(attrs) {
@@ -37899,6 +37964,9 @@
             };
         }
         _can_hit(target) {
+            if (!this.model.editable && !this.model.is_handle) {
+                return false;
+            }
             const { left, right, top, bottom } = this.resizable;
             switch (target) {
                 case "top_left": return top && left;
@@ -39092,6 +39160,7 @@
 /* models/mappers/log_color_mapper.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const continuous_color_mapper_1 = require(229) /* ./continuous_color_mapper */;
+    const logging_1 = require(20) /* ../../core/logging */;
     const arrayable_1 = require(13) /* ../../core/util/arrayable */;
     const math_1 = require(11) /* ../../core/util/math */;
     class LogColorMapper extends continuous_color_mapper_1.ContinuousColorMapper {
@@ -39100,13 +39169,20 @@
         }
         scan(data, n) {
             const low = this.low != null ? this.low : (0, arrayable_1.min)(data);
+            if (low <= 0) {
+                logging_1.logger.warn(`LogColorMapper detects invalid value "${low}" for parameter "low".`);
+            }
             const high = this.high != null ? this.high : (0, arrayable_1.max)(data);
+            if (high <= 0) {
+                logging_1.logger.warn(`LogColorMapper detects invalid value "${high}" for parameter "high".`);
+            }
             const scale = n / Math.log(high / low); // subtract the low offset
-            return { max: high, min: low, scale };
+            const is_reversed = high < low;
+            return { max: high, min: low, scale, is_reversed };
         }
         index_to_value(index) {
             const scan_data = this._scan_data;
-            return scan_data.min * Math.exp(index / scan_data.scale);
+            return scan_data.min * Math.exp(index / Math.abs(scan_data.scale));
         }
         value_to_index(value, palette_length) {
             const scan_data = this._scan_data;
@@ -39115,14 +39191,24 @@
             if (value == scan_data.max) {
                 return palette_length - 1;
             }
-            else if (value > scan_data.max) {
-                return palette_length;
+            if (scan_data.is_reversed) {
+                if (value > scan_data.min) {
+                    return -1;
+                }
+                else if (value < scan_data.max) {
+                    return palette_length;
+                }
             }
-            else if (value < scan_data.min) {
-                return -1;
+            else {
+                if (value > scan_data.max) {
+                    return palette_length;
+                }
+                else if (value < scan_data.min) {
+                    return -1;
+                }
             }
             const log = Math.log(value / scan_data.min);
-            const index = Math.floor(log * scan_data.scale);
+            const index = Math.abs(Math.floor(log * scan_data.scale));
             return (0, math_1.clamp)(index, -1, palette_length);
         }
     }
@@ -39775,7 +39861,7 @@
             super.connect_signals();
             this.connect(this.model.change, () => this.rerender());
             const { items } = this.model.properties;
-            this.on_transitive_change(items, () => this._render_items());
+            this.on_transitive_change(items, () => this._render_items(), { recursive: true });
         }
         get bbox() {
             return this._bbox;
@@ -45193,6 +45279,10 @@
                 await this.build_tool_views();
                 await this._update_renderers();
             });
+            const { frame_width, frame_height, frame_align } = this.model.properties;
+            this.on_change([frame_width, frame_height, frame_align], () => this.invalidate_layout());
+            const { min_border, min_border_top, min_border_bottom, min_border_left, min_border_right } = this.model.properties;
+            this.on_change([min_border, min_border_top, min_border_bottom, min_border_left, min_border_right], () => this.invalidate_layout());
             const { x_ranges, y_ranges } = this.frame;
             for (const [, range] of x_ranges) {
                 this.connect(range.change, () => {
@@ -52910,7 +53000,7 @@
                 const vsi = vs.get(i);
                 const points = [];
                 for (let j = 0, endj = vsi.length - 1; j < endj; j++) {
-                    if (vsi[j] <= val && val <= vsi[j + 1]) {
+                    if ((vsi[j] <= val && val <= vsi[j + 1]) || (vsi[j + 1] <= val && val <= vsi[j])) {
                         points.push(j);
                     }
                 }
@@ -53460,8 +53550,8 @@
                     }
                 }
                 ctx.closePath();
-                this.visuals.fill.apply(ctx, i);
-                this.visuals.hatch.apply(ctx, i);
+                this.visuals.fill.apply(ctx, i, "evenodd");
+                this.visuals.hatch.apply(ctx, i, "evenodd");
                 this.visuals.line.apply(ctx, i);
             }
         }
@@ -53519,20 +53609,35 @@
             for (const index of candidates) {
                 const sxsi = this.sxs.get(index);
                 const sysi = this.sys.get(index);
+                // Collect NaN-separated sub-paths
+                const sub_paths_sx = [];
+                const sub_paths_sy = [];
                 const n = sxsi.length;
-                for (let k = 0, j = 0;; j++) {
-                    if (isNaN(sxsi[j]) || j == n) {
-                        const sxsi_kj = sxsi.subarray(k, j);
-                        const sysi_kj = sysi.subarray(k, j);
-                        if (hittest.point_in_poly(sx, sy, sxsi_kj, sysi_kj)) {
-                            indices.push(index);
-                            break;
+                let k = 0;
+                for (let j = 0; j <= n; j++) {
+                    if (j == n || isNaN(sxsi[j])) {
+                        if (j > k) {
+                            sub_paths_sx.push(sxsi.subarray(k, j));
+                            sub_paths_sy.push(sysi.subarray(k, j));
                         }
                         k = j + 1;
                     }
-                    if (j == n) {
-                        break;
+                }
+                if (sub_paths_sx.length == 0) {
+                    continue;
+                }
+                // Use "evenodd" fill rule (matches Canvas2D rendering):
+                // A point is inside the filled region if it's contained by an odd number of sub-paths.
+                // This handles both holes (even count = outside) and disjoint polygons (each adds to count).
+                let inside_count = 0;
+                for (let i = 0; i < sub_paths_sx.length; i++) {
+                    if (hittest.point_in_poly(sx, sy, sub_paths_sx[i], sub_paths_sy[i])) {
+                        inside_count++;
                     }
+                }
+                // Odd count = inside filled region, Even count = inside hole or outside
+                if (inside_count % 2 === 1) {
+                    indices.push(index);
                 }
             }
             return new selection_1.Selection({ indices });

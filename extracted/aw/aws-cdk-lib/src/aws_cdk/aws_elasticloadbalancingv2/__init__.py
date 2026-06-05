@@ -4654,7 +4654,7 @@ class CfnListener(
             user_pool_arn: builtins.str,
             user_pool_client_id: builtins.str,
             user_pool_domain: builtins.str,
-            authentication_request_extra_params: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            authentication_request_extra_params: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             on_unauthenticated_request: typing.Optional[builtins.str] = None,
             scope: typing.Optional[builtins.str] = None,
             session_cookie_name: typing.Optional[builtins.str] = None,
@@ -4754,13 +4754,13 @@ class CfnListener(
         @builtins.property
         def authentication_request_extra_params(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''The query parameters (up to 10) to include in the redirect request to the authorization endpoint.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-authenticatecognitoconfig.html#cfn-elasticloadbalancingv2-listener-authenticatecognitoconfig-authenticationrequestextraparams
             '''
             result = self._values.get("authentication_request_extra_params")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def on_unauthenticated_request(self) -> typing.Optional[builtins.str]:
@@ -4846,7 +4846,7 @@ class CfnListener(
             issuer: builtins.str,
             token_endpoint: builtins.str,
             user_info_endpoint: builtins.str,
-            authentication_request_extra_params: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            authentication_request_extra_params: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             client_secret: typing.Optional[builtins.str] = None,
             on_unauthenticated_request: typing.Optional[builtins.str] = None,
             scope: typing.Optional[builtins.str] = None,
@@ -4994,13 +4994,13 @@ class CfnListener(
         @builtins.property
         def authentication_request_extra_params(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''The query parameters (up to 10) to include in the redirect request to the authorization endpoint.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-authenticateoidcconfig.html#cfn-elasticloadbalancingv2-listener-authenticateoidcconfig-authenticationrequestextraparams
             '''
             result = self._values.get("authentication_request_extra_params")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def client_secret(self) -> typing.Optional[builtins.str]:
@@ -7248,7 +7248,7 @@ class CfnListenerRule(
             user_pool_arn: builtins.str,
             user_pool_client_id: builtins.str,
             user_pool_domain: builtins.str,
-            authentication_request_extra_params: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            authentication_request_extra_params: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             on_unauthenticated_request: typing.Optional[builtins.str] = None,
             scope: typing.Optional[builtins.str] = None,
             session_cookie_name: typing.Optional[builtins.str] = None,
@@ -7348,13 +7348,13 @@ class CfnListenerRule(
         @builtins.property
         def authentication_request_extra_params(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''The query parameters (up to 10) to include in the redirect request to the authorization endpoint.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-authenticatecognitoconfig.html#cfn-elasticloadbalancingv2-listenerrule-authenticatecognitoconfig-authenticationrequestextraparams
             '''
             result = self._values.get("authentication_request_extra_params")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def on_unauthenticated_request(self) -> typing.Optional[builtins.str]:
@@ -7440,7 +7440,7 @@ class CfnListenerRule(
             issuer: builtins.str,
             token_endpoint: builtins.str,
             user_info_endpoint: builtins.str,
-            authentication_request_extra_params: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            authentication_request_extra_params: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             client_secret: typing.Optional[builtins.str] = None,
             on_unauthenticated_request: typing.Optional[builtins.str] = None,
             scope: typing.Optional[builtins.str] = None,
@@ -7588,13 +7588,13 @@ class CfnListenerRule(
         @builtins.property
         def authentication_request_extra_params(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''The query parameters (up to 10) to include in the redirect request to the authorization endpoint.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-authenticateoidcconfig.html#cfn-elasticloadbalancingv2-listenerrule-authenticateoidcconfig-authenticationrequestextraparams
             '''
             result = self._values.get("authentication_request_extra_params")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def client_secret(self) -> typing.Optional[builtins.str]:
@@ -9644,7 +9644,7 @@ class CfnLoadBalancer(
                 # the properties below are optional
                 allocation_id="allocationId",
                 i_pv6_address="iPv6Address",
-                private_iPv4_address="privateIPv4Address",
+                private_i_pv4_address="privateIPv4Address",
                 source_nat_ipv6_prefix="sourceNatIpv6Prefix"
             )],
             subnets=["subnets"],
@@ -10280,7 +10280,7 @@ class CfnLoadBalancer(
                     # the properties below are optional
                     allocation_id="allocationId",
                     i_pv6_address="iPv6Address",
-                    private_iPv4_address="privateIPv4Address",
+                    private_i_pv4_address="privateIPv4Address",
                     source_nat_ipv6_prefix="sourceNatIpv6Prefix"
                 )
             '''
@@ -10451,7 +10451,7 @@ class CfnLoadBalancerProps:
                     # the properties below are optional
                     allocation_id="allocationId",
                     i_pv6_address="iPv6Address",
-                    private_iPv4_address="privateIPv4Address",
+                    private_i_pv4_address="privateIPv4Address",
                     source_nat_ipv6_prefix="sourceNatIpv6Prefix"
                 )],
                 subnets=["subnets"],
@@ -29569,7 +29569,7 @@ def _typecheckingstub__cb630af3f99ec9f988fab7fffa2096629884c80f9c598de1cffc4415d
     user_pool_arn: builtins.str,
     user_pool_client_id: builtins.str,
     user_pool_domain: builtins.str,
-    authentication_request_extra_params: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    authentication_request_extra_params: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     on_unauthenticated_request: typing.Optional[builtins.str] = None,
     scope: typing.Optional[builtins.str] = None,
     session_cookie_name: typing.Optional[builtins.str] = None,
@@ -29585,7 +29585,7 @@ def _typecheckingstub__b7b01e9ee27f1a990217edb4244feb05b3d91523f87886450f22a4478
     issuer: builtins.str,
     token_endpoint: builtins.str,
     user_info_endpoint: builtins.str,
-    authentication_request_extra_params: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    authentication_request_extra_params: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     client_secret: typing.Optional[builtins.str] = None,
     on_unauthenticated_request: typing.Optional[builtins.str] = None,
     scope: typing.Optional[builtins.str] = None,
@@ -29835,7 +29835,7 @@ def _typecheckingstub__b6e194e191d75c931e965d267b55bf397d80bc25ccd0e9542e9064424
     user_pool_arn: builtins.str,
     user_pool_client_id: builtins.str,
     user_pool_domain: builtins.str,
-    authentication_request_extra_params: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    authentication_request_extra_params: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     on_unauthenticated_request: typing.Optional[builtins.str] = None,
     scope: typing.Optional[builtins.str] = None,
     session_cookie_name: typing.Optional[builtins.str] = None,
@@ -29851,7 +29851,7 @@ def _typecheckingstub__21a149f30354ccc72762bb24e1678187c56a36980a9debb0c082b7883
     issuer: builtins.str,
     token_endpoint: builtins.str,
     user_info_endpoint: builtins.str,
-    authentication_request_extra_params: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    authentication_request_extra_params: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     client_secret: typing.Optional[builtins.str] = None,
     on_unauthenticated_request: typing.Optional[builtins.str] = None,
     scope: typing.Optional[builtins.str] = None,

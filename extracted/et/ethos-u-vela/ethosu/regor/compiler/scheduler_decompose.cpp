@@ -83,7 +83,7 @@ bool ShouldDecompose(Architecture *arch, const SchedulerOperation *schedOp)
 }
 
 static std::unique_ptr<SchedulerOperation> MakeMemCopy(const std::shared_ptr<SchedulerTensor> &source,
-    const std::shared_ptr<SchedulerTensor> &dest, const TensorSlice *ofmSlice = nullptr)
+    const std::shared_ptr<SchedulerTensor> &dest, const Shape &ofmShape, const TensorSlice *ofmSlice = nullptr)
 {
     assert(ofmSlice == nullptr || ofmSlice->shape + ofmSlice->offset <= dest->storageShape);
     auto op = std::make_unique<SchedulerOperation>(OpType::MemoryCopy);
@@ -91,7 +91,7 @@ static std::unique_ptr<SchedulerOperation> MakeMemCopy(const std::shared_ptr<Sch
     op->SetKernel(Kernel::UnitKernel());
 
     auto ofmConn = op->ConnectOutput(TensorUsage::OFM, dest);
-    ofmConn->shape = Shape::PadAxes(dest->storageShape, 4, 1);
+    ofmConn->shape = Shape::PadAxes(ofmShape, 4, 1);
     if ( ofmSlice ) ofmConn->slice = *ofmSlice;
     if ( ofmConn->Type() == DataType::Int64 )
     {  // Copy int64 data as int32 data with 2 x C
@@ -149,6 +149,7 @@ MakeSubOperation(const SchedulerOperation *schedOp, const Kernel *newKernel = nu
     subOp->SetPrimaryIfmIndex(schedOp->PrimaryIfmIndex());
     subOp->SetAttributes(schedOp->AttributeRef());
     subOp->SetAccumulatorMode(schedOp->AccumulatorMode());
+    subOp->weightDepthOffset = schedOp->weightDepthOffset;
     for ( const auto *list : {&schedOp->inputs, &schedOp->outputs} )
     {
         for ( const auto &item : list->pairs() )
@@ -256,6 +257,7 @@ bool CanDecompose(Architecture *, const SchedulerOperation *schedOp)
     if ( schedOp->Type() == OpType::Reverse ) return true;
     if ( schedOp->Type() == OpType::Transpose ) return true;
     if ( schedOp->Type() == OpType::AvgPool ) return true;
+    if ( schedOp->Type() == OpType::SumPool ) return true;
     if ( schedOp->Type() == OpType::MaxPool ) return true;
     if ( schedOp->Type() == OpType::Resize ) return true;
     if ( schedOp->Type() == OpType::FullyConnected ) return true;
@@ -319,6 +321,8 @@ static std::vector<std::unique_ptr<SchedulerOperation>> DecomposeBlocksElementwi
                 }
                 auto *subOfmConn = subOp->OFM();
                 subOfmConn->slice = std::move(newOfmSlice);
+                // Set scale slice offset
+                subOp->weightDepthOffset += bc * BC;
                 auto subOps = doDecompose(ctx, std::move(subOp));
                 result.insert(result.end(), std::make_move_iterator(subOps.begin()), std::make_move_iterator(subOps.end()));
             }
@@ -416,11 +420,17 @@ HandleDilation(DecompositionContext &ctx, std::unique_ptr<SchedulerOperation> op
             newIfmSlice.offset =
                 newIfmSlice.offset.WithHeight(newIfmSlice.offset.Height() + dy * GY * newStride.y)
                     .WithWidth(newIfmSlice.offset.Width() + dx * GX * newStride.x);
+            // Update slice-shape based on adjusted offset.
+            // Truncate to full slice to avoid inflated shapes (when offsets are negative).
+            int newHeight = std::min(ifmConn->slice.shape.Height(), ifmConn->slice.shape.Height() - newIfmSlice.offset.Height());
+            int newWidth = std::min(ifmConn->slice.shape.Width(), ifmConn->slice.shape.Width() - newIfmSlice.offset.Width());
+            newIfmSlice.shape = newIfmSlice.shape.WithHW(newHeight, newWidth);
             ifmStrides.y *= DY * GY;
             ifmStrides.x *= DX * GX;
             newOfmSlice.offset = newOfmSlice.offset.WithHW(newOfmSlice.offset.Height() + dy, newOfmSlice.offset.Width() + dx);
             newOfmSlice.shape = newOfmSlice.shape.WithHW(newOfmSlice.shape.Height() - dy, newOfmSlice.shape.Width() - dx);
-            if ( newOfmSlice.shape.Width() > 0 && newOfmSlice.shape.Height() > 0 )
+            if ( newOfmSlice.shape.Width() > 0 && newOfmSlice.shape.Height() > 0 && newIfmSlice.shape.Width() > 0 &&
+                 newIfmSlice.shape.Height() > 0 )
             {
                 ofmStrides.y *= DY;
                 ofmStrides.x *= DX;
@@ -452,8 +462,13 @@ HandleDilation(DecompositionContext &ctx, std::unique_ptr<SchedulerOperation> op
 static Margin NewPaddingForBlock(const Margin &padding, const Shape &offset, const Shape &ifmShape, const Shape &block,
     const Point2i &stride, const Point2i &kernelSize)
 {
-    int top = std::max(padding.Top() - std::max(offset.Height(), 0), 0);
-    int left = std::max(padding.Left() - std::max(offset.Width(), 0), 0);
+    // amount of steps already consumed before offset (counting padded area)
+    // e.g. padding = 6, offset = -1 -> 5 consumed steps
+    int topConsumed = std::max(offset.Height() + padding.Top(), 0);
+    int leftConsumed = std::max(offset.Width() + padding.Left(), 0);
+    // Adjust top/left padding based on consumed steps
+    int top = std::max(padding.Top() - topConsumed, 0);
+    int left = std::max(padding.Left() - leftConsumed, 0);
     int remainingHeight = ifmShape.Height() - (block.Height() * stride.y + offset.Height() + kernelSize.y - 1);
     int remainingWidth = ifmShape.Width() - (block.Width() * stride.x + offset.Width() + kernelSize.x - 1);
     int bottom = std::min(padding.Bottom(), std::max(-remainingHeight, 0));
@@ -669,10 +684,19 @@ static std::vector<std::unique_ptr<SchedulerOperation>> DecomposeBlocks(
                 subIfmConn->slice = std::move(newIfmSlice);
                 auto *subOfmConn = subOp->Output(TensorUsage::OFM);
                 subOfmConn->slice = std::move(newOfmSlice);
-                // Decomposition algorithm has weight slicing here if NC > 1, new_weights[oc,y,x,ic] =
-                // weights[oc+bc*NC,y,x,ic] Handled by the existing weight slicing code in the scheduler, so not done
-                // here.
+                // Set weight/scale slice offset
+                subOp->weightDepthOffset += bc * BC;
 
+                if ( subOp->AccumulatorMode().source == AccumulatorSource::Ifm2 )
+                {
+                    if ( auto *subIfm2Conn = subOp->TryInput(TensorUsage::IFM1) )
+                    {
+                        // Accumulator input must align to the OFM slice for block decomposition.
+                        subIfm2Conn->slice.shape = subOfmConn->slice.shape;
+                        subIfm2Conn->slice.offset = subOfmConn->slice.offset;
+                        subIfm2Conn->stepXY = subOfmConn->stepXY;
+                    }
+                }
                 if ( subOp->Output(TensorUsage::OFM)->SliceShape().Elements() )
                 {
                     auto subOps = doDecompose(ctx, std::move(subOp));
@@ -703,10 +727,6 @@ DecomposeForStrides(DecompositionContext &ctx, std::unique_ptr<SchedulerOperatio
     auto SY = stride.y;
     auto SX = stride.x;
 
-    const int MAX_KERNEL_X = std::numeric_limits<uint16_t>::max();
-    const int MAX_KERNEL_Y = std::numeric_limits<uint16_t>::max();
-    const int MAX_IFM_DEPTH = std::numeric_limits<uint16_t>::max();
-    auto ifm_depth = ifmConn->slice.shape.Depth();
     bool didSendOne = false;
     AccumulatorControl accMode = {AccumulatorSource::Acc, false};
     for ( auto ky = 0; ky < kernelSize.y; ky++ )
@@ -722,13 +742,14 @@ DecomposeForStrides(DecompositionContext &ctx, std::unique_ptr<SchedulerOperatio
             // it needs to be increased again as we step past some padding.
             auto extendMax = Point2i{0, 0} - Point2i::Min(ifmConn->slice.offset.WH(), {0, 0});
             auto extend = Point2i::Min(ifmConn->stepXY * Point2i{kx, ky}, extendMax);
-            newIfmSlice.shape =
-                newIfmSlice.shape
-                    .WithHeight(std::max(0,
-                        std::min(ifmConn->shape.Height() - newIfmSlice.offset.Height(),
-                            newIfmSlice.shape.Height() + extend.y)))
-                    .WithWidth(std::max(0,
-                        std::min(ifmConn->shape.Width() - newIfmSlice.offset.Width(), newIfmSlice.shape.Width() + extend.x)));
+            auto newIfmSliceHeight = std::max(0,
+                std::min(ifmConn->shape.Height() - newIfmSlice.offset.Height(), newIfmSlice.shape.Height() + extend.y));
+            auto newIfmSliceWidth = std::max(
+                0, std::min(ifmConn->shape.Width() - newIfmSlice.offset.Width(), newIfmSlice.shape.Width() + extend.x));
+            // Finally clamp to actual IFM slice shape to avoid creating slices that are larger than the IFM
+            newIfmSliceHeight = std::min(newIfmSliceHeight, ifmConn->SliceShape().Height());
+            newIfmSliceWidth = std::min(newIfmSliceWidth, ifmConn->SliceShape().Width());
+            newIfmSlice.shape = newIfmSlice.shape.WithHW(newIfmSliceHeight, newIfmSliceWidth);
             ifmStrides.y *= SY;
             ifmStrides.x *= SX;
             // Don't generate an op that will only produce zeros, unless it is the last one in the group,
@@ -746,26 +767,26 @@ DecomposeForStrides(DecompositionContext &ctx, std::unique_ptr<SchedulerOperatio
                 // we need to account for ifmStrides and compute the first positive offset
                 if ( newIfmSlice.offset.Height() < 0 )
                 {
+                    int steps = DivRoundUp(-newIfmSlice.offset.Height(), ifmStrides.y);
+                    if ( steps >= ofmConn->SliceShape().Height() )
+                        continue;  // There is not enough steps in the ofm, so this will only read from the padding
+
                     // Find first positive coordinate and check whether it is inside the slice
-                    int firstH = (newIfmSlice.offset.Height() % ifmStrides.y);
-                    if ( firstH < 0 )
-                    {
-                        firstH += ifmStrides.y;
-                    }
+                    int firstH = newIfmSlice.offset.Height() + steps * ifmStrides.y;
                     if ( firstH >= newIfmSlice.shape.Height() )
                     {
-                        // First positive coordinate results in zero volume
+                        // First positive coordinate is outside of the slice-shape
                         continue;
                     }
                 }
-                else if ( newIfmSlice.offset.Width() < 0 )
+                if ( newIfmSlice.offset.Width() < 0 )
                 {
-                    // Find first positive coordinate results in zero volume
-                    int firstW = (newIfmSlice.offset.Width() % ifmStrides.x);
-                    if ( firstW < 0 )
-                    {
-                        firstW += ifmStrides.x;
-                    }
+                    int steps = DivRoundUp(-newIfmSlice.offset.Width(), ifmStrides.x);
+                    if ( steps >= ofmConn->SliceShape().Width() )
+                        continue;  // There is not enough steps in the ofm, so this will only read from the padding
+
+                    // Find first positive coordinate and check whether it is inside the slice
+                    int firstW = newIfmSlice.offset.Width() + steps * ifmStrides.x;
                     if ( firstW >= newIfmSlice.shape.Width() )
                     {
                         // First positive coordinate is outside of the slice-shape
@@ -773,11 +794,6 @@ DecomposeForStrides(DecompositionContext &ctx, std::unique_ptr<SchedulerOperatio
                     }
                 }
             }
-            Point2i ifmPoints =
-                DivRoundUp((Point2i{newIfmSlice.shape.Width(), newIfmSlice.shape.Height()} +
-                               Point2i{kernel->Padding().Left(), kernel->Padding().Top()}),
-                    ifmStrides) -
-                Point2i{1, 1};
             const auto newHeight = 1;
             const auto newWidth = 1;
             auto weightOffsetXY = Point2i::Min(Point2i{kx, ky}, kernelSize - Point2i{1, 1});
@@ -1013,11 +1029,14 @@ DecomposeNonConstWeights(DecompositionContext &ctx, std::unique_ptr<SchedulerOpe
                         // Connect Weight tensor as IFM1 with correct slicing
                         auto *subWeightsConn = subOp->ConnectInput(TensorUsage::IFM1, weightsTensor);
                         subWeightsConn->shape = reshapedWeightsShape;
-                        // Use `slice.shape.width = validOfmDepth * kernelArea` together with `stepXY.x = kernelArea`
-                        // which yields exactly validOfmDepth sampled positions after striding.
-                        subWeightsConn->slice.shape = Shape(1, 1, validOfmDepth * kernelArea, ifmDepth);
                         // Flattened width index for (oc, ky, kx) is: (oc * KH * KW) + (ky * KW) + kx
                         subWeightsConn->slice.offset = Shape(0, 0, ofmZ * kernelArea + ky * kernelW + kx, ifmZ);
+                        // Use `slice.shape.width = validOfmDepth * kernelArea` together with `stepXY.x = kernelArea`
+                        // which yields exactly validOfmDepth sampled positions after striding.
+                        // Truncate to (shape - new offset) to stay within bounds.
+                        newWidth = std::min(validOfmDepth * kernelArea,
+                            subWeightsConn->shape.Width() - subWeightsConn->slice.offset.Width());
+                        subWeightsConn->slice.shape = Shape(1, 1, newWidth, ifmDepth);
                         // Step through the flattened width by kernelArea to jump between consecutive output channels
                         // while keeping the same (ky, kx)
                         subWeightsConn->stepXY.x = kernelArea;
@@ -1391,7 +1410,7 @@ std::vector<std::unique_ptr<SchedulerOperation>> DecomposeDepthwiseConv2D(Decomp
         result.insert(result.end(), std::make_move_iterator(subOps.begin()), std::make_move_iterator(subOps.end()));
         if ( transposeOpOfm != ofmConn->tensor )
         {  // Insert memory copy of transposed ofm with slice offset
-            auto copyOp = DecomposeMemoryCopy(ctx, MakeMemCopy(transposeOpOfm, ofmConn->tensor, &ofmSlice));
+            auto copyOp = DecomposeMemoryCopy(ctx, MakeMemCopy(transposeOpOfm, ofmConn->tensor, ofmConn->shape, &ofmSlice));
             result.insert(result.end(), std::make_move_iterator(copyOp.begin()), std::make_move_iterator(copyOp.end()));
         }
         return result;
@@ -1811,7 +1830,7 @@ ConvertResizeBilinearHPCToDepthwise(Architecture *arch, std::unique_ptr<Schedule
     // Centre
     {
         TensorSlice dst = {{0, 1, 1, 0}, ifmShape};
-        auto mc = MakeMemCopy(tens, padT, &dst);
+        auto mc = MakeMemCopy(tens, padT, padT->storageShape, &dst);
         ifmConn = mc->Output(TensorUsage::OFM);
         result.emplace_back(std::move(mc));
     }
@@ -1819,7 +1838,7 @@ ConvertResizeBilinearHPCToDepthwise(Architecture *arch, std::unique_ptr<Schedule
     auto makeRowCopy = [&](int srcH, int dstH)
     {
         TensorSlice dst = {{0, dstH, 1, 0}, ifmShape.WithHeight(1)};
-        auto mc = MakeMemCopy(tens, padT, &dst);
+        auto mc = MakeMemCopy(tens, padT, padT->storageShape, &dst);
         auto *ifm = mc->IFM(0);
         ifm->slice.offset = Shape(0, srcH, 0, 0);
         ifm->slice.shape = dst.shape;
@@ -1831,7 +1850,7 @@ ConvertResizeBilinearHPCToDepthwise(Architecture *arch, std::unique_ptr<Schedule
     auto makeColCopy = [&](int srcW, int dstW)
     {
         TensorSlice dst = {{0, 0, dstW, 0}, padT->storageShape.WithWidth(1)};
-        auto mc = MakeMemCopy(padT, padT, &dst);
+        auto mc = MakeMemCopy(padT, padT, padT->storageShape, &dst);
         auto *ifm = mc->IFM(0);
         ifm->slice.offset = Shape(0, 0, srcW, 0);
         ifm->slice.shape = dst.shape;
@@ -2282,6 +2301,8 @@ std::vector<std::unique_ptr<SchedulerOperation>> DecomposeMatmul(DecompositionCo
                     subOp->Input(TensorUsage::IFM)->slice = newIfmSlice;
                     subOp->Input(TensorUsage::IFM1)->slice = newIfm2Slice;
                     subOp->Output(TensorUsage::OFM)->slice = newOfmSlice;
+                    // Set weight/scale slice offset
+                    subOp->weightDepthOffset += width;
 
                     // Set accumulator mode according to these conditions:
                     //  * Reset accumulators if first depth-wise block otherwise preserve
@@ -3076,10 +3097,11 @@ std::vector<std::unique_ptr<SchedulerOperation>> DecomposeAvgPool(DecompositionC
         result.emplace_back(std::move(op));
         return result;
     }
-
-    // Perform scaling of the output if needed
+    // Separate the division step of the averagePool into MUL + ASR operations.
+    // The averagePool is converted to a SumPool with unit quantization
+    // as the division is performed elsewhere.
     const int scaleSize = ofmConn->quantization.scales.size();
-    if ( qResult.Any(QueryResult::HasRequirements) && req.decomposeProps.Any(ArchProperty::Scaling, ArchProperty::KernelStride) && scaleSize )
+    if ( qResult.Any(QueryResult::HasRequirements) && req.decomposeProps.Any(ArchProperty::Scaling) )
     {
         // Create scaling array
         int H = (kernel->Padding().Top() || kernel->Padding().Bottom()) ? ofmShape.Height() : 1;
@@ -3167,9 +3189,10 @@ std::vector<std::unique_ptr<SchedulerOperation>> DecomposeAvgPool(DecompositionC
 
         // Redirect ofm to perform scaling and set unit scaling
         ofmConn = op->ConnectOutput(TensorUsage::OFM, mulIfm);
+        // Convert to SumPool to signal that division by kernel sum is done elsewhere,
+        // i.e. with the MUL and ASR above.
         ofmConn->quantization = Quantization::Unit();
-        // Remove scales to signal scaling is done elsewhere, i.e. with the MUL and ASR above
-        ofmConn->quantization.scales.clear();
+        op->_type = OpType::SumPool;
         ofmConn->SetType(DataType::None);  // Reset any data type on the connection, since the tensor has been replaced
         auto subOps = DecomposeAvgPool(ctx, std::move(op));
         result.insert(result.end(), std::make_move_iterator(subOps.begin()), std::make_move_iterator(subOps.end()));

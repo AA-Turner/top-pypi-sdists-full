@@ -100,6 +100,11 @@ class QueriesServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_queries__pb2.GetQueryRunRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_queries__pb2.GetQueryRunResponse.FromString,
         )
+        self.ListStreamingResolverDeployments = channel.unary_unary(
+            "/chalk.server.v1.QueriesService/ListStreamingResolverDeployments",
+            request_serializer=chalk_dot_server_dot_v1_dot_queries__pb2.ListStreamingResolverDeploymentsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_queries__pb2.ListStreamingResolverDeploymentsResponse.FromString,
+        )
         self.GetStreamingResolverMappingPlan = channel.unary_unary(
             "/chalk.server.v1.QueriesService/GetStreamingResolverMappingPlan",
             request_serializer=chalk_dot_server_dot_v1_dot_queries__pb2.GetStreamingResolverMappingPlanRequest.SerializeToString,
@@ -237,6 +242,12 @@ class QueriesServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def ListStreamingResolverDeployments(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def GetStreamingResolverMappingPlan(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -360,6 +371,11 @@ def add_QueriesServiceServicer_to_server(servicer, server):
             servicer.GetQueryRun,
             request_deserializer=chalk_dot_server_dot_v1_dot_queries__pb2.GetQueryRunRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_queries__pb2.GetQueryRunResponse.SerializeToString,
+        ),
+        "ListStreamingResolverDeployments": grpc.unary_unary_rpc_method_handler(
+            servicer.ListStreamingResolverDeployments,
+            request_deserializer=chalk_dot_server_dot_v1_dot_queries__pb2.ListStreamingResolverDeploymentsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_queries__pb2.ListStreamingResolverDeploymentsResponse.SerializeToString,
         ),
         "GetStreamingResolverMappingPlan": grpc.unary_unary_rpc_method_handler(
             servicer.GetStreamingResolverMappingPlan,
@@ -883,6 +899,35 @@ class QueriesService(object):
             "/chalk.server.v1.QueriesService/GetQueryRun",
             chalk_dot_server_dot_v1_dot_queries__pb2.GetQueryRunRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_queries__pb2.GetQueryRunResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ListStreamingResolverDeployments(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.QueriesService/ListStreamingResolverDeployments",
+            chalk_dot_server_dot_v1_dot_queries__pb2.ListStreamingResolverDeploymentsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_queries__pb2.ListStreamingResolverDeploymentsResponse.FromString,
             options,
             channel_credentials,
             insecure,

@@ -44,7 +44,7 @@ class ModelCatalogCypherEndpoints(ModelCatalogEndpoints):
             raise ValueError(f"Model with name `{model_name}` does not exist")
         return self._to_model_details(df.iloc[0].to_dict())
 
-    def drop(self, model_name: str, *, fail_if_missing: bool = False) -> ModelDetails | None:
+    def drop(self, model_name: str, *, fail_if_missing: bool = True) -> ModelDetails | None:
         params = CallParameters(model_name=model_name, fail_if_missing=fail_if_missing)
         df = self._query_runner.call_procedure("gds.model.drop", params=params, custom_error=False)
         if df.empty and fail_if_missing:
@@ -84,6 +84,13 @@ class ModelCatalogCypherEndpoints(ModelCatalogEndpoints):
         if df.empty:
             raise ValueError(f"Model with name `{model_name}` does not exist")
         return ModelStoreResult(**df.iloc[0].to_dict())
+
+    def publish(self, model_name: str) -> ModelDetails:
+        params = CallParameters(model_name=model_name)
+        df = self._query_runner.call_procedure("gds.model.publish", params=params, custom_error=False)
+        if df.empty:
+            raise ValueError(f"Model with name `{model_name}` does not exist")
+        return self._to_model_details(df.iloc[0].to_dict())
 
     def _to_model_details(self, result: dict[str, Any]) -> ModelDetails:
         creation_time = result.get("creationTime", None)

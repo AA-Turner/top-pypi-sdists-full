@@ -1,5 +1,5 @@
 //
-// SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates <open-source-office@arm.com>
+// SPDX-FileCopyrightText: Copyright 2025-2026 Arm Limited and/or its affiliates <open-source-office@arm.com>
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -70,6 +70,25 @@ TEST_CASE("Ethos-U55 SupportsQuantization handles IFM-fusing elementwise constra
         REQUIRE(constraints->SupportsQuantization(
             OpType::Add, quant16BitMax, DataType::Int8, quant16BitMax, DataType::Int8, unit, DataType::Int8));
     }
+    SECTION("accepts Add with advanced 8-bit IFM scaling")
+    {
+        const Quantization fixedShift = MakeQuant(1 << 30, 11, 0);
+        const Quantization scaled = MakeQuant(12345, 7, 0);
+        REQUIRE(constraints->SupportsQuantization(OpType::Add, fixedShift, DataType::Int8, scaled, DataType::Int8, unit, DataType::Int8));
+    }
+    SECTION("rejects Add when power-of-two IFM scaling is not the advanced fixed shift")
+    {
+        const Quantization powerOfTwo = MakeQuant(1, 0, 0);
+        const Quantization scaled = MakeQuant(3, 1, 0);
+        REQUIRE_FALSE(constraints->SupportsQuantization(
+            OpType::Add, powerOfTwo, DataType::Int8, scaled, DataType::Int8, unit, DataType::Int8));
+    }
+    SECTION("rejects Add with equal IFM scales outside the simple 16-bit path")
+    {
+        const Quantization fixedShift = MakeQuant(1 << 19, 0, 0);
+        REQUIRE_FALSE(constraints->SupportsQuantization(
+            OpType::Add, fixedShift, DataType::Int8, fixedShift, DataType::Int8, unit, DataType::Int8));
+    }
     SECTION("rejects Add when IFM uses per-channel scales")
     {
         const Quantization perChannel = MakePerChannel(2);
@@ -79,7 +98,7 @@ TEST_CASE("Ethos-U55 SupportsQuantization handles IFM-fusing elementwise constra
     SECTION("rejects Mul with non-unit IFM-scaling")
     {
         const Quantization quant = MakeQuant(2, 1, 0);
-        REQUIRE_FALSE(constraints->SupportsQuantization(OpType::Add, quant, DataType::Int8, quant, DataType::Int8, unit, DataType::Int8));
+        REQUIRE_FALSE(constraints->SupportsQuantization(OpType::Mul, quant, DataType::Int8, quant, DataType::Int8, unit, DataType::Int8));
     }
 }
 

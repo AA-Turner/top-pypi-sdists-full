@@ -431,6 +431,55 @@ class EmbeddingOD(BaseDetector):
         config = {**presets[quality], **kwargs}
         return cls(**config)
 
+    @classmethod
+    def for_audio(cls, quality='balanced', **kwargs):
+        """Create an EmbeddingOD configured for audio anomaly detection.
+
+        Uses a handcrafted 74-dim acoustic feature encoder (20 MFCC,
+        12 chroma, and 5 spectral descriptors, each as mean and standard
+        deviation over frames) followed by a classical PyOD detector. This
+        embed-then-detect pattern with classical detectors is competitive
+        on standard audio anomaly detection benchmarks and needs no GPU.
+        Requires ``pyod[audio]`` (librosa, soundfile).
+
+        Input clips may be file paths, waveform arrays, or
+        ``(waveform, sample_rate)`` tuples.
+
+        Parameters
+        ----------
+        quality : str, optional (default='balanced')
+            - 'fast': handcrafted features + IForest.
+            - 'balanced': handcrafted features + KNN.
+            - 'best': handcrafted features + LUNAR (requires torch).
+
+        **kwargs
+            Override any EmbeddingOD parameter.
+
+        Returns
+        -------
+        clf : EmbeddingOD
+        """
+        presets = {
+            'fast': {
+                'encoder': 'audio-mfcc',
+                'detector': 'IForest',
+            },
+            'balanced': {
+                'encoder': 'audio-mfcc',
+                'detector': 'KNN',
+            },
+            'best': {
+                'encoder': 'audio-mfcc',
+                'detector': 'LUNAR',
+            },
+        }
+        if quality not in presets:
+            raise ValueError(
+                "quality must be 'fast', 'balanced', or 'best', "
+                "got '%s'" % quality)
+        config = {**presets[quality], **kwargs}
+        return cls(**config)
+
 
 class MultiModalOD(BaseDetector):
     """Multi-modal anomaly detection via score fusion.

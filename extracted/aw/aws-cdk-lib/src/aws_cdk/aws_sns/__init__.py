@@ -276,7 +276,7 @@ policy_document = iam.PolicyDocument(
 topic_policy = sns.TopicPolicy(self, "Policy",
     topics=[topic],
     policy_document=policy_document,
-    enforce_sSL=True
+    enforce_ssl=True
 )
 ```
 
@@ -284,7 +284,7 @@ Similiarly you can enforce SSL by setting the `enforceSSL` flag on the topic:
 
 ```python
 topic = sns.Topic(self, "TopicAddPolicy",
-    enforce_sSL=True
+    enforce_ssl=True
 )
 
 topic.add_to_resource_policy(iam.PolicyStatement(
@@ -4610,17 +4610,20 @@ class Subscription(
 
     Example::
 
-        import aws_cdk.aws_kinesisfirehose as firehose
-        # stream: firehose.DeliveryStream
+        from aws_cdk import Environment
+        # producerStack defines an SNS topic
+        # topic: sns.Topic
         
         
-        topic = sns.Topic(self, "Topic")
-        
-        sns.Subscription(self, "Subscription",
-            topic=topic,
-            endpoint=stream.delivery_stream_arn,
-            protocol=sns.SubscriptionProtocol.FIREHOSE,
-            subscription_role_arn="SAMPLE_ARN"
+        # consumerStack subscribes to it with a weak reference,
+        # so the producer can be torn down without blocking on this consumer
+        consumer_stack = Stack(app, "Consumer",
+            env=Environment(account="123456789012", region="us-east-1")
+        )
+        sns.Subscription(consumer_stack, "Subscription",
+            topic=sns.Topic.from_topic_arn(consumer_stack, "Topic", Stack.consume_reference(topic.topic_arn)),
+            endpoint="https://example.com/webhook",
+            protocol=sns.SubscriptionProtocol.HTTPS
         )
     '''
 
@@ -5095,17 +5098,20 @@ class SubscriptionProps(SubscriptionOptions):
 
         Example::
 
-            import aws_cdk.aws_kinesisfirehose as firehose
-            # stream: firehose.DeliveryStream
+            from aws_cdk import Environment
+            # producerStack defines an SNS topic
+            # topic: sns.Topic
             
             
-            topic = sns.Topic(self, "Topic")
-            
-            sns.Subscription(self, "Subscription",
-                topic=topic,
-                endpoint=stream.delivery_stream_arn,
-                protocol=sns.SubscriptionProtocol.FIREHOSE,
-                subscription_role_arn="SAMPLE_ARN"
+            # consumerStack subscribes to it with a weak reference,
+            # so the producer can be torn down without blocking on this consumer
+            consumer_stack = Stack(app, "Consumer",
+                env=Environment(account="123456789012", region="us-east-1")
+            )
+            sns.Subscription(consumer_stack, "Subscription",
+                topic=sns.Topic.from_topic_arn(consumer_stack, "Topic", Stack.consume_reference(topic.topic_arn)),
+                endpoint="https://example.com/webhook",
+                protocol=sns.SubscriptionProtocol.HTTPS
             )
         '''
         if isinstance(delivery_policy, dict):
@@ -5265,17 +5271,20 @@ class SubscriptionProtocol(enum.Enum):
 
     Example::
 
-        import aws_cdk.aws_kinesisfirehose as firehose
-        # stream: firehose.DeliveryStream
+        from aws_cdk import Environment
+        # producerStack defines an SNS topic
+        # topic: sns.Topic
         
         
-        topic = sns.Topic(self, "Topic")
-        
-        sns.Subscription(self, "Subscription",
-            topic=topic,
-            endpoint=stream.delivery_stream_arn,
-            protocol=sns.SubscriptionProtocol.FIREHOSE,
-            subscription_role_arn="SAMPLE_ARN"
+        # consumerStack subscribes to it with a weak reference,
+        # so the producer can be torn down without blocking on this consumer
+        consumer_stack = Stack(app, "Consumer",
+            env=Environment(account="123456789012", region="us-east-1")
+        )
+        sns.Subscription(consumer_stack, "Subscription",
+            topic=sns.Topic.from_topic_arn(consumer_stack, "Topic", Stack.consume_reference(topic.topic_arn)),
+            endpoint="https://example.com/webhook",
+            protocol=sns.SubscriptionProtocol.HTTPS
         )
     '''
 
@@ -7124,12 +7133,15 @@ class Topic(TopicBase, metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_sns.T
         import aws_cdk.aws_sns as sns
         
         
-        dlt = sns.Topic(self, "DLQ")
-        fn = lambda_.Function(self, "MyFunction",
-            runtime=lambda_.Runtime.NODEJS_LATEST,
-            handler="index.handler",
-            code=lambda_.Code.from_inline("// your code here"),
-            dead_letter_topic=dlt
+        topic = sns.Topic(self, "MyTopic")
+        
+        topic_rule = iot.TopicRule(self, "TopicRule",
+            sql=iot.IotSql.from_string_as_ver20160323("SELECT topic(2) as device_id, year, month, day FROM 'device/+/data'"),
+            actions=[
+                actions.SnsTopicAction(topic,
+                    message_format=actions.SnsActionMessageFormat.JSON
+                )
+            ]
         )
     '''
 

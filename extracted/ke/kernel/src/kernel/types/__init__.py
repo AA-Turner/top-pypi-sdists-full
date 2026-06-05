@@ -25,6 +25,7 @@ from .app_list_params import AppListParams as AppListParams
 from .created_api_key import CreatedAPIKey as CreatedAPIKey
 from .browser_pool_ref import BrowserPoolRef as BrowserPoolRef
 from .app_list_response import AppListResponse as AppListResponse
+from .proxy_list_params import ProxyListParams as ProxyListParams
 from .proxy_check_params import ProxyCheckParams as ProxyCheckParams
 from .api_key_list_params import APIKeyListParams as APIKeyListParams
 from .browser_curl_params import BrowserCurlParams as BrowserCurlParams
@@ -41,6 +42,7 @@ from .browser_create_params import BrowserCreateParams as BrowserCreateParams
 from .browser_curl_response import BrowserCurlResponse as BrowserCurlResponse
 from .browser_list_response import BrowserListResponse as BrowserListResponse
 from .browser_update_params import BrowserUpdateParams as BrowserUpdateParams
+from .extension_list_params import ExtensionListParams as ExtensionListParams
 from .profile_create_params import ProfileCreateParams as ProfileCreateParams
 from .project_create_params import ProjectCreateParams as ProjectCreateParams
 from .project_update_params import ProjectUpdateParams as ProjectUpdateParams
@@ -56,6 +58,7 @@ from .browser_update_response import BrowserUpdateResponse as BrowserUpdateRespo
 from .extension_list_response import ExtensionListResponse as ExtensionListResponse
 from .extension_upload_params import ExtensionUploadParams as ExtensionUploadParams
 from .proxy_retrieve_response import ProxyRetrieveResponse as ProxyRetrieveResponse
+from .browser_pool_list_params import BrowserPoolListParams as BrowserPoolListParams
 from .credential_create_params import CredentialCreateParams as CredentialCreateParams
 from .credential_provider_item import CredentialProviderItem as CredentialProviderItem
 from .credential_update_params import CredentialUpdateParams as CredentialUpdateParams
@@ -70,7 +73,6 @@ from .browser_retrieve_response import BrowserRetrieveResponse as BrowserRetriev
 from .extension_upload_response import ExtensionUploadResponse as ExtensionUploadResponse
 from .browser_pool_create_params import BrowserPoolCreateParams as BrowserPoolCreateParams
 from .browser_pool_delete_params import BrowserPoolDeleteParams as BrowserPoolDeleteParams
-from .browser_pool_list_response import BrowserPoolListResponse as BrowserPoolListResponse
 from .browser_pool_update_params import BrowserPoolUpdateParams as BrowserPoolUpdateParams
 from .deployment_create_response import DeploymentCreateResponse as DeploymentCreateResponse
 from .deployment_follow_response import DeploymentFollowResponse as DeploymentFollowResponse
@@ -84,9 +86,9 @@ from .invocation_retrieve_response import InvocationRetrieveResponse as Invocati
 from .browser_pool_acquire_response import BrowserPoolAcquireResponse as BrowserPoolAcquireResponse
 from .credential_totp_code_response import CredentialTotpCodeResponse as CredentialTotpCodeResponse
 from .browser_load_extensions_params import BrowserLoadExtensionsParams as BrowserLoadExtensionsParams
+from .credential_provider_list_params import CredentialProviderListParams as CredentialProviderListParams
 from .credential_provider_test_result import CredentialProviderTestResult as CredentialProviderTestResult
 from .credential_provider_create_params import CredentialProviderCreateParams as CredentialProviderCreateParams
-from .credential_provider_list_response import CredentialProviderListResponse as CredentialProviderListResponse
 from .credential_provider_update_params import CredentialProviderUpdateParams as CredentialProviderUpdateParams
 from .invocation_list_browsers_response import InvocationListBrowsersResponse as InvocationListBrowsersResponse
 from .credential_provider_list_items_response import (

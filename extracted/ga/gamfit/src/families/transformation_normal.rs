@@ -34,9 +34,10 @@ use crate::families::custom_family::{
     CustomFamilyPsiDerivativeOperator, CustomFamilyWarmStart, ExactNewtonJointGradientEvaluation,
     ExactNewtonJointHessianWorkspace, ExactNewtonJointPsiSecondOrderTerms,
     ExactNewtonJointPsiTerms, ExactNewtonJointPsiWorkspace, FamilyEvaluation,
-    MaterializablePsiDerivativeOperator, ParameterBlockSpec, ParameterBlockState, PenaltyMatrix,
-    build_block_spatial_psi_derivatives, evaluate_custom_family_joint_hyper,
-    evaluate_custom_family_joint_hyper_efs, fit_custom_family, fit_custom_family_fixed_log_lambdas,
+    JointHessianSourcePreference, MaterializablePsiDerivativeOperator, ParameterBlockSpec,
+    ParameterBlockState, PenaltyMatrix, build_block_spatial_psi_derivatives,
+    evaluate_custom_family_joint_hyper, evaluate_custom_family_joint_hyper_efs, fit_custom_family,
+    fit_custom_family_fixed_log_lambdas,
 };
 use crate::families::gamlss::{
     initializewiggle_knots_from_seed, solve_penalizedweighted_projection,
@@ -209,6 +210,27 @@ const SCOP_PSI_PSI_HVP_TILE_COLS: usize = 32;
 /// genuinely moderate p so wide CTN fits remain row-streamed.
 const SCOP_HESSIAN_HVP_DENSE_CACHE_MAX_DIM: usize = 384;
 const SCOP_HESSIAN_HVP_DENSE_CACHE_MAX_BYTES: usize = 64 * 1024 * 1024;
+
+/// CTN-scoped ceiling on the custom-family inner exact-Newton cycle budget.
+///
+/// The global `DEFAULT_CUSTOM_FAMILY_INNER_MAX_CYCLES = 1200` exists for the
+/// biobank survival marginal-slope path, whose inner mode has a long,
+/// rank-deficient KKT tail that genuinely needs hundreds of cycles. CTN is a
+/// different regime: its coefficient block is a *bounded-dimension* Khatri–Rao
+/// tensor (capped by `BASE/LARGE_SAMPLE_TRANSFORMATION_TENSOR_WIDTH`), and the
+/// objective is strictly convex by construction — the `double_penalty` ridge
+/// plus the order-2/order-1 roughness penalties make the penalized Hessian
+/// positive definite even where the likelihood is flat on weakly-identified
+/// shape×covariate directions. An exact-Newton iteration on a strictly convex,
+/// bounded-dimension block converges in a handful of cycles; the only way the
+/// fit reaches 1200 inner cycles is by polishing weakly-identified directions
+/// that contribute nothing to the likelihood (the #720 timeout). Scaling the
+/// cap with the realized coefficient dimension keeps a generous margin for a
+/// genuinely nonlinear, high-dimensional transformation while refusing to grind
+/// the production biobank cap on an easy near-Gaussian shift.
+const CTN_INNER_MAX_CYCLES_BASE: usize = 64;
+const CTN_INNER_MAX_CYCLES_PER_DIM: usize = 2;
+const CTN_INNER_MAX_CYCLES_CEILING: usize = 400;
 
 fn beta_bits_match(cached: &Array1<f64>, candidate: &Array1<f64>) -> bool {
     cached.len() == candidate.len()
@@ -7722,6 +7744,7 @@ fn penalty_diag_scale(penalty: &PenaltyMatrix) -> f64 {
             matrix_diag_mean_abs(local).max(matrix_frobenius_rms(local))
         }
         PenaltyMatrix::Labeled { inner, .. } => penalty_diag_scale(inner),
+        PenaltyMatrix::Fixed { inner, .. } => penalty_diag_scale(inner),
     }
 }
 
@@ -8708,6 +8731,10 @@ impl TransformationNormalJointHessianWorkspace {
 impl ExactNewtonJointHessianWorkspace for TransformationNormalJointHessianWorkspace {
     fn hessian_dense(&self) -> Result<Option<Array2<f64>>, String> {
         Ok(Some(self.dense_hessian()?.clone()))
+    }
+
+    fn hessian_source_preference(&self) -> JointHessianSourcePreference {
+        JointHessianSourcePreference::Operator
     }
 
     fn hessian_matvec_available(&self) -> bool {
@@ -10057,10 +10084,77 @@ fn response_floor_offsets(
     )
 }
 
+/// Data-driven cap on the response-shape internal-knot budget keyed on how far
+/// the marginal response distribution is from a location-scale Gaussian.
+///
+/// The CTN response-direction I-spline block exists solely to bend the
+/// transformation `h(y)` away from the affine `(y − μ)/σ` map that already makes
+/// a homoskedastic-Gaussian response standard normal. When the marginal
+/// response is itself close to Gaussian (after centering/scaling), the
+/// data carry essentially no information to identify those bend directions:
+/// every shape×covariate tensor coordinate beyond "constant scale × location
+/// shift" is weakly identified, so a degree-3, 10-internal-knot block (~13
+/// response columns, ~100+ tensor coefficients) makes the custom-family
+/// optimizer re-factorize a dense exact SCOP Hessian for directions that
+/// contribute nothing to the likelihood — the #720 timeout.
+///
+/// The complexity score is `|skewness| + ½·|excess kurtosis|`, both classic
+/// departures from normality that the response-shape basis is there to absorb.
+/// For a clean location-scale Gaussian transformation the score is ≈ 0 and the
+/// budget collapses to a handful of knots; for genuinely nonlinear / skewed /
+/// heteroskedastic transformations (heavy-tailed survival times, censored or
+/// log-normal responses, multimodal mixtures) the score is large and the budget
+/// relaxes back to the configured count, preserving CTN's expressiveness on
+/// real transformations. This adapts the *effective* basis size rather than
+/// shrinking the default, so nonlinear accuracy is untouched.
+fn transformation_complexity_knot_budget(
+    response: ArrayView1<'_, f64>,
+    min_internal: usize,
+) -> usize {
+    let n = response.len();
+    if n < 8 {
+        // Too few rows to estimate higher moments reliably; do not let a noisy
+        // moment estimate gate the basis — fall back to the structural caps.
+        return usize::MAX;
+    }
+    let n_f = n as f64;
+    let mean = response.iter().copied().sum::<f64>() / n_f;
+    let mut m2 = 0.0;
+    let mut m3 = 0.0;
+    let mut m4 = 0.0;
+    for &y in response.iter() {
+        let d = y - mean;
+        let d2 = d * d;
+        m2 += d2;
+        m3 += d2 * d;
+        m4 += d2 * d2;
+    }
+    m2 /= n_f;
+    m3 /= n_f;
+    m4 /= n_f;
+    if m2 <= 0.0 || !m2.is_finite() {
+        // Degenerate (constant) response: no shape information at all.
+        return min_internal;
+    }
+    let sd = m2.sqrt();
+    let skewness = (m3 / (sd * sd * sd)).abs();
+    // Excess kurtosis (Gaussian reference subtracts 3).
+    let excess_kurtosis = (m4 / (m2 * m2) - 3.0).abs();
+    let complexity = skewness + 0.5 * excess_kurtosis;
+    // Each unit of non-normality unlocks a few extra interior knots. A clean
+    // Gaussian (complexity ≈ 0) keeps just `min_internal`; moderate departures
+    // (complexity ≳ 1) already unlock a rich block, and heavy departures
+    // saturate the structural caps below. The slope is deliberately generous so
+    // mild nonlinearity is not under-resolved.
+    let extra = (complexity * 6.0).round() as usize;
+    min_internal.saturating_add(extra)
+}
+
 pub(crate) fn effective_response_num_internal_knots(
     config: &TransformationNormalConfig,
     n_obs: usize,
     p_cov: usize,
+    response: ArrayView1<'_, f64>,
 ) -> usize {
     // I-spline contract requires K' = K − 2 ≥ 0, i.e. K ≥ 2 internal knots.
     let min_internal = 2usize;
@@ -10075,10 +10169,16 @@ pub(crate) fn effective_response_num_internal_knots(
     let tensor_cap = max_shape_cols_from_tensor
         .saturating_sub(config.response_degree + 1)
         .max(min_internal);
+    // Data-driven cap: a near-Gaussian transformation does not need (and cannot
+    // identify) a heavy shape block. This trims the dense SCOP Hessian /
+    // tensor-coefficient cost on easy signals while leaving genuinely nonlinear
+    // transformations at the full structural budget.
+    let complexity_cap = transformation_complexity_knot_budget(response, min_internal);
     config
         .response_num_internal_knots
         .min(sample_cap)
         .min(tensor_cap)
+        .min(complexity_cap)
         .max(min_internal)
 }
 
@@ -10476,10 +10576,12 @@ fn build_tensor_penalties_kronecker(
     // shifts and leaves h(Y|x) calibrated only marginally instead of
     // conditionally.
     for s_cov in covariate_penalties {
+        let fixed_log_lambda = s_cov.fixed_log_lambda();
         let right = match s_cov {
             PenaltyMatrix::Dense(right) => right,
             penalty @ PenaltyMatrix::Blockwise { .. } => penalty.to_dense(),
             PenaltyMatrix::Labeled { inner, .. } => inner.to_dense(),
+            PenaltyMatrix::Fixed { inner, .. } => inner.to_dense(),
             PenaltyMatrix::KroneckerFactored { .. } => {
                 return Err(
                     "transformation covariate penalties must be single-block, not already Kronecker-factored"
@@ -10487,9 +10589,13 @@ fn build_tensor_penalties_kronecker(
                 )
             }
         };
-        penalties.push(PenaltyMatrix::KroneckerFactored {
+        let penalty = PenaltyMatrix::KroneckerFactored {
             left: shape_resp.clone(),
             right,
+        };
+        penalties.push(match fixed_log_lambda {
+            Some(value) => penalty.with_fixed_log_lambda(value),
+            None => penalty,
         });
     }
 
@@ -12085,15 +12191,57 @@ mod tests {
         );
     }
 
+    /// Strongly non-Gaussian (heavy right-skew, exponential-shaped) response so
+    /// the data-driven complexity cap in `effective_response_num_internal_knots`
+    /// is non-binding and the structural sample/tensor caps remain the gate.
+    fn skewed_response(n: usize) -> Array1<f64> {
+        Array1::from_iter((0..n).map(|i| {
+            let u = (i as f64 + 0.5) / n as f64;
+            // Inverse-CDF of a unit exponential: skewness 2, excess kurtosis 6,
+            // so the complexity budget saturates well above the structural caps.
+            -(1.0 - u).ln()
+        }))
+    }
+
     #[test]
     fn large_samples_allow_richer_response_basis_than_small_samples() {
         let config = TransformationNormalConfig::default();
-        let small = effective_response_num_internal_knots(&config, 40, 20);
-        let large = effective_response_num_internal_knots(&config, 4000, 20);
+        let small_resp = skewed_response(40);
+        let large_resp = skewed_response(4000);
+        let small = effective_response_num_internal_knots(&config, 40, 20, small_resp.view());
+        let large = effective_response_num_internal_knots(&config, 4000, 20, large_resp.view());
         assert!(large >= small);
         assert!(
             large > small,
             "large-sample tensor cap should relax the small-sample response bottleneck"
+        );
+    }
+
+    #[test]
+    fn near_gaussian_response_trims_response_basis_below_skewed_response() {
+        // A clean location-scale Gaussian transformation cannot identify a heavy
+        // shape block, so the data-driven complexity cap must collapse its knot
+        // budget far below a strongly non-Gaussian response at the same n / p_cov.
+        let config = TransformationNormalConfig::default();
+        let n = 2000usize;
+        // Gaussian-ish (symmetric, mesokurtic) response via a fine standard-normal
+        // quantile grid: skewness ≈ 0, excess kurtosis ≈ 0 ⇒ minimal shape budget.
+        let gaussian: Array1<f64> = Array1::from_iter((0..n).map(|i| {
+            let u = (i as f64 + 0.5) / n as f64;
+            standard_normal_quantile(u).expect("strictly interior normal quantile")
+        }));
+        let gaussian_knots = effective_response_num_internal_knots(&config, n, 8, gaussian.view());
+        let skewed_knots =
+            effective_response_num_internal_knots(&config, n, 8, skewed_response(n).view());
+        assert!(
+            gaussian_knots < skewed_knots,
+            "near-Gaussian transformation should use a smaller response basis \
+             than a strongly skewed one (gaussian={gaussian_knots}, skewed={skewed_knots})"
+        );
+        assert!(
+            gaussian_knots <= 4,
+            "near-Gaussian transformation knot budget should collapse to a handful \
+             of internal knots, got {gaussian_knots}"
         );
     }
 
@@ -14650,6 +14798,7 @@ fn extract_covariate_penalty_factor(penalty: &PenaltyMatrix) -> Result<Array2<f6
         PenaltyMatrix::Dense(matrix) => Ok(matrix.clone()),
         PenaltyMatrix::Blockwise { .. } => Ok(penalty.to_dense()),
         PenaltyMatrix::Labeled { inner, .. } => extract_covariate_penalty_factor(inner),
+        PenaltyMatrix::Fixed { inner, .. } => extract_covariate_penalty_factor(inner),
         PenaltyMatrix::KroneckerFactored { .. } => Err(
             "transformation covariate psi penalties must be single-block, not already Kronecker-factored"
                 .to_string(),
@@ -14908,7 +15057,7 @@ pub fn fit_transformation_normal(
     kappa_options: &SpatialLengthScaleOptimizationOptions,
     warm_start: Option<&TransformationWarmStart>,
 ) -> Result<TransformationNormalFitResult, String> {
-    let options = options.clone();
+    let mut options = options.clone();
     // CTN advertises profiled outer-Hessian HVP support and supplies the
     // callback derivative kernel consumed by the unified REML/LAML evaluator.
     // Keep analytic curvature enabled here: the evaluator routes CTN Hessians
@@ -14922,13 +15071,30 @@ pub fn fit_transformation_normal(
     let boot_spec = freeze_term_collection_from_design(&covariate_spec, &boot_design)
         .map_err(|e| format!("failed to freeze bootstrap covariate spatial basis centers: {e}"))?;
     let mut effective_config = config.clone();
-    effective_config.response_num_internal_knots =
-        effective_response_num_internal_knots(config, response.len(), boot_design.design.ncols());
+    effective_config.response_num_internal_knots = effective_response_num_internal_knots(
+        config,
+        response.len(),
+        boot_design.design.ncols(),
+        response.view(),
+    );
 
     // 2. Build response basis ONCE — it is independent of κ once the effective
     // response complexity has been chosen.
     let (resp_val, resp_deriv, resp_penalties, resp_knots, resp_transform) =
         build_response_basis(response, &effective_config)?;
+
+    // Scope the custom-family inner exact-Newton cycle budget to CTN's
+    // bounded-dimension, strictly convex (double-penalty) coefficient block.
+    // The realized tensor width is `p_resp · p_cov`; the cap grows with it so a
+    // genuinely high-dimensional nonlinear transformation keeps headroom, but a
+    // near-Gaussian shift can no longer spin the production biobank cap (#720).
+    // Only ever *lower* the caller's cap so a deliberately tightened budget
+    // (screening / CI overrides) is respected.
+    let realized_p_total = resp_val.ncols().saturating_mul(boot_design.design.ncols());
+    let ctn_inner_cap = CTN_INNER_MAX_CYCLES_BASE
+        .saturating_add(realized_p_total.saturating_mul(CTN_INNER_MAX_CYCLES_PER_DIM))
+        .min(CTN_INNER_MAX_CYCLES_CEILING);
+    options.inner_max_cycles = options.inner_max_cycles.min(ctn_inner_cap);
 
     // 3. Check whether spatial κ optimization is needed.
     let spatial_terms = spatial_length_scale_term_indices(&covariate_spec);

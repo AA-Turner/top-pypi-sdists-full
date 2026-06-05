@@ -42,6 +42,7 @@ if TYPE_CHECKING:
     from arelle.oim.csv.context import XbrlCsvLoadingContext
     from arelle.typing import TypeGetText, LocaleDict
     from arelle.ValidateUtr import UtrEntry
+    from arelle.WatchRss import WatchRss
 
     _: TypeGetText  # Handle gettext
 else:
@@ -299,6 +300,7 @@ class ModelXbrl:
     targetRelationships: set[ModelObject]
     qnameDimensionContextElement: dict[QName, str]
     xbrlCsvLoadingContext: XbrlCsvLoadingContext | None
+    watchRss: WatchRss
     _factsByDimQname: dict[QName, dict[QName | str | None, set[ModelFact]]]
     _factsByQname: dict[QName, set[ModelFact]]
     _factsByDatatype: dict[bool | tuple[bool, QName], set[ModelFact]]
@@ -710,12 +712,12 @@ class ModelXbrl:
                         scenarioElt = XmlUtil.addChild(newCntxElt, XbrlConst.xbrli, "scenario")
                     contextElt = scenarioElt
                 else:
-                    self.info("arelleLinfo",  #type: ignore[func-returns-value]
+                    self.info("arelleLinfo",  # type: ignore[func-returns-value]
                         _("Create context, %(dimension)s, cannot determine context element, either no all relationship or validation issue"),
                         modelObject=self, dimension=dimQname),
                     continue
-                dimAttr = ("dimension", XmlUtil.addQnameValue(xbrlElt, cast('QName', dimQname)))  #Typing thinks dimQname might still be an integer
-                if cast('DimValuePrototype | ModelDimensionValue', dimValue).isTyped:  #Typing thinks that this can also be a QName
+                dimAttr = ("dimension", XmlUtil.addQnameValue(xbrlElt, cast('QName', dimQname)))  # Typing thinks dimQname might still be an integer
+                if cast('DimValuePrototype | ModelDimensionValue', dimValue).isTyped:  # Typing thinks that this can also be a QName
                     dimElt = XmlUtil.addChild(contextElt, XbrlConst.xbrldi, "xbrldi:typedMember",
                                               attributes=dimAttr)
                     if isinstance(dimValue, (arelle.ModelInstanceObject.ModelDimensionValue, DimValuePrototype)) and dimValue.isTyped and dimValue.typedMember is not None:

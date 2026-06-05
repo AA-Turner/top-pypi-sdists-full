@@ -353,7 +353,7 @@ If you chose to load your schema file from S3, the construct will provide the ne
 ```python
 # create a bucket containing the input schema
 schema_bucket = s3.Bucket(self, "SchemaBucket",
-    enforce_sSL=True,
+    enforce_ssl=True,
     versioned=True,
     public_read_access=False,
     block_public_access=s3.BlockPublicAccess.BLOCK_ALL,
@@ -894,7 +894,7 @@ guardrail = bedrock.Guardrail(self, "bedrockGuardrails",
 )
 
 # Add PII filter for addresses with input/output actions
-guardrail.add_pIIFilter(
+guardrail.add_pii_filter(
     type=bedrock.GeneralPIIType.ADDRESS,
     action=bedrock.GuardrailAction.BLOCK,
     # below props are optional
@@ -905,7 +905,7 @@ guardrail.add_pIIFilter(
 )
 
 # Add PII filter for credit card numbers with input/output actions
-guardrail.add_pIIFilter(
+guardrail.add_pii_filter(
     type=bedrock.FinancePIIType.CREDIT_DEBIT_CARD_NUMBER,
     action=bedrock.GuardrailAction.BLOCK,
     # below props are optional
@@ -916,19 +916,19 @@ guardrail.add_pIIFilter(
 )
 
 # Add PII filter for email addresses
-guardrail.add_pIIFilter(
+guardrail.add_pii_filter(
     type=bedrock.GeneralPIIType.EMAIL,
     action=bedrock.GuardrailAction.ANONYMIZE
 )
 
 # Add PII filter for US Social Security Numbers
-guardrail.add_pIIFilter(
+guardrail.add_pii_filter(
     type=bedrock.USASpecificPIIType.US_SOCIAL_SECURITY_NUMBER,
     action=bedrock.GuardrailAction.BLOCK
 )
 
 # Add PII filter for IP addresses
-guardrail.add_pIIFilter(
+guardrail.add_pii_filter(
     type=bedrock.InformationTechnologyPIIType.IP_ADDRESS,
     action=bedrock.GuardrailAction.ANONYMIZE
 )
@@ -9679,7 +9679,7 @@ class PIIFilter:
             )
             
             # Add PII filter for addresses with input/output actions
-            guardrail.add_pIIFilter(
+            guardrail.add_pii_filter(
                 type=bedrock.GeneralPIIType.ADDRESS,
                 action=bedrock.GuardrailAction.BLOCK,
                 # below props are optional
@@ -9690,7 +9690,7 @@ class PIIFilter:
             )
             
             # Add PII filter for credit card numbers with input/output actions
-            guardrail.add_pIIFilter(
+            guardrail.add_pii_filter(
                 type=bedrock.FinancePIIType.CREDIT_DEBIT_CARD_NUMBER,
                 action=bedrock.GuardrailAction.BLOCK,
                 # below props are optional
@@ -9701,19 +9701,19 @@ class PIIFilter:
             )
             
             # Add PII filter for email addresses
-            guardrail.add_pIIFilter(
+            guardrail.add_pii_filter(
                 type=bedrock.GeneralPIIType.EMAIL,
                 action=bedrock.GuardrailAction.ANONYMIZE
             )
             
             # Add PII filter for US Social Security Numbers
-            guardrail.add_pIIFilter(
+            guardrail.add_pii_filter(
                 type=bedrock.USASpecificPIIType.US_SOCIAL_SECURITY_NUMBER,
                 action=bedrock.GuardrailAction.BLOCK
             )
             
             # Add PII filter for IP addresses
-            guardrail.add_pIIFilter(
+            guardrail.add_pii_filter(
                 type=bedrock.InformationTechnologyPIIType.IP_ADDRESS,
                 action=bedrock.GuardrailAction.ANONYMIZE
             )
@@ -9831,7 +9831,7 @@ class PIIType(
         )
         
         # Add PII filter for addresses with input/output actions
-        guardrail.add_pIIFilter(
+        guardrail.add_pii_filter(
             type=bedrock.GeneralPIIType.ADDRESS,
             action=bedrock.GuardrailAction.BLOCK,
             # below props are optional
@@ -9842,7 +9842,7 @@ class PIIType(
         )
         
         # Add PII filter for credit card numbers with input/output actions
-        guardrail.add_pIIFilter(
+        guardrail.add_pii_filter(
             type=bedrock.FinancePIIType.CREDIT_DEBIT_CARD_NUMBER,
             action=bedrock.GuardrailAction.BLOCK,
             # below props are optional
@@ -9853,19 +9853,19 @@ class PIIType(
         )
         
         # Add PII filter for email addresses
-        guardrail.add_pIIFilter(
+        guardrail.add_pii_filter(
             type=bedrock.GeneralPIIType.EMAIL,
             action=bedrock.GuardrailAction.ANONYMIZE
         )
         
         # Add PII filter for US Social Security Numbers
-        guardrail.add_pIIFilter(
+        guardrail.add_pii_filter(
             type=bedrock.USASpecificPIIType.US_SOCIAL_SECURITY_NUMBER,
             action=bedrock.GuardrailAction.BLOCK
         )
         
         # Add PII filter for IP addresses
-        guardrail.add_pIIFilter(
+        guardrail.add_pii_filter(
             type=bedrock.InformationTechnologyPIIType.IP_ADDRESS,
             action=bedrock.GuardrailAction.ANONYMIZE
         )
@@ -13033,7 +13033,7 @@ class UKSpecificPIIType(
         # The values are placeholders you should change.
         import aws_cdk.aws_bedrock_alpha as bedrock_alpha
         
-        u_kSpecific_pIIType = bedrock_alpha.UKSpecificPIIType.UK_NATIONAL_HEALTH_SERVICE_NUMBER
+        u_k_specific_pii_type = bedrock_alpha.UKSpecificPIIType.UK_NATIONAL_HEALTH_SERVICE_NUMBER
     '''
 
     @jsii.python.classproperty
@@ -13084,7 +13084,7 @@ class USASpecificPIIType(
         )
         
         # Add PII filter for addresses with input/output actions
-        guardrail.add_pIIFilter(
+        guardrail.add_pii_filter(
             type=bedrock.GeneralPIIType.ADDRESS,
             action=bedrock.GuardrailAction.BLOCK,
             # below props are optional
@@ -13095,7 +13095,7 @@ class USASpecificPIIType(
         )
         
         # Add PII filter for credit card numbers with input/output actions
-        guardrail.add_pIIFilter(
+        guardrail.add_pii_filter(
             type=bedrock.FinancePIIType.CREDIT_DEBIT_CARD_NUMBER,
             action=bedrock.GuardrailAction.BLOCK,
             # below props are optional
@@ -13106,19 +13106,19 @@ class USASpecificPIIType(
         )
         
         # Add PII filter for email addresses
-        guardrail.add_pIIFilter(
+        guardrail.add_pii_filter(
             type=bedrock.GeneralPIIType.EMAIL,
             action=bedrock.GuardrailAction.ANONYMIZE
         )
         
         # Add PII filter for US Social Security Numbers
-        guardrail.add_pIIFilter(
+        guardrail.add_pii_filter(
             type=bedrock.USASpecificPIIType.US_SOCIAL_SECURITY_NUMBER,
             action=bedrock.GuardrailAction.BLOCK
         )
         
         # Add PII filter for IP addresses
-        guardrail.add_pIIFilter(
+        guardrail.add_pii_filter(
             type=bedrock.InformationTechnologyPIIType.IP_ADDRESS,
             action=bedrock.GuardrailAction.ANONYMIZE
         )
@@ -14827,6 +14827,21 @@ class BedrockFoundationModel(
         return typing.cast("BedrockFoundationModel", jsii.sget(cls, "ANTHROPIC_CLAUDE_OPUS_4_7"))
 
     @jsii.python.classproperty
+    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_OPUS_4_8")
+    def ANTHROPIC_CLAUDE_OPUS_4_8(cls) -> "BedrockFoundationModel":
+        '''(experimental) Anthropic's Claude Opus 4.8 model, Anthropic's most intelligent Opus model and best generally available model for coding and agents, with deeper reasoning for enterprise workflows. Features a 1M token context window, 128K max output tokens, and supports reasoning.
+
+        Features:
+
+        - Supports vision (Image input modality)
+        - Cross-region support
+        - Supports Bedrock Agents
+
+        :stability: experimental
+        '''
+        return typing.cast("BedrockFoundationModel", jsii.sget(cls, "ANTHROPIC_CLAUDE_OPUS_4_8"))
+
+    @jsii.python.classproperty
     @jsii.member(jsii_name="ANTHROPIC_CLAUDE_OPUS_4_V1_0")
     def ANTHROPIC_CLAUDE_OPUS_4_V1_0(cls) -> "BedrockFoundationModel":
         '''(experimental) Anthropic's Claude Opus 4 model, next-generation frontier model. High-performance model for advanced reasoning and complex multi-step tasks.
@@ -15378,7 +15393,7 @@ class CanadaSpecificPIIType(
         # The values are placeholders you should change.
         import aws_cdk.aws_bedrock_alpha as bedrock_alpha
         
-        canada_specific_pIIType = bedrock_alpha.CanadaSpecificPIIType.CA_HEALTH_NUMBER
+        canada_specific_pii_type = bedrock_alpha.CanadaSpecificPIIType.CA_HEALTH_NUMBER
     '''
 
     @jsii.python.classproperty
@@ -15777,7 +15792,7 @@ class FinancePIIType(
         )
         
         # Add PII filter for addresses with input/output actions
-        guardrail.add_pIIFilter(
+        guardrail.add_pii_filter(
             type=bedrock.GeneralPIIType.ADDRESS,
             action=bedrock.GuardrailAction.BLOCK,
             # below props are optional
@@ -15788,7 +15803,7 @@ class FinancePIIType(
         )
         
         # Add PII filter for credit card numbers with input/output actions
-        guardrail.add_pIIFilter(
+        guardrail.add_pii_filter(
             type=bedrock.FinancePIIType.CREDIT_DEBIT_CARD_NUMBER,
             action=bedrock.GuardrailAction.BLOCK,
             # below props are optional
@@ -15799,19 +15814,19 @@ class FinancePIIType(
         )
         
         # Add PII filter for email addresses
-        guardrail.add_pIIFilter(
+        guardrail.add_pii_filter(
             type=bedrock.GeneralPIIType.EMAIL,
             action=bedrock.GuardrailAction.ANONYMIZE
         )
         
         # Add PII filter for US Social Security Numbers
-        guardrail.add_pIIFilter(
+        guardrail.add_pii_filter(
             type=bedrock.USASpecificPIIType.US_SOCIAL_SECURITY_NUMBER,
             action=bedrock.GuardrailAction.BLOCK
         )
         
         # Add PII filter for IP addresses
-        guardrail.add_pIIFilter(
+        guardrail.add_pii_filter(
             type=bedrock.InformationTechnologyPIIType.IP_ADDRESS,
             action=bedrock.GuardrailAction.ANONYMIZE
         )
@@ -15904,7 +15919,7 @@ class GeneralPIIType(
         )
         
         # Add PII filter for addresses with input/output actions
-        guardrail.add_pIIFilter(
+        guardrail.add_pii_filter(
             type=bedrock.GeneralPIIType.ADDRESS,
             action=bedrock.GuardrailAction.BLOCK,
             # below props are optional
@@ -15915,7 +15930,7 @@ class GeneralPIIType(
         )
         
         # Add PII filter for credit card numbers with input/output actions
-        guardrail.add_pIIFilter(
+        guardrail.add_pii_filter(
             type=bedrock.FinancePIIType.CREDIT_DEBIT_CARD_NUMBER,
             action=bedrock.GuardrailAction.BLOCK,
             # below props are optional
@@ -15926,19 +15941,19 @@ class GeneralPIIType(
         )
         
         # Add PII filter for email addresses
-        guardrail.add_pIIFilter(
+        guardrail.add_pii_filter(
             type=bedrock.GeneralPIIType.EMAIL,
             action=bedrock.GuardrailAction.ANONYMIZE
         )
         
         # Add PII filter for US Social Security Numbers
-        guardrail.add_pIIFilter(
+        guardrail.add_pii_filter(
             type=bedrock.USASpecificPIIType.US_SOCIAL_SECURITY_NUMBER,
             action=bedrock.GuardrailAction.BLOCK
         )
         
         # Add PII filter for IP addresses
-        guardrail.add_pIIFilter(
+        guardrail.add_pii_filter(
             type=bedrock.InformationTechnologyPIIType.IP_ADDRESS,
             action=bedrock.GuardrailAction.ANONYMIZE
         )
@@ -16948,7 +16963,7 @@ class InformationTechnologyPIIType(
         )
         
         # Add PII filter for addresses with input/output actions
-        guardrail.add_pIIFilter(
+        guardrail.add_pii_filter(
             type=bedrock.GeneralPIIType.ADDRESS,
             action=bedrock.GuardrailAction.BLOCK,
             # below props are optional
@@ -16959,7 +16974,7 @@ class InformationTechnologyPIIType(
         )
         
         # Add PII filter for credit card numbers with input/output actions
-        guardrail.add_pIIFilter(
+        guardrail.add_pii_filter(
             type=bedrock.FinancePIIType.CREDIT_DEBIT_CARD_NUMBER,
             action=bedrock.GuardrailAction.BLOCK,
             # below props are optional
@@ -16970,19 +16985,19 @@ class InformationTechnologyPIIType(
         )
         
         # Add PII filter for email addresses
-        guardrail.add_pIIFilter(
+        guardrail.add_pii_filter(
             type=bedrock.GeneralPIIType.EMAIL,
             action=bedrock.GuardrailAction.ANONYMIZE
         )
         
         # Add PII filter for US Social Security Numbers
-        guardrail.add_pIIFilter(
+        guardrail.add_pii_filter(
             type=bedrock.USASpecificPIIType.US_SOCIAL_SECURITY_NUMBER,
             action=bedrock.GuardrailAction.BLOCK
         )
         
         # Add PII filter for IP addresses
-        guardrail.add_pIIFilter(
+        guardrail.add_pii_filter(
             type=bedrock.InformationTechnologyPIIType.IP_ADDRESS,
             action=bedrock.GuardrailAction.ANONYMIZE
         )

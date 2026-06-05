@@ -775,8 +775,8 @@ class CfnServicePrincipalName(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        connector_arn: typing.Optional[builtins.str] = None,
-        directory_registration_arn: typing.Optional[builtins.str] = None,
+        connector_arn: builtins.str,
+        directory_registration_arn: builtins.str,
     ) -> None:
         '''Create a new ``AWS::PCAConnectorAD::ServicePrincipalName``.
 
@@ -856,12 +856,12 @@ class CfnServicePrincipalName(
 
     @builtins.property
     @jsii.member(jsii_name="connectorArn")
-    def connector_arn(self) -> typing.Optional[builtins.str]:
+    def connector_arn(self) -> builtins.str:
         '''The Amazon Resource Name (ARN) that was returned when you called `CreateConnector.html <https://docs.aws.amazon.com/pca-connector-ad/latest/APIReference/API_CreateConnector.html>`_ .'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "connectorArn"))
+        return typing.cast(builtins.str, jsii.get(self, "connectorArn"))
 
     @connector_arn.setter
-    def connector_arn(self, value: typing.Optional[builtins.str]) -> None:
+    def connector_arn(self, value: builtins.str) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a7336215d5258c7d33cf1355d3c1630bd720ee5b24987f7ee7448a6794e671e9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -869,12 +869,12 @@ class CfnServicePrincipalName(
 
     @builtins.property
     @jsii.member(jsii_name="directoryRegistrationArn")
-    def directory_registration_arn(self) -> typing.Optional[builtins.str]:
+    def directory_registration_arn(self) -> builtins.str:
         '''The Amazon Resource Name (ARN) that was returned when you called `CreateDirectoryRegistration <https://docs.aws.amazon.com/pca-connector-ad/latest/APIReference/API_CreateDirectoryRegistration.html>`_ .'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "directoryRegistrationArn"))
+        return typing.cast(builtins.str, jsii.get(self, "directoryRegistrationArn"))
 
     @directory_registration_arn.setter
-    def directory_registration_arn(self, value: typing.Optional[builtins.str]) -> None:
+    def directory_registration_arn(self, value: builtins.str) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d3b11dc247af37c1b9943c4e484a0d90a5a5c3460e646bf1e2f3ce167a88c6a4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -893,8 +893,8 @@ class CfnServicePrincipalNameProps:
     def __init__(
         self,
         *,
-        connector_arn: typing.Optional[builtins.str] = None,
-        directory_registration_arn: typing.Optional[builtins.str] = None,
+        connector_arn: builtins.str,
+        directory_registration_arn: builtins.str,
     ) -> None:
         '''Properties for defining a ``CfnServicePrincipalName``.
 
@@ -919,29 +919,30 @@ class CfnServicePrincipalNameProps:
             type_hints = typing.get_type_hints(_typecheckingstub__7da1bc3702a4df8757dbc31f6575b8167128062a021b3ccf901b92314a2c56d8)
             check_type(argname="argument connector_arn", value=connector_arn, expected_type=type_hints["connector_arn"])
             check_type(argname="argument directory_registration_arn", value=directory_registration_arn, expected_type=type_hints["directory_registration_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if connector_arn is not None:
-            self._values["connector_arn"] = connector_arn
-        if directory_registration_arn is not None:
-            self._values["directory_registration_arn"] = directory_registration_arn
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "connector_arn": connector_arn,
+            "directory_registration_arn": directory_registration_arn,
+        }
 
     @builtins.property
-    def connector_arn(self) -> typing.Optional[builtins.str]:
+    def connector_arn(self) -> builtins.str:
         '''The Amazon Resource Name (ARN) that was returned when you called `CreateConnector.html <https://docs.aws.amazon.com/pca-connector-ad/latest/APIReference/API_CreateConnector.html>`_ .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcaconnectorad-serviceprincipalname.html#cfn-pcaconnectorad-serviceprincipalname-connectorarn
         '''
         result = self._values.get("connector_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
+        assert result is not None, "Required property 'connector_arn' is missing"
+        return typing.cast(builtins.str, result)
 
     @builtins.property
-    def directory_registration_arn(self) -> typing.Optional[builtins.str]:
+    def directory_registration_arn(self) -> builtins.str:
         '''The Amazon Resource Name (ARN) that was returned when you called `CreateDirectoryRegistration <https://docs.aws.amazon.com/pca-connector-ad/latest/APIReference/API_CreateDirectoryRegistration.html>`_ .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcaconnectorad-serviceprincipalname.html#cfn-pcaconnectorad-serviceprincipalname-directoryregistrationarn
         '''
         result = self._values.get("directory_registration_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
+        assert result is not None, "Required property 'directory_registration_arn' is missing"
+        return typing.cast(builtins.str, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5675,8 +5676,6 @@ class CfnTemplateGroupAccessControlEntry(
                 enroll="enroll"
             ),
             group_display_name="groupDisplayName",
-        
-            # the properties below are optional
             group_security_identifier="groupSecurityIdentifier",
             template_arn="templateArn"
         )
@@ -5689,8 +5688,8 @@ class CfnTemplateGroupAccessControlEntry(
         *,
         access_rights: typing.Union["_IResolvable_da3f097b", typing.Union["CfnTemplateGroupAccessControlEntry.AccessRightsProperty", typing.Dict[builtins.str, typing.Any]]],
         group_display_name: builtins.str,
-        group_security_identifier: typing.Optional[builtins.str] = None,
-        template_arn: typing.Optional[builtins.str] = None,
+        group_security_identifier: builtins.str,
+        template_arn: builtins.str,
     ) -> None:
         '''Create a new ``AWS::PCAConnectorAD::TemplateGroupAccessControlEntry``.
 
@@ -5807,12 +5806,12 @@ class CfnTemplateGroupAccessControlEntry(
 
     @builtins.property
     @jsii.member(jsii_name="groupSecurityIdentifier")
-    def group_security_identifier(self) -> typing.Optional[builtins.str]:
+    def group_security_identifier(self) -> builtins.str:
         '''Security identifier (SID) of the group object from Active Directory.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "groupSecurityIdentifier"))
+        return typing.cast(builtins.str, jsii.get(self, "groupSecurityIdentifier"))
 
     @group_security_identifier.setter
-    def group_security_identifier(self, value: typing.Optional[builtins.str]) -> None:
+    def group_security_identifier(self, value: builtins.str) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__76b47557e0c980e45e43e15cd1f957c409b393473a036f0ae581dd1b8c6552b0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -5820,12 +5819,12 @@ class CfnTemplateGroupAccessControlEntry(
 
     @builtins.property
     @jsii.member(jsii_name="templateArn")
-    def template_arn(self) -> typing.Optional[builtins.str]:
+    def template_arn(self) -> builtins.str:
         '''The Amazon Resource Name (ARN) that was returned when you called `CreateTemplate <https://docs.aws.amazon.com/pca-connector-ad/latest/APIReference/API_CreateTemplate.html>`_ .'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "templateArn"))
+        return typing.cast(builtins.str, jsii.get(self, "templateArn"))
 
     @template_arn.setter
-    def template_arn(self, value: typing.Optional[builtins.str]) -> None:
+    def template_arn(self, value: builtins.str) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__67cb0b070afb7e27a3030dfbdcd7496f1c3ebc2240fb6ab131af4439b7c6e156)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -5920,8 +5919,8 @@ class CfnTemplateGroupAccessControlEntryProps:
         *,
         access_rights: typing.Union["_IResolvable_da3f097b", typing.Union["CfnTemplateGroupAccessControlEntry.AccessRightsProperty", typing.Dict[builtins.str, typing.Any]]],
         group_display_name: builtins.str,
-        group_security_identifier: typing.Optional[builtins.str] = None,
-        template_arn: typing.Optional[builtins.str] = None,
+        group_security_identifier: builtins.str,
+        template_arn: builtins.str,
     ) -> None:
         '''Properties for defining a ``CfnTemplateGroupAccessControlEntry``.
 
@@ -5945,8 +5944,6 @@ class CfnTemplateGroupAccessControlEntryProps:
                     enroll="enroll"
                 ),
                 group_display_name="groupDisplayName",
-            
-                # the properties below are optional
                 group_security_identifier="groupSecurityIdentifier",
                 template_arn="templateArn"
             )
@@ -5960,11 +5957,9 @@ class CfnTemplateGroupAccessControlEntryProps:
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "access_rights": access_rights,
             "group_display_name": group_display_name,
+            "group_security_identifier": group_security_identifier,
+            "template_arn": template_arn,
         }
-        if group_security_identifier is not None:
-            self._values["group_security_identifier"] = group_security_identifier
-        if template_arn is not None:
-            self._values["template_arn"] = template_arn
 
     @builtins.property
     def access_rights(
@@ -5991,7 +5986,7 @@ class CfnTemplateGroupAccessControlEntryProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def group_security_identifier(self) -> typing.Optional[builtins.str]:
+    def group_security_identifier(self) -> builtins.str:
         '''Security identifier (SID) of the group object from Active Directory.
 
         The SID starts with "S-".
@@ -5999,16 +5994,18 @@ class CfnTemplateGroupAccessControlEntryProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcaconnectorad-templategroupaccesscontrolentry.html#cfn-pcaconnectorad-templategroupaccesscontrolentry-groupsecurityidentifier
         '''
         result = self._values.get("group_security_identifier")
-        return typing.cast(typing.Optional[builtins.str], result)
+        assert result is not None, "Required property 'group_security_identifier' is missing"
+        return typing.cast(builtins.str, result)
 
     @builtins.property
-    def template_arn(self) -> typing.Optional[builtins.str]:
+    def template_arn(self) -> builtins.str:
         '''The Amazon Resource Name (ARN) that was returned when you called `CreateTemplate <https://docs.aws.amazon.com/pca-connector-ad/latest/APIReference/API_CreateTemplate.html>`_ .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcaconnectorad-templategroupaccesscontrolentry.html#cfn-pcaconnectorad-templategroupaccesscontrolentry-templatearn
         '''
         result = self._values.get("template_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
+        assert result is not None, "Required property 'template_arn' is missing"
+        return typing.cast(builtins.str, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6566,8 +6563,8 @@ def _typecheckingstub__779230ef86d4538873fd875cd3babc1ab92f57abdae26cfcea7069e7e
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    connector_arn: typing.Optional[builtins.str] = None,
-    directory_registration_arn: typing.Optional[builtins.str] = None,
+    connector_arn: builtins.str,
+    directory_registration_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6591,21 +6588,21 @@ def _typecheckingstub__7e3d66893530b0ec8229273f184fa5f3458cc9661569945849b363b35
     pass
 
 def _typecheckingstub__a7336215d5258c7d33cf1355d3c1630bd720ee5b24987f7ee7448a6794e671e9(
-    value: typing.Optional[builtins.str],
+    value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__d3b11dc247af37c1b9943c4e484a0d90a5a5c3460e646bf1e2f3ce167a88c6a4(
-    value: typing.Optional[builtins.str],
+    value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__7da1bc3702a4df8757dbc31f6575b8167128062a021b3ccf901b92314a2c56d8(
     *,
-    connector_arn: typing.Optional[builtins.str] = None,
-    directory_registration_arn: typing.Optional[builtins.str] = None,
+    connector_arn: builtins.str,
+    directory_registration_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6995,8 +6992,8 @@ def _typecheckingstub__3afc1d4e6fd3841e33fcac8256963308de41afb74b2ac0fec481a8664
     *,
     access_rights: typing.Union[_IResolvable_da3f097b, typing.Union[CfnTemplateGroupAccessControlEntry.AccessRightsProperty, typing.Dict[builtins.str, typing.Any]]],
     group_display_name: builtins.str,
-    group_security_identifier: typing.Optional[builtins.str] = None,
-    template_arn: typing.Optional[builtins.str] = None,
+    group_security_identifier: builtins.str,
+    template_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7032,13 +7029,13 @@ def _typecheckingstub__ba2097b96364b1f0a4e58b04aa0cbb6cc515a5f811754f986deed6599
     pass
 
 def _typecheckingstub__76b47557e0c980e45e43e15cd1f957c409b393473a036f0ae581dd1b8c6552b0(
-    value: typing.Optional[builtins.str],
+    value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__67cb0b070afb7e27a3030dfbdcd7496f1c3ebc2240fb6ab131af4439b7c6e156(
-    value: typing.Optional[builtins.str],
+    value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7055,8 +7052,8 @@ def _typecheckingstub__e09aa5b6a189208934626d51a2a4ce72a03a91c1e114f462f32017df5
     *,
     access_rights: typing.Union[_IResolvable_da3f097b, typing.Union[CfnTemplateGroupAccessControlEntry.AccessRightsProperty, typing.Dict[builtins.str, typing.Any]]],
     group_display_name: builtins.str,
-    group_security_identifier: typing.Optional[builtins.str] = None,
-    template_arn: typing.Optional[builtins.str] = None,
+    group_security_identifier: builtins.str,
+    template_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

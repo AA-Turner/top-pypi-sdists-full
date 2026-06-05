@@ -7,6 +7,7 @@ from kanban_framework.infra.config import Config
 from kanban_framework.infra.scheduler import Scheduler
 from kanban_framework.domain.guard import Guard, CheckResult
 from kanban_framework.domain.self_improve import IterationDecider, IterationAction
+from kanban_framework.infra.consts import Consts
 
 
 class TransitionError(Exception):
@@ -20,14 +21,11 @@ class WorkflowEngine:
         self._guard = guard
 
     def transition(self, task: Task, target) -> str:
-        lw = task.lightweight
-        mode = getattr(task, 'mode', 'full')
-        quick = mode == 'quick'
-        ext_order = self._get_effective_order(lw, quick=quick, mode=mode)
+        mode = getattr(task, 'mode', '') or Consts.DEFAULT_MODE
+        ext_order = self._get_effective_order(mode=mode)
         if ext_order is None:
             kanban_dir = self._fs.kanban_dir if self._fs else None
-            base = Scheduler.dispatch_order(lightweight=lw, quick=quick,
-                                            mode=mode, kanban_dir=kanban_dir)
+            base = Scheduler.dispatch_order(mode=mode, kanban_dir=kanban_dir)
             ext_order = [p.value if isinstance(p, Phase) else str(p) for p in base]
         current_str = task.phase_id
         target_str = target.value if isinstance(target, Phase) else str(target)
@@ -45,8 +43,8 @@ class WorkflowEngine:
             raise TransitionError(
                 f"Cannot transition backward from {current_str} to {target_str}"
             )
-        # Lightweight allows skipping phases (plan → execute)
-        if not lw and target_idx > current_idx + 1:
+        # Phase skip check: reject if intermediate phases exist in the order
+        if target_idx > current_idx + 1:
             raise TransitionError(
                 f"Cannot skip phase: {current_str} -> {target_str}"
             )
@@ -56,13 +54,13 @@ class WorkflowEngine:
 
         # Built-in guard check (IR-01: Guard 不可绕过)
         if self._guard:
-            guard_result = self._guard.check_artifacts(task, task.phase, lightweight=lw)
+            guard_result = self._guard.check_artifacts(task, task.phase)
             if not guard_result.passed:
                 raise TransitionError(
                     f"Guard blocked transition {current_str} -> {target_str}: "
                     + "; ".join(guard_result.failures)
                 )
-            phase_check = self._guard.check_phase_completeness(task, lw)
+            phase_check = self._guard.check_phase_completeness(task)
             if not phase_check.passed:
                 raise TransitionError(
                     f"Phase completeness check failed: "
@@ -83,11 +81,10 @@ class WorkflowEngine:
 
     def complete_phase(self, task: Task) -> Task:
         self._ensure_phase_completed(task)
-        mode = getattr(task, 'mode', 'full')
-        quick = mode == 'quick'
-        ext_order = self._get_effective_order(task.lightweight, quick=quick, mode=mode)
-        next_p = Scheduler.next_phase(task.phase, lightweight=task.lightweight, quick=quick,
-                                      mode=mode, kanban_dir=self._fs.kanban_dir if self._fs else None,
+        mode = getattr(task, 'mode', '') or Consts.DEFAULT_MODE
+        ext_order = self._get_effective_order(mode=mode)
+        next_p = Scheduler.next_phase(task.phase, mode=mode,
+                                      kanban_dir=self._fs.kanban_dir if self._fs else None,
                                       custom_order=ext_order)
         if next_p:
             try:
@@ -128,18 +125,16 @@ class WorkflowEngine:
         task.history.append(entry)
         return entry
 
-    def next_phase(self, phase, lightweight: bool = False, quick: bool = False,
-                    mode: str | None = None) -> str | None:
-        ext_order = self._get_effective_order(lightweight, quick=quick, mode=mode)
-        result = Scheduler.next_phase(phase, lightweight=lightweight, quick=quick,
-                                      mode=mode, kanban_dir=self._fs.kanban_dir if self._fs else None,
+    def next_phase(self, phase, mode: str | None = None) -> str | None:
+        ext_order = self._get_effective_order(mode=mode)
+        result = Scheduler.next_phase(phase, mode=mode,
+                                      kanban_dir=self._fs.kanban_dir if self._fs else None,
                                       custom_order=ext_order)
         if result is None:
             return None
         return result.value if isinstance(result, Phase) else str(result)
 
-    def _get_effective_order(self, lightweight: bool, quick: bool = False,
-                             mode: str | None = None) -> list[str] | None:
+    def _get_effective_order(self, mode: str | None = None) -> list[str] | None:
         """Build effective phase order from workflow.json extensions.
 
         dispatch_order already applies extensions (since _base_order fix),
@@ -148,8 +143,8 @@ class WorkflowEngine:
         if self._cfg is None:
             return None
         wf = self._cfg.workflow
-        base_order = Scheduler.dispatch_order(lightweight=lightweight, quick=quick,
-                                              mode=mode, workflow=wf, kanban_dir=self._fs.kanban_dir if self._fs else None)
+        base_order = Scheduler.dispatch_order(mode=mode, workflow=wf,
+                                              kanban_dir=self._fs.kanban_dir if self._fs else None)
         return [p.value if isinstance(p, Phase) else str(p) for p in base_order]
 
     def is_terminal(self, phase) -> bool:
@@ -230,7 +225,7 @@ class WorkflowEngine:
         return result
 
     def previous_phase(self, phase, mode: str | None = None) -> str | None:
-        ext_order = self._get_effective_order(False, mode=mode)
+        ext_order = self._get_effective_order(mode=mode)
         wf = self._cfg.workflow if self._cfg else None
         base = Scheduler.dispatch_order(workflow=wf,
                                         mode=mode, kanban_dir=self._fs.kanban_dir if self._fs else None)

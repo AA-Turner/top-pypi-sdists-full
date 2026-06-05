@@ -695,6 +695,11 @@ int EthosU55OpConfig::OptimalDepthGranule()
     return _ofmBlock.Depth();
 }
 
+int EthosU55OpConfig::MinimumDepthGranule()
+{
+    return 16;  // OFM split depth for U55/65
+}
+
 std::string EthosU55OpConfig::ToString(bool full)
 {
     std::string tmp = fmt::format("OFM Block=[{}], IFM Block=[{}], Traversal={}, AccType={}", _ofmBlock.ToString(),
@@ -726,12 +731,12 @@ EthosU55NpuOp ArchEthosU55::GetHWOp(OpType type)
         {OpType::FullyConnected, EthosU55NpuOp::VectorProduct},
         {OpType::MaxPool, EthosU55NpuOp::Pooling},
         {OpType::AvgPool, EthosU55NpuOp::Pooling},
+        {OpType::SumPool, EthosU55NpuOp::Pooling},
         {OpType::QuantizedAvgPool, EthosU55NpuOp::Pooling},
         {OpType::QuantizedMaxPool, EthosU55NpuOp::Pooling},
         {OpType::ReduceSum, EthosU55NpuOp::ReduceSum},
         {OpType::ReduceMax, EthosU55NpuOp::Pooling},
         {OpType::Rescale, EthosU55NpuOp::Pooling},
-        {OpType::Tile, EthosU55NpuOp::Dma},
         {OpType::Transpose, EthosU55NpuOp::Compound},
         {OpType::MatMul, EthosU55NpuOp::Compound},
     };

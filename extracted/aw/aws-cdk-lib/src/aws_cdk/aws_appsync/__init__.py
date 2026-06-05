@@ -57,12 +57,12 @@ demo_table = dynamodb.Table(self, "DemoTable",
     )
 )
 
-demo_dS = api.add_dynamo_db_data_source("demoDataSource", demo_table)
+demo_ds = api.add_dynamo_db_data_source("demoDataSource", demo_table)
 
 # Resolver for the Query "getDemos" that scans the DynamoDb table and returns the entire list.
 # Resolver Mapping Template Reference:
 # https://docs.aws.amazon.com/appsync/latest/devguide/resolver-mapping-template-reference-dynamodb.html
-demo_dS.create_resolver("QueryGetDemosResolver",
+demo_ds.create_resolver("QueryGetDemosResolver",
     type_name="Query",
     field_name="getDemos",
     request_mapping_template=appsync.MappingTemplate.dynamo_db_scan_table(),
@@ -70,7 +70,7 @@ demo_dS.create_resolver("QueryGetDemosResolver",
 )
 
 # Resolver for the Mutation "addDemo" that puts the item into the DynamoDb table.
-demo_dS.create_resolver("MutationAddDemoResolver",
+demo_ds.create_resolver("MutationAddDemoResolver",
     type_name="Mutation",
     field_name="addDemo",
     request_mapping_template=appsync.MappingTemplate.dynamo_db_put_item(
@@ -80,7 +80,7 @@ demo_dS.create_resolver("MutationAddDemoResolver",
 )
 
 # To enable DynamoDB read consistency with the `MappingTemplate`:
-demo_dS.create_resolver("QueryGetDemosConsistentResolver",
+demo_ds.create_resolver("QueryGetDemosConsistentResolver",
     type_name="Query",
     field_name="getDemosConsistent",
     request_mapping_template=appsync.MappingTemplate.dynamo_db_scan_table(True),
@@ -115,10 +115,10 @@ cluster = rds.ServerlessCluster(self, "AuroraCluster",
     cluster_identifier="db-endpoint-test",
     default_database_name="demos"
 )
-rds_dS = api.add_rds_data_source("rds", cluster, secret, "demos")
+rds_ds = api.add_rds_data_source("rds", cluster, secret, "demos")
 
 # Set up a resolver for an RDS query.
-rds_dS.create_resolver("QueryGetDemosRdsResolver",
+rds_ds.create_resolver("QueryGetDemosRdsResolver",
     type_name="Query",
     field_name="getDemosRds",
     request_mapping_template=appsync.MappingTemplate.from_string("""
@@ -135,7 +135,7 @@ rds_dS.create_resolver("QueryGetDemosRdsResolver",
 )
 
 # Set up a resolver for an RDS mutation.
-rds_dS.create_resolver("MutationAddDemoRdsResolver",
+rds_ds.create_resolver("MutationAddDemoRdsResolver",
     type_name="Mutation",
     field_name="addDemoRds",
     request_mapping_template=appsync.MappingTemplate.from_string("""
@@ -182,10 +182,10 @@ cluster = rds.DatabaseCluster(self, "AuroraClusterV2",
     default_database_name="demos",
     enable_data_api=True
 )
-rds_dS = api.add_rds_data_source_v2("rds", cluster, secret, "demos")
+rds_ds = api.add_rds_data_source_v2("rds", cluster, secret, "demos")
 
 # Set up a resolver for an RDS query.
-rds_dS.create_resolver("QueryGetDemosRdsResolver",
+rds_ds.create_resolver("QueryGetDemosRdsResolver",
     type_name="Query",
     field_name="getDemosRds",
     request_mapping_template=appsync.MappingTemplate.from_string("""
@@ -202,7 +202,7 @@ rds_dS.create_resolver("QueryGetDemosRdsResolver",
 )
 
 # Set up a resolver for an RDS mutation.
-rds_dS.create_resolver("MutationAddDemoRdsResolver",
+rds_ds.create_resolver("MutationAddDemoRdsResolver",
     type_name="Mutation",
     field_name="addDemoRds",
     request_mapping_template=appsync.MappingTemplate.from_string("""
@@ -915,7 +915,7 @@ import aws_cdk.aws_events_targets as targets
 
 
 rule.add_target(targets.AppSync(api,
-    graph_qLOperation="mutation Publish($message: String!){ publish(message: $message) { message } }",
+    graph_ql_operation="mutation Publish($message: String!){ publish(message: $message) { message } }",
     variables=events.RuleTargetInput.from_object({
         "message": "hello world"
     })
@@ -966,11 +966,11 @@ api = appsync.GraphqlApi(self, "api",
     )
 )
 
-none_dS = api.add_none_data_source("none",
+none_ds = api.add_none_data_source("none",
     metrics_config=appsync.DataSourceMetricsConfig.ENABLED
 )
 
-none_dS.create_resolver("noneResolver",
+none_ds.create_resolver("noneResolver",
     type_name="Mutation",
     field_name="addDemoMetricsConfig",
     metrics_config=appsync.ResolverMetricsConfig.ENABLED
@@ -3374,12 +3374,12 @@ class AttributeValues(
             )
         )
         
-        demo_dS = api.add_dynamo_db_data_source("demoDataSource", demo_table)
+        demo_ds = api.add_dynamo_db_data_source("demoDataSource", demo_table)
         
         # Resolver for the Query "getDemos" that scans the DynamoDb table and returns the entire list.
         # Resolver Mapping Template Reference:
         # https://docs.aws.amazon.com/appsync/latest/devguide/resolver-mapping-template-reference-dynamodb.html
-        demo_dS.create_resolver("QueryGetDemosResolver",
+        demo_ds.create_resolver("QueryGetDemosResolver",
             type_name="Query",
             field_name="getDemos",
             request_mapping_template=appsync.MappingTemplate.dynamo_db_scan_table(),
@@ -3387,7 +3387,7 @@ class AttributeValues(
         )
         
         # Resolver for the Mutation "addDemo" that puts the item into the DynamoDb table.
-        demo_dS.create_resolver("MutationAddDemoResolver",
+        demo_ds.create_resolver("MutationAddDemoResolver",
             type_name="Mutation",
             field_name="addDemo",
             request_mapping_template=appsync.MappingTemplate.dynamo_db_put_item(
@@ -3397,7 +3397,7 @@ class AttributeValues(
         )
         
         # To enable DynamoDB read consistency with the `MappingTemplate`:
-        demo_dS.create_resolver("QueryGetDemosConsistentResolver",
+        demo_ds.create_resolver("QueryGetDemosConsistentResolver",
             type_name="Query",
             field_name="getDemosConsistent",
             request_mapping_template=appsync.MappingTemplate.dynamo_db_scan_table(True),
@@ -3531,7 +3531,7 @@ class AuthorizationConfig:
             )
             
             rule.add_target(targets.AppSync(api,
-                graph_qLOperation="mutation Publish($message: String!){ publish(message: $message) { message } }",
+                graph_ql_operation="mutation Publish($message: String!){ publish(message: $message) { message } }",
                 variables=events.RuleTargetInput.from_object({
                     "message": "hello world"
                 })
@@ -3630,7 +3630,7 @@ class AuthorizationMode:
             )
             
             rule.add_target(targets.AppSync(api,
-                graph_qLOperation="mutation Publish($message: String!){ publish(message: $message) { message } }",
+                graph_ql_operation="mutation Publish($message: String!){ publish(message: $message) { message } }",
                 variables=events.RuleTargetInput.from_object({
                     "message": "hello world"
                 })
@@ -3738,7 +3738,7 @@ class AuthorizationType(enum.Enum):
         api = appsync.GraphqlApi.from_graphql_api_attributes(self, "ImportedAPI",
             graphql_api_id="<api-id>",
             graphql_api_arn="<api-arn>",
-            graph_qLEndpoint_arn="<api-endpoint-arn>",
+            graph_ql_endpoint_arn="<api-endpoint-arn>",
             visibility=appsync.Visibility.GLOBAL,
             modes=[appsync.AuthorizationType.IAM]
         )
@@ -3750,7 +3750,7 @@ class AuthorizationType(enum.Enum):
         api.grant_mutation(role, "publish")
         
         rule.add_target(targets.AppSync(api,
-            graph_qLOperation="mutation Publish($message: String!){ publish(message: $message) { message } }",
+            graph_ql_operation="mutation Publish($message: String!){ publish(message: $message) { message } }",
             variables=events.RuleTargetInput.from_object({
                 "message": "hello world"
             }),
@@ -4394,10 +4394,10 @@ class BaseDataSourceProps:
             from aws_cdk import aws_appsync as appsync
             from aws_cdk.interfaces import aws_appsync as interfaces_appsync
             
-            # graph_qLApi_ref: interfaces_appsync.IGraphQLApiRef
+            # graph_ql_api_ref: interfaces_appsync.IGraphQLApiRef
             
             base_data_source_props = appsync.BaseDataSourceProps(
-                api=graph_qLApi_ref,
+                api=graph_ql_api_ref,
             
                 # the properties below are optional
                 description="description",
@@ -4533,10 +4533,10 @@ class BaseResolverProps:
                 cluster_identifier="db-endpoint-test",
                 default_database_name="demos"
             )
-            rds_dS = api.add_rds_data_source("rds", cluster, secret, "demos")
+            rds_ds = api.add_rds_data_source("rds", cluster, secret, "demos")
             
             # Set up a resolver for an RDS query.
-            rds_dS.create_resolver("QueryGetDemosRdsResolver",
+            rds_ds.create_resolver("QueryGetDemosRdsResolver",
                 type_name="Query",
                 field_name="getDemosRds",
                 request_mapping_template=appsync.MappingTemplate.from_string("""
@@ -4553,7 +4553,7 @@ class BaseResolverProps:
             )
             
             # Set up a resolver for an RDS mutation.
-            rds_dS.create_resolver("MutationAddDemoRdsResolver",
+            rds_ds.create_resolver("MutationAddDemoRdsResolver",
                 type_name="Mutation",
                 field_name="addDemoRds",
                 request_mapping_template=appsync.MappingTemplate.from_string("""
@@ -5804,7 +5804,7 @@ class CfnApi(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_appsync as appsync
                 
-                open_iDConnect_config_property = appsync.CfnApi.OpenIDConnectConfigProperty(
+                open_id_connect_config_property = appsync.CfnApi.OpenIDConnectConfigProperty(
                     issuer="issuer",
                 
                     # the properties below are optional
@@ -8390,7 +8390,7 @@ class CfnDataSource(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_appsync as appsync
                 
-                dynamo_dBConfig_property = appsync.CfnDataSource.DynamoDBConfigProperty(
+                dynamo_db_config_property = appsync.CfnDataSource.DynamoDBConfigProperty(
                     aws_region="awsRegion",
                     table_name="tableName",
                 
@@ -10939,7 +10939,7 @@ class CfnGraphQLApi(
         # The values are placeholders you should change.
         from aws_cdk import aws_appsync as appsync
         
-        cfn_graph_qLApi = appsync.CfnGraphQLApi(self, "MyCfnGraphQLApi",
+        cfn_graph_ql_api = appsync.CfnGraphQLApi(self, "MyCfnGraphQLApi",
             authentication_type="authenticationType",
             name="name",
         
@@ -11022,7 +11022,7 @@ class CfnGraphQLApi(
         additional_authentication_providers: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGraphQLApi.AdditionalAuthenticationProviderProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         api_type: typing.Optional[builtins.str] = None,
         enhanced_metrics_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGraphQLApi.EnhancedMetricsConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        environment_variables: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        environment_variables: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         introspection_config: typing.Optional[builtins.str] = None,
         lambda_authorizer_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGraphQLApi.LambdaAuthorizerConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         log_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGraphQLApi.LogConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -11305,14 +11305,14 @@ class CfnGraphQLApi(
     @jsii.member(jsii_name="environmentVariables")
     def environment_variables(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''A map containing the list of resources with their properties and environment variables.'''
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], jsii.get(self, "environmentVariables"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "environmentVariables"))
 
     @environment_variables.setter
     def environment_variables(
         self,
-        value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__792a537db4d8dd69989dc47efb8d28c555d2094bfd09895222925621c8b1eeba)
@@ -12085,7 +12085,7 @@ class CfnGraphQLApi(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_appsync as appsync
                 
-                open_iDConnect_config_property = appsync.CfnGraphQLApi.OpenIDConnectConfigProperty(
+                open_id_connect_config_property = appsync.CfnGraphQLApi.OpenIDConnectConfigProperty(
                     auth_ttl=123,
                     client_id="clientId",
                     iat_ttl=123,
@@ -12302,7 +12302,7 @@ class CfnGraphQLApiProps:
         additional_authentication_providers: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGraphQLApi.AdditionalAuthenticationProviderProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         api_type: typing.Optional[builtins.str] = None,
         enhanced_metrics_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGraphQLApi.EnhancedMetricsConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        environment_variables: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        environment_variables: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         introspection_config: typing.Optional[builtins.str] = None,
         lambda_authorizer_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGraphQLApi.LambdaAuthorizerConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         log_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGraphQLApi.LogConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -12347,7 +12347,7 @@ class CfnGraphQLApiProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_appsync as appsync
             
-            cfn_graph_qLApi_props = appsync.CfnGraphQLApiProps(
+            cfn_graph_ql_api_props = appsync.CfnGraphQLApiProps(
                 authentication_type="authenticationType",
                 name="name",
             
@@ -12542,7 +12542,7 @@ class CfnGraphQLApiProps:
     @builtins.property
     def environment_variables(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''A map containing the list of resources with their properties and environment variables.
 
         For more information, see `Environmental variables <https://docs.aws.amazon.com/appsync/latest/devguide/environmental-variables.html>`_ .
@@ -12556,7 +12556,7 @@ class CfnGraphQLApiProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appsync-graphqlapi.html#cfn-appsync-graphqlapi-environmentvariables
         '''
         result = self._values.get("environment_variables")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
     @builtins.property
     def introspection_config(self) -> typing.Optional[builtins.str]:
@@ -12731,7 +12731,7 @@ class CfnGraphQLSchema(
         # The values are placeholders you should change.
         from aws_cdk import aws_appsync as appsync
         
-        cfn_graph_qLSchema = appsync.CfnGraphQLSchema(self, "MyCfnGraphQLSchema",
+        cfn_graph_ql_schema = appsync.CfnGraphQLSchema(self, "MyCfnGraphQLSchema",
             api_id="apiId",
         
             # the properties below are optional
@@ -12908,7 +12908,7 @@ class CfnGraphQLSchemaProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_appsync as appsync
             
-            cfn_graph_qLSchema_props = appsync.CfnGraphQLSchemaProps(
+            cfn_graph_ql_schema_props = appsync.CfnGraphQLSchemaProps(
                 api_id="apiId",
             
                 # the properties below are optional
@@ -15136,11 +15136,11 @@ class DataSourceMetricsConfig(enum.Enum):
             )
         )
         
-        none_dS = api.add_none_data_source("none",
+        none_ds = api.add_none_data_source("none",
             metrics_config=appsync.DataSourceMetricsConfig.ENABLED
         )
         
-        none_dS.create_resolver("noneResolver",
+        none_ds.create_resolver("noneResolver",
             type_name="Mutation",
             field_name="addDemoMetricsConfig",
             metrics_config=appsync.ResolverMetricsConfig.ENABLED
@@ -15191,11 +15191,11 @@ class DataSourceOptions:
                 )
             )
             
-            none_dS = api.add_none_data_source("none",
+            none_ds = api.add_none_data_source("none",
                 metrics_config=appsync.DataSourceMetricsConfig.ENABLED
             )
             
-            none_dS.create_resolver("noneResolver",
+            none_ds.create_resolver("noneResolver",
                 type_name="Mutation",
                 field_name="addDemoMetricsConfig",
                 metrics_config=appsync.ResolverMetricsConfig.ENABLED
@@ -19463,10 +19463,10 @@ class MappingTemplate(
             cluster_identifier="db-endpoint-test",
             default_database_name="demos"
         )
-        rds_dS = api.add_rds_data_source("rds", cluster, secret, "demos")
+        rds_ds = api.add_rds_data_source("rds", cluster, secret, "demos")
         
         # Set up a resolver for an RDS query.
-        rds_dS.create_resolver("QueryGetDemosRdsResolver",
+        rds_ds.create_resolver("QueryGetDemosRdsResolver",
             type_name="Query",
             field_name="getDemosRds",
             request_mapping_template=appsync.MappingTemplate.from_string("""
@@ -19483,7 +19483,7 @@ class MappingTemplate(
         )
         
         # Set up a resolver for an RDS mutation.
-        rds_dS.create_resolver("MutationAddDemoRdsResolver",
+        rds_ds.create_resolver("MutationAddDemoRdsResolver",
             type_name="Mutation",
             field_name="addDemoRds",
             request_mapping_template=appsync.MappingTemplate.from_string("""
@@ -19832,11 +19832,11 @@ class NoneDataSource(
             )
         )
         
-        none_dS = api.add_none_data_source("none",
+        none_ds = api.add_none_data_source("none",
             metrics_config=appsync.DataSourceMetricsConfig.ENABLED
         )
         
-        none_dS.create_resolver("noneResolver",
+        none_ds.create_resolver("noneResolver",
             type_name="Mutation",
             field_name="addDemoMetricsConfig",
             metrics_config=appsync.ResolverMetricsConfig.ENABLED
@@ -19907,10 +19907,10 @@ class NoneDataSourceProps(BaseDataSourceProps):
             from aws_cdk import aws_appsync as appsync
             from aws_cdk.interfaces import aws_appsync as interfaces_appsync
             
-            # graph_qLApi_ref: interfaces_appsync.IGraphQLApiRef
+            # graph_ql_api_ref: interfaces_appsync.IGraphQLApiRef
             
             none_data_source_props = appsync.NoneDataSourceProps(
-                api=graph_qLApi_ref,
+                api=graph_ql_api_ref,
             
                 # the properties below are optional
                 description="description",
@@ -20201,12 +20201,12 @@ class PrimaryKey(
             )
         )
         
-        demo_dS = api.add_dynamo_db_data_source("demoDataSource", demo_table)
+        demo_ds = api.add_dynamo_db_data_source("demoDataSource", demo_table)
         
         # Resolver for the Query "getDemos" that scans the DynamoDb table and returns the entire list.
         # Resolver Mapping Template Reference:
         # https://docs.aws.amazon.com/appsync/latest/devguide/resolver-mapping-template-reference-dynamodb.html
-        demo_dS.create_resolver("QueryGetDemosResolver",
+        demo_ds.create_resolver("QueryGetDemosResolver",
             type_name="Query",
             field_name="getDemos",
             request_mapping_template=appsync.MappingTemplate.dynamo_db_scan_table(),
@@ -20214,7 +20214,7 @@ class PrimaryKey(
         )
         
         # Resolver for the Mutation "addDemo" that puts the item into the DynamoDb table.
-        demo_dS.create_resolver("MutationAddDemoResolver",
+        demo_ds.create_resolver("MutationAddDemoResolver",
             type_name="Mutation",
             field_name="addDemo",
             request_mapping_template=appsync.MappingTemplate.dynamo_db_put_item(
@@ -20224,7 +20224,7 @@ class PrimaryKey(
         )
         
         # To enable DynamoDB read consistency with the `MappingTemplate`:
-        demo_dS.create_resolver("QueryGetDemosConsistentResolver",
+        demo_ds.create_resolver("QueryGetDemosConsistentResolver",
             type_name="Query",
             field_name="getDemosConsistent",
             request_mapping_template=appsync.MappingTemplate.dynamo_db_scan_table(True),
@@ -20399,11 +20399,11 @@ class ResolverMetricsConfig(enum.Enum):
             )
         )
         
-        none_dS = api.add_none_data_source("none",
+        none_ds = api.add_none_data_source("none",
             metrics_config=appsync.DataSourceMetricsConfig.ENABLED
         )
         
-        none_dS.create_resolver("noneResolver",
+        none_ds.create_resolver("noneResolver",
             type_name="Mutation",
             field_name="addDemoMetricsConfig",
             metrics_config=appsync.ResolverMetricsConfig.ENABLED
@@ -20840,11 +20840,11 @@ class SchemaProps:
                 )
             )
             
-            none_dS = api.add_none_data_source("none",
+            none_ds = api.add_none_data_source("none",
                 metrics_config=appsync.DataSourceMetricsConfig.ENABLED
             )
             
-            none_dS.create_resolver("noneResolver",
+            none_ds.create_resolver("noneResolver",
                 type_name="Mutation",
                 field_name="addDemoMetricsConfig",
                 metrics_config=appsync.ResolverMetricsConfig.ENABLED
@@ -21584,12 +21584,12 @@ class Values(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_appsync.Values"
             )
         )
         
-        demo_dS = api.add_dynamo_db_data_source("demoDataSource", demo_table)
+        demo_ds = api.add_dynamo_db_data_source("demoDataSource", demo_table)
         
         # Resolver for the Query "getDemos" that scans the DynamoDb table and returns the entire list.
         # Resolver Mapping Template Reference:
         # https://docs.aws.amazon.com/appsync/latest/devguide/resolver-mapping-template-reference-dynamodb.html
-        demo_dS.create_resolver("QueryGetDemosResolver",
+        demo_ds.create_resolver("QueryGetDemosResolver",
             type_name="Query",
             field_name="getDemos",
             request_mapping_template=appsync.MappingTemplate.dynamo_db_scan_table(),
@@ -21597,7 +21597,7 @@ class Values(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_appsync.Values"
         )
         
         # Resolver for the Mutation "addDemo" that puts the item into the DynamoDb table.
-        demo_dS.create_resolver("MutationAddDemoResolver",
+        demo_ds.create_resolver("MutationAddDemoResolver",
             type_name="Mutation",
             field_name="addDemo",
             request_mapping_template=appsync.MappingTemplate.dynamo_db_put_item(
@@ -21607,7 +21607,7 @@ class Values(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_appsync.Values"
         )
         
         # To enable DynamoDB read consistency with the `MappingTemplate`:
-        demo_dS.create_resolver("QueryGetDemosConsistentResolver",
+        demo_ds.create_resolver("QueryGetDemosConsistentResolver",
             type_name="Query",
             field_name="getDemosConsistent",
             request_mapping_template=appsync.MappingTemplate.dynamo_db_scan_table(True),
@@ -23744,7 +23744,7 @@ class AssetCode(
             follow_symlinks=cdk.SymlinkFollowMode.NEVER,
             ignore_mode=cdk.IgnoreMode.GLOB,
             readers=[grantable],
-            source_kMSKey=key_ref
+            source_kms_key=key_ref
         )
     '''
 
@@ -23925,11 +23925,11 @@ class BackedDataSourceProps(BaseDataSourceProps):
             from aws_cdk import aws_iam as iam
             from aws_cdk.interfaces import aws_appsync as interfaces_appsync
             
-            # graph_qLApi_ref: interfaces_appsync.IGraphQLApiRef
+            # graph_ql_api_ref: interfaces_appsync.IGraphQLApiRef
             # role: iam.Role
             
             backed_data_source_props = appsync.BackedDataSourceProps(
-                api=graph_qLApi_ref,
+                api=graph_ql_api_ref,
             
                 # the properties below are optional
                 description="description",
@@ -24186,12 +24186,12 @@ class DynamoDbDataSource(
             )
         )
         
-        demo_dS = api.add_dynamo_db_data_source("demoDataSource", demo_table)
+        demo_ds = api.add_dynamo_db_data_source("demoDataSource", demo_table)
         
         # Resolver for the Query "getDemos" that scans the DynamoDb table and returns the entire list.
         # Resolver Mapping Template Reference:
         # https://docs.aws.amazon.com/appsync/latest/devguide/resolver-mapping-template-reference-dynamodb.html
-        demo_dS.create_resolver("QueryGetDemosResolver",
+        demo_ds.create_resolver("QueryGetDemosResolver",
             type_name="Query",
             field_name="getDemos",
             request_mapping_template=appsync.MappingTemplate.dynamo_db_scan_table(),
@@ -24199,7 +24199,7 @@ class DynamoDbDataSource(
         )
         
         # Resolver for the Mutation "addDemo" that puts the item into the DynamoDb table.
-        demo_dS.create_resolver("MutationAddDemoResolver",
+        demo_ds.create_resolver("MutationAddDemoResolver",
             type_name="Mutation",
             field_name="addDemo",
             request_mapping_template=appsync.MappingTemplate.dynamo_db_put_item(
@@ -24209,7 +24209,7 @@ class DynamoDbDataSource(
         )
         
         # To enable DynamoDB read consistency with the `MappingTemplate`:
-        demo_dS.create_resolver("QueryGetDemosConsistentResolver",
+        demo_ds.create_resolver("QueryGetDemosConsistentResolver",
             type_name="Query",
             field_name="getDemosConsistent",
             request_mapping_template=appsync.MappingTemplate.dynamo_db_scan_table(True),
@@ -24316,12 +24316,12 @@ class DynamoDbDataSourceProps(BackedDataSourceProps):
             from aws_cdk import aws_iam as iam
             from aws_cdk.interfaces import aws_appsync as interfaces_appsync
             
-            # graph_qLApi_ref: interfaces_appsync.IGraphQLApiRef
+            # graph_ql_api_ref: interfaces_appsync.IGraphQLApiRef
             # role: iam.Role
             # table: dynamodb.Table
             
             dynamo_db_data_source_props = appsync.DynamoDbDataSourceProps(
-                api=graph_qLApi_ref,
+                api=graph_ql_api_ref,
                 table=table,
             
                 # the properties below are optional
@@ -24462,11 +24462,11 @@ class ElasticsearchDataSource(
         from aws_cdk.interfaces import aws_appsync as interfaces_appsync
         
         # domain: elasticsearch.Domain
-        # graph_qLApi_ref: interfaces_appsync.IGraphQLApiRef
+        # graph_ql_api_ref: interfaces_appsync.IGraphQLApiRef
         # role: iam.Role
         
         elasticsearch_data_source = appsync.ElasticsearchDataSource(self, "MyElasticsearchDataSource",
-            api=graph_qLApi_ref,
+            api=graph_ql_api_ref,
             domain=domain,
         
             # the properties below are optional
@@ -24564,11 +24564,11 @@ class ElasticsearchDataSourceProps(BackedDataSourceProps):
             from aws_cdk.interfaces import aws_appsync as interfaces_appsync
             
             # domain: elasticsearch.Domain
-            # graph_qLApi_ref: interfaces_appsync.IGraphQLApiRef
+            # graph_ql_api_ref: interfaces_appsync.IGraphQLApiRef
             # role: iam.Role
             
             elasticsearch_data_source_props = appsync.ElasticsearchDataSourceProps(
-                api=graph_qLApi_ref,
+                api=graph_ql_api_ref,
                 domain=domain,
             
                 # the properties below are optional
@@ -25139,11 +25139,11 @@ class EventBridgeDataSourceProps(BackedDataSourceProps):
             from aws_cdk.interfaces import aws_appsync as interfaces_appsync
             
             # event_bus: events.EventBus
-            # graph_qLApi_ref: interfaces_appsync.IGraphQLApiRef
+            # graph_ql_api_ref: interfaces_appsync.IGraphQLApiRef
             # role: iam.Role
             
             event_bridge_data_source_props = appsync.EventBridgeDataSourceProps(
-                api=graph_qLApi_ref,
+                api=graph_ql_api_ref,
                 event_bus=event_bus,
             
                 # the properties below are optional
@@ -25897,11 +25897,11 @@ class HttpDataSourceProps(BackedDataSourceProps):
             from aws_cdk import aws_iam as iam
             from aws_cdk.interfaces import aws_appsync as interfaces_appsync
             
-            # graph_qLApi_ref: interfaces_appsync.IGraphQLApiRef
+            # graph_ql_api_ref: interfaces_appsync.IGraphQLApiRef
             # role: iam.Role
             
             http_data_source_props = appsync.HttpDataSourceProps(
-                api=graph_qLApi_ref,
+                api=graph_ql_api_ref,
                 endpoint="endpoint",
             
                 # the properties below are optional
@@ -26031,11 +26031,11 @@ class LambdaDataSource(
         from aws_cdk.interfaces import aws_appsync as interfaces_appsync
         
         # function_: lambda.Function
-        # graph_qLApi_ref: interfaces_appsync.IGraphQLApiRef
+        # graph_ql_api_ref: interfaces_appsync.IGraphQLApiRef
         # role: iam.Role
         
         lambda_data_source = appsync.LambdaDataSource(self, "MyLambdaDataSource",
-            api=graph_qLApi_ref,
+            api=graph_ql_api_ref,
             lambda_function=function_,
         
             # the properties below are optional
@@ -26134,11 +26134,11 @@ class LambdaDataSourceProps(BackedDataSourceProps):
             from aws_cdk.interfaces import aws_appsync as interfaces_appsync
             
             # function_: lambda.Function
-            # graph_qLApi_ref: interfaces_appsync.IGraphQLApiRef
+            # graph_ql_api_ref: interfaces_appsync.IGraphQLApiRef
             # role: iam.Role
             
             lambda_data_source_props = appsync.LambdaDataSourceProps(
-                api=graph_qLApi_ref,
+                api=graph_ql_api_ref,
                 lambda_function=function_,
             
                 # the properties below are optional
@@ -26368,11 +26368,11 @@ class OpenSearchDataSourceProps(BackedDataSourceProps):
             from aws_cdk.interfaces import aws_appsync as interfaces_appsync
             
             # domain: opensearchservice.Domain
-            # graph_qLApi_ref: interfaces_appsync.IGraphQLApiRef
+            # graph_ql_api_ref: interfaces_appsync.IGraphQLApiRef
             # role: iam.Role
             
             open_search_data_source_props = appsync.OpenSearchDataSourceProps(
-                api=graph_qLApi_ref,
+                api=graph_ql_api_ref,
                 domain=domain,
             
                 # the properties below are optional
@@ -26538,10 +26538,10 @@ class RdsDataSource(
             cluster_identifier="db-endpoint-test",
             default_database_name="demos"
         )
-        rds_dS = api.add_rds_data_source("rds", cluster, secret, "demos")
+        rds_ds = api.add_rds_data_source("rds", cluster, secret, "demos")
         
         # Set up a resolver for an RDS query.
-        rds_dS.create_resolver("QueryGetDemosRdsResolver",
+        rds_ds.create_resolver("QueryGetDemosRdsResolver",
             type_name="Query",
             field_name="getDemosRds",
             request_mapping_template=appsync.MappingTemplate.from_string("""
@@ -26558,7 +26558,7 @@ class RdsDataSource(
         )
         
         # Set up a resolver for an RDS mutation.
-        rds_dS.create_resolver("MutationAddDemoRdsResolver",
+        rds_ds.create_resolver("MutationAddDemoRdsResolver",
             type_name="Mutation",
             field_name="addDemoRds",
             request_mapping_template=appsync.MappingTemplate.from_string("""
@@ -26680,13 +26680,13 @@ class RdsDataSourceProps(BackedDataSourceProps):
             from aws_cdk import aws_secretsmanager as secretsmanager
             from aws_cdk.interfaces import aws_appsync as interfaces_appsync
             
-            # graph_qLApi_ref: interfaces_appsync.IGraphQLApiRef
+            # graph_ql_api_ref: interfaces_appsync.IGraphQLApiRef
             # role: iam.Role
             # secret: secretsmanager.Secret
             # serverless_cluster: rds.ServerlessCluster
             
             rds_data_source_props = appsync.RdsDataSourceProps(
-                api=graph_qLApi_ref,
+                api=graph_ql_api_ref,
                 secret_store=secret,
                 serverless_cluster=serverless_cluster,
             
@@ -26853,12 +26853,12 @@ class RdsDataSourcePropsV2(BackedDataSourceProps):
             from aws_cdk.interfaces import aws_appsync as interfaces_appsync
             
             # database_cluster: rds.DatabaseCluster
-            # graph_qLApi_ref: interfaces_appsync.IGraphQLApiRef
+            # graph_ql_api_ref: interfaces_appsync.IGraphQLApiRef
             # role: iam.Role
             # secret: secretsmanager.Secret
             
             rds_data_source_props_v2 = appsync.RdsDataSourcePropsV2(
-                api=graph_qLApi_ref,
+                api=graph_ql_api_ref,
                 secret_store=secret,
                 serverless_cluster=database_cluster,
             
@@ -28908,7 +28908,7 @@ def _typecheckingstub__54e0e0488820e5a410f75b28895d4271db1e58bd6c71e17fd04fcf3fa
     additional_authentication_providers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGraphQLApi.AdditionalAuthenticationProviderProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     api_type: typing.Optional[builtins.str] = None,
     enhanced_metrics_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGraphQLApi.EnhancedMetricsConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    environment_variables: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    environment_variables: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     introspection_config: typing.Optional[builtins.str] = None,
     lambda_authorizer_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGraphQLApi.LambdaAuthorizerConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     log_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGraphQLApi.LogConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -28980,7 +28980,7 @@ def _typecheckingstub__31ef927293a72b36675d980c2666fdaa13856a6038c9fa984dbc331de
     pass
 
 def _typecheckingstub__792a537db4d8dd69989dc47efb8d28c555d2094bfd09895222925621c8b1eeba(
-    value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -29130,7 +29130,7 @@ def _typecheckingstub__c30fb6e2b0bf2994b166c6091173ca1bbdf2a226ff26da5bfc0c35067
     additional_authentication_providers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGraphQLApi.AdditionalAuthenticationProviderProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     api_type: typing.Optional[builtins.str] = None,
     enhanced_metrics_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGraphQLApi.EnhancedMetricsConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    environment_variables: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    environment_variables: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     introspection_config: typing.Optional[builtins.str] = None,
     lambda_authorizer_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGraphQLApi.LambdaAuthorizerConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     log_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGraphQLApi.LogConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,

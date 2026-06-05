@@ -1,6 +1,8 @@
 use std::ffi::OsStr;
+use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
+use std::sync::OnceLock;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::{env, fs};
 
@@ -227,6 +229,16 @@ fn main() {
     // exempt; build.rs is exempt.
     let mut stub_body_offenders: Vec<(PathBuf, usize, String)> = Vec::new();
     scan_for_stub_function_bodies(&manifest_dir, &manifest_dir, &mut stub_body_offenders);
+
+    // Sentinel-preserving fake-use ban. This catches the next dodge after
+    // `_arg` and `let _ = arg`: a parameter is read in a guard or discard
+    // statement, but every path still returns the same trivial sentinel
+    // (`None`, `Ok(())`, `false`, empty collection, ...). That is not a real
+    // use of the value; it is lint laundering. Use the parameter to compute
+    // behavior, validate with a non-sentinel error, restructure the API, or
+    // delete the parameter/function.
+    let mut noop_sentinel_offenders: Vec<(PathBuf, usize, String)> = Vec::new();
+    scan_for_noop_sentinel_control_flow(&manifest_dir, &manifest_dir, &mut noop_sentinel_offenders);
 
     // Dodge-named function identifiers. Names like `discard_*`, `swallow_*`,
     // `silence_*`, `*_for_fixed_lambda`, `*_no_op_*`, `*_intentionally_unused`,
@@ -523,6 +535,18 @@ fn main() {
                 "stub function body (multi-arg function whose entire body is a sentinel like None/Ok(())/Default::default() — implement the function, return a real Result/Error, or delete the function)"
                     .to_string(),
             rows: stub_body_offenders
+                .iter()
+                .map(|(r, l, s)| (r.clone(), *l, None, s.clone()))
+                .collect(),
+        });
+    }
+
+    if !noop_sentinel_offenders.is_empty() {
+        sections.push(Section {
+            title:
+                "sentinel-preserving fake use (parameter is read only by a no-op guard/discard; use it for behavior, return a real error, or delete it)"
+                    .to_string(),
+            rows: noop_sentinel_offenders
                 .iter()
                 .map(|(r, l, s)| (r.clone(), *l, None, s.clone()))
                 .collect(),
@@ -2943,7 +2967,36 @@ fn scan_for_vendor_directories(
     }
 }
 
+struct ScannedFile {
+    rel: PathBuf,
+    content: String,
+}
+
+static SCANNABLE_FILES: OnceLock<Vec<ScannedFile>> = OnceLock::new();
+
 fn visit_files(root: &Path, dir: &Path, visitor: &mut dyn FnMut(&Path, &str)) {
+    let dir_rel = dir
+        .strip_prefix(root)
+        .expect("scanner directory must be under the manifest root");
+    for file in scannable_files(root) {
+        if !dir_rel.as_os_str().is_empty() && !file.rel.starts_with(dir_rel) {
+            continue;
+        }
+        visitor(&file.rel, &file.content);
+    }
+}
+
+fn scannable_files(root: &Path) -> &'static [ScannedFile] {
+    SCANNABLE_FILES
+        .get_or_init(|| {
+            let mut files = Vec::new();
+            collect_scannable_files(root, root, &mut files);
+            files
+        })
+        .as_slice()
+}
+
+fn collect_scannable_files(root: &Path, dir: &Path, files: &mut Vec<ScannedFile>) {
     let read = match fs::read_dir(dir) {
         Ok(r) => r,
         Err(_) => return,
@@ -2973,7 +3026,7 @@ fn visit_files(root: &Path, dir: &Path, visitor: &mut dyn FnMut(&Path, &str)) {
             continue;
         }
         if path.is_dir() {
-            visit_files(root, &path, visitor);
+            collect_scannable_files(root, &path, files);
             continue;
         }
         let ext = path.extension().and_then(OsStr::to_str).unwrap_or("");
@@ -2991,8 +3044,11 @@ fn visit_files(root: &Path, dir: &Path, visitor: &mut dyn FnMut(&Path, &str)) {
             Ok(s) => s,
             Err(_) => continue,
         };
-        let rel = path.strip_prefix(root).unwrap_or(&path).to_path_buf();
-        visitor(&rel, &content);
+        let rel = path
+            .strip_prefix(root)
+            .expect("scanned file must be under the manifest root")
+            .to_path_buf();
+        files.push(ScannedFile { rel, content });
     }
 }
 
@@ -3044,45 +3100,46 @@ fn scan_for_underscore_fn_args(
                 idx += 1;
                 continue;
             }
-            let (sig_start, sig_end_line, sig_end_col_excl) = match find_fn_body_at(&lines, idx) {
-                Some((_, (open, _close))) => {
-                    let open_line = &stripped_lines[open];
-                    let col = open_line.find('{').unwrap_or(open_line.len());
-                    (idx, open, col)
-                }
-                None => {
-                    let mut paren: i32 = 0;
-                    let mut brack: i32 = 0;
-                    let mut found: Option<(usize, usize)> = None;
-                    let limit = (idx + 64).min(n);
-                    'outer: for (rel, sj) in stripped_lines[idx..limit].iter().enumerate() {
-                        let j = idx + rel;
-                        for (k, b) in sj.as_bytes().iter().enumerate() {
-                            match *b {
-                                b'(' => paren += 1,
-                                b')' => paren -= 1,
-                                b'[' => brack += 1,
-                                b']' => brack -= 1,
-                                b';' if paren == 0 && brack == 0 => {
-                                    found = Some((j, k));
-                                    break 'outer;
+            let (sig_start, sig_end_line, sig_end_col_excl) =
+                match find_fn_body_at_stripped(&stripped_lines, idx) {
+                    Some((_, (open, _close))) => {
+                        let open_line = &stripped_lines[open];
+                        let col = open_line.find('{').unwrap_or(open_line.len());
+                        (idx, open, col)
+                    }
+                    None => {
+                        let mut paren: i32 = 0;
+                        let mut brack: i32 = 0;
+                        let mut found: Option<(usize, usize)> = None;
+                        let limit = (idx + 64).min(n);
+                        'outer: for (rel, sj) in stripped_lines[idx..limit].iter().enumerate() {
+                            let j = idx + rel;
+                            for (k, b) in sj.as_bytes().iter().enumerate() {
+                                match *b {
+                                    b'(' => paren += 1,
+                                    b')' => paren -= 1,
+                                    b'[' => brack += 1,
+                                    b']' => brack -= 1,
+                                    b';' if paren == 0 && brack == 0 => {
+                                        found = Some((j, k));
+                                        break 'outer;
+                                    }
+                                    b'{' if paren == 0 && brack == 0 => {
+                                        break 'outer;
+                                    }
+                                    _ => {}
                                 }
-                                b'{' if paren == 0 && brack == 0 => {
-                                    break 'outer;
-                                }
-                                _ => {}
+                            }
+                        }
+                        match found {
+                            Some((j, k)) => (idx, j, k),
+                            None => {
+                                idx += 1;
+                                continue;
                             }
                         }
                     }
-                    match found {
-                        Some((j, k)) => (idx, j, k),
-                        None => {
-                            idx += 1;
-                            continue;
-                        }
-                    }
-                }
-            };
+                };
             let mut sig_text = String::new();
             let mut line_offsets: Vec<(usize, usize)> = Vec::new();
             for (rel, stripped_line) in stripped_lines[sig_start..=sig_end_line].iter().enumerate()
@@ -3351,7 +3408,7 @@ fn scan_for_useless_tests(root: &Path, dir: &Path, offenders: &mut Vec<(PathBuf,
                 i = j + 1;
                 continue;
             }
-            let Some((_sig, (open, close))) = find_fn_body_at(&lines, j) else {
+            let Some((_sig, (open, close))) = find_fn_body_at_stripped(&stripped_lines, j) else {
                 i = j + 1;
                 continue;
             };
@@ -3572,6 +3629,7 @@ fn collect_git_history_marker_functions(
         }
         let rel = Path::new(&rel_str);
         let lines: Vec<&str> = content.lines().collect();
+        let stripped_lines = strip_file_lines(&content);
         let mask = compute_test_mask(&content, rel);
         for (idx, line) in lines.iter().enumerate() {
             if mask.get(idx).copied().unwrap_or(false) {
@@ -3582,7 +3640,7 @@ fn collect_git_history_marker_functions(
                 if !stripped.contains(marker) {
                     continue;
                 }
-                if let Some((sig, _)) = find_enclosing_fn(&lines, idx) {
+                if let Some((sig, _)) = find_enclosing_fn(&lines, &stripped_lines, idx) {
                     let kind = marker.trim_end_matches('(').to_string();
                     let entry = out.entry((rel_str.clone(), sig)).or_default();
                     if !entry.contains(&kind) {
@@ -3622,6 +3680,7 @@ fn run_unimplemented_history_audit(
         file_contents.insert(rel_str.clone(), content.to_string());
 
         let lines: Vec<&str> = content.lines().collect();
+        let stripped_lines = strip_file_lines(content);
         let mask = compute_test_mask(content, rel);
         for (idx, line) in lines.iter().enumerate() {
             if mask.get(idx).copied().unwrap_or(false) {
@@ -3632,7 +3691,8 @@ fn run_unimplemented_history_audit(
                 if !stripped.contains(marker) {
                     continue;
                 }
-                if let Some((sig, (open, _close))) = find_enclosing_fn(&lines, idx) {
+                if let Some((sig, (open, _close))) = find_enclosing_fn(&lines, &stripped_lines, idx)
+                {
                     let kind = marker.trim_end_matches('(').to_string();
                     let entry = current
                         .entry((rel_str.clone(), sig.clone()))
@@ -3785,14 +3845,18 @@ enum HistoryBodyState {
 /// any `HISTORY_BODY_REJECT_MACROS` macro in the body.
 fn body_state_for_signature(content: &str, target_sig: &str) -> HistoryBodyState {
     let lines: Vec<&str> = content.lines().collect();
+    let stripped_lines = strip_file_lines(content);
     let mut idx = 0;
     while idx < lines.len() {
-        let stripped = strip_strings_and_comments(lines[idx]);
+        let stripped = stripped_lines
+            .get(idx)
+            .map(String::as_str)
+            .unwrap_or(lines[idx]);
         if !line_has_keyword(&stripped, "fn") {
             idx += 1;
             continue;
         }
-        if let Some((sig, (open, close))) = find_fn_body_at(&lines, idx) {
+        if let Some((sig, (open, close))) = find_fn_body_at_stripped(&stripped_lines, idx) {
             if sig == target_sig {
                 let mut code_lines = 0;
                 let mut first_snippet: Option<String> = None;
@@ -3837,15 +3901,22 @@ fn body_state_for_signature(content: &str, target_sig: &str) -> HistoryBodyState
 /// Walk backward from `at_line` looking for the most recent line that bears
 /// a `fn` keyword AND whose resulting body braces enclose `at_line`. Returns
 /// `(normalized_signature, (body_open_line, body_close_line))`.
-fn find_enclosing_fn(lines: &[&str], at_line: usize) -> Option<(String, (usize, usize))> {
+fn find_enclosing_fn(
+    lines: &[&str],
+    stripped_lines: &[String],
+    at_line: usize,
+) -> Option<(String, (usize, usize))> {
     let mut start = at_line + 1;
     while start > 0 {
         start -= 1;
-        let stripped = strip_strings_and_comments(lines[start]);
+        let stripped = stripped_lines
+            .get(start)
+            .map(String::as_str)
+            .unwrap_or(lines[start]);
         if !line_has_keyword(&stripped, "fn") {
             continue;
         }
-        if let Some((sig, (open, close))) = find_fn_body_at(lines, start)
+        if let Some((sig, (open, close))) = find_fn_body_at_stripped(stripped_lines, start)
             && open <= at_line
             && at_line <= close
         {
@@ -3855,35 +3926,13 @@ fn find_enclosing_fn(lines: &[&str], at_line: usize) -> Option<(String, (usize, 
     None
 }
 
-/// Starting at `fn_line` (a line containing the `fn` keyword), find the
-/// function body's opening `{` and matching `}`. Brace counting uses
-/// `strip_strings_and_comments` per line so braces inside string literals
-/// or `//` comments don't perturb depth. Block comments and raw strings
-/// are out of scope (same limitation as the other scanners). Returns the
-/// normalized signature text — everything from `fn_line` up to (and
-/// excluding) the body's opening `{`, whitespace-collapsed.
-fn find_fn_body_at(lines: &[&str], fn_line: usize) -> Option<(String, (usize, usize))> {
-    // Stateful stripping across lines so multi-line raw strings (`r#"..."#`),
-    // raw strings spanning newlines, and plain `"..."` continuations cannot
-    // leak braces into the depth counter and falsely close the body early.
-    let mut stripped: Vec<String> = Vec::with_capacity(lines.len() - fn_line);
-    {
-        let mut in_str = false;
-        let mut quote: u8 = 0;
-        let mut hashes: u8 = 0;
-        for line in &lines[fn_line..] {
-            let (s, ns, nq, nh) =
-                strip_strings_and_comments_stateful_raw(line, in_str, quote, hashes);
-            stripped.push(s);
-            in_str = ns;
-            quote = nq;
-            hashes = nh;
-        }
-    }
+fn find_fn_body_at_stripped(
+    stripped_lines: &[String],
+    fn_line: usize,
+) -> Option<(String, (usize, usize))> {
     let mut depth: i32 = 0;
     let mut body_open: Option<usize> = None;
-    for (rel, s) in stripped.iter().enumerate() {
-        let j = fn_line + rel;
+    for (j, s) in stripped_lines.iter().enumerate().skip(fn_line) {
         for b in s.bytes() {
             match b {
                 b'{' => {
@@ -3898,8 +3947,12 @@ fn find_fn_body_at(lines: &[&str], fn_line: usize) -> Option<(String, (usize, us
                         && let Some(open) = body_open
                     {
                         let mut sig = String::new();
-                        for k in fn_line..=open {
-                            let ss = &stripped[k - fn_line];
+                        for (k, ss) in stripped_lines
+                            .iter()
+                            .enumerate()
+                            .take(open + 1)
+                            .skip(fn_line)
+                        {
                             let cut = if k == open {
                                 ss.find('{').unwrap_or(ss.len())
                             } else {
@@ -3908,8 +3961,7 @@ fn find_fn_body_at(lines: &[&str], fn_line: usize) -> Option<(String, (usize, us
                             sig.push_str(&ss[..cut]);
                             sig.push(' ');
                         }
-                        let normalized: String =
-                            sig.split_whitespace().collect::<Vec<_>>().join(" ");
+                        let normalized = sig.split_whitespace().collect::<Vec<_>>().join(" ");
                         return Some((normalized, (open, j)));
                     }
                 }
@@ -3981,7 +4033,7 @@ fn index_local_fns(lines: &[&str], stripped_lines: &[String]) -> Vec<(String, us
             .map(String::as_str)
             .unwrap_or(lines[i]);
         if line_has_keyword(s, "fn")
-            && let Some((sig, (open, close))) = find_fn_body_at(lines, i)
+            && let Some((sig, (open, close))) = find_fn_body_at_stripped(stripped_lines, i)
             && let Some(name) = fn_name_from_sig(&sig)
         {
             out.push((name, open, close));
@@ -4053,7 +4105,7 @@ fn git_head_files_containing(
         return std::collections::BTreeMap::new();
     }
 
-    let mut out = std::collections::BTreeMap::new();
+    let mut rels = Vec::new();
     for raw in output.stdout.split(|b| *b == 0) {
         if raw.is_empty() {
             continue;
@@ -4069,25 +4121,78 @@ fn git_head_files_containing(
         if rel_path_is_skipped_for_scans(rel_path) || !rel_path_is_scannable(rel_path) {
             continue;
         }
-        if let Some(content) = git_show_head_file(manifest_dir, rel) {
-            out.insert(rel.to_string(), content);
+        rels.push(rel.to_string());
+    }
+    git_show_head_files(manifest_dir, &rels)
+}
+
+fn git_show_head_files(
+    manifest_dir: &Path,
+    rels: &[String],
+) -> std::collections::BTreeMap<String, String> {
+    let mut out = std::collections::BTreeMap::new();
+    if rels.is_empty() {
+        return out;
+    }
+    let mut child = match Command::new("git")
+        .arg("-C")
+        .arg(manifest_dir)
+        .arg("cat-file")
+        .arg("--batch")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+    {
+        Ok(child) => child,
+        Err(_) => return out,
+    };
+    {
+        let stdin = child
+            .stdin
+            .as_mut()
+            .expect("git cat-file stdin must be piped");
+        for rel in rels {
+            writeln!(stdin, "HEAD:{rel}").expect("failed to write git cat-file query");
+        }
+    }
+    let output = match child.wait_with_output() {
+        Ok(output) => output,
+        Err(_) => return out,
+    };
+    if !output.status.success() {
+        return out;
+    }
+    let bytes = output.stdout;
+    let mut pos = 0usize;
+    for rel in rels {
+        let Some(header_len) = bytes[pos..].iter().position(|b| *b == b'\n') else {
+            break;
+        };
+        let header_end = pos + header_len;
+        let header = match std::str::from_utf8(&bytes[pos..header_end]) {
+            Ok(header) => header,
+            Err(_) => break,
+        };
+        let Some(size_text) = header.split_whitespace().nth(2) else {
+            break;
+        };
+        let Ok(size) = size_text.parse::<usize>() else {
+            break;
+        };
+        let content_start = header_end + 1;
+        let content_end = content_start + size;
+        if content_end > bytes.len() {
+            break;
+        }
+        if let Ok(content) = String::from_utf8(bytes[content_start..content_end].to_vec()) {
+            out.insert(rel.clone(), content);
+        }
+        pos = content_end;
+        if pos < bytes.len() && bytes[pos] == b'\n' {
+            pos += 1;
         }
     }
     out
-}
-
-fn git_show_head_file(manifest_dir: &Path, rel: &str) -> Option<String> {
-    let output = Command::new("git")
-        .arg("-C")
-        .arg(manifest_dir)
-        .arg("show")
-        .arg(format!("HEAD:{rel}"))
-        .output()
-        .ok()?;
-    if !output.status.success() {
-        return None;
-    }
-    String::from_utf8(output.stdout).ok()
 }
 
 fn rel_path_is_skipped_for_scans(rel: &Path) -> bool {
@@ -4246,12 +4351,17 @@ fn collect_todo_history_sites_from_content(
     }
     let is_rust = rel.extension().and_then(OsStr::to_str) == Some("rs");
     let lines: Vec<&str> = content.lines().collect();
+    let stripped_lines = if is_rust {
+        strip_file_lines(content)
+    } else {
+        Vec::new()
+    };
     for (idx, line) in lines.iter().enumerate() {
         if !line.contains(needle) {
             continue;
         }
         let anchor = if is_rust {
-            find_enclosing_fn(&lines, idx)
+            find_enclosing_fn(&lines, &stripped_lines, idx)
                 .map(|(sig, _)| format!("{FN_ANCHOR_PREFIX}{sig}"))
                 .unwrap_or_else(|| FILE_ANCHOR.to_string())
         } else {
@@ -4536,11 +4646,16 @@ fn line_for_history_anchor(content: &str, anchor: &str) -> usize {
         return 1;
     };
     let lines: Vec<&str> = content.lines().collect();
+    let stripped_lines = strip_file_lines(content);
     let mut idx = 0usize;
     while idx < lines.len() {
-        let stripped = strip_strings_and_comments(lines[idx]);
+        let stripped = stripped_lines
+            .get(idx)
+            .map(String::as_str)
+            .unwrap_or(lines[idx]);
         if line_has_keyword(&stripped, "fn")
-            && let Some((found_sig, (open, _close))) = find_fn_body_at(&lines, idx)
+            && let Some((found_sig, (open, _close))) =
+                find_fn_body_at_stripped(&stripped_lines, idx)
             && found_sig == sig
         {
             return open + 1;
@@ -4560,7 +4675,7 @@ fn normalized_fn_body_code_without_comments(content: &str, target_sig: &str) -> 
             .map(String::as_str)
             .unwrap_or(lines[idx]);
         if line_has_keyword(stripped, "fn")
-            && let Some((sig, (open, close))) = find_fn_body_at(&lines, idx)
+            && let Some((sig, (open, close))) = find_fn_body_at_stripped(&stripped_lines, idx)
         {
             if sig == target_sig {
                 let mut body = String::new();
@@ -4875,7 +4990,7 @@ fn scan_for_noop_self_consuming_fns(
                 i += 1;
                 continue;
             }
-            let Some((sig, (open, close))) = find_fn_body_at(&lines, i) else {
+            let Some((sig, (open, close))) = find_fn_body_at_stripped(&stripped_lines, i) else {
                 i += 1;
                 continue;
             };
@@ -5123,7 +5238,7 @@ fn scan_for_stub_function_bodies(
                 i += 1;
                 continue;
             }
-            let Some((sig, (open, close))) = find_fn_body_at(&lines, i) else {
+            let Some((sig, (open, close))) = find_fn_body_at_stripped(&stripped_lines, i) else {
                 i += 1;
                 continue;
             };
@@ -5137,6 +5252,70 @@ fn scan_for_stub_function_bodies(
             }
             let body = extract_body_text(&stripped_lines, open, close);
             if body_is_trivial_sentinel(&body) {
+                offenders.push((rel.to_path_buf(), i + 1, lines[i].to_string()));
+            }
+            i = close + 1;
+        }
+    });
+}
+
+/// Flags multi-arg functions that read an argument only through control flow
+/// or discard statements that do not change the sentinel returned by the
+/// function. This deliberately includes trait default methods: `fn f(&self,
+/// arg: T) -> Option<_> { if arg.is_empty() { return None; } None }` is not a
+/// meaningful default, it is a renamed `_arg`.
+fn scan_for_noop_sentinel_control_flow(
+    root: &Path,
+    dir: &Path,
+    offenders: &mut Vec<(PathBuf, usize, String)>,
+) {
+    visit_files(root, dir, &mut |rel, content| {
+        let rel_str = rel.to_string_lossy().replace('\\', "/");
+        if rel_str == "build.rs" {
+            return;
+        }
+        if rel.extension().and_then(OsStr::to_str) != Some("rs") {
+            return;
+        }
+        if !content.contains("fn ") {
+            return;
+        }
+        let mask = compute_test_mask(content, rel);
+        let lines: Vec<&str> = content.lines().collect();
+        let stripped_lines = strip_file_lines(content);
+        let n = lines.len();
+        let mut i = 0usize;
+        while i < n {
+            let s = stripped_lines
+                .get(i)
+                .map(String::as_str)
+                .unwrap_or(lines[i]);
+            if !line_has_keyword(s, "fn") {
+                i += 1;
+                continue;
+            }
+            if mask.get(i).copied().unwrap_or(false) {
+                i += 1;
+                continue;
+            }
+            if fn_signature_ends_with_semicolon(&stripped_lines, i) {
+                i += 1;
+                continue;
+            }
+            let Some((sig, (open, close))) = find_fn_body_at_stripped(&stripped_lines, i) else {
+                i += 1;
+                continue;
+            };
+            let Some(param_count) = signature_param_count(&sig) else {
+                i = close + 1;
+                continue;
+            };
+            if param_count < 2 {
+                i = close + 1;
+                continue;
+            }
+            let body = extract_body_text(&stripped_lines, open, close);
+            if body_has_noop_sentinel_control_flow(&body) {
                 offenders.push((rel.to_path_buf(), i + 1, lines[i].to_string()));
             }
             i = close + 1;
@@ -5423,6 +5602,439 @@ fn body_is_trivial_sentinel(body: &str) -> bool {
     false
 }
 
+fn body_has_noop_sentinel_control_flow(body: &str) -> bool {
+    let s = body.trim();
+    if s.is_empty() {
+        return false;
+    }
+    if leading_if_return_preserves_sentinel(s) {
+        return true;
+    }
+    if whole_if_else_preserves_sentinel(s) {
+        return true;
+    }
+    if whole_match_preserves_sentinel(s) {
+        return true;
+    }
+    if leading_discard_or_read_then_sentinel(s) {
+        return true;
+    }
+    if whole_predicate_then_trivial_sentinel(s) {
+        return true;
+    }
+    if contains_predicate_then_trivial_sentinel_return(s) {
+        return true;
+    }
+    false
+}
+
+fn leading_if_return_preserves_sentinel(s: &str) -> bool {
+    let Some((returned, rest)) = strip_leading_if_return_guard_with_expr(s) else {
+        return false;
+    };
+    let Some(returned_key) = trivial_sentinel_key(returned) else {
+        return false;
+    };
+    let Some(tail_key) = trivial_sentinel_key(rest) else {
+        return false;
+    };
+    returned_key == tail_key
+}
+
+fn whole_if_else_preserves_sentinel(s: &str) -> bool {
+    let Some((then_body, else_body, rest)) = parse_leading_if_else_blocks(s) else {
+        return false;
+    };
+    if !rest.trim().is_empty() {
+        return false;
+    }
+    let Some(then_key) = trivial_sentinel_key(then_body) else {
+        return false;
+    };
+    let Some(else_key) = trivial_sentinel_key(else_body) else {
+        return false;
+    };
+    then_key == else_key
+}
+
+fn whole_match_preserves_sentinel(s: &str) -> bool {
+    let Some((inside, rest)) = parse_leading_match_block(s) else {
+        return false;
+    };
+    if !rest.trim().is_empty() {
+        return false;
+    }
+    let Some(arms) = split_match_arms(inside) else {
+        return false;
+    };
+    let mut key: Option<String> = None;
+    let mut arm_count = 0usize;
+    for arm in arms {
+        let Some((_, expr)) = arm.split_once("=>") else {
+            return false;
+        };
+        let Some(expr_key) = trivial_sentinel_key(expr.trim().trim_end_matches(',')) else {
+            return false;
+        };
+        if let Some(existing) = &key {
+            if existing != &expr_key {
+                return false;
+            }
+        } else {
+            key = Some(expr_key);
+        }
+        arm_count += 1;
+    }
+    arm_count >= 2 && key.is_some()
+}
+
+fn leading_discard_or_read_then_sentinel(s: &str) -> bool {
+    let rest = strip_leading_drop_call(s)
+        .or_else(|| strip_leading_wildcard_assignment(s))
+        .or_else(|| strip_leading_read_only_statement(s));
+    rest.is_some_and(|tail| trivial_sentinel_key(tail).is_some())
+}
+
+fn whole_predicate_then_trivial_sentinel(s: &str) -> bool {
+    let mut expr = s.trim();
+    if let Some(stripped) = expr.strip_suffix(';') {
+        expr = stripped.trim_end();
+    }
+    predicate_then_trivial_sentinel_expr(expr)
+}
+
+fn predicate_then_trivial_sentinel_expr(expr: &str) -> bool {
+    let expr = expr.trim();
+    for method in [".then(", ".then_some("] {
+        let Some((predicate, arg)) = split_whole_method_call_arg(expr, method) else {
+            continue;
+        };
+        if predicate_is_read_only_empty_check(predicate) && then_arg_is_trivial_sentinel(arg) {
+            return true;
+        }
+    }
+    false
+}
+
+fn contains_predicate_then_trivial_sentinel_return(s: &str) -> bool {
+    let mut search_from = 0usize;
+    while let Some(rel) = s[search_from..].find("return") {
+        let pos = search_from + rel;
+        let before = if pos == 0 {
+            None
+        } else {
+            s.as_bytes().get(pos - 1).copied()
+        };
+        let after = s.as_bytes().get(pos + "return".len()).copied();
+        if before.map_or(true, |b| !is_ident_byte(b))
+            && after.is_some_and(|b| b.is_ascii_whitespace())
+        {
+            let expr_start = pos + "return".len();
+            if let Some((expr, _)) = split_leading_statement(&s[expr_start..])
+                && predicate_then_trivial_sentinel_expr(expr)
+            {
+                return true;
+            }
+        }
+        search_from = pos + "return".len();
+    }
+    false
+}
+
+fn split_whole_method_call_arg<'a>(expr: &'a str, method: &str) -> Option<(&'a str, &'a str)> {
+    let call_start = expr.find(method)?;
+    let arg_start = call_start + method.len();
+    let close_rel = find_matching_paren(&expr.as_bytes()[arg_start..])?;
+    if !expr[arg_start + close_rel + 1..].trim().is_empty() {
+        return None;
+    }
+    Some((
+        expr[..call_start].trim(),
+        expr[arg_start..arg_start + close_rel].trim(),
+    ))
+}
+
+fn predicate_is_read_only_empty_check(predicate: &str) -> bool {
+    let p = trim_balanced_outer_parens(predicate.trim());
+    if p.is_empty() || p.contains('!') {
+        return false;
+    }
+    p.ends_with(".is_empty()") || predicate_is_zero_comparison(p)
+}
+
+fn trim_balanced_outer_parens(mut s: &str) -> &str {
+    loop {
+        let trimmed = s.trim();
+        if !trimmed.starts_with('(') || !trimmed.ends_with(')') {
+            return trimmed;
+        }
+        let inner = &trimmed[1..trimmed.len() - 1];
+        if find_matching_paren(inner.as_bytes()).is_some() {
+            return trimmed;
+        }
+        s = inner;
+    }
+}
+
+fn predicate_is_zero_comparison(predicate: &str) -> bool {
+    let Some((left, right)) = predicate.split_once("==") else {
+        return false;
+    };
+    let left = left.trim();
+    let right = right.trim();
+    (right == "0" && read_only_zero_compare_operand(left))
+        || (left == "0" && read_only_zero_compare_operand(right))
+}
+
+fn read_only_zero_compare_operand(operand: &str) -> bool {
+    let op = operand.trim();
+    !op.is_empty()
+        && !op.contains('=')
+        && !op.contains('!')
+        && op
+            .bytes()
+            .all(|b| is_ident_byte(b) || b == b'.' || b == b'(' || b == b')')
+}
+
+fn then_arg_is_trivial_sentinel(arg: &str) -> bool {
+    let a = arg.trim();
+    if a.is_empty() {
+        return false;
+    }
+    if trivial_sentinel_key(a).is_some() || expression_is_empty_array_constructor(a) {
+        return true;
+    }
+    if let Some(body) = a.strip_prefix("||") {
+        let body = body.trim();
+        return trivial_sentinel_key(body).is_some() || expression_is_empty_array_constructor(body);
+    }
+    matches!(
+        a,
+        "Vec::new"
+            | "String::new"
+            | "HashMap::new"
+            | "BTreeMap::new"
+            | "HashSet::new"
+            | "BTreeSet::new"
+            | "VecDeque::new"
+            | "Default::default"
+    )
+}
+
+fn expression_is_empty_array_constructor(expr: &str) -> bool {
+    let compact: String = expr.chars().filter(|c| !c.is_whitespace()).collect();
+    compact.contains("::zeros(0)")
+        || compact.contains("::zeros((0,")
+        || compact.contains("::from_shape_vec((0,")
+        || compact.contains("::from_shape_fn((0,")
+}
+
+fn trivial_sentinel_key(expr: &str) -> Option<String> {
+    let mut s = expr.trim();
+    if let Some(rest) = s.strip_prefix("return ") {
+        s = rest.trim();
+    }
+    if let Some(stripped) = s.strip_suffix(';') {
+        s = stripped.trim_end();
+    }
+    if return_expr_is_trivial_sentinel(s) {
+        return Some(collapse_ascii_whitespace(s));
+    }
+    None
+}
+
+fn collapse_ascii_whitespace(s: &str) -> String {
+    let mut out = String::new();
+    let mut last_was_space = false;
+    for ch in s.chars() {
+        if ch.is_whitespace() {
+            if !last_was_space {
+                out.push(' ');
+                last_was_space = true;
+            }
+        } else {
+            out.push(ch);
+            last_was_space = false;
+        }
+    }
+    out.trim().to_string()
+}
+
+fn parse_leading_if_else_blocks(s: &str) -> Option<(&str, &str, &str)> {
+    let after_if = s.strip_prefix("if ")?;
+    let open_in_after_if = find_top_level_open_brace(after_if)?;
+    let then_start = open_in_after_if + 1;
+    let then_close_rel = find_matching_brace(&after_if.as_bytes()[then_start..])?;
+    let then_body = &after_if[then_start..then_start + then_close_rel];
+    let after_then = after_if[then_start + then_close_rel + 1..].trim_start();
+    let after_else = after_then.strip_prefix("else")?.trim_start();
+    if !after_else.starts_with('{') {
+        return None;
+    }
+    let else_body_start = 1usize;
+    let else_close_rel = find_matching_brace(&after_else.as_bytes()[else_body_start..])?;
+    let else_body = &after_else[else_body_start..else_body_start + else_close_rel];
+    let rest = &after_else[else_body_start + else_close_rel + 1..];
+    Some((then_body, else_body, rest))
+}
+
+fn parse_leading_match_block(s: &str) -> Option<(&str, &str)> {
+    let after_match = s.strip_prefix("match ")?;
+    let open = find_top_level_open_brace(after_match)?;
+    let body_start = open + 1;
+    let close_rel = find_matching_brace(&after_match.as_bytes()[body_start..])?;
+    let body = &after_match[body_start..body_start + close_rel];
+    let rest = &after_match[body_start + close_rel + 1..];
+    Some((body, rest))
+}
+
+fn find_top_level_open_brace(s: &str) -> Option<usize> {
+    let bytes = s.as_bytes();
+    let mut paren: i32 = 0;
+    let mut brack: i32 = 0;
+    let mut angle: i32 = 0;
+    let mut i = 0usize;
+    while i < bytes.len() {
+        match bytes[i] {
+            b'(' => paren += 1,
+            b')' => paren -= 1,
+            b'[' => brack += 1,
+            b']' => brack -= 1,
+            b'<' => angle += 1,
+            b'>' => {
+                if angle > 0 {
+                    angle -= 1;
+                }
+            }
+            b'{' if paren == 0 && brack == 0 && angle == 0 => return Some(i),
+            _ => {}
+        }
+        i += 1;
+    }
+    None
+}
+
+/// Given bytes starting just after an opening `{`, find the matching `}`.
+fn find_matching_brace(bytes: &[u8]) -> Option<usize> {
+    let mut depth: i32 = 1;
+    let mut i = 0usize;
+    while i < bytes.len() {
+        match bytes[i] {
+            b'{' => depth += 1,
+            b'}' => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(i);
+                }
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+    None
+}
+
+fn split_match_arms(inside: &str) -> Option<Vec<&str>> {
+    let mut arms = Vec::new();
+    let bytes = inside.as_bytes();
+    let mut start = 0usize;
+    let mut paren: i32 = 0;
+    let mut brack: i32 = 0;
+    let mut brace: i32 = 0;
+    let mut angle: i32 = 0;
+    let mut i = 0usize;
+    while i < bytes.len() {
+        match bytes[i] {
+            b'(' => paren += 1,
+            b')' => paren -= 1,
+            b'[' => brack += 1,
+            b']' => brack -= 1,
+            b'{' => brace += 1,
+            b'}' => brace -= 1,
+            b'<' => angle += 1,
+            b'>' => {
+                if angle > 0 {
+                    angle -= 1;
+                }
+            }
+            b',' if paren == 0 && brack == 0 && brace == 0 && angle == 0 => {
+                let arm = inside[start..i].trim();
+                if !arm.is_empty() {
+                    arms.push(arm);
+                }
+                start = i + 1;
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+    let tail = inside[start..].trim();
+    if !tail.is_empty() {
+        arms.push(tail);
+    }
+    if arms.is_empty() { None } else { Some(arms) }
+}
+
+fn strip_leading_read_only_statement(s: &str) -> Option<&str> {
+    let (statement, rest) = split_leading_statement(s)?;
+    if expression_statement_is_read_only_noop(statement.trim()) {
+        Some(rest)
+    } else {
+        None
+    }
+}
+
+fn split_leading_statement(s: &str) -> Option<(&str, &str)> {
+    let bytes = s.as_bytes();
+    let mut paren: i32 = 0;
+    let mut brack: i32 = 0;
+    let mut brace: i32 = 0;
+    let mut angle: i32 = 0;
+    let mut i = 0usize;
+    while i < bytes.len() {
+        match bytes[i] {
+            b'(' => paren += 1,
+            b')' => paren -= 1,
+            b'[' => brack += 1,
+            b']' => brack -= 1,
+            b'{' => brace += 1,
+            b'}' => brace -= 1,
+            b'<' => angle += 1,
+            b'>' => {
+                if angle > 0 {
+                    angle -= 1;
+                }
+            }
+            b';' if paren == 0 && brack == 0 && brace == 0 && angle == 0 => {
+                return Some((&s[..i], &s[i + 1..]));
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+    None
+}
+
+fn expression_statement_is_read_only_noop(statement: &str) -> bool {
+    let s = statement.trim();
+    if s.is_empty() || s.contains('=') || s.contains('!') {
+        return false;
+    }
+    let known_read_calls = [
+        ".len()",
+        ".is_empty()",
+        ".capacity()",
+        ".nrows()",
+        ".ncols()",
+        ".shape()",
+        ".dim()",
+        ".raw_dim()",
+        "std::mem::size_of_val(",
+        "core::mem::size_of_val(",
+    ];
+    known_read_calls.iter().any(|needle| s.contains(needle))
+}
+
 /// Strip a leading sequence of "fake validation" statements from a body
 /// expression and return the tail. A statement is consumed if it is
 /// either a complete `assert*!(...);` invocation or an
@@ -5506,6 +6118,10 @@ fn strip_leading_assert_call(s: &str) -> Option<&str> {
 /// the sentinel list. Returns the remainder past the closing brace, or
 /// `None` if no match.
 fn strip_leading_if_return_guard(s: &str) -> Option<&str> {
+    strip_leading_if_return_guard_with_expr(s).map(|(_, rest)| rest)
+}
+
+fn strip_leading_if_return_guard_with_expr(s: &str) -> Option<(&str, &str)> {
     let after_if = s.strip_prefix("if ")?;
     let bytes = after_if.as_bytes();
     let mut paren: i32 = 0;
@@ -5549,7 +6165,7 @@ fn strip_leading_if_return_guard(s: &str) -> Option<&str> {
                         // a false positive in the stub-body lint.
                         let ret_expr = inside["return ".len()..inside.len() - 1].trim();
                         if return_expr_is_trivial_sentinel(ret_expr) {
-                            return Some(&rest_after_brace[i + 1..]);
+                            return Some((ret_expr, &rest_after_brace[i + 1..]));
                         }
                     }
                     return None;
@@ -5645,7 +6261,7 @@ fn return_expr_is_trivial_sentinel(expr: &str) -> bool {
     if let Some(inner) = s.strip_prefix("Ok(").and_then(|r| r.strip_suffix(')'))
         && matches!(
             inner.trim(),
-            "" | "Array1::zeros(0)" | "Array2::zeros((0, 0))" | "Array3::zeros((0, 0, 0))"
+            "()" | "Array1::zeros(0)" | "Array2::zeros((0, 0))" | "Array3::zeros((0, 0, 0))"
         )
     {
         return true;

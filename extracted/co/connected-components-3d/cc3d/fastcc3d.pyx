@@ -71,14 +71,14 @@ cdef extern from "cc3d_continuous.hpp" namespace "cc3d":
     int64_t max_labels, int64_t connectivity, T delta,
     U* out_labels, size_t &N, 
     native_bool periodic_boundary, native_bool binary_image
-  ) nogil except +
+  ) except + nogil
 
 cdef extern from "cc3d_graphs.hpp" namespace "cc3d":
   cdef OUT* extract_voxel_connectivity_graph[T,OUT](
     T* in_labels, 
     int64_t sx, int64_t sy, int64_t sz,
     int64_t connectivity, OUT *graph
-  ) nogil except +
+  ) except + nogil
   cdef struct pair_hash:
     size_t __call__(cpp_pair[uint64_t,uint64_t] v)
   cdef unordered_map[cpp_pair[T,T], float, pair_hash] extract_region_graph[T](
@@ -86,7 +86,7 @@ cdef extern from "cc3d_graphs.hpp" namespace "cc3d":
     int64_t sx, int64_t sy, int64_t sz,
     float wx, float wy, float wz,
     int64_t connectivity, native_bool surface_area
-  ) nogil except +
+  ) except + nogil
   cdef mapcpp[T, vector[cpp_pair[size_t,size_t]]] extract_runs[T](
     T* labels, size_t sx, size_t sy, size_t sz
   ) nogil
@@ -94,14 +94,14 @@ cdef extern from "cc3d_graphs.hpp" namespace "cc3d":
     T key,
     vector[cpp_pair[size_t, size_t]] all_runs,
     T* labels, size_t voxels
-  ) nogil except +
+  ) except + nogil
   cdef OUT* color_connectivity_graph_N[T,OUT](
     T* vcg,
     int64_t sx, int64_t sy, int64_t sz,
     int connectivity,
     OUT* out_labels,
     uint64_t& N
-  ) nogil except +
+  ) except + nogil
 
 ctypedef fused UINT:
   uint8_t
@@ -254,18 +254,21 @@ def connected_components(
   binary_image:bool = False,
 ) -> np.ndarray:
   """
-  Connected components applied to 3D images with 
-  handling for multiple labels.
-
+  Connected components applied to 2D or 3D images.
+  Images may be binary, multivalued, or continuously valued.
+  
   Required:
-    data: Input weights in a 2D or 3D numpy array. 
+    data: Input weights in a 2D or 3D numpy or pytorch array. 
   Optional:
-    max_labels (int): save memory by predicting the maximum
-      number of possible labels that might be output.
-      Defaults to number of voxels.
+    max_labels (deprecated): This parameter formerly saved memory 
+      by predicting the maximum number of possible labels that 
+      might be output, but created a risk of a segfault if you picked
+      too low. More reliable methods have been available for 
+      some time so this parameter is now disconnected from 
+      doing anything.
     connectivity (int): 
       For 3D images, 6 (voxel faces), 18 (+edges), or 26 (+corners)
-      If the input image is 2D, you may specify 4 (pixel faces) or
+      If the input image is 2D, you may specify 4 (pixel edges) or
         8 (+corners).
     return_N (bool): if True, also return the number of connected components
       as the second argument of a return tuple.
@@ -280,10 +283,13 @@ def connected_components(
     out_file: If specified, the output array will be an mmapped
       file. Can be a file-name or a file-like object.
     periodic_boundary: the boundary edges wrap around
+      Only supported for 4,8, and 6 connected images.
     binary_image: if True, regardless of the input type,
       treat as a binary image (foreground > 0, background == 0).
       Certain inputs will always be treated as a binary 
       image (e.g. bool dtype, delta == max int or max float etc.).
+      Certain optimizations are available for binary images that
+      are not possible for multivalued images.
 
   let OUT = 1D, 2D or 3D numpy array remapped to reflect
     the connected components sequentially numbered from 1 to N. 
@@ -364,14 +370,22 @@ def connected_components(
   cdef cnp.ndarray[uint32_t, ndim=1] out_labels32 = np.array([], dtype=np.uint32)
   cdef cnp.ndarray[uint64_t, ndim=1] out_labels64 = np.array([], dtype=np.uint64)
 
-  epl, first_foreground_row, last_foreground_row = estimate_provisional_labels(data)
-
-  if max_labels <= 0:
-    max_labels = voxels
-  max_labels = min(max_labels, epl, voxels)
-
   dtype = data.dtype
   binary_image = binary_image or (dtype == bool)
+
+  # EPL saves time for multilabel because it helps us reduce the size of 
+  # the union-find allocation. However, for 2D binary images, we can use
+  # a static calculation to save 1/2 to 1/8 of the allocation. We unfortunately
+  # lose hyperfast calculation of extremely sparse images (e.g. 1 pixel or line of pixels)
+  # but reducing passes on the image improves times significantly for typical images.
+  if binary_image and connectivity in (4,8):
+    epl = voxels
+    first_foreground_row = 0
+    last_foreground_row = sy
+  else:
+    epl, first_foreground_row, last_foreground_row = estimate_provisional_labels(data)
+
+  max_labels = min(epl, voxels)
 
   if np.issubdtype(dtype, np.floating):
     delta = float(delta)

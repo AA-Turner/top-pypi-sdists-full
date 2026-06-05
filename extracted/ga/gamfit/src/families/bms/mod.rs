@@ -541,9 +541,9 @@ impl LatentZNormalization {
 /// pretend the score is N(0,1) anyway would distort the closed-form
 /// probit log-CDF kernel. The historical fallback (local- or
 /// global-empirical latent measure) is *mathematically correct* but
-/// triggers the expensive per-row intercept Newton solve in
-/// `empirical_rigid_neglog_jet` (16 directional jet coefficients × 6
-/// refinement passes per row); at biobank scale that is the dominant
+/// triggers the per-row intercept Newton solve in the empirical-grid
+/// closed-form kernels (`empirical_rigid_primary_grad_hess_closed_form`
+/// and its higher-order siblings); at biobank scale that is the dominant
 /// cost.
 ///
 /// **Rank-INT is exact under monotone re-parameterisation.** The Blom rankit assigns
@@ -1078,6 +1078,7 @@ pub(super) const ROW_CHUNK_SIZE: usize = 1024;
 pub(super) const EXACT_WORK_LOG_MIN_ROWS: usize = 50_000;
 pub(super) const BMS_ROW_PRIMARY_HESSIAN_EXPECTED_REUSE_PASSES: usize = 3;
 pub(super) const BMS_ROW_PRIMARY_HESSIAN_MIN_REUSE_PASSES: usize = 2;
+pub(super) const BMS_ROW_PRIMARY_HESSIAN_TILE_ROWS: usize = 8192;
 pub(super) const BMS_ROW_PRIMARY_HESSIAN_SINGLE_FRACTION_NUM: u64 = 1;
 pub(super) const BMS_ROW_PRIMARY_HESSIAN_SINGLE_FRACTION_DEN: u64 = 4;
 pub(super) const BMS_ROW_PRIMARY_HESSIAN_GLOBAL_FRACTION_NUM: u64 = 1;

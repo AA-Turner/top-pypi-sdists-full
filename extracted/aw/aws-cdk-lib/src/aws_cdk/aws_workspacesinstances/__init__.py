@@ -1022,7 +1022,7 @@ class CfnWorkspaceInstance(
                 ),
                 private_dns_name_options=workspacesinstances.CfnWorkspaceInstance.PrivateDnsNameOptionsRequestProperty(
                     enable_resource_name_dns_aaaa_record=False,
-                    enable_resource_name_dns_aRecord=False,
+                    enable_resource_name_dns_a_record=False,
                     hostname_type="hostnameType"
                 ),
                 subnet_id="subnetId",
@@ -2518,7 +2518,7 @@ class CfnWorkspaceInstance(
                     ),
                     private_dns_name_options=workspacesinstances.CfnWorkspaceInstance.PrivateDnsNameOptionsRequestProperty(
                         enable_resource_name_dns_aaaa_record=False,
-                        enable_resource_name_dns_aRecord=False,
+                        enable_resource_name_dns_a_record=False,
                         hostname_type="hostnameType"
                     ),
                     subnet_id="subnetId",
@@ -3009,7 +3009,7 @@ class CfnWorkspaceInstance(
                 
                 private_dns_name_options_request_property = workspacesinstances.CfnWorkspaceInstance.PrivateDnsNameOptionsRequestProperty(
                     enable_resource_name_dns_aaaa_record=False,
-                    enable_resource_name_dns_aRecord=False,
+                    enable_resource_name_dns_a_record=False,
                     hostname_type="hostnameType"
                 )
             '''
@@ -3301,7 +3301,7 @@ class CfnWorkspaceInstanceProps:
                     ),
                     private_dns_name_options=workspacesinstances.CfnWorkspaceInstance.PrivateDnsNameOptionsRequestProperty(
                         enable_resource_name_dns_aaaa_record=False,
-                        enable_resource_name_dns_aRecord=False,
+                        enable_resource_name_dns_a_record=False,
                         hostname_type="hostnameType"
                     ),
                     subnet_id="subnetId",

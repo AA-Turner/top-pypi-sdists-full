@@ -5,13 +5,12 @@ import shutil
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Literal
+from typing import Literal
 
 _HOME = Path.home()
 
 Action = Literal["created", "updated", "unchanged", "not-found", "removed", "error", "skipped"]
 Mode = Literal["install", "uninstall"]
-PathResolver = Callable[[], Path]
 
 SEMBLE_START = "<!-- SEMBLE_START -->"
 SEMBLE_END = "<!-- SEMBLE_END -->"
@@ -39,7 +38,7 @@ _ZED_SERVER_CONFIG: dict[str, object] = {  # Zed requires "source": "custom" for
     "args": ["--from", "semble[mcp]", "semble"],
 }
 
-_INSTRUCTIONS = f"""\
+INSTRUCTIONS = f"""\
 {SEMBLE_START}
 ## Semble Code Search
 
@@ -78,14 +77,10 @@ The index is built on first run and cached automatically. If `semble` is not on 
 class McpConfig:
     """MCP integration config for one agent."""
 
-    path: Path | PathResolver
+    path: Path
     key: str
     entry: dict[str, object]
     format: Literal["json", "toml"] = "json"
-
-    def resolved_path(self) -> Path:
-        """Return the resolved config path."""
-        return self.path() if callable(self.path) else self.path
 
 
 @dataclass(frozen=True)
@@ -110,7 +105,7 @@ class AgentTarget:
 
     def resolved_mcp_path(self) -> Path | None:
         """Return the resolved MCP config path, or None if MCP is unsupported."""
-        return self.mcp.resolved_path() if self.mcp else None
+        return self.mcp.path if self.mcp else None
 
 
 def _opencode_mcp_path() -> Path:
@@ -175,7 +170,7 @@ AGENTS: list[AgentTarget] = [
         display_name="Opencode",
         binary="opencode",
         config_dir=_HOME / ".config" / "opencode",
-        mcp=McpConfig(_opencode_mcp_path, "mcp", _OPENCODE_SERVER_CONFIG),
+        mcp=McpConfig(_opencode_mcp_path(), "mcp", _OPENCODE_SERVER_CONFIG),
         instructions_path=_HOME / ".config" / "opencode" / "AGENTS.md",
         subagent_path=_HOME / ".config" / "opencode" / "agents" / "semble-search.md",
     ),
@@ -201,7 +196,7 @@ AGENTS: list[AgentTarget] = [
         display_name="VS Code",
         binary="code",
         config_dir=None,
-        mcp=McpConfig(_vscode_mcp_path, "servers", _STDIO_SERVER_CONFIG),
+        mcp=McpConfig(_vscode_mcp_path(), "servers", _STDIO_SERVER_CONFIG),
         instructions_path=None,
     ),
     AgentTarget(
@@ -219,6 +214,27 @@ AGENTS: list[AgentTarget] = [
         config_dir=_HOME / ".config" / "zed",
         mcp=McpConfig(_HOME / ".config" / "zed" / "settings.json", "context_servers", _ZED_SERVER_CONFIG),
         instructions_path=None,
+    ),
+    AgentTarget(
+        id="reasonix",
+        display_name="Reasonix",
+        binary="reasonix",
+        config_dir=_HOME / ".config" / "reasonix",
+        # ~/.reasonix/config.json is the legacy v0.x path still read by v1.x for backwards compat.
+        # The v1.x canonical config is ~/.config/reasonix/config.toml ([[plugins]]), but the JSON
+        # path requires no special TOML handling and works for new users who have never had v0.x.
+        mcp=McpConfig(_HOME / ".reasonix" / "config.json", "mcpServers", _BARE_STDIO_SERVER_CONFIG),
+        instructions_path=_HOME / ".config" / "reasonix" / "REASONIX.md",
+        subagent_path=_HOME / ".reasonix" / "skills" / "semble-search.md",
+    ),
+    AgentTarget(
+        id="pi",
+        display_name="Pi",
+        binary="pi",
+        config_dir=_HOME / ".pi",
+        mcp=McpConfig(_HOME / ".pi" / "agent" / "mcp.json", "mcpServers", _BARE_STDIO_SERVER_CONFIG),
+        instructions_path=None,
+        subagent_path=_HOME / ".pi" / "agents" / "semble-search.md",
     ),
 ]
 

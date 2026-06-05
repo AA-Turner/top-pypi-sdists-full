@@ -21,6 +21,7 @@ Usage::
         ListInstancesPaginator,
         ListNotebookExecutionsPaginator,
         ListSecurityConfigurationsPaginator,
+        ListSessionsPaginator,
         ListStepsPaginator,
         ListStudioSessionMappingsPaginator,
         ListStudiosPaginator,
@@ -41,6 +42,7 @@ Usage::
     list_instances_paginator: ListInstancesPaginator = client.get_paginator("list_instances")
     list_notebook_executions_paginator: ListNotebookExecutionsPaginator = client.get_paginator("list_notebook_executions")
     list_security_configurations_paginator: ListSecurityConfigurationsPaginator = client.get_paginator("list_security_configurations")
+    list_sessions_paginator: ListSessionsPaginator = client.get_paginator("list_sessions")
     list_steps_paginator: ListStepsPaginator = client.get_paginator("list_steps")
     list_studio_session_mappings_paginator: ListStudioSessionMappingsPaginator = client.get_paginator("list_studio_session_mappings")
     list_studios_paginator: ListStudiosPaginator = client.get_paginator("list_studios")
@@ -56,6 +58,7 @@ from .paginator import (
     ListInstancesPaginator,
     ListNotebookExecutionsPaginator,
     ListSecurityConfigurationsPaginator,
+    ListSessionsPaginator,
     ListStepsPaginator,
     ListStudioSessionMappingsPaginator,
     ListStudiosPaginator,
@@ -77,6 +80,7 @@ __all__ = (
     "ListInstancesPaginator",
     "ListNotebookExecutionsPaginator",
     "ListSecurityConfigurationsPaginator",
+    "ListSessionsPaginator",
     "ListStepsPaginator",
     "ListStudioSessionMappingsPaginator",
     "ListStudiosPaginator",

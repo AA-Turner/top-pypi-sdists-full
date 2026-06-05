@@ -8,8 +8,15 @@ from datetime import datetime
 from enum import Enum
 from typing import Any
 
-from .._row_adapters_artifacts import ArtifactRow
-from ..rpc.types import ArtifactStatus, ArtifactTypeCode, artifact_status_to_str
+from .._row_adapters.artifacts import ArtifactRow
+from ..rpc.types import (
+    FLASHCARDS_VARIANT,
+    INTERACTIVE_MIND_MAP_VARIANT,
+    QUIZ_VARIANT,
+    ArtifactStatus,
+    ArtifactTypeCode,
+    artifact_status_to_str,
+)
 from .common import UnknownTypeWarning, _datetime_from_timestamp
 
 
@@ -17,7 +24,8 @@ class ArtifactType(str, Enum):
     """User-facing artifact types.
 
     This is a str enum that hides internal variant complexity. For example,
-    quizzes and flashcards are both type 4 internally but distinguished by variant.
+    quizzes, flashcards, and interactive mind maps are all type 4 internally,
+    distinguished by variant.
 
     Comparisons work with both enum members and strings:
         artifact.kind == ArtifactType.AUDIO  # True
@@ -55,23 +63,28 @@ def _map_artifact_kind(artifact_type: int, variant: int | None) -> ArtifactType:
 
     Args:
         artifact_type: ArtifactTypeCode integer value from API.
-        variant: Optional variant code (e.g., for quiz vs flashcards).
+        variant: Optional variant code (e.g., for quiz vs flashcards vs
+            interactive mind map).
 
     Returns:
         ArtifactType enum member. Returns UNKNOWN for unrecognized types.
     """
-    # Handle QUIZ/FLASHCARDS distinction.
+    # Resolve the type-4 family (QUIZ / FLASHCARDS / interactive mind map) by variant.
     if artifact_type == ArtifactTypeCode.QUIZ.value:
-        if variant == 1:
+        if variant == FLASHCARDS_VARIANT:
             return ArtifactType.FLASHCARDS
-        elif variant == 2:
+        elif variant == QUIZ_VARIANT:
             return ArtifactType.QUIZ
+        elif variant == INTERACTIVE_MIND_MAP_VARIANT:
+            # Interactive mind map: a studio artifact in the type-4 family,
+            # distinct from the note-backed mind map (synthetic type 5).
+            return ArtifactType.MIND_MAP
         else:
             key = (artifact_type, variant)
             if key not in _warned_artifact_types:
                 _warned_artifact_types.add(key)
                 warnings.warn(
-                    f"Unknown QUIZ variant {variant}. "
+                    f"Unknown type-4 (quiz / flashcards / mind-map) variant {variant}. "
                     "Consider updating notebooklm-py to the latest version.",
                     UnknownTypeWarning,
                     stacklevel=3,
@@ -152,7 +165,9 @@ class Artifact:
     status: int  # 1=processing, 2=pending, 3=completed, 4=failed
     created_at: datetime | None = None
     url: str | None = None
-    _variant: int | None = field(default=None, repr=False)  # For type 4: 1=flashcards, 2=quiz
+    _variant: int | None = field(
+        default=None, repr=False
+    )  # For type 4: 1=flashcards, 2=quiz, 4=interactive_mind_map
 
     @property
     def kind(self) -> ArtifactType:
@@ -170,7 +185,7 @@ class Artifact:
 
         Position knowledge for ``id`` / ``title`` / ``type`` / ``status``
         / ``variant`` / ``timestamp`` lives in
-        :class:`notebooklm._row_adapters_artifacts.ArtifactRow`. This factory wraps
+        :class:`notebooklm._row_adapters.artifacts.ArtifactRow`. This factory wraps
         the raw row in an adapter and reads through its typed properties,
         so any wire-shape change touches the adapter constants only.
 
@@ -235,9 +250,12 @@ class Artifact:
             # Title is at position [4]
             if len(inner) > 4 and isinstance(inner[4], str):
                 title = inner[4]
-            # Timestamp is at [2][2][0]
-            if len(inner) > 2 and isinstance(inner[2], list) and len(inner[2]) > 2:
-                ts_data = inner[2][2]
+            # Timestamp is at [2][2][0]. Bind the ``[2]`` metadata block first so
+            # the ``[2]`` descent into it is a single-level index, not a chained
+            # ``inner[2][2]`` (an absent block legitimately leaves created_at None).
+            metadata_block = inner[2] if len(inner) > 2 and isinstance(inner[2], list) else None
+            if metadata_block is not None and len(metadata_block) > 2:
+                ts_data = metadata_block[2]
                 if isinstance(ts_data, list) and len(ts_data) > 0:
                     created_at = _datetime_from_timestamp(ts_data[0])
 
@@ -282,12 +300,44 @@ class Artifact:
     @property
     def is_quiz(self) -> bool:
         """Check if this is a quiz (type 4, variant 2)."""
-        return self._artifact_type == ArtifactTypeCode.QUIZ.value and self._variant == 2
+        return self._artifact_type == ArtifactTypeCode.QUIZ.value and self._variant == QUIZ_VARIANT
 
     @property
     def is_flashcards(self) -> bool:
         """Check if this is flashcards (type 4, variant 1)."""
-        return self._artifact_type == ArtifactTypeCode.QUIZ.value and self._variant == 1
+        return (
+            self._artifact_type == ArtifactTypeCode.QUIZ.value
+            and self._variant == FLASHCARDS_VARIANT
+        )
+
+    @property
+    def is_interactive_mind_map(self) -> bool:
+        """Whether this is an interactive (studio-artifact) mind map.
+
+        Interactive mind maps are studio artifacts in the type-4 family
+        (``type 4 / variant 4``), as opposed to note-backed mind maps which
+        the library surfaces with the synthetic type code 5. Both report
+        ``kind == ArtifactType.MIND_MAP``; this distinguishes the backing.
+        """
+        return (
+            self._artifact_type == ArtifactTypeCode.QUIZ.value
+            and self._variant == INTERACTIVE_MIND_MAP_VARIANT
+        )
+
+    @property
+    def is_unclassified_type4(self) -> bool:
+        """Whether this is a type-4 artifact whose variant slot is not yet populated.
+
+        A just-created interactive mind map (or quiz/flashcards) is a type-4
+        (QUIZ-family) artifact, but the variant code at ``[9][1][0]`` may read
+        ``None`` for a brief window after creation before the options block
+        fills in. During that window the row is neither classifiable as
+        interactive-mind-map nor quiz/flashcards. Callers that resolved a
+        concrete id (e.g. ``MindMapsAPI._find_interactive`` after
+        ``CREATE_ARTIFACT``) use this to id-match the settling artifact rather
+        than degrading to a placeholder (issue #1270).
+        """
+        return self._artifact_type == ArtifactTypeCode.QUIZ.value and self._variant is None
 
     @property
     def report_subtype(self) -> str | None:

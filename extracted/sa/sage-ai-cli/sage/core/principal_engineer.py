@@ -2498,10 +2498,35 @@ def validate_python_project(out_dir: Path, log: Callable[[str], None] | None = N
                             ) -> dict:
     """Run `pip install -e .` + `pytest` in a Python project root."""
     import shutil
+    import re
 
     def _log(msg: str) -> None:
         if log:
             log(msg)
+
+    # Sanitize invalid emails in pyproject.toml and setup.py to prevent pip install failures
+    for filename in ("pyproject.toml", "setup.py"):
+        fpath = out_dir / filename
+        if fpath.exists():
+            try:
+                content = fpath.read_text("utf-8")
+                # Replace empty or redacted emails with a valid placeholder email
+                if filename == "pyproject.toml":
+                    new_content = re.sub(
+                        r'email\s*=\s*["\']([^"\']*)["\']',
+                        lambda m: 'email = "author@example.com"' if "@" not in m.group(1) or "[email" in m.group(1) else m.group(0),
+                        content
+                    )
+                else:
+                    new_content = re.sub(
+                        r'(author_email|email)\s*=\s*["\']([^"\']*)["\']',
+                        lambda m: f'{m.group(1)}="author@example.com"' if "@" not in m.group(2) or "[email" in m.group(2) else m.group(0),
+                        content
+                    )
+                if new_content != content:
+                    fpath.write_text(new_content, "utf-8")
+            except Exception:
+                pass
 
     has_pyproject = (out_dir / "pyproject.toml").exists()
     if not has_pyproject:

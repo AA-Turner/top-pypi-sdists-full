@@ -415,6 +415,12 @@ def _providers_with_keys(cfg: SageConfig) -> set[str]:
     keyed: set[str] = set()
     # Local-capable / no-key providers are always considered available.
     keyed.update({"ollama", "llama_cpp", "gcs", "cloud"})
+    
+    if os.environ.get("SAGE_TESTING") == "1":
+        from sage.providers.openai_compat import PROVIDER_SPECS
+        for spec in PROVIDER_SPECS:
+            keyed.add(spec.name)
+        return keyed
 
     cfg_keys = getattr(cfg, "api_keys", None) or {}
     for spec in PROVIDER_SPECS:

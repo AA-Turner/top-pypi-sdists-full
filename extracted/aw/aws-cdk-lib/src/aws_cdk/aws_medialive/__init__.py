@@ -2464,7 +2464,7 @@ class CfnChannel(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_medialive as medialive
                 
-                audio_dolby_eDecode_property = medialive.CfnChannel.AudioDolbyEDecodeProperty(
+                audio_dolby_e_decode_property = medialive.CfnChannel.AudioDolbyEDecodeProperty(
                     program_selection="programSelection"
                 )
             '''
@@ -2953,7 +2953,7 @@ class CfnChannel(
                             pid=123
                         ),
                         audio_track_selection=medialive.CfnChannel.AudioTrackSelectionProperty(
-                            dolby_eDecode=medialive.CfnChannel.AudioDolbyEDecodeProperty(
+                            dolby_e_decode=medialive.CfnChannel.AudioDolbyEDecodeProperty(
                                 program_selection="programSelection"
                             ),
                             tracks=[medialive.CfnChannel.AudioTrackProperty(
@@ -3054,7 +3054,7 @@ class CfnChannel(
                         pid=123
                     ),
                     audio_track_selection=medialive.CfnChannel.AudioTrackSelectionProperty(
-                        dolby_eDecode=medialive.CfnChannel.AudioDolbyEDecodeProperty(
+                        dolby_e_decode=medialive.CfnChannel.AudioDolbyEDecodeProperty(
                             program_selection="programSelection"
                         ),
                         tracks=[medialive.CfnChannel.AudioTrackProperty(
@@ -3295,7 +3295,7 @@ class CfnChannel(
                 from aws_cdk import aws_medialive as medialive
                 
                 audio_track_selection_property = medialive.CfnChannel.AudioTrackSelectionProperty(
-                    dolby_eDecode=medialive.CfnChannel.AudioDolbyEDecodeProperty(
+                    dolby_e_decode=medialive.CfnChannel.AudioDolbyEDecodeProperty(
                         program_selection="programSelection"
                     ),
                     tracks=[medialive.CfnChannel.AudioTrackProperty(
@@ -3791,7 +3791,7 @@ class CfnChannel(
                     look_ahead_rate_control="lookAheadRateControl",
                     max_bitrate=123,
                     min_bitrate=123,
-                    min_iInterval=123,
+                    min_i_interval=123,
                     par_denominator=123,
                     par_numerator=123,
                     qvbr_quality_level=123,
@@ -4683,8 +4683,8 @@ class CfnChannel(
                     outline_size=123,
                     shadow_color="shadowColor",
                     shadow_opacity=123,
-                    shadow_xOffset=123,
-                    shadow_yOffset=123,
+                    shadow_x_offset=123,
+                    shadow_y_offset=123,
                     subtitle_rows="subtitleRows",
                     teletext_grid_control="teletextGridControl",
                     x_position=123,
@@ -5029,8 +5029,8 @@ class CfnChannel(
                             outline_size=123,
                             shadow_color="shadowColor",
                             shadow_opacity=123,
-                            shadow_xOffset=123,
-                            shadow_yOffset=123,
+                            shadow_x_offset=123,
+                            shadow_y_offset=123,
                             subtitle_rows="subtitleRows",
                             teletext_grid_control="teletextGridControl",
                             x_position=123,
@@ -5053,14 +5053,14 @@ class CfnChannel(
                             outline_size=123,
                             shadow_color="shadowColor",
                             shadow_opacity=123,
-                            shadow_xOffset=123,
-                            shadow_yOffset=123,
+                            shadow_x_offset=123,
+                            shadow_y_offset=123,
                             subtitle_rows="subtitleRows",
                             teletext_grid_control="teletextGridControl",
                             x_position=123,
                             y_position=123
                         ),
-                        ebu_tt_dDestination_settings=medialive.CfnChannel.EbuTtDDestinationSettingsProperty(
+                        ebu_tt_d_destination_settings=medialive.CfnChannel.EbuTtDDestinationSettingsProperty(
                             copyright_holder="copyrightHolder",
                             default_font_size=123,
                             default_line_height=123,
@@ -5287,8 +5287,8 @@ class CfnChannel(
                         outline_size=123,
                         shadow_color="shadowColor",
                         shadow_opacity=123,
-                        shadow_xOffset=123,
-                        shadow_yOffset=123,
+                        shadow_x_offset=123,
+                        shadow_y_offset=123,
                         subtitle_rows="subtitleRows",
                         teletext_grid_control="teletextGridControl",
                         x_position=123,
@@ -5311,14 +5311,14 @@ class CfnChannel(
                         outline_size=123,
                         shadow_color="shadowColor",
                         shadow_opacity=123,
-                        shadow_xOffset=123,
-                        shadow_yOffset=123,
+                        shadow_x_offset=123,
+                        shadow_y_offset=123,
                         subtitle_rows="subtitleRows",
                         teletext_grid_control="teletextGridControl",
                         x_position=123,
                         y_position=123
                     ),
-                    ebu_tt_dDestination_settings=medialive.CfnChannel.EbuTtDDestinationSettingsProperty(
+                    ebu_tt_d_destination_settings=medialive.CfnChannel.EbuTtDDestinationSettingsProperty(
                         copyright_holder="copyrightHolder",
                         default_font_size=123,
                         default_line_height=123,
@@ -7168,8 +7168,8 @@ class CfnChannel(
                     outline_size=123,
                     shadow_color="shadowColor",
                     shadow_opacity=123,
-                    shadow_xOffset=123,
-                    shadow_yOffset=123,
+                    shadow_x_offset=123,
+                    shadow_y_offset=123,
                     subtitle_rows="subtitleRows",
                     teletext_grid_control="teletextGridControl",
                     x_position=123,
@@ -8152,7 +8152,7 @@ class CfnChannel(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_medialive as medialive
                 
-                ebu_tt_dDestination_settings_property = medialive.CfnChannel.EbuTtDDestinationSettingsProperty(
+                ebu_tt_d_destination_settings_property = medialive.CfnChannel.EbuTtDDestinationSettingsProperty(
                     copyright_holder="copyrightHolder",
                     default_font_size=123,
                     default_line_height=123,
@@ -10362,16 +10362,16 @@ class CfnChannel(
                     framerate_control="framerateControl",
                     framerate_denominator=123,
                     framerate_numerator=123,
-                    gop_bReference="gopBReference",
+                    gop_b_reference="gopBReference",
                     gop_closed_cadence=123,
-                    gop_num_bFrames=123,
+                    gop_num_b_frames=123,
                     gop_size=123,
                     gop_size_units="gopSizeUnits",
                     level="level",
                     look_ahead_rate_control="lookAheadRateControl",
                     max_bitrate=123,
                     min_bitrate=123,
-                    min_iInterval=123,
+                    min_i_interval=123,
                     min_qp=123,
                     num_ref_frames=123,
                     par_control="parControl",
@@ -11412,16 +11412,16 @@ class CfnChannel(
                     flicker_aq="flickerAq",
                     framerate_denominator=123,
                     framerate_numerator=123,
-                    gop_bReference="gopBReference",
+                    gop_b_reference="gopBReference",
                     gop_closed_cadence=123,
-                    gop_num_bFrames=123,
+                    gop_num_b_frames=123,
                     gop_size=123,
                     gop_size_units="gopSizeUnits",
                     level="level",
                     look_ahead_rate_control="lookAheadRateControl",
                     max_bitrate=123,
                     min_bitrate=123,
-                    min_iInterval=123,
+                    min_i_interval=123,
                     min_qp=123,
                     mv_over_picture_boundaries="mvOverPictureBoundaries",
                     mv_temporal_predictor="mvTemporalPredictor",
@@ -12712,7 +12712,7 @@ class CfnChannel(
                     hls_id3_segment_tagging="hlsId3SegmentTagging",
                     i_frame_only_playlists="iFrameOnlyPlaylists",
                     incomplete_segment_behavior="incompleteSegmentBehavior",
-                    index_nSegments=123,
+                    index_n_segments=123,
                     input_loss_action="inputLossAction",
                     iv_in_manifest="ivInManifest",
                     iv_source="ivSource",
@@ -14228,7 +14228,7 @@ class CfnChannel(
                                     pid=123
                                 ),
                                 audio_track_selection=medialive.CfnChannel.AudioTrackSelectionProperty(
-                                    dolby_eDecode=medialive.CfnChannel.AudioDolbyEDecodeProperty(
+                                    dolby_e_decode=medialive.CfnChannel.AudioDolbyEDecodeProperty(
                                         program_selection="programSelection"
                                     ),
                                     tracks=[medialive.CfnChannel.AudioTrackProperty(
@@ -14835,7 +14835,7 @@ class CfnChannel(
                                 pid=123
                             ),
                             audio_track_selection=medialive.CfnChannel.AudioTrackSelectionProperty(
-                                dolby_eDecode=medialive.CfnChannel.AudioDolbyEDecodeProperty(
+                                dolby_e_decode=medialive.CfnChannel.AudioDolbyEDecodeProperty(
                                     program_selection="programSelection"
                                 ),
                                 tracks=[medialive.CfnChannel.AudioTrackProperty(
@@ -17780,7 +17780,7 @@ class CfnChannel(
                     framerate_denominator=123,
                     framerate_numerator=123,
                     gop_closed_cadence=123,
-                    gop_num_bFrames=123,
+                    gop_num_b_frames=123,
                     gop_size=123,
                     gop_size_units="gopSizeUnits",
                     scan_type="scanType",
@@ -19219,7 +19219,7 @@ class CfnChannel(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_medialive as medialive
                 
-                nielsen_cBETProperty = medialive.CfnChannel.NielsenCBETProperty(
+                nielsen_cbet_property = medialive.CfnChannel.NielsenCBETProperty(
                     cbet_check_digit_string="cbetCheckDigitString",
                     cbet_stepaside="cbetStepaside",
                     csid="csid"
@@ -20076,7 +20076,7 @@ class CfnChannel(
                         hls_id3_segment_tagging="hlsId3SegmentTagging",
                         i_frame_only_playlists="iFrameOnlyPlaylists",
                         incomplete_segment_behavior="incompleteSegmentBehavior",
-                        index_nSegments=123,
+                        index_n_segments=123,
                         input_loss_action="inputLossAction",
                         iv_in_manifest="ivInManifest",
                         iv_source="ivSource",
@@ -24106,7 +24106,7 @@ class CfnChannel(
                         look_ahead_rate_control="lookAheadRateControl",
                         max_bitrate=123,
                         min_bitrate=123,
-                        min_iInterval=123,
+                        min_i_interval=123,
                         par_denominator=123,
                         par_numerator=123,
                         qvbr_quality_level=123,
@@ -24159,16 +24159,16 @@ class CfnChannel(
                         framerate_control="framerateControl",
                         framerate_denominator=123,
                         framerate_numerator=123,
-                        gop_bReference="gopBReference",
+                        gop_b_reference="gopBReference",
                         gop_closed_cadence=123,
-                        gop_num_bFrames=123,
+                        gop_num_b_frames=123,
                         gop_size=123,
                         gop_size_units="gopSizeUnits",
                         level="level",
                         look_ahead_rate_control="lookAheadRateControl",
                         max_bitrate=123,
                         min_bitrate=123,
-                        min_iInterval=123,
+                        min_i_interval=123,
                         min_qp=123,
                         num_ref_frames=123,
                         par_control="parControl",
@@ -24226,16 +24226,16 @@ class CfnChannel(
                         flicker_aq="flickerAq",
                         framerate_denominator=123,
                         framerate_numerator=123,
-                        gop_bReference="gopBReference",
+                        gop_b_reference="gopBReference",
                         gop_closed_cadence=123,
-                        gop_num_bFrames=123,
+                        gop_num_b_frames=123,
                         gop_size=123,
                         gop_size_units="gopSizeUnits",
                         level="level",
                         look_ahead_rate_control="lookAheadRateControl",
                         max_bitrate=123,
                         min_bitrate=123,
-                        min_iInterval=123,
+                        min_i_interval=123,
                         min_qp=123,
                         mv_over_picture_boundaries="mvOverPictureBoundaries",
                         mv_temporal_predictor="mvTemporalPredictor",
@@ -24276,7 +24276,7 @@ class CfnChannel(
                         framerate_denominator=123,
                         framerate_numerator=123,
                         gop_closed_cadence=123,
-                        gop_num_bFrames=123,
+                        gop_num_b_frames=123,
                         gop_size=123,
                         gop_size_units="gopSizeUnits",
                         scan_type="scanType",
@@ -24451,7 +24451,7 @@ class CfnChannel(
                             look_ahead_rate_control="lookAheadRateControl",
                             max_bitrate=123,
                             min_bitrate=123,
-                            min_iInterval=123,
+                            min_i_interval=123,
                             par_denominator=123,
                             par_numerator=123,
                             qvbr_quality_level=123,
@@ -24504,16 +24504,16 @@ class CfnChannel(
                             framerate_control="framerateControl",
                             framerate_denominator=123,
                             framerate_numerator=123,
-                            gop_bReference="gopBReference",
+                            gop_b_reference="gopBReference",
                             gop_closed_cadence=123,
-                            gop_num_bFrames=123,
+                            gop_num_b_frames=123,
                             gop_size=123,
                             gop_size_units="gopSizeUnits",
                             level="level",
                             look_ahead_rate_control="lookAheadRateControl",
                             max_bitrate=123,
                             min_bitrate=123,
-                            min_iInterval=123,
+                            min_i_interval=123,
                             min_qp=123,
                             num_ref_frames=123,
                             par_control="parControl",
@@ -24571,16 +24571,16 @@ class CfnChannel(
                             flicker_aq="flickerAq",
                             framerate_denominator=123,
                             framerate_numerator=123,
-                            gop_bReference="gopBReference",
+                            gop_b_reference="gopBReference",
                             gop_closed_cadence=123,
-                            gop_num_bFrames=123,
+                            gop_num_b_frames=123,
                             gop_size=123,
                             gop_size_units="gopSizeUnits",
                             level="level",
                             look_ahead_rate_control="lookAheadRateControl",
                             max_bitrate=123,
                             min_bitrate=123,
-                            min_iInterval=123,
+                            min_i_interval=123,
                             min_qp=123,
                             mv_over_picture_boundaries="mvOverPictureBoundaries",
                             mv_temporal_predictor="mvTemporalPredictor",
@@ -24621,7 +24621,7 @@ class CfnChannel(
                             framerate_denominator=123,
                             framerate_numerator=123,
                             gop_closed_cadence=123,
-                            gop_num_bFrames=123,
+                            gop_num_b_frames=123,
                             gop_size=123,
                             gop_size_units="gopSizeUnits",
                             scan_type="scanType",

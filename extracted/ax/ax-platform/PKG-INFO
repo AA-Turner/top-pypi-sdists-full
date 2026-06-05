@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ax-platform
-Version: 1.2.4
+Version: 1.3.0
 Summary: Adaptive Experimentation
 Author: Meta Platforms, Inc.
 License-Expression: MIT
@@ -14,7 +14,7 @@ Classifier: Programming Language :: Python :: 3
 Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: botorch[pymoo]<0.17.3dev9999,>=0.17.2
+Requires-Dist: botorch[pymoo]<0.18.1dev9999,>=0.18.0
 Requires-Dist: jinja2
 Requires-Dist: pandas
 Requires-Dist: scipy
@@ -58,7 +58,6 @@ Dynamic: license-file
 
 <hr/>
 
-[![Support Ukraine](https://img.shields.io/badge/Support-Ukraine-FFD500?style=flat&labelColor=005BBB)](https://opensource.fb.com/support-ukraine)
 [![Build Status](https://img.shields.io/pypi/v/ax-platform.svg)](https://pypi.org/project/ax-platform/)
 [![Build Status](https://img.shields.io/pypi/pyversions/ax-platform.svg)](https://pypi.org/project/ax-platform/)
 [![Build Status](https://img.shields.io/pypi/wheel/ax-platform.svg)](https://pypi.org/project/ax-platform/)

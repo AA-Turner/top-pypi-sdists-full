@@ -6,8 +6,8 @@ from .cookies cimport Cookie, write_cookie_for_response
 from .messages cimport Request, Response
 from .url cimport URL
 
-
-cdef int MAX_RESPONSE_CHUNK_SIZE = 61440  # 64kb
+MAX_RESPONSE_CHUNK_SIZE = 61440  # 64kb — Python-accessible
+cdef int _MAX_RESPONSE_CHUNK_SIZE = MAX_RESPONSE_CHUNK_SIZE
 
 
 cdef bint should_use_chunked_encoding(Content content):
@@ -44,9 +44,9 @@ async def write_chunks(Content http_content):
 
 
 def get_chunks(bytes data):
-    cdef int i
-    for i in range(0, len(data), MAX_RESPONSE_CHUNK_SIZE):
-        yield data[i:i + MAX_RESPONSE_CHUNK_SIZE]
+    cdef Py_ssize_t i
+    for i in range(0, len(data), _MAX_RESPONSE_CHUNK_SIZE):
+        yield data[i:i + _MAX_RESPONSE_CHUNK_SIZE]
     yield b''
 
 
@@ -86,7 +86,7 @@ async def send_asgi_response(Response response, object send):
                     'more_body': False
                 })
         else:
-            if content.length > MAX_RESPONSE_CHUNK_SIZE:
+            if content.length > _MAX_RESPONSE_CHUNK_SIZE:
                 # Note: get_chunks yields the closing bytes fragment therefore
                 # we do not need to check for the closing message!
                 for chunk in get_chunks(content.body):

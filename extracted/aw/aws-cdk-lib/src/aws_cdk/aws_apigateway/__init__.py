@@ -6638,7 +6638,7 @@ class CfnDeployment(
             self,
             *,
             percent_traffic: typing.Optional[jsii.Number] = None,
-            stage_variable_overrides: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            stage_variable_overrides: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             use_stage_cache: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         ) -> None:
             '''The ``CanarySetting`` property type specifies settings for the canary deployment in this stage.
@@ -6691,7 +6691,7 @@ class CfnDeployment(
         @builtins.property
         def stage_variable_overrides(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''Stage variables overridden for a canary release deployment, including new stage variables introduced in the canary.
 
             These stage variables are represented as a string-to-string map between stage variable names and their values.
@@ -6699,7 +6699,7 @@ class CfnDeployment(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-apigateway-deployment-canarysetting.html#cfn-apigateway-deployment-canarysetting-stagevariableoverrides
             '''
             result = self._values.get("stage_variable_overrides")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def use_stage_cache(
@@ -6737,7 +6737,7 @@ class CfnDeployment(
             self,
             *,
             percent_traffic: typing.Optional[jsii.Number] = None,
-            stage_variable_overrides: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            stage_variable_overrides: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             use_stage_cache: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         ) -> None:
             '''The ``DeploymentCanarySettings`` property type specifies settings for the canary deployment.
@@ -6788,7 +6788,7 @@ class CfnDeployment(
         @builtins.property
         def stage_variable_overrides(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''A stage variable overrides used for the canary release deployment.
 
             They can override existing stage variables or add new stage variables for the canary release deployment. These stage variables are represented as a string-to-string map between stage variable names and their values.
@@ -6796,7 +6796,7 @@ class CfnDeployment(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-apigateway-deployment-deploymentcanarysettings.html#cfn-apigateway-deployment-deploymentcanarysettings-stagevariableoverrides
             '''
             result = self._values.get("stage_variable_overrides")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def use_stage_cache(
@@ -7090,7 +7090,7 @@ class CfnDeployment(
             throttling_burst_limit: typing.Optional[jsii.Number] = None,
             throttling_rate_limit: typing.Optional[jsii.Number] = None,
             tracing_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            variables: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            variables: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         ) -> None:
             '''``StageDescription`` is a property of the `AWS::ApiGateway::Deployment <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apigateway-deployment.html>`_ resource that configures a deployment stage.
 
@@ -7431,7 +7431,7 @@ class CfnDeployment(
         @builtins.property
         def variables(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''A map that defines the stage variables.
 
             Variable names must consist of alphanumeric characters, and the values must match the following regular expression: ``[A-Za-z0-9-._~:/?#&=,]+`` .
@@ -7439,7 +7439,7 @@ class CfnDeployment(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-apigateway-deployment-stagedescription.html#cfn-apigateway-deployment-stagedescription-variables
             '''
             result = self._values.get("variables")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -10004,8 +10004,8 @@ class CfnGatewayResponse(
         *,
         response_type: builtins.str,
         rest_api_id: typing.Union[builtins.str, "_IRestApiRef_72dcbda0"],
-        response_parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
-        response_templates: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        response_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
+        response_templates: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         status_code: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Create a new ``AWS::ApiGateway::GatewayResponse``.
@@ -10131,14 +10131,14 @@ class CfnGatewayResponse(
     @jsii.member(jsii_name="responseParameters")
     def response_parameters(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''Response parameters (paths, query strings and headers) of the GatewayResponse as a string-to-string map of key-value pairs.'''
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], jsii.get(self, "responseParameters"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "responseParameters"))
 
     @response_parameters.setter
     def response_parameters(
         self,
-        value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__14cecdeaa3ee3a718e1e415f74286686a7f74799e862f6644b9196fb61ecd39e)
@@ -10149,14 +10149,14 @@ class CfnGatewayResponse(
     @jsii.member(jsii_name="responseTemplates")
     def response_templates(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''Response templates of the GatewayResponse as a string-to-string map of key-value pairs.'''
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], jsii.get(self, "responseTemplates"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "responseTemplates"))
 
     @response_templates.setter
     def response_templates(
         self,
-        value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__632192144f7b8204333bf1adf1d758ee8653c884b9a77e07436f3f92f3cc02f1)
@@ -10194,8 +10194,8 @@ class CfnGatewayResponseProps:
         *,
         response_type: builtins.str,
         rest_api_id: typing.Union[builtins.str, "_IRestApiRef_72dcbda0"],
-        response_parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
-        response_templates: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        response_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
+        response_templates: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         status_code: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnGatewayResponse``.
@@ -10270,24 +10270,24 @@ class CfnGatewayResponseProps:
     @builtins.property
     def response_parameters(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''Response parameters (paths, query strings and headers) of the GatewayResponse as a string-to-string map of key-value pairs.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apigateway-gatewayresponse.html#cfn-apigateway-gatewayresponse-responseparameters
         '''
         result = self._values.get("response_parameters")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
     @builtins.property
     def response_templates(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''Response templates of the GatewayResponse as a string-to-string map of key-value pairs.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apigateway-gatewayresponse.html#cfn-apigateway-gatewayresponse-responsetemplates
         '''
         result = self._values.get("response_templates")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
     @builtins.property
     def status_code(self) -> typing.Optional[builtins.str]:
@@ -10411,7 +10411,7 @@ class CfnMethod(
         integration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMethod.IntegrationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         method_responses: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMethod.MethodResponseProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         operation_name: typing.Optional[builtins.str] = None,
-        request_models: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        request_models: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         request_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union[builtins.bool, "_IResolvable_da3f097b"]]]] = None,
         request_validator_id: typing.Optional[typing.Union[builtins.str, "_IRequestValidatorRef_ad0e2de5"]] = None,
     ) -> None:
@@ -10665,14 +10665,14 @@ class CfnMethod(
     @jsii.member(jsii_name="requestModels")
     def request_models(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''A key-value map specifying data schemas, represented by Model resources, (as the mapped value) of the request payloads of given content types (as the mapping key).'''
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], jsii.get(self, "requestModels"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "requestModels"))
 
     @request_models.setter
     def request_models(
         self,
-        value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9410b580162450075529d443a9b6c428be7f00e0ec91767954a58ac8cd280749)
@@ -10747,8 +10747,8 @@ class CfnMethod(
             integration_responses: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMethod.IntegrationResponseProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             integration_target: typing.Optional[builtins.str] = None,
             passthrough_behavior: typing.Optional[builtins.str] = None,
-            request_parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
-            request_templates: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            request_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
+            request_templates: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             response_transfer_mode: typing.Optional[builtins.str] = None,
             timeout_in_millis: typing.Optional[jsii.Number] = None,
             uri: typing.Optional[builtins.str] = None,
@@ -10995,7 +10995,7 @@ class CfnMethod(
         @builtins.property
         def request_parameters(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''A key-value map specifying request parameters that are passed from the method request to the back end.
 
             The key is an integration request parameter name and the associated value is a method request parameter value or static value that must be enclosed within single quotes and pre-encoded as required by the back end. The method request parameter value must match the pattern of ``method.request.{location}.{name}`` , where ``location`` is ``querystring`` , ``path`` , or ``header`` and ``name`` must be a valid and unique method request parameter name.
@@ -11003,12 +11003,12 @@ class CfnMethod(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-apigateway-method-integration.html#cfn-apigateway-method-integration-requestparameters
             '''
             result = self._values.get("request_parameters")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def request_templates(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''Represents a map of Velocity templates that are applied on the request payload based on the value of the Content-Type header sent by the client.
 
             The content type value is the key in this map, and the template (as a String) is the value.
@@ -11016,7 +11016,7 @@ class CfnMethod(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-apigateway-method-integration.html#cfn-apigateway-method-integration-requesttemplates
             '''
             result = self._values.get("request_templates")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def response_transfer_mode(self) -> typing.Optional[builtins.str]:
@@ -11081,8 +11081,8 @@ class CfnMethod(
             *,
             status_code: builtins.str,
             content_handling: typing.Optional[builtins.str] = None,
-            response_parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
-            response_templates: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            response_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
+            response_templates: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             selection_pattern: typing.Optional[builtins.str] = None,
         ) -> None:
             '''``IntegrationResponse`` is a property of the `Amazon API Gateway Method Integration <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-apitgateway-method-integration.html>`_ property type that specifies the response that API Gateway sends after a method's backend finishes processing a request.
@@ -11161,7 +11161,7 @@ class CfnMethod(
         @builtins.property
         def response_parameters(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''A key-value map specifying response parameters that are passed to the method response from the back end.
 
             The key is a method response header parameter name and the mapped value is an integration response header value, a static value enclosed within a pair of single quotes, or a JSON expression from the integration response body. The mapping key must match the pattern of ``method.response.header.{name}`` , where ``name`` is a valid and unique header name. The mapped non-static value must match the pattern of ``integration.response.header.{name}`` or ``integration.response.body.{JSON-expression}`` , where ``name`` is a valid and unique response header name and ``JSON-expression`` is a valid JSON expression without the ``$`` prefix.
@@ -11169,12 +11169,12 @@ class CfnMethod(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-apigateway-method-integrationresponse.html#cfn-apigateway-method-integrationresponse-responseparameters
             '''
             result = self._values.get("response_parameters")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def response_templates(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''Specifies the templates used to transform the integration response body.
 
             Response templates are represented as a key/value map, with a content-type as the key and a template as the value.
@@ -11182,7 +11182,7 @@ class CfnMethod(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-apigateway-method-integrationresponse.html#cfn-apigateway-method-integrationresponse-responsetemplates
             '''
             result = self._values.get("response_templates")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def selection_pattern(self) -> typing.Optional[builtins.str]:
@@ -11220,7 +11220,7 @@ class CfnMethod(
             self,
             *,
             status_code: builtins.str,
-            response_models: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            response_models: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             response_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union[builtins.bool, "_IResolvable_da3f097b"]]]] = None,
         ) -> None:
             '''Represents a method response of a given HTTP status code returned to the client.
@@ -11278,7 +11278,7 @@ class CfnMethod(
         @builtins.property
         def response_models(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''Specifies the Model resources used for the response's content-type.
 
             Response models are represented as a key/value map, with a content-type as the key and a Model name as the value.
@@ -11286,7 +11286,7 @@ class CfnMethod(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-apigateway-method-methodresponse.html#cfn-apigateway-method-methodresponse-responsemodels
             '''
             result = self._values.get("response_models")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def response_parameters(
@@ -11346,7 +11346,7 @@ class CfnMethodProps:
         integration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMethod.IntegrationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         method_responses: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMethod.MethodResponseProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         operation_name: typing.Optional[builtins.str] = None,
-        request_models: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        request_models: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         request_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union[builtins.bool, "_IResolvable_da3f097b"]]]] = None,
         request_validator_id: typing.Optional[typing.Union[builtins.str, "_IRequestValidatorRef_ad0e2de5"]] = None,
     ) -> None:
@@ -11598,13 +11598,13 @@ class CfnMethodProps:
     @builtins.property
     def request_models(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''A key-value map specifying data schemas, represented by Model resources, (as the mapped value) of the request payloads of given content types (as the mapping key).
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apigateway-method.html#cfn-apigateway-method-requestmodels
         '''
         result = self._values.get("request_models")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
     @builtins.property
     def request_parameters(
@@ -12605,7 +12605,7 @@ class CfnRestApi(
         minimum_compression_size: typing.Optional[jsii.Number] = None,
         mode: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-        parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         policy: typing.Any = None,
         security_policy: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -12981,14 +12981,14 @@ class CfnRestApi(
     @jsii.member(jsii_name="parameters")
     def parameters(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''Custom header parameters as part of the request.'''
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], jsii.get(self, "parameters"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "parameters"))
 
     @parameters.setter
     def parameters(
         self,
-        value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ccaf03012418784e0b764088769b0e23937e2028288348151f0ccfbfd74daa7b)
@@ -13270,7 +13270,7 @@ class CfnRestApiProps:
         minimum_compression_size: typing.Optional[jsii.Number] = None,
         mode: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-        parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         policy: typing.Any = None,
         security_policy: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -13555,7 +13555,7 @@ class CfnRestApiProps:
     @builtins.property
     def parameters(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''Custom header parameters as part of the request.
 
         For example, to exclude DocumentationParts from an imported API, set ``ignore=documentation`` as a ``parameters`` value, as in the AWS CLI command of ``aws apigateway import-rest-api --parameters ignore=documentation --body 'file:///path/to/imported-api-body.json'`` .
@@ -13563,7 +13563,7 @@ class CfnRestApiProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apigateway-restapi.html#cfn-apigateway-restapi-parameters
         '''
         result = self._values.get("parameters")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
     @builtins.property
     def policy(self) -> typing.Any:
@@ -13691,7 +13691,7 @@ class CfnStage(
         stage_name: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         tracing_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        variables: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        variables: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
     ) -> None:
         '''Create a new ``AWS::ApiGateway::Stage``.
 
@@ -13997,14 +13997,14 @@ class CfnStage(
     @jsii.member(jsii_name="variables")
     def variables(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''A map (string-to-string map) that defines the stage variables, where the variable name is the key and the variable value is the value.'''
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], jsii.get(self, "variables"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "variables"))
 
     @variables.setter
     def variables(
         self,
-        value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0ce3ef85d7e159e99ea72997d34d02601f6ebfa6c900e82024469d23fa9822c8)
@@ -14101,7 +14101,7 @@ class CfnStage(
             *,
             deployment_id: typing.Optional[builtins.str] = None,
             percent_traffic: typing.Optional[jsii.Number] = None,
-            stage_variable_overrides: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            stage_variable_overrides: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             use_stage_cache: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         ) -> None:
             '''Configuration settings of a canary deployment.
@@ -14166,7 +14166,7 @@ class CfnStage(
         @builtins.property
         def stage_variable_overrides(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''Stage variables overridden for a canary release deployment, including new stage variables introduced in the canary.
 
             These stage variables are represented as a string-to-string map between stage variable names and their values.
@@ -14174,7 +14174,7 @@ class CfnStage(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-apigateway-stage-canarysetting.html#cfn-apigateway-stage-canarysetting-stagevariableoverrides
             '''
             result = self._values.get("stage_variable_overrides")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def use_stage_cache(
@@ -14459,7 +14459,7 @@ class CfnStageProps:
         stage_name: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         tracing_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        variables: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        variables: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnStage``.
 
@@ -14724,7 +14724,7 @@ class CfnStageProps:
     @builtins.property
     def variables(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''A map (string-to-string map) that defines the stage variables, where the variable name is the key and the variable value is the value.
 
         Variable names are limited to alphanumeric characters. Values must match the following regular expression: ``[A-Za-z0-9-._~:/?#&=,]+`` .
@@ -14732,7 +14732,7 @@ class CfnStageProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apigateway-stage.html#cfn-apigateway-stage-variables
         '''
         result = self._values.get("variables")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -36195,7 +36195,7 @@ def _typecheckingstub__dc164dc3c9aeb5becbf827ecbcb26f0bb6d4c4a52cd6194874d3d3f30
 def _typecheckingstub__59d5fc1d5b68620d8cd9a10331f1f28a8cb2bdfd48237c45deba8a3667c15eac(
     *,
     percent_traffic: typing.Optional[jsii.Number] = None,
-    stage_variable_overrides: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    stage_variable_overrides: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     use_stage_cache: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -36204,7 +36204,7 @@ def _typecheckingstub__59d5fc1d5b68620d8cd9a10331f1f28a8cb2bdfd48237c45deba8a366
 def _typecheckingstub__e95de67e9fd472bd51513ee53f90119b4b9ec81399817de038948ff55beeb670(
     *,
     percent_traffic: typing.Optional[jsii.Number] = None,
-    stage_variable_overrides: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    stage_variable_overrides: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     use_stage_cache: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -36246,7 +36246,7 @@ def _typecheckingstub__a4b36eae831f3a5e4188fd26be727cd8d35c14538a8f206c1cb04a713
     throttling_burst_limit: typing.Optional[jsii.Number] = None,
     throttling_rate_limit: typing.Optional[jsii.Number] = None,
     tracing_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    variables: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    variables: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -36715,8 +36715,8 @@ def _typecheckingstub__dfb51ee54cd182788cbab3215f86a2155730ef96e24304891e470a0af
     *,
     response_type: builtins.str,
     rest_api_id: typing.Union[builtins.str, _IRestApiRef_72dcbda0],
-    response_parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-    response_templates: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    response_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
+    response_templates: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     status_code: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -36753,13 +36753,13 @@ def _typecheckingstub__191f17a0820f1571d8b0a7b5dbf5ce4d5b0c02faad775c2ded98e41ea
     pass
 
 def _typecheckingstub__14cecdeaa3ee3a718e1e415f74286686a7f74799e862f6644b9196fb61ecd39e(
-    value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__632192144f7b8204333bf1adf1d758ee8653c884b9a77e07436f3f92f3cc02f1(
-    value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -36774,8 +36774,8 @@ def _typecheckingstub__0b43368d7d49c0d420e2923e567ff8c91d5c1f75d378bebb996f9a5b2
     *,
     response_type: builtins.str,
     rest_api_id: typing.Union[builtins.str, _IRestApiRef_72dcbda0],
-    response_parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-    response_templates: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    response_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
+    response_templates: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     status_code: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -36795,7 +36795,7 @@ def _typecheckingstub__edfd42d04d09c9ea72d15a6173bfaa68d17ac55c9faa39a502d4e2068
     integration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMethod.IntegrationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     method_responses: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMethod.MethodResponseProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     operation_name: typing.Optional[builtins.str] = None,
-    request_models: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    request_models: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     request_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[builtins.bool, _IResolvable_da3f097b]]]] = None,
     request_validator_id: typing.Optional[typing.Union[builtins.str, _IRequestValidatorRef_ad0e2de5]] = None,
 ) -> None:
@@ -36881,7 +36881,7 @@ def _typecheckingstub__b0bad81389b4aa3617129e1c3ecfcf0fc9465d4c338f9939facff2be4
     pass
 
 def _typecheckingstub__9410b580162450075529d443a9b6c428be7f00e0ec91767954a58ac8cd280749(
-    value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -36911,8 +36911,8 @@ def _typecheckingstub__7fc2a1b31e9e3f92210ced50c17b0bf1cfcdb472f8b61fcc31a3c633b
     integration_responses: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMethod.IntegrationResponseProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     integration_target: typing.Optional[builtins.str] = None,
     passthrough_behavior: typing.Optional[builtins.str] = None,
-    request_parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-    request_templates: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    request_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
+    request_templates: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     response_transfer_mode: typing.Optional[builtins.str] = None,
     timeout_in_millis: typing.Optional[jsii.Number] = None,
     uri: typing.Optional[builtins.str] = None,
@@ -36924,8 +36924,8 @@ def _typecheckingstub__32f4c37443968f90a24ccb70ad18cc6b3b2dc77146de035d2a301aab3
     *,
     status_code: builtins.str,
     content_handling: typing.Optional[builtins.str] = None,
-    response_parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-    response_templates: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    response_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
+    response_templates: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     selection_pattern: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -36934,7 +36934,7 @@ def _typecheckingstub__32f4c37443968f90a24ccb70ad18cc6b3b2dc77146de035d2a301aab3
 def _typecheckingstub__ff600e11d4e4158654132cbc6f3bb60aa2dc5f8337cc3f14f4a0f6be1090a477(
     *,
     status_code: builtins.str,
-    response_models: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    response_models: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     response_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[builtins.bool, _IResolvable_da3f097b]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -36952,7 +36952,7 @@ def _typecheckingstub__8eafa27300c8abdc46f7b0453098151ef3832bf587f9964be625f94ae
     integration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMethod.IntegrationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     method_responses: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMethod.MethodResponseProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     operation_name: typing.Optional[builtins.str] = None,
-    request_models: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    request_models: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     request_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[builtins.bool, _IResolvable_da3f097b]]]] = None,
     request_validator_id: typing.Optional[typing.Union[builtins.str, _IRequestValidatorRef_ad0e2de5]] = None,
 ) -> None:
@@ -37168,7 +37168,7 @@ def _typecheckingstub__781aae0a2f2512495cbd89d2be23edec0478e71fd6a59c0527cabb245
     minimum_compression_size: typing.Optional[jsii.Number] = None,
     mode: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
-    parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     policy: typing.Any = None,
     security_policy: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -37293,7 +37293,7 @@ def _typecheckingstub__3b2f687ba486b97daef3efdc148372d3d51144ffda7dc8bf1ef44bc77
     pass
 
 def _typecheckingstub__ccaf03012418784e0b764088769b0e23937e2028288348151f0ccfbfd74daa7b(
-    value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -37344,7 +37344,7 @@ def _typecheckingstub__5e6d4ed4722f0c07021ff207940f8656b0bbeb24224daef1a2a167c70
     minimum_compression_size: typing.Optional[jsii.Number] = None,
     mode: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
-    parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     policy: typing.Any = None,
     security_policy: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -37369,7 +37369,7 @@ def _typecheckingstub__2c8ae05335242844b55899042c4d5f05d3d40ee60a7702fbc9345ea65
     stage_name: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     tracing_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    variables: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    variables: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -37471,7 +37471,7 @@ def _typecheckingstub__080398f14f82f9de64dfd739f23cedcc4a0465bf221903bff436a81ea
     pass
 
 def _typecheckingstub__0ce3ef85d7e159e99ea72997d34d02601f6ebfa6c900e82024469d23fa9822c8(
-    value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -37488,7 +37488,7 @@ def _typecheckingstub__0a0fb3474ba60447840d49c0eab8e221e5f81e4477cd328ee3967edc1
     *,
     deployment_id: typing.Optional[builtins.str] = None,
     percent_traffic: typing.Optional[jsii.Number] = None,
-    stage_variable_overrides: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    stage_variable_overrides: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     use_stage_cache: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -37525,7 +37525,7 @@ def _typecheckingstub__a1ebc5406497577cb7c3919d6f6bedaf66797e69790cd7880fb0110e4
     stage_name: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     tracing_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    variables: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    variables: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

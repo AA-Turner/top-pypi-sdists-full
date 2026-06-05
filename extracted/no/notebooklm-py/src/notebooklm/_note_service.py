@@ -27,13 +27,13 @@ import logging
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
-from ._row_adapters_notes import NoteRow
+from ._row_adapters.notes import NoteRow
 from .exceptions import RPCError
 from .rpc.types import RPCMethod
 from .types import Note
 
 if TYPE_CHECKING:
-    from ._session_contracts import RpcCaller
+    from ._runtime.contracts import RpcCaller
 
 __all__ = ["NoteService"]  # NoteRowKind is intentionally NOT exported
 
@@ -52,7 +52,7 @@ logger = logging.getLogger(__name__)
 # Task storage from GC-ing them mid-flight. Sharing one set across all
 # ``NoteService`` instances is correct and simpler than per-instance
 # bookkeeping — there is no per-instance state on the tasks themselves.
-# Audit CC6: single-loop-per-client invariant per ADR-004; not safe for multi-loop fan-out.
+# Single-loop-per-client invariant per ADR-0004; not safe for multi-loop fan-out.
 _cleanup_tasks: set[asyncio.Task[Any]] = set()
 
 
@@ -60,9 +60,9 @@ class NoteRowKind(Enum):
     """Private classification of rows from ``GET_NOTES_AND_MIND_MAPS``.
 
     Not part of the public API — kept private so the wire-shape
-    classification can evolve without a SemVer hit. Phase 6 may add
-    further variants (e.g. distinct treatment for saved-from-chat
-    notes) without breaking external callers.
+    classification can evolve without a SemVer hit. Further variants
+    (e.g. distinct treatment for saved-from-chat notes) can be added
+    without breaking external callers.
     """
 
     NOTE = "note"
@@ -157,13 +157,14 @@ class NoteService:
             return False
         if isinstance(item[0], str):
             return True
-        return (
-            item[0] is None
-            and len(item) > 1
-            and isinstance(item[1], list)
-            and len(item[1]) > 0
-            and isinstance(item[1][0], str)
-        )
+        # ``[None, [id, ...], ...]`` shape: bind the ``[1]`` nested row so the
+        # id-type check is a single-level ``nested[0]`` index instead of a
+        # chained ``item[1][0]`` descent. A non-list/empty nested row simply
+        # means "not a note row" (returns False).
+        if item[0] is not None or len(item) <= 1:
+            return False
+        nested = item[1]
+        return isinstance(nested, list) and len(nested) > 0 and isinstance(nested[0], str)
 
     def classify_row(self, row: list[Any]) -> NoteRowKind:
         """Identify what kind of row this is.
@@ -181,7 +182,7 @@ class NoteService:
 
         Position knowledge (the deletion sentinel and the
         legacy-vs-current content dispatch) lives in
-        :class:`notebooklm._row_adapters_notes.NoteRow`. This classifier reads
+        :class:`notebooklm._row_adapters.notes.NoteRow`. This classifier reads
         named properties on the adapter and does not touch raw indices.
         """
         if not isinstance(row, list) or len(row) == 0:
@@ -198,7 +199,7 @@ class NoteService:
         if content is None:
             return NoteRowKind.UNKNOWN
 
-        # Phase 6 may grow saved-chat detection; for now default to NOTE
+        # Saved-chat detection may grow later; for now default to NOTE
         # so a chat-mode note never silently drops out of NotesAPI.list().
         return NoteRowKind.NOTE
 
@@ -234,17 +235,13 @@ class NoteService:
         up with ``UPDATE_NOTE`` to set both content and title. Returns a
         :class:`Note` dataclass for consistency with ``NotesAPI``.
 
-        Cancellation behaviour (audit item §28): the UPDATE_NOTE
-        finalize is wrapped in ``asyncio.shield`` so an outer cancel
+        Cancellation behaviour: the UPDATE_NOTE finalize is wrapped in
+        ``asyncio.shield`` so an outer cancel
         cannot abort an in-flight finalize. If ``CancelledError``
         propagates while the shielded UPDATE_NOTE is still running, a
         best-effort DELETE_NOTE cleanup is scheduled (NOT awaited —
         re-raise must not block on cleanup) to honour the caller's
-        cancel intent without leaving an orphan row behind. The legacy
-        ``_mind_map.MindMapService.create_note`` path that previously
-        owned this contract was retired in Phase 6; the contract
-        itself moves here (closes the Phase 5 TODO surfaced by
-        claude[bot] and gemini-code-assist[bot] on PR #873).
+        cancel intent without leaving an orphan row behind.
         """
         params = [notebook_id, "", [1], None, title]
         result = await self._rpc.rpc_call(
@@ -256,10 +253,15 @@ class NoteService:
 
         note_id: str | None = None
         if result and isinstance(result, list) and len(result) > 0:
-            if isinstance(result[0], list) and len(result[0]) > 0:
-                note_id = result[0][0]
-            elif isinstance(result[0], str):
-                note_id = result[0]
+            # CREATE_NOTE returns either ``[[id, ...], ...]`` (id-envelope row) or
+            # a bare ``[id, ...]``. Bind the first element so the id read is a
+            # single-level index rather than a chained ``result[0][0]`` descent;
+            # a degenerate shape leaves note_id None and raises below.
+            first = result[0]
+            if isinstance(first, list) and len(first) > 0:
+                note_id = first[0]
+            elif isinstance(first, str):
+                note_id = first
 
         if not note_id:
             # CREATE_NOTE returned a payload we cannot extract a note id
@@ -267,7 +269,7 @@ class NoteService:
             # lie: the title/content were never finalized via UPDATE_NOTE,
             # and any later operation keyed on the empty id misbehaves.
             # Raise instead, matching the sibling create paths
-            # (``_source_add`` / ``notebooks.create``) which surface an
+            # (``_source.add`` / ``notebooks.create``) which surface an
             # error rather than fabricate a degenerate resource.
             raise RPCError(
                 "CREATE_NOTE returned no usable note id; the note was not created",
@@ -284,8 +286,7 @@ class NoteService:
         # bare coroutine) so the cancel-time cleanup branch can await
         # it before issuing the best-effort DELETE_NOTE. If we instead
         # fired DELETE_NOTE in parallel with the still-running
-        # shielded UPDATE_NOTE (the pattern coderabbit flagged on PR
-        # #875), delete could complete first and update could then
+        # shielded UPDATE_NOTE, delete could complete first and update could then
         # write to an already-soft-deleted row — observable as an
         # inconsistent row state on the server side and a swallowed
         # exception in the cleanup task.
@@ -366,14 +367,14 @@ class NoteService:
             allow_null=True,
         )
 
-    async def delete_note(self, notebook_id: str, note_id: str) -> bool:
+    async def delete_note(self, notebook_id: str, note_id: str) -> None:
         """Soft-delete a note row.
 
-        Returns ``True`` on success, mirroring the v0.4.1 NotesAPI
-        contract (``client.notes.delete(...) -> bool``). The bool flow
-        is preserved so the public facade can keep returning ``True``
-        unconditionally via :class:`NoteBackedMindMapService.delete_mind_map`
-        without callers seeing a behavioral change.
+        Returns ``None``. Idempotent: a missing note still succeeds
+        (``DELETE_NOTE`` is ``allow_null=True`` with no missing-signal). The
+        public facade (``client.notes.delete`` /
+        ``NoteBackedMindMapService.delete_mind_map``) returns ``None`` as of
+        v0.7.0 (issue #1211).
         """
         params = [notebook_id, None, [note_id]]
         await self._rpc.rpc_call(
@@ -382,4 +383,3 @@ class NoteService:
             source_path=f"/notebook/{notebook_id}",
             allow_null=True,
         )
-        return True

@@ -1782,7 +1782,7 @@ class BasicScheduledActionProps:
 
         :param schedule: When to perform this action. Supports cron expressions. For more information about cron expressions, see https://en.wikipedia.org/wiki/Cron.
         :param desired_capacity: The new desired capacity. At the scheduled time, set the desired capacity to the given capacity. At least one of maxCapacity, minCapacity, or desiredCapacity must be supplied. Default: - No new desired capacity.
-        :param end_time: When this scheduled action expires. Default: - The rule never expires.
+        :param end_time: When this scheduled action expires. Warning! You should not set this field! After the scheduled end time, the AutoScaling service will delete the ``ScheduledAction`` without CloudFormation's knowledge, and subsequent stack deployments that try to modify or delete this ScheduledAction will fail. Default: - The rule never expires.
         :param max_capacity: The new maximum capacity. At the scheduled time, set the maximum capacity to the given capacity. At least one of maxCapacity, minCapacity, or desiredCapacity must be supplied. Default: - No new maximum capacity.
         :param min_capacity: The new minimum capacity. At the scheduled time, set the minimum capacity to the given capacity. At least one of maxCapacity, minCapacity, or desiredCapacity must be supplied. Default: - No new minimum capacity.
         :param start_time: When this scheduled action becomes active. Default: - The rule is activate immediately.
@@ -1858,6 +1858,10 @@ class BasicScheduledActionProps:
     @builtins.property
     def end_time(self) -> typing.Optional[datetime.datetime]:
         '''When this scheduled action expires.
+
+        Warning! You should not set this field! After the scheduled end time, the AutoScaling
+        service will delete the ``ScheduledAction`` without CloudFormation's knowledge, and subsequent
+        stack deployments that try to modify or delete this ScheduledAction will fail.
 
         :default: - The rule never expires.
         '''
@@ -2790,7 +2794,7 @@ class CfnAutoScalingGroup(
                             local_storage="localStorage",
                             local_storage_types=["localStorageTypes"],
                             max_spot_price_as_percentage_of_optimal_on_demand_price=123,
-                            memory_gi_bPer_vCpu=autoscaling.CfnAutoScalingGroup.MemoryGiBPerVCpuRequestProperty(
+                            memory_gi_b_per_v_cpu=autoscaling.CfnAutoScalingGroup.MemoryGiBPerVCpuRequestProperty(
                                 max=123,
                                 min=123
                             ),
@@ -3779,7 +3783,7 @@ class CfnAutoScalingGroup(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_autoscaling as autoscaling
                 
-                accelerator_total_memory_mi_bRequest_property = autoscaling.CfnAutoScalingGroup.AcceleratorTotalMemoryMiBRequestProperty(
+                accelerator_total_memory_mi_b_request_property = autoscaling.CfnAutoScalingGroup.AcceleratorTotalMemoryMiBRequestProperty(
                     max=123,
                     min=123
                 )
@@ -5349,7 +5353,7 @@ class CfnAutoScalingGroup(
                         local_storage="localStorage",
                         local_storage_types=["localStorageTypes"],
                         max_spot_price_as_percentage_of_optimal_on_demand_price=123,
-                        memory_gi_bPer_vCpu=autoscaling.CfnAutoScalingGroup.MemoryGiBPerVCpuRequestProperty(
+                        memory_gi_b_per_v_cpu=autoscaling.CfnAutoScalingGroup.MemoryGiBPerVCpuRequestProperty(
                             max=123,
                             min=123
                         ),
@@ -5572,7 +5576,7 @@ class CfnAutoScalingGroup(
                             local_storage="localStorage",
                             local_storage_types=["localStorageTypes"],
                             max_spot_price_as_percentage_of_optimal_on_demand_price=123,
-                            memory_gi_bPer_vCpu=autoscaling.CfnAutoScalingGroup.MemoryGiBPerVCpuRequestProperty(
+                            memory_gi_b_per_v_cpu=autoscaling.CfnAutoScalingGroup.MemoryGiBPerVCpuRequestProperty(
                                 max=123,
                                 min=123
                             ),
@@ -5959,7 +5963,7 @@ class CfnAutoScalingGroup(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_autoscaling as autoscaling
                 
-                memory_gi_bPer_vCpu_request_property = autoscaling.CfnAutoScalingGroup.MemoryGiBPerVCpuRequestProperty(
+                memory_gi_b_per_v_cpu_request_property = autoscaling.CfnAutoScalingGroup.MemoryGiBPerVCpuRequestProperty(
                     max=123,
                     min=123
                 )
@@ -6029,7 +6033,7 @@ class CfnAutoScalingGroup(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_autoscaling as autoscaling
                 
-                memory_mi_bRequest_property = autoscaling.CfnAutoScalingGroup.MemoryMiBRequestProperty(
+                memory_mi_b_request_property = autoscaling.CfnAutoScalingGroup.MemoryMiBRequestProperty(
                     max=123,
                     min=123
                 )
@@ -6274,7 +6278,7 @@ class CfnAutoScalingGroup(
                                 local_storage="localStorage",
                                 local_storage_types=["localStorageTypes"],
                                 max_spot_price_as_percentage_of_optimal_on_demand_price=123,
-                                memory_gi_bPer_vCpu=autoscaling.CfnAutoScalingGroup.MemoryGiBPerVCpuRequestProperty(
+                                memory_gi_b_per_v_cpu=autoscaling.CfnAutoScalingGroup.MemoryGiBPerVCpuRequestProperty(
                                     max=123,
                                     min=123
                                 ),
@@ -6861,7 +6865,7 @@ class CfnAutoScalingGroup(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_autoscaling as autoscaling
                 
-                total_local_storage_gBRequest_property = autoscaling.CfnAutoScalingGroup.TotalLocalStorageGBRequestProperty(
+                total_local_storage_gb_request_property = autoscaling.CfnAutoScalingGroup.TotalLocalStorageGBRequestProperty(
                     max=123,
                     min=123
                 )
@@ -7324,7 +7328,7 @@ class CfnAutoScalingGroupProps:
                                 local_storage="localStorage",
                                 local_storage_types=["localStorageTypes"],
                                 max_spot_price_as_percentage_of_optimal_on_demand_price=123,
-                                memory_gi_bPer_vCpu=autoscaling.CfnAutoScalingGroup.MemoryGiBPerVCpuRequestProperty(
+                                memory_gi_b_per_v_cpu=autoscaling.CfnAutoScalingGroup.MemoryGiBPerVCpuRequestProperty(
                                     max=123,
                                     min=123
                                 ),
@@ -15956,7 +15960,7 @@ class IAutoScalingGroup(
         :param id: -
         :param schedule: When to perform this action. Supports cron expressions. For more information about cron expressions, see https://en.wikipedia.org/wiki/Cron.
         :param desired_capacity: The new desired capacity. At the scheduled time, set the desired capacity to the given capacity. At least one of maxCapacity, minCapacity, or desiredCapacity must be supplied. Default: - No new desired capacity.
-        :param end_time: When this scheduled action expires. Default: - The rule never expires.
+        :param end_time: When this scheduled action expires. Warning! You should not set this field! After the scheduled end time, the AutoScaling service will delete the ``ScheduledAction`` without CloudFormation's knowledge, and subsequent stack deployments that try to modify or delete this ScheduledAction will fail. Default: - The rule never expires.
         :param max_capacity: The new maximum capacity. At the scheduled time, set the maximum capacity to the given capacity. At least one of maxCapacity, minCapacity, or desiredCapacity must be supplied. Default: - No new maximum capacity.
         :param min_capacity: The new minimum capacity. At the scheduled time, set the minimum capacity to the given capacity. At least one of maxCapacity, minCapacity, or desiredCapacity must be supplied. Default: - No new minimum capacity.
         :param start_time: When this scheduled action becomes active. Default: - The rule is activate immediately.
@@ -16254,7 +16258,7 @@ class _IAutoScalingGroupProxy(
         :param id: -
         :param schedule: When to perform this action. Supports cron expressions. For more information about cron expressions, see https://en.wikipedia.org/wiki/Cron.
         :param desired_capacity: The new desired capacity. At the scheduled time, set the desired capacity to the given capacity. At least one of maxCapacity, minCapacity, or desiredCapacity must be supplied. Default: - No new desired capacity.
-        :param end_time: When this scheduled action expires. Default: - The rule never expires.
+        :param end_time: When this scheduled action expires. Warning! You should not set this field! After the scheduled end time, the AutoScaling service will delete the ``ScheduledAction`` without CloudFormation's knowledge, and subsequent stack deployments that try to modify or delete this ScheduledAction will fail. Default: - The rule never expires.
         :param max_capacity: The new maximum capacity. At the scheduled time, set the maximum capacity to the given capacity. At least one of maxCapacity, minCapacity, or desiredCapacity must be supplied. Default: - No new maximum capacity.
         :param min_capacity: The new minimum capacity. At the scheduled time, set the minimum capacity to the given capacity. At least one of maxCapacity, minCapacity, or desiredCapacity must be supplied. Default: - No new minimum capacity.
         :param start_time: When this scheduled action becomes active. Default: - The rule is activate immediately.
@@ -16740,7 +16744,7 @@ class LaunchTemplateOverrides:
                     local_storage="localStorage",
                     local_storage_types=["localStorageTypes"],
                     max_spot_price_as_percentage_of_optimal_on_demand_price=123,
-                    memory_gi_bPer_vCpu=autoscaling.CfnAutoScalingGroup.MemoryGiBPerVCpuRequestProperty(
+                    memory_gi_b_per_v_cpu=autoscaling.CfnAutoScalingGroup.MemoryGiBPerVCpuRequestProperty(
                         max=123,
                         min=123
                     ),
@@ -18474,7 +18478,7 @@ class ScheduledAction(
         :param auto_scaling_group: The AutoScalingGroup to apply the scheduled actions to.
         :param schedule: When to perform this action. Supports cron expressions. For more information about cron expressions, see https://en.wikipedia.org/wiki/Cron.
         :param desired_capacity: The new desired capacity. At the scheduled time, set the desired capacity to the given capacity. At least one of maxCapacity, minCapacity, or desiredCapacity must be supplied. Default: - No new desired capacity.
-        :param end_time: When this scheduled action expires. Default: - The rule never expires.
+        :param end_time: When this scheduled action expires. Warning! You should not set this field! After the scheduled end time, the AutoScaling service will delete the ``ScheduledAction`` without CloudFormation's knowledge, and subsequent stack deployments that try to modify or delete this ScheduledAction will fail. Default: - The rule never expires.
         :param max_capacity: The new maximum capacity. At the scheduled time, set the maximum capacity to the given capacity. At least one of maxCapacity, minCapacity, or desiredCapacity must be supplied. Default: - No new maximum capacity.
         :param min_capacity: The new minimum capacity. At the scheduled time, set the minimum capacity to the given capacity. At least one of maxCapacity, minCapacity, or desiredCapacity must be supplied. Default: - No new minimum capacity.
         :param start_time: When this scheduled action becomes active. Default: - The rule is activate immediately.
@@ -18544,7 +18548,7 @@ class ScheduledActionProps(BasicScheduledActionProps):
 
         :param schedule: When to perform this action. Supports cron expressions. For more information about cron expressions, see https://en.wikipedia.org/wiki/Cron.
         :param desired_capacity: The new desired capacity. At the scheduled time, set the desired capacity to the given capacity. At least one of maxCapacity, minCapacity, or desiredCapacity must be supplied. Default: - No new desired capacity.
-        :param end_time: When this scheduled action expires. Default: - The rule never expires.
+        :param end_time: When this scheduled action expires. Warning! You should not set this field! After the scheduled end time, the AutoScaling service will delete the ``ScheduledAction`` without CloudFormation's knowledge, and subsequent stack deployments that try to modify or delete this ScheduledAction will fail. Default: - The rule never expires.
         :param max_capacity: The new maximum capacity. At the scheduled time, set the maximum capacity to the given capacity. At least one of maxCapacity, minCapacity, or desiredCapacity must be supplied. Default: - No new maximum capacity.
         :param min_capacity: The new minimum capacity. At the scheduled time, set the minimum capacity to the given capacity. At least one of maxCapacity, minCapacity, or desiredCapacity must be supplied. Default: - No new minimum capacity.
         :param start_time: When this scheduled action becomes active. Default: - The rule is activate immediately.
@@ -18631,6 +18635,10 @@ class ScheduledActionProps(BasicScheduledActionProps):
     @builtins.property
     def end_time(self) -> typing.Optional[datetime.datetime]:
         '''When this scheduled action expires.
+
+        Warning! You should not set this field! After the scheduled end time, the AutoScaling
+        service will delete the ``ScheduledAction`` without CloudFormation's knowledge, and subsequent
+        stack deployments that try to modify or delete this ScheduledAction will fail.
 
         :default: - The rule never expires.
         '''
@@ -20908,7 +20916,7 @@ class AutoScalingGroup(
         :param id: -
         :param schedule: When to perform this action. Supports cron expressions. For more information about cron expressions, see https://en.wikipedia.org/wiki/Cron.
         :param desired_capacity: The new desired capacity. At the scheduled time, set the desired capacity to the given capacity. At least one of maxCapacity, minCapacity, or desiredCapacity must be supplied. Default: - No new desired capacity.
-        :param end_time: When this scheduled action expires. Default: - The rule never expires.
+        :param end_time: When this scheduled action expires. Warning! You should not set this field! After the scheduled end time, the AutoScaling service will delete the ``ScheduledAction`` without CloudFormation's knowledge, and subsequent stack deployments that try to modify or delete this ScheduledAction will fail. Default: - The rule never expires.
         :param max_capacity: The new maximum capacity. At the scheduled time, set the maximum capacity to the given capacity. At least one of maxCapacity, minCapacity, or desiredCapacity must be supplied. Default: - No new maximum capacity.
         :param min_capacity: The new minimum capacity. At the scheduled time, set the minimum capacity to the given capacity. At least one of maxCapacity, minCapacity, or desiredCapacity must be supplied. Default: - No new minimum capacity.
         :param start_time: When this scheduled action becomes active. Default: - The rule is activate immediately.

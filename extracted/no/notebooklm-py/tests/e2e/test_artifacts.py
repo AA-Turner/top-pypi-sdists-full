@@ -45,8 +45,11 @@ class TestArtifactRetrieval:
     @pytest.mark.asyncio
     @pytest.mark.readonly
     async def test_get_artifact_not_found(self, client, read_only_notebook_id):
-        """Test getting a non-existent artifact returns None."""
-        artifact = await client.artifacts.get(read_only_notebook_id, "nonexistent_artifact_id")
+        """Test getting a non-existent artifact returns None (with deprecation)."""
+        # v0.7.0: a miss still returns None but now emits a DeprecationWarning
+        # (flips to raising ArtifactNotFoundError in v0.8.0, issue #1247).
+        with pytest.warns(DeprecationWarning, match="ArtifactNotFoundError"):
+            artifact = await client.artifacts.get(read_only_notebook_id, "nonexistent_artifact_id")
         assert artifact is None
 
 
@@ -249,9 +252,9 @@ class TestArtifactMutations:
 
         await asyncio.sleep(2)
 
-        # Delete it
+        # Delete it (v0.7.0: returns None, idempotent — issue #1211)
         deleted = await client.artifacts.delete(temp_notebook.id, artifact_id)
-        assert deleted is True
+        assert deleted is None
 
         # Verify it's gone
         artifacts = await client.artifacts.list(temp_notebook.id)

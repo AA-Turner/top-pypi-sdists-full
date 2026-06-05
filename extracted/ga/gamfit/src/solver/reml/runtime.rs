@@ -110,6 +110,24 @@ const ALO_TAU: f64 = 0.5;
 // so the leverage barrier and the predictive-deviance term enter on equal
 // conservative footing; neither dominates.
 const ALO_GAMMA: f64 = 0.5;
+// Saturation cap (in units of φ) on each observation's standardized squared
+// leave-one-out deviance contribution w_i·(y_i − η̃_i)²/φ. PSIS bounds the
+// *variance* of the importance weights but NOT the per-observation squared LOO
+// residual, which for an isolated near-unit-leverage point is (y_i − η̂_i)/(1 −
+// h_i): as 1 − h_i → 0 it explodes, dominating Σ D_ALO and dragging the
+// selected λ upward (global over-smoothing) just to suppress a residual that is
+// driven by basis geometry, not by model misfit — the model with that isolated
+// point removed has no support there and its LOO prediction is intrinsically
+// hopeless no matter how λ is chosen. We therefore pass each contribution
+// through the smooth saturator g(d) = cap·tanh(d/cap): for a well-fit point d ≈
+// 1 ≪ cap so g(d) ≈ d (the criterion is the ordinary LOO deviance), while a
+// geometry-driven d ≫ cap saturates to ≈ cap so no single hopeless point can
+// dominate the λ selection. cap = 9 is a robust 3-σ² cutoff on a standardized
+// squared residual — well above the ~6.63 chi-square(1) 99th percentile, so
+// every genuine bulk point is left untouched and only the pathological isolated
+// rows are bounded. This bounds the *influence* of high-leverage points on the
+// criterion (the stated design goal) without globally inflating λ.
+const ALO_DEVIANCE_SATURATION: f64 = 9.0;
 // Cap on n·p work for the analytic first-order gradient. Above this the dense
 // H⁻¹Xᵀ solve is too expensive to justify per outer evaluation, so the
 // stabilizer falls back to value-only augmentation (still bit-preserving the
@@ -129,9 +147,30 @@ fn alo_leverage_barrier_derivative(h: f64) -> f64 {
     }
 }
 
-fn gaussian_alo_deviance(y: f64, eta_loo: f64, prior_weight: f64, phi: f64) -> f64 {
+/// Raw standardized leave-one-out deviance contribution
+/// d = w·(y − η̃)²/φ for one observation, before saturation.
+fn gaussian_alo_raw_deviance(y: f64, eta_loo: f64, prior_weight: f64, phi: f64) -> f64 {
     let residual = y - eta_loo;
     prior_weight * residual * residual / phi.max(f64::MIN_POSITIVE)
+}
+
+/// Saturated per-observation Gaussian ALO deviance contribution
+/// g(d) = cap·tanh(d/cap) with d the raw standardized squared LOO residual.
+/// `g(d) ≈ d` for d ≪ cap and `g(d) → cap` for d ≫ cap, so an isolated
+/// near-unit-leverage point whose LOO residual explodes from basis geometry
+/// (not model misfit) contributes a bounded amount to the λ-selection
+/// criterion instead of dragging λ up via global over-smoothing.
+fn gaussian_alo_deviance(y: f64, eta_loo: f64, prior_weight: f64, phi: f64) -> f64 {
+    let raw = gaussian_alo_raw_deviance(y, eta_loo, prior_weight, phi);
+    ALO_DEVIANCE_SATURATION * (raw / ALO_DEVIANCE_SATURATION).tanh()
+}
+
+/// Saturator derivative g'(d) = 1 − tanh²(d/cap) evaluated at the raw
+/// standardized squared LOO residual `raw`. Used to chain-rule the analytic
+/// ρ-gradient of the saturated deviance term: ∂g(d_i)/∂η̃_i = g'(d_i)·∂d_i/∂η̃_i.
+fn gaussian_alo_deviance_saturation_factor(raw: f64) -> f64 {
+    let t = (raw / ALO_DEVIANCE_SATURATION).tanh();
+    1.0 - t * t
 }
 
 fn transformed_penalty_matvec(
@@ -921,6 +960,7 @@ fn hash_isometry_reference(
             hasher.write_str("user-supplied");
             hash_array2(hasher, values.as_ref());
         }
+        IsometryReference::MeanProfiled => hasher.write_str("mean-profiled"),
     }
 }
 
@@ -1423,6 +1463,47 @@ fn reml_supports_firth(likelihood: &GlmLikelihoodSpec) -> bool {
     let spec = reml_spec(likelihood);
     matches!(spec.response, ResponseFamily::Binomial)
         && matches!(spec.link, InverseLink::Standard(StandardLink::Logit))
+}
+
+/// Standard link of a Binomial family for which a closed-form Fisher-weight jet
+/// (`fisher_weight_jet5`) exists, i.e. the links the link-general Jeffreys term
+/// can regularize. Currently `{Logit, Probit}`. Returns `None` for any other
+/// response or link.
+#[inline]
+fn reml_jeffreys_supported_link(likelihood: &GlmLikelihoodSpec) -> Option<StandardLink> {
+    let spec = reml_spec(likelihood);
+    if !matches!(spec.response, ResponseFamily::Binomial) {
+        return None;
+    }
+    match spec.link {
+        InverseLink::Standard(link @ StandardLink::Logit)
+        | InverseLink::Standard(link @ StandardLink::Probit) => Some(link),
+        _ => None,
+    }
+}
+
+/// Resolve whether the Jeffreys/Firth term should be assembled on the REML path
+/// and, if so, the standard link to evaluate the Fisher weight with.
+///
+/// `Off` reproduces the released gate exactly: active only for the legacy
+/// `firth_bias_reduction` flag on Binomial-Logit. Under `Auto`/`Force` the gate
+/// broadens to every Binomial link with a closed-form Fisher-weight jet (adds
+/// probit), keeping the released path byte-identical when the flag is `Off`.
+#[inline]
+pub(super) fn reml_robust_jeffreys_link(config: &RemlConfig) -> Option<StandardLink> {
+    let robust_on = !matches!(
+        config.robust_identification,
+        crate::solver::workflow::RobustIdentification::Off
+    );
+    if robust_on {
+        if let Some(link) = reml_jeffreys_supported_link(&config.likelihood) {
+            return Some(link);
+        }
+    }
+    if config.firth_bias_reduction && reml_supports_firth(&config.likelihood) {
+        return Some(StandardLink::Logit);
+    }
+    None
 }
 
 #[inline]
@@ -3035,7 +3116,7 @@ impl<'a> RemlState<'a> {
                 hessian: None,
             });
         }
-        if !self.config.firth_bias_reduction {
+        if reml_robust_jeffreys_link(&self.config).is_none() {
             return Ok(TkCorrectionTerms {
                 value: 0.0,
                 gradient: None,
@@ -3101,17 +3182,20 @@ impl<'a> RemlState<'a> {
             };
             let lambdas: Vec<f64> = rho.iter().map(|r| r.exp()).collect();
             let beta = self.sparse_exact_beta_original(pirls_result);
-            let firth_op = if self.config.firth_bias_reduction
-                && reml_supports_firth(&self.config.likelihood)
+            let firth_op = if let Some(jeffreys_link) =
+                reml_robust_jeffreys_link(&self.config)
             {
                 if let Some(cached) = bundle.firth_dense_operator_original.as_ref() {
                     Some(cached.clone())
                 } else {
-                    Some(std::sync::Arc::new(Self::build_firth_dense_operator(
-                        x_dense.as_ref(),
-                        &pirls_result.final_eta,
-                        self.weights,
-                    )?))
+                    Some(std::sync::Arc::new(
+                        Self::build_firth_dense_operator_for_link(
+                            jeffreys_link,
+                            x_dense.as_ref(),
+                            &pirls_result.final_eta,
+                            self.weights,
+                        )?,
+                    ))
                 }
             } else {
                 None
@@ -3249,16 +3333,18 @@ impl<'a> RemlState<'a> {
         } else {
             pirls_result.beta_transformed.as_ref().clone()
         };
-        let firth_op =
-            if self.config.firth_bias_reduction && reml_supports_firth(&self.config.likelihood) {
-                Some(std::sync::Arc::new(Self::build_firth_dense_operator(
+        let firth_op = if let Some(jeffreys_link) = reml_robust_jeffreys_link(&self.config) {
+            Some(std::sync::Arc::new(
+                Self::build_firth_dense_operator_for_link(
+                    jeffreys_link,
                     &x_eff_dense,
                     &pirls_result.final_eta,
                     self.weights,
-                )?))
-            } else {
-                None
-            };
+                )?,
+            ))
+        } else {
+            None
+        };
 
         self.tierney_kadane_analytic_core(
             &x_eff_dense,
@@ -3284,7 +3370,7 @@ impl<'a> RemlState<'a> {
         ext_coords: &[super::unified::HyperCoord],
     ) -> Result<(), EstimationError> {
         if reml_is_gaussian_identity(&self.config.likelihood)
-            || !self.config.firth_bias_reduction
+            || reml_robust_jeffreys_link(&self.config).is_none()
             || !compute_gradient_for_tk(mode)
         {
             return Ok(());
@@ -5875,7 +5961,7 @@ impl<'a> RemlState<'a> {
         let pirls_result = self.execute_pirls_if_needed(rho)?;
         let (mut h_total, ridge_passport) = self.effectivehessian(pirls_result.as_ref())?;
         let mut firth_dense_operator: Option<Arc<FirthDenseOperator>> = None;
-        if self.config.firth_bias_reduction && reml_supports_firth(&self.config.likelihood) {
+        if let Some(jeffreys_link) = reml_robust_jeffreys_link(&self.config) {
             let firth_n = pirls_result.x_transformed.nrows();
             let firth_p = pirls_result.x_transformed.ncols();
             if !super::firth_problem_scale_allows(firth_n, firth_p) {
@@ -5895,7 +5981,8 @@ impl<'a> RemlState<'a> {
                 )
                 .map_err(EstimationError::InvalidInput)?;
                 let firth_build_start = std::time::Instant::now();
-                let firth_op = Arc::new(Self::build_firth_dense_operator(
+                let firth_op = Arc::new(Self::build_firth_dense_operator_for_link(
+                    jeffreys_link,
                     x_dense.as_ref(),
                     &pirls_result.final_eta,
                     self.weights,
@@ -6030,8 +6117,8 @@ impl<'a> RemlState<'a> {
         )?;
         let (penalty_rank, logdet_s_pos, det1_values) =
             self.sparse_penalty_logdet_runtime(rho, penalty_blocks.as_ref());
-        let firth_dense_operator_original = if self.config.firth_bias_reduction
-            && reml_supports_firth(&self.config.likelihood)
+        let firth_dense_operator_original = if let Some(jeffreys_link) =
+            reml_robust_jeffreys_link(&self.config)
         {
             let firth_n = self.x().nrows();
             let firth_p = self.x().ncols();
@@ -6052,7 +6139,8 @@ impl<'a> RemlState<'a> {
                         "sparse exact REML runtime requires dense design for Firth operator",
                     )
                     .map_err(EstimationError::InvalidInput)?;
-                Some(Arc::new(Self::build_firth_dense_operator(
+                Some(Arc::new(Self::build_firth_dense_operator_for_link(
+                    jeffreys_link,
                     x_dense.as_ref(),
                     &pirls_result.final_eta,
                     self.weights,
@@ -7809,9 +7897,9 @@ impl<'a> RemlState<'a> {
         bundle: &EvalShared,
         free_basis_opt: &Option<Array2<f64>>,
     ) -> Result<Option<std::sync::Arc<super::FirthDenseOperator>>, EstimationError> {
-        if !(self.config.firth_bias_reduction && reml_supports_firth(&self.config.likelihood)) {
+        let Some(jeffreys_link) = reml_robust_jeffreys_link(&self.config) else {
             return Ok(None);
-        }
+        };
 
         if let Some(z) = free_basis_opt.as_ref() {
             let x_projected = pirls_result.x_transformed.to_dense().dot(z);
@@ -7829,11 +7917,14 @@ impl<'a> RemlState<'a> {
                 );
                 return Ok(None);
             }
-            return Ok(Some(std::sync::Arc::new(Self::build_firth_dense_operator(
-                &x_projected,
-                &pirls_result.final_eta,
-                self.weights,
-            )?)));
+            return Ok(Some(std::sync::Arc::new(
+                Self::build_firth_dense_operator_for_link(
+                    jeffreys_link,
+                    &x_projected,
+                    &pirls_result.final_eta,
+                    self.weights,
+                )?,
+            )));
         }
 
         if let Some(cached) = bundle.firth_dense_operator.clone() {
@@ -7841,11 +7932,14 @@ impl<'a> RemlState<'a> {
         }
 
         let x_dense = pirls_result.x_transformed.to_dense();
-        Ok(Some(std::sync::Arc::new(Self::build_firth_dense_operator(
-            &x_dense,
-            &pirls_result.final_eta,
-            self.weights,
-        )?)))
+        Ok(Some(std::sync::Arc::new(
+            Self::build_firth_dense_operator_for_link(
+                jeffreys_link,
+                &x_dense,
+                &pirls_result.final_eta,
+                self.weights,
+            )?,
+        )))
     }
 
     /// Build the derivative provider, dispersion handling, zeroed TK placeholders,
@@ -7971,26 +8065,28 @@ impl<'a> RemlState<'a> {
 
         // Sparse exact still uses the same dense Jeffreys operator; only the
         // H^{-1} applications move to the sparse Cholesky operator.
-        let firth_op =
-            if self.config.firth_bias_reduction && reml_supports_firth(&self.config.likelihood) {
-                if let Some(cached) = bundle.firth_dense_operator_original.clone() {
-                    Some(cached)
-                } else {
-                    let x_dense = self
-                        .x()
-                        .try_to_dense_arc(
-                            "sparse exact REML runtime requires dense design for Firth operator",
-                        )
-                        .map_err(EstimationError::InvalidInput)?;
-                    Some(std::sync::Arc::new(Self::build_firth_dense_operator(
+        let firth_op = if let Some(jeffreys_link) = reml_robust_jeffreys_link(&self.config) {
+            if let Some(cached) = bundle.firth_dense_operator_original.clone() {
+                Some(cached)
+            } else {
+                let x_dense = self
+                    .x()
+                    .try_to_dense_arc(
+                        "sparse exact REML runtime requires dense design for Firth operator",
+                    )
+                    .map_err(EstimationError::InvalidInput)?;
+                Some(std::sync::Arc::new(
+                    Self::build_firth_dense_operator_for_link(
+                        jeffreys_link,
                         x_dense.as_ref(),
                         &pirls_result.final_eta,
                         self.weights,
-                    )?))
-                }
-            } else {
-                None
-            };
+                    )?,
+                ))
+            }
+        } else {
+            None
+        };
 
         // Dispersion and derivative provider depend on family.
         let (dispersion, deriv_provider): (_, Box<dyn super::unified::HessianDerivativeProvider>) =
@@ -9033,7 +9129,17 @@ impl<'a> RemlState<'a> {
         let mut grad = Array1::<f64>::zeros(k);
         for i in 0..nrows {
             let h_i = alo.leverage[i];
-            let dev_eta_grad = -2.0 * self.weights[i] * (self.y[i] - alo.eta_tilde[i]) / phi_safe;
+            // ∂d_i/∂η̃_i for the raw standardized squared LOO residual d_i.
+            let raw_dev_eta_grad =
+                -2.0 * self.weights[i] * (self.y[i] - alo.eta_tilde[i]) / phi_safe;
+            // Chain the smooth saturator: ∂g(d_i)/∂η̃_i = g'(d_i)·∂d_i/∂η̃_i so
+            // the gradient matches the saturated cost used in the value path. A
+            // saturated (geometry-driven) high-leverage point has g'(d_i) → 0,
+            // so it stops pulling λ up — the analytic correlate of bounding its
+            // influence on the criterion.
+            let raw_dev =
+                gaussian_alo_raw_deviance(self.y[i], alo.eta_tilde[i], self.weights[i], phi_safe);
+            let dev_eta_grad = gaussian_alo_deviance_saturation_factor(raw_dev) * raw_dev_eta_grad;
             let b_prime = alo_leverage_barrier_derivative(h_i);
             for kk in 0..k {
                 let u_ik = deta_loo[[i, kk]];
@@ -9721,9 +9827,9 @@ impl<'a> RemlState<'a> {
         }
     }
 
-    /// Check that Firth is not active (incompatible with link ext_coords).
+    /// Check that Firth/Jeffreys is not active (incompatible with link ext_coords).
     fn reject_firth_link_ext(&self) -> Result<(), EstimationError> {
-        if self.config.firth_bias_reduction {
+        if reml_robust_jeffreys_link(&self.config).is_some() {
             crate::bail_invalid_estim!(
                 "link-parameter ext_coord optimization is incompatible with \
                  Firth-adjusted outer gradients"

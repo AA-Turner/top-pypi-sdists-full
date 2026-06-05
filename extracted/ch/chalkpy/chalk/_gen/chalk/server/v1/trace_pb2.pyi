@@ -201,6 +201,208 @@ class ChalkTrace(_message.Message):
         resource_attributes: _Optional[_Mapping[str, str]] = ...,
     ) -> None: ...
 
+class ChalkTraceSummaryRootSpan(_message.Message):
+    __slots__ = ("span_id", "attributes", "resource_attributes")
+    class AttributesEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
+    class ResourceAttributesEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
+    SPAN_ID_FIELD_NUMBER: _ClassVar[int]
+    ATTRIBUTES_FIELD_NUMBER: _ClassVar[int]
+    RESOURCE_ATTRIBUTES_FIELD_NUMBER: _ClassVar[int]
+    span_id: str
+    attributes: _containers.ScalarMap[str, str]
+    resource_attributes: _containers.ScalarMap[str, str]
+    def __init__(
+        self,
+        span_id: _Optional[str] = ...,
+        attributes: _Optional[_Mapping[str, str]] = ...,
+        resource_attributes: _Optional[_Mapping[str, str]] = ...,
+    ) -> None: ...
+
+class ChalkTraceSummary(_message.Message):
+    __slots__ = ("trace_id", "start_time", "end_time", "duration", "root_spans")
+    TRACE_ID_FIELD_NUMBER: _ClassVar[int]
+    START_TIME_FIELD_NUMBER: _ClassVar[int]
+    END_TIME_FIELD_NUMBER: _ClassVar[int]
+    DURATION_FIELD_NUMBER: _ClassVar[int]
+    ROOT_SPANS_FIELD_NUMBER: _ClassVar[int]
+    trace_id: str
+    start_time: _timestamp_pb2.Timestamp
+    end_time: _timestamp_pb2.Timestamp
+    duration: _duration_pb2.Duration
+    root_spans: _containers.RepeatedCompositeFieldContainer[ChalkTraceSummaryRootSpan]
+    def __init__(
+        self,
+        trace_id: _Optional[str] = ...,
+        start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        duration: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
+        root_spans: _Optional[_Iterable[_Union[ChalkTraceSummaryRootSpan, _Mapping]]] = ...,
+    ) -> None: ...
+
+class TraceCallGraphAiInfo(_message.Message):
+    __slots__ = ("prompt_tokens", "completion_tokens", "total_tokens")
+    PROMPT_TOKENS_FIELD_NUMBER: _ClassVar[int]
+    COMPLETION_TOKENS_FIELD_NUMBER: _ClassVar[int]
+    TOTAL_TOKENS_FIELD_NUMBER: _ClassVar[int]
+    prompt_tokens: int
+    completion_tokens: int
+    total_tokens: int
+    def __init__(
+        self,
+        prompt_tokens: _Optional[int] = ...,
+        completion_tokens: _Optional[int] = ...,
+        total_tokens: _Optional[int] = ...,
+    ) -> None: ...
+
+class TraceCallGraphDatabaseInfo(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class TraceCallGraphOperationInfo(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class TraceCallGraphRemoteFunctionInfo(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class TraceCallGraphServiceInfo(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class TraceCallGraphNode(_message.Message):
+    __slots__ = (
+        "id",
+        "label",
+        "category_label",
+        "span_count",
+        "trace_count",
+        "error_count",
+        "total_duration_us",
+        "duration_share",
+        "ai",
+        "database",
+        "operation",
+        "remote_function",
+        "service",
+    )
+    ID_FIELD_NUMBER: _ClassVar[int]
+    LABEL_FIELD_NUMBER: _ClassVar[int]
+    CATEGORY_LABEL_FIELD_NUMBER: _ClassVar[int]
+    SPAN_COUNT_FIELD_NUMBER: _ClassVar[int]
+    TRACE_COUNT_FIELD_NUMBER: _ClassVar[int]
+    ERROR_COUNT_FIELD_NUMBER: _ClassVar[int]
+    TOTAL_DURATION_US_FIELD_NUMBER: _ClassVar[int]
+    DURATION_SHARE_FIELD_NUMBER: _ClassVar[int]
+    AI_FIELD_NUMBER: _ClassVar[int]
+    DATABASE_FIELD_NUMBER: _ClassVar[int]
+    OPERATION_FIELD_NUMBER: _ClassVar[int]
+    REMOTE_FUNCTION_FIELD_NUMBER: _ClassVar[int]
+    SERVICE_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    label: str
+    category_label: str
+    span_count: int
+    trace_count: int
+    error_count: int
+    total_duration_us: int
+    duration_share: float
+    ai: TraceCallGraphAiInfo
+    database: TraceCallGraphDatabaseInfo
+    operation: TraceCallGraphOperationInfo
+    remote_function: TraceCallGraphRemoteFunctionInfo
+    service: TraceCallGraphServiceInfo
+    def __init__(
+        self,
+        id: _Optional[str] = ...,
+        label: _Optional[str] = ...,
+        category_label: _Optional[str] = ...,
+        span_count: _Optional[int] = ...,
+        trace_count: _Optional[int] = ...,
+        error_count: _Optional[int] = ...,
+        total_duration_us: _Optional[int] = ...,
+        duration_share: _Optional[float] = ...,
+        ai: _Optional[_Union[TraceCallGraphAiInfo, _Mapping]] = ...,
+        database: _Optional[_Union[TraceCallGraphDatabaseInfo, _Mapping]] = ...,
+        operation: _Optional[_Union[TraceCallGraphOperationInfo, _Mapping]] = ...,
+        remote_function: _Optional[_Union[TraceCallGraphRemoteFunctionInfo, _Mapping]] = ...,
+        service: _Optional[_Union[TraceCallGraphServiceInfo, _Mapping]] = ...,
+    ) -> None: ...
+
+class TraceCallGraphEdge(_message.Message):
+    __slots__ = (
+        "id",
+        "source_id",
+        "target_id",
+        "span_count",
+        "trace_count",
+        "error_count",
+        "total_duration_us",
+        "duration_share",
+    )
+    ID_FIELD_NUMBER: _ClassVar[int]
+    SOURCE_ID_FIELD_NUMBER: _ClassVar[int]
+    TARGET_ID_FIELD_NUMBER: _ClassVar[int]
+    SPAN_COUNT_FIELD_NUMBER: _ClassVar[int]
+    TRACE_COUNT_FIELD_NUMBER: _ClassVar[int]
+    ERROR_COUNT_FIELD_NUMBER: _ClassVar[int]
+    TOTAL_DURATION_US_FIELD_NUMBER: _ClassVar[int]
+    DURATION_SHARE_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    source_id: str
+    target_id: str
+    span_count: int
+    trace_count: int
+    error_count: int
+    total_duration_us: int
+    duration_share: float
+    def __init__(
+        self,
+        id: _Optional[str] = ...,
+        source_id: _Optional[str] = ...,
+        target_id: _Optional[str] = ...,
+        span_count: _Optional[int] = ...,
+        trace_count: _Optional[int] = ...,
+        error_count: _Optional[int] = ...,
+        total_duration_us: _Optional[int] = ...,
+        duration_share: _Optional[float] = ...,
+    ) -> None: ...
+
+class TraceCallGraph(_message.Message):
+    __slots__ = ("nodes", "edges", "matched_span_count", "matched_trace_count", "total_duration_us")
+    NODES_FIELD_NUMBER: _ClassVar[int]
+    EDGES_FIELD_NUMBER: _ClassVar[int]
+    MATCHED_SPAN_COUNT_FIELD_NUMBER: _ClassVar[int]
+    MATCHED_TRACE_COUNT_FIELD_NUMBER: _ClassVar[int]
+    TOTAL_DURATION_US_FIELD_NUMBER: _ClassVar[int]
+    nodes: _containers.RepeatedCompositeFieldContainer[TraceCallGraphNode]
+    edges: _containers.RepeatedCompositeFieldContainer[TraceCallGraphEdge]
+    matched_span_count: int
+    matched_trace_count: int
+    total_duration_us: int
+    def __init__(
+        self,
+        nodes: _Optional[_Iterable[_Union[TraceCallGraphNode, _Mapping]]] = ...,
+        edges: _Optional[_Iterable[_Union[TraceCallGraphEdge, _Mapping]]] = ...,
+        matched_span_count: _Optional[int] = ...,
+        matched_trace_count: _Optional[int] = ...,
+        total_duration_us: _Optional[int] = ...,
+    ) -> None: ...
+
 class GetTraceRequest(_message.Message):
     __slots__ = ("operation_id", "trace_id")
     OPERATION_ID_FIELD_NUMBER: _ClassVar[int]
@@ -247,6 +449,118 @@ class ListTraceResponse(_message.Message):
     next_page_token: str
     def __init__(
         self, traces: _Optional[_Iterable[_Union[ChalkTrace, _Mapping]]] = ..., next_page_token: _Optional[str] = ...
+    ) -> None: ...
+
+class SearchTraceSummariesRequest(_message.Message):
+    __slots__ = (
+        "start_time",
+        "end_time",
+        "limit",
+        "page_token",
+        "trace_ids",
+        "min_duration_us",
+        "max_duration_us",
+        "root_span_ids",
+        "root_span_attribute_filters",
+        "root_span_resource_attribute_filters",
+        "root_span_attribute_values",
+        "root_span_resource_attribute_values",
+    )
+    START_TIME_FIELD_NUMBER: _ClassVar[int]
+    END_TIME_FIELD_NUMBER: _ClassVar[int]
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
+    PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    TRACE_IDS_FIELD_NUMBER: _ClassVar[int]
+    MIN_DURATION_US_FIELD_NUMBER: _ClassVar[int]
+    MAX_DURATION_US_FIELD_NUMBER: _ClassVar[int]
+    ROOT_SPAN_IDS_FIELD_NUMBER: _ClassVar[int]
+    ROOT_SPAN_ATTRIBUTE_FILTERS_FIELD_NUMBER: _ClassVar[int]
+    ROOT_SPAN_RESOURCE_ATTRIBUTE_FILTERS_FIELD_NUMBER: _ClassVar[int]
+    ROOT_SPAN_ATTRIBUTE_VALUES_FIELD_NUMBER: _ClassVar[int]
+    ROOT_SPAN_RESOURCE_ATTRIBUTE_VALUES_FIELD_NUMBER: _ClassVar[int]
+    start_time: _timestamp_pb2.Timestamp
+    end_time: _timestamp_pb2.Timestamp
+    limit: int
+    page_token: str
+    trace_ids: _containers.RepeatedScalarFieldContainer[str]
+    min_duration_us: int
+    max_duration_us: int
+    root_span_ids: _containers.RepeatedScalarFieldContainer[str]
+    root_span_attribute_filters: _containers.RepeatedCompositeFieldContainer[AttributeFilter]
+    root_span_resource_attribute_filters: _containers.RepeatedCompositeFieldContainer[AttributeFilter]
+    root_span_attribute_values: _containers.RepeatedScalarFieldContainer[str]
+    root_span_resource_attribute_values: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(
+        self,
+        start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        limit: _Optional[int] = ...,
+        page_token: _Optional[str] = ...,
+        trace_ids: _Optional[_Iterable[str]] = ...,
+        min_duration_us: _Optional[int] = ...,
+        max_duration_us: _Optional[int] = ...,
+        root_span_ids: _Optional[_Iterable[str]] = ...,
+        root_span_attribute_filters: _Optional[_Iterable[_Union[AttributeFilter, _Mapping]]] = ...,
+        root_span_resource_attribute_filters: _Optional[_Iterable[_Union[AttributeFilter, _Mapping]]] = ...,
+        root_span_attribute_values: _Optional[_Iterable[str]] = ...,
+        root_span_resource_attribute_values: _Optional[_Iterable[str]] = ...,
+    ) -> None: ...
+
+class SearchTraceSummariesResponse(_message.Message):
+    __slots__ = ("trace_summaries", "next_page_token")
+    TRACE_SUMMARIES_FIELD_NUMBER: _ClassVar[int]
+    NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    trace_summaries: _containers.RepeatedCompositeFieldContainer[ChalkTraceSummary]
+    next_page_token: str
+    def __init__(
+        self,
+        trace_summaries: _Optional[_Iterable[_Union[ChalkTraceSummary, _Mapping]]] = ...,
+        next_page_token: _Optional[str] = ...,
+    ) -> None: ...
+
+class GetTraceCallGraphRequest(_message.Message):
+    __slots__ = (
+        "start_time",
+        "end_time",
+        "limit",
+        "function_name",
+        "attribute_filters",
+        "resource_attribute_filters",
+        "cursor",
+    )
+    START_TIME_FIELD_NUMBER: _ClassVar[int]
+    END_TIME_FIELD_NUMBER: _ClassVar[int]
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
+    FUNCTION_NAME_FIELD_NUMBER: _ClassVar[int]
+    ATTRIBUTE_FILTERS_FIELD_NUMBER: _ClassVar[int]
+    RESOURCE_ATTRIBUTE_FILTERS_FIELD_NUMBER: _ClassVar[int]
+    CURSOR_FIELD_NUMBER: _ClassVar[int]
+    start_time: _timestamp_pb2.Timestamp
+    end_time: _timestamp_pb2.Timestamp
+    limit: int
+    function_name: str
+    attribute_filters: _containers.RepeatedCompositeFieldContainer[AttributeFilter]
+    resource_attribute_filters: _containers.RepeatedCompositeFieldContainer[AttributeFilter]
+    cursor: str
+    def __init__(
+        self,
+        start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        limit: _Optional[int] = ...,
+        function_name: _Optional[str] = ...,
+        attribute_filters: _Optional[_Iterable[_Union[AttributeFilter, _Mapping]]] = ...,
+        resource_attribute_filters: _Optional[_Iterable[_Union[AttributeFilter, _Mapping]]] = ...,
+        cursor: _Optional[str] = ...,
+    ) -> None: ...
+
+class GetTraceCallGraphResponse(_message.Message):
+    __slots__ = ("call_graph", "next_cursor")
+    CALL_GRAPH_FIELD_NUMBER: _ClassVar[int]
+    NEXT_CURSOR_FIELD_NUMBER: _ClassVar[int]
+    call_graph: TraceCallGraph
+    next_cursor: str
+    def __init__(
+        self, call_graph: _Optional[_Union[TraceCallGraph, _Mapping]] = ..., next_cursor: _Optional[str] = ...
     ) -> None: ...
 
 class GetSpanRequest(_message.Message):

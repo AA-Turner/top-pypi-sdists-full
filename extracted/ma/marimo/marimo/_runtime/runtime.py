@@ -65,7 +65,6 @@ from marimo._messaging.notification_utils import (
     CellNotificationUtils,
     broadcast_notification,
 )
-from marimo._messaging.print_override import print_override
 from marimo._messaging.streams import (
     QueuePipe,
     ThreadSafeStderr,
@@ -189,12 +188,13 @@ def defs() -> tuple[str, ...]:
         return ()
 
     if ctx.execution_context is not None:
-        return tuple(
-            sorted(
-                defn
-                for defn in ctx.graph.cells[ctx.execution_context.cell_id].defs
-            )
-        )
+        cell_id = ctx.execution_context.cell_id
+        # The scratchpad cell lives in a Runner-local graph, not in
+        # ctx.graph (which always returns the kernel's main graph). It
+        # also has no meaningful defs in any case.
+        if cell_id not in ctx.graph.cells:
+            return ()
+        return tuple(sorted(defn for defn in ctx.graph.cells[cell_id].defs))
     return ()
 
 
@@ -216,10 +216,15 @@ def refs() -> tuple[str, ...]:
     )
 
     if ctx.execution_context is not None:
+        cell_id = ctx.execution_context.cell_id
+        # Scratchpad cell isn't registered in the main graph; same as
+        # defs() above.
+        if cell_id not in ctx.graph.cells:
+            return ()
         return tuple(
             sorted(
                 defn
-                for defn in ctx.graph.cells[ctx.execution_context.cell_id].refs
+                for defn in ctx.graph.cells[cell_id].refs
                 # exclude builtins that have not been shadowed
                 if defn not in unshadowed_builtins
             )
@@ -479,8 +484,6 @@ class Kernel:
         # timestamp, to save the user from having to spam the interrupt button
         self.last_interrupt_timestamp: float | None = None
 
-        # Named attributes exist because internal kernel paths (run hooks,
-        # script metadata) and tests reach into specific callbacks directly.
         self.secrets_callbacks = SecretsCallbacks(self)
         self.datasets_callbacks = DatasetCallbacks(self)
         self.packages_callbacks = PackagesCallbacks(self)
@@ -2535,7 +2538,6 @@ def launch_kernel(
                 control_queue=control_queue,
                 set_ui_element_queue=set_ui_element_queue,
                 virtual_file_storage=virtual_file_storage,
-                print_override_fn=print_override,
             )
         ) as (kernel, ctx):
             if is_edit_mode:

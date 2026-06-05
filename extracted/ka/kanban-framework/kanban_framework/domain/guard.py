@@ -162,29 +162,34 @@ class Guard:
         guard_cfg = self._get_phase_guard(phase_str, mode)
         if "checks" in guard_cfg:
             return guard_cfg["checks"]
-        # For custom modes, auto-derive relevant checks from step definitions
-        if mode and mode not in Scheduler.BUILTIN_MODE_NAMES:
-            checks = list(self._HARDCODED_CHECKS.get(phase_str, []))
-            return checks
+        # All modes: auto-derive checks from step definitions
+        checks = list(self._HARDCODED_CHECKS.get(phase_str, []))
         # All modes: execute checks are user-controlled via workflow
         if phase_str == "execute":
             return []
-        return self._HARDCODED_CHECKS.get(phase_str, [])
+        return checks
 
-    def _get_required_artifacts(self, phase, lightweight: bool = False,
-                                 mode: str | None = None) -> list[str]:
-        """Read required_artifacts; priority: per-mode → extensions → defaults."""
+    # Lenient defaults — all modes get these when no explicit config
+    _MODE_MINIMUMS: dict[str, list[str]] = {
+        "plan": ["spec.md", "plan/index.md", "task_breakdown.json"],
+        "execute": ["execution_summary.md"],
+    }
+
+    def _get_required_artifacts(self, phase, mode: str | None = None) -> list[str]:
+        """Read required_artifacts; priority: per-mode config → lenient defaults.
+
+        Default is lenient (minimum artifacts). Users opt into strict checks
+        by configuring guard.required_artifacts in their workflow JSON.
+        """
         phase_str = phase.value if isinstance(phase, Phase) else str(phase)
-        workflow = self._cfg.workflow
-        phases = workflow.get("phases", [])
-        if not isinstance(phases, list):
-            phases = []
-        for p in phases:
-            if isinstance(p, dict) and p.get("id") == phase_str:
-                artifacts = p.get("required_artifacts")
-                if artifacts:
-                    return self._lightweight_reduce(phase_str, artifacts, lightweight)
-        # Check per-mode directory file
+
+        # Priority 1: per-mode guard from workflow.json
+        guard_cfg = self._get_phase_guard(phase_str, mode)
+        artifacts = guard_cfg.get("required_artifacts")
+        if artifacts:
+            return artifacts
+
+        # Priority 2: per-mode directory file phases[].required_artifacts
         if mode:
             try:
                 wf_file = self._fs.kanban_dir / "workflows" / f"{mode}.json"
@@ -194,46 +199,35 @@ class Guard:
                         if isinstance(p, dict) and p.get("id") == phase_str:
                             artifacts = p.get("required_artifacts")
                             if artifacts:
-                                return self._lightweight_reduce(phase_str, artifacts, lightweight)
+                                return artifacts
             except Exception:
                 pass
-        # Check workflow extensions for custom phase artifacts
+
+        # Priority 3: workflow extensions for custom phase artifacts
         from kanban_framework.domain.workflow_extensions import WorkflowExtension
-        ext = WorkflowExtension(workflow)
+        ext = WorkflowExtension(self._cfg.workflow)
         custom_artifacts = ext.get_required_artifacts(phase_str)
         if custom_artifacts:
-            return self._lightweight_reduce(phase_str, custom_artifacts, lightweight)
-        if lightweight and phase_str == Phase.EXECUTE.value:
-            return ["execution_summary.md"]
-        # Auto-derive: for custom modes, use sensible minimum artifacts per phase
-        if mode and mode not in Scheduler.BUILTIN_MODE_NAMES:
-            _MODE_MINIMUMS = {
-                "plan": ["spec.md", "plan/index.md", "task_breakdown.json"],
-                "execute": ["execution_summary.md"],
-            }
-            if phase_str in _MODE_MINIMUMS:
-                return self._lightweight_reduce(phase_str, _MODE_MINIMUMS[phase_str], lightweight)
-        return self._DEFAULT_ARTIFACTS.get(phase_str, [])
+            return custom_artifacts
 
-    @staticmethod
-    def _lightweight_reduce(phase_str: str, artifacts: list[str], lightweight: bool) -> list[str]:
-        """Reduce artifact requirements for lightweight/quick mode execute phase."""
-        if lightweight and phase_str == Phase.EXECUTE.value:
-            return [a for a in artifacts if a == "execution_summary.md"] or ["execution_summary.md"]
-        return artifacts
+        # Priority 4: lenient defaults for all modes
+        if phase_str in self._MODE_MINIMUMS:
+            return list(self._MODE_MINIMUMS[phase_str])
+
+        # Priority 5: strict fallback for unusual phases
+        return list(self._DEFAULT_ARTIFACTS.get(phase_str, []))
 
     def _mode_has_score_step(self, task: Task, mode: str | None) -> bool:
         """Check whether the task's mode has score collection in evaluate phase."""
-        if not mode or mode == "quick":
-            return False  # quick mode has no evaluate phase
+        if not mode:
+            return False
         try:
             from kanban_framework.domain.steps import _get_steps
             mode_steps = _get_steps(mode)
             evaluate_steps = mode_steps.get("evaluate", [])
-            # Any evaluate phase with spawn_review steps produces scores via complete-phase
             return any(s.spawn_prompt for s in evaluate_steps)
         except (OSError, ValueError, KeyError):
-            return mode == "lightweight"
+            return False
 
     _KNOWLEDGE_ARTIFACT_HINTS: dict[str, tuple[str, str]] = {
         "execute":        ("execution_pitfalls.md",
@@ -259,24 +253,22 @@ class Guard:
                 phase_str, ("knowledge_artifact.json", "Knowledge artifact expected."))
             return self._checks.check_knowledge_artifact(task, fname, hint)
         if name == "quick_scope":
-            if getattr(task, 'mode', '') == 'quick':
-                return self._checks.check_quick_scope(task)
-            return None
+            return self._checks.check_quick_scope(task)
         if name == "evaluation_reports":
             return self.check_evaluation(task, task.iteration)
         if name == "evaluation_score":
             return self.check_evaluation_score(task)
         return None
 
-    def check_artifacts(self, task: Task, phase: Phase, lightweight: bool = False) -> CheckResult:
+    def check_artifacts(self, task: Task, phase: Phase) -> CheckResult:
         if task.status.value == "draft":
             return CheckResult(passed=True)
         # Evaluate phase: only check evaluation reports (acceptance.md checked in retrospective)
         if phase == Phase.EVALUATE:
-            return self.check_evaluation(task, task.iteration, lightweight=lightweight)
+            return self.check_evaluation(task, task.iteration)
 
         mode = getattr(task, 'mode', None)
-        required = self._get_required_artifacts(phase, lightweight=lightweight, mode=mode)
+        required = self._get_required_artifacts(phase, mode=mode)
         if not required:
             return CheckResult(passed=True)
 
@@ -298,13 +290,23 @@ class Guard:
                 )
             elif not self._cfg.worktree_enabled:
                 combined.warnings.append("worktree not set (disabled by config)")
-            elif task.lightweight:
-                combined.warnings.append("worktree not set (lightweight mode)")
             else:
-                combined.failures.append(
-                    "worktree not set — config has worktree.enabled=true "
-                    "but no worktree was created for this task."
-                )
+                # Check if this mode has evaluate phase — modes without evaluate
+                # don't need worktree for review isolation
+                from kanban_framework.infra.consts import Consts
+                task_mode = getattr(task, 'mode', '') or Consts.DEFAULT_MODE
+                mode_order = [p.value if hasattr(p, "value") else str(p)
+                              for p in Scheduler.dispatch_order(
+                                  mode=task_mode, workflow=self._cfg.workflow,
+                                  kanban_dir=self._fs.kanban_dir)]
+                has_evaluate = "evaluate" in mode_order
+                if not has_evaluate:
+                    combined.warnings.append("worktree not set (mode has no evaluate phase)")
+                else:
+                    combined.failures.append(
+                        "worktree not set — config has worktree.enabled=true "
+                        "but no worktree was created for this task."
+                    )
 
         return combined
 
@@ -329,13 +331,13 @@ class Guard:
                 results.append(r)
         return CheckResult.combine(results)
 
-    def check_evaluation(self, task: Task, iteration: int, lightweight: bool = False) -> CheckResult:
+    def check_evaluation(self, task: Task, iteration: int) -> CheckResult:
         missing = []
         report_dir = self._fs.report_dir(task.id, iteration)
         task_dir = self._fs.task_dir(task.id)
         mode = getattr(task, 'mode', None)
         for role_def in Scheduler.eval_roles(
-            lightweight=lightweight, mode=mode, kanban_dir=self._fs.kanban_dir,
+            mode=mode, kanban_dir=self._fs.kanban_dir,
         ):
             role = role_def["name"]
             # Accept both .json and .md report formats
@@ -372,12 +374,12 @@ class Guard:
     def check_cross_task_conflicts(self) -> CheckResult:
         return self._reviews.check_cross_task_conflicts()
 
-    def check_phase_completeness(self, task: Task, lightweight: bool = False) -> CheckResult:
+    def check_phase_completeness(self, task: Task) -> CheckResult:
         """Verify no phases were skipped in the task's history."""
         from kanban_framework.infra.scheduler import Scheduler
-        mode = getattr(task, 'mode', 'lightweight')
+        from kanban_framework.infra.consts import Consts
+        mode = getattr(task, 'mode', '') or Consts.DEFAULT_MODE
         order = Scheduler.dispatch_order(
-            lightweight=lightweight, quick=(mode == 'quick'),
             mode=mode, workflow=self._cfg.workflow,
             kanban_dir=self._fs.kanban_dir,
         )
@@ -498,10 +500,10 @@ class Guard:
         Each check runs independently -- one failure does not block others.
         """
         return {
-            "check_artifacts": self.check_artifacts(task, task.phase, lightweight=task.lightweight),
+            "check_artifacts": self.check_artifacts(task, task.phase),
             "check_plan_quality": self.check_plan_quality(task, report_dir),
             "check_parallel_conflicts": self.check_parallel_conflicts(task),
-            "check_phase_completeness": self.check_phase_completeness(task, lightweight=task.lightweight),
+            "check_phase_completeness": self.check_phase_completeness(task),
             "check_brainstorming": self.check_brainstorming(task),
         }
 

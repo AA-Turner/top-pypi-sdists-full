@@ -72,6 +72,11 @@ def cmd_init(args: list[str]) -> dict:
     workflows_dir = fs.kanban_dir / "workflows"
     from kanban_framework.infra.filesystem import Filesystem as FS
     skill_src = FS.find_skill_dir()
+    import logging
+    _init_log = logging.getLogger("kanban")
+    _init_log.info("init: skill_src=%s exists=%s", skill_src, skill_src.is_dir())
+    if not (skill_src / "SKILL.md").is_file():
+        _init_log.warning("init: SKILL.md not found at %s — skill sync will be incomplete", skill_src)
     # Try multiple paths for workflow presets — prefer package dir (has full step data)
     for preset_src in (Path(__file__).resolve().parent.parent / "workflows",
                        skill_src / "workflows"):
@@ -105,13 +110,14 @@ def cmd_init(args: list[str]) -> dict:
     def _sync_file(src: Path, dst: Path) -> None:
         rel = str(dst.relative_to(root))
         try:
+            content = src.read_text(encoding="utf-8")
             if not dst.exists():
                 fs.ensure_dir(dst.parent)
-                dst.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+                dst.write_text(content, encoding="utf-8", newline="\n")
                 added.append(rel)
-            elif dst.read_text(encoding="utf-8") != src.read_text(encoding="utf-8"):
+            elif dst.read_text(encoding="utf-8") != content:
                 if apply_updates:
-                    dst.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+                    dst.write_text(content, encoding="utf-8", newline="\n")
                     updated.append(rel)
                 else:
                     pending_updates.append(rel)
@@ -120,10 +126,15 @@ def cmd_init(args: list[str]) -> dict:
 
     def _sync_dir(src_dir: Path, dst_dir: Path) -> None:
         if not dst_dir.exists():
-            import shutil
+            # Use file-by-file copy instead of shutil.copytree for Windows compat
             try:
-                shutil.copytree(str(src_dir), str(dst_dir))
-                added.append(str(dst_dir.relative_to(root)))
+                for src_file in sorted(src_dir.rglob("*")):
+                    if src_file.is_file():
+                        rel_p = src_file.relative_to(src_dir)
+                        dst_file = dst_dir / rel_p
+                        _sync_file(src_file, dst_file)
+                if dst_dir.is_dir():
+                    added.append(str(dst_dir.relative_to(root)))
             except Exception as exc:
                 sync_errors.append(f"{dst_dir.relative_to(root)}: {exc}")
             return
@@ -146,6 +157,8 @@ def cmd_init(args: list[str]) -> dict:
             _sync_file(src_path, dst_path)
         elif src_path.is_dir():
             _sync_dir(src_path, dst_path)
+        else:
+            sync_errors.append(f"{src_path.name}: source not found at {skill_src}")
 
     # Sync templates (config.json, workflow.json)
     tmpl_src = skill_src / "templates"

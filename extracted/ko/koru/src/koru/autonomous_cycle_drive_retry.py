@@ -8,6 +8,9 @@ from koru.autonomous_cycle_chat_activity import _inject_reflection_summary_into_
 from koru.autonomous_cycle_common import _queue_loop_waiting_ticket_label
 from koru.autonomous_drive_retry_policy import _handle_failed_drive_attempt
 from koru.autonomy.env import (
+    allow_gillm_autopilot_fallback as _allow_gillm_autopilot_fallback,
+)
+from koru.autonomy.env import (
     allow_keyboard_autopilot_fallback as _allow_keyboard_autopilot_fallback,
 )
 from koru.autonomy.env import (
@@ -85,8 +88,12 @@ def _ide_supports_vscode_plugin(autopilot_ide: str) -> bool:
 
 
 def _operator_forces_keyboard() -> bool:
-    """User explicitly demanded keyboard/OS-injector path; do not override."""
-    return _allow_keyboard_autopilot_fallback() or _prefer_keyboard_autopilot()
+    """User opted into keyboard/gillm fallback; do not override with strict plugin."""
+    return (
+        _allow_keyboard_autopilot_fallback()
+        or _prefer_keyboard_autopilot()
+        or _allow_gillm_autopilot_fallback()
+    )
 
 
 def _client_has_usable_plugin(client: Any, autopilot_ide: str) -> tuple[bool, str]:
@@ -106,6 +113,24 @@ def _client_has_usable_plugin(client: Any, autopilot_ide: str) -> tuple[bool, st
         return True, ""
 
     return plugin_status_decision(status, autopilot_ide)
+
+
+def _try_gillm_gui_fallback(
+    prompt: str,
+    *,
+    submit: bool,
+    ide: str,
+    project: Path | None = None,
+) -> dict[str, Any] | None:
+    """Delegate to :func:`koru.autonomous._try_gillm_gui_fallback` (monkeypatch-friendly)."""
+    from koru import autonomous as _autonomous_mod
+
+    return _autonomous_mod._try_gillm_gui_fallback(
+        prompt,
+        submit=submit,
+        ide=ide,
+        project=project,
+    )
 
 
 def _try_os_injector_fallback(prompt: str, *, submit: bool) -> dict[str, Any] | None:
@@ -210,27 +235,41 @@ def _resolve_autopilot_drive_decision(
     return decision, idle_prompt_kind
 
 
-def _drive_autopilot_once(
+def _invoke_client_autopilot_drive(
     client: Any,
     *,
     prompt: str,
     submit: bool,
     autopilot_ide: str,
     require_plugin: bool,
+    strategy_hint: str | None = None,
+    project: Path | None = None,
 ) -> tuple[dict[str, Any], bool]:
-    reply = client.drive(
-        prompt,
-        submit=submit,
-        ide=autopilot_ide,
-        require_plugin=require_plugin,
-    )
+    drive_kwargs: dict[str, Any] = {
+        "submit": submit,
+        "ide": autopilot_ide,
+        "require_plugin": require_plugin,
+    }
+    if strategy_hint:
+        drive_kwargs["strategy_hint"] = strategy_hint
+    reply = client.drive(prompt, **drive_kwargs)
     ok = bool(reply.get("ok", True))
     if ok or require_plugin:
         return reply, ok
+    gillm = _try_gillm_gui_fallback(
+        prompt,
+        submit=submit,
+        ide=autopilot_ide,
+        project=project,
+    )
+    if gillm is not None and gillm.get("ok"):
+        return gillm, True
     fallback = _try_os_injector_fallback(prompt, submit=submit)
-    if fallback is None:
-        return reply, ok
-    return fallback, bool(fallback.get("ok", True))
+    if fallback is not None:
+        return fallback, bool(fallback.get("ok", True))
+    if gillm is not None:
+        return gillm, bool(gillm.get("ok", True))
+    return reply, ok
 
 
 def _waiting_ticket_closed_skip_result(
@@ -404,16 +443,20 @@ def _run_drive_retry_loop(
     require_plugin: bool,
     attempts: int,
     engine: EnvironmentDecisionEngine,
+    strategy_hint: str | None = None,
+    project: Path | None = None,
     _hp: Callable[..., Any],
 ) -> tuple[dict[str, Any], bool]:
     previous_signature: str | None = None
     for attempt in range(attempts):
-        reply, ok = _drive_autopilot_once(
+        reply, ok = _invoke_client_autopilot_drive(
             client,
             prompt=prompt,
             submit=submit,
             autopilot_ide=autopilot_ide,
             require_plugin=require_plugin,
+            strategy_hint=strategy_hint,
+            project=project,
         )
         if ok:
             break
@@ -470,6 +513,11 @@ def _execute_autopilot_drive(
     require_plugin = _resolve_drive_plugin_requirement(client, autopilot_ide)
     attempts = _max_drive_retries()
     engine = _active_decision_engine(project, autopilot_ide)
+    from koru.autonomous_submit_strategy import consume_pending_submit_strategy_hint
+
+    strategy_hint = consume_pending_submit_strategy_hint(state)
+    if strategy_hint:
+        _hp(f"  autopilot: submit strategy hint={strategy_hint}")
     reply, ok = _run_drive_retry_loop(
         client,
         prompt=decision.prompt,
@@ -478,6 +526,8 @@ def _execute_autopilot_drive(
         require_plugin=require_plugin,
         attempts=attempts,
         engine=engine,
+        strategy_hint=strategy_hint,
+        project=project,
         _hp=_hp,
     )
 

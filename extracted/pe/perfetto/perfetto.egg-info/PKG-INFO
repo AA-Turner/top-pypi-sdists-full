@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: perfetto
-Version: 0.16.0
+Version: 0.56.0
 Summary: Python APIs and bindings for Perfetto (perfetto.dev)
 Home-page: https://perfetto.dev/
-Download-URL: https://github.com/google/perfetto/archive/bb5f4f019e2a1b5bc6e4c8203f05890d96467cf7.zip
+Download-URL: https://github.com/google/perfetto/archive/a760e3fc2f84d84225bfb4928d281c4b7c51d193.zip
 Author: Perfetto
 Author-email: perfetto-pypi@google.com
 License: apache-2.0
@@ -20,6 +20,8 @@ Provides-Extra: numpy
 Requires-Dist: numpy; extra == "numpy"
 Provides-Extra: pandas
 Requires-Dist: pandas; extra == "pandas"
+Provides-Extra: polars
+Requires-Dist: polars; extra == "polars"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

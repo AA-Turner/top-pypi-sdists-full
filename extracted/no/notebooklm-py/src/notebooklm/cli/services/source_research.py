@@ -2,7 +2,7 @@
 
 Owns research start orchestration and the optional ``--import-all`` step.
 The protocol-level wait loop and task-id pinning live in
-``ResearchAPI.wait_for_completion``. ADR-008 boundary: this module returns
+``ResearchAPI.wait_for_completion``. ADR-0008 boundary: this module returns
 a discriminated :class:`SourceAddResearchResult` and never touches
 ``console``/``exit_with_code`` — the command layer in
 ``cli/source_cmd.py`` owns rendering and exit-code policy. It MAY call the
@@ -80,7 +80,7 @@ async def execute_source_add_research(
     """Start research, poll until completion, and optionally import sources.
 
     Returns a :class:`SourceAddResearchResult` whose ``outcome`` discriminates
-    every terminal state the pre-extraction handler distinguished:
+    every terminal state:
 
     * ``started_no_wait`` — ``--no-wait`` returned early after ``research.start``.
     * ``start_failed`` — ``research.start`` returned empty.
@@ -97,7 +97,7 @@ async def execute_source_add_research(
     The service is fully I/O-free except for the underlying ``client``
     awaits: it never calls ``console.print``, ``click.echo``, or
     ``exit_with_code``. The command handler owns rendering and exit-code
-    policy per ADR-008.
+    policy per ADR-0008.
 
     The wait call passes the task discriminator returned by ``research.start``
     so a second research task started mid-wait (e.g. concurrent caller, web UI,
@@ -111,11 +111,11 @@ async def execute_source_add_research(
     if not result:
         return SourceAddResearchResult(outcome="start_failed", plan=plan)
 
-    start_task_id = result["task_id"]
+    start_task_id = result.task_id
     # Deep research polls under the report id returned in slot 1 of the
     # START_DEEP_RESEARCH response; the first slot is not stable for
     # POLL_RESEARCH / IMPORT_RESEARCH.
-    task_id = result.get("report_id") if plan.mode == "deep" else start_task_id
+    task_id = result.report_id if plan.mode == "deep" else start_task_id
     task_id = task_id or start_task_id
 
     # Non-blocking mode: return immediately. Research will keep running
@@ -134,7 +134,7 @@ async def execute_source_add_research(
             plan.notebook_id,
             task_id=task_id,
             timeout=float(plan.timeout),
-            interval=float(_POLL_INTERVAL_S),
+            initial_interval=float(_POLL_INTERVAL_S),
         )
     except TimeoutError:
         return SourceAddResearchResult(
@@ -144,9 +144,11 @@ async def execute_source_add_research(
             poll_task_id=task_id,
         )
 
-    status_val = status.get("status", "unknown")
-    sources = status.get("sources", []) or []
-    report = status.get("report", "") or ""
+    status_val = status.status.value
+    # ``import_research_sources`` / ``SourceAddResearchResult`` consume the
+    # legacy ``list[dict]`` source shape, so serialize the typed sources here.
+    sources = [src.to_public_dict() for src in status.sources]
+    report = status.report or ""
 
     if status_val == "completed":
         import_result: ResearchImportResult | None = None

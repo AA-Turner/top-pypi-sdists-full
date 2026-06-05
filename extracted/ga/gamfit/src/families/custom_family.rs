@@ -1,6 +1,6 @@
 use crate::cache::Fingerprinter;
 use crate::faer_ndarray::FaerEigh;
-use crate::faer_ndarray::{FaerCholesky, fast_atb, fast_av};
+use crate::faer_ndarray::{FaerCholesky, fast_ab, fast_atb, fast_av};
 use crate::matrix::{
     DesignMatrix, EmbeddedColumnBlock, EmbeddedSquareBlock, LinearOperator, SignedWeightsView,
     SymmetricMatrix, dense_rowwise_kronecker,
@@ -72,6 +72,13 @@ pub enum PenaltyMatrix {
         label: String,
         inner: Box<PenaltyMatrix>,
     },
+    /// Wrapper fixing this penalty component at a physical log-precision.
+    /// Fixed components remain in the block-local physical penalty layout but
+    /// are removed from the REML outer coordinate vector.
+    Fixed {
+        log_lambda: f64,
+        inner: Box<PenaltyMatrix>,
+    },
 }
 
 impl PenaltyMatrix {
@@ -81,7 +88,7 @@ impl PenaltyMatrix {
             Self::Dense(m) => m.nrows(),
             Self::KroneckerFactored { left, right } => left.nrows() * right.nrows(),
             Self::Blockwise { total_dim, .. } => *total_dim,
-            Self::Labeled { inner, .. } => inner.dim(),
+            Self::Labeled { inner, .. } | Self::Fixed { inner, .. } => inner.dim(),
         }
     }
 
@@ -111,7 +118,7 @@ impl PenaltyMatrix {
                 .assign(local);
                 g
             }
-            Self::Labeled { inner, .. } => inner.to_dense(),
+            Self::Labeled { inner, .. } | Self::Fixed { inner, .. } => inner.to_dense(),
         }
     }
 
@@ -119,9 +126,10 @@ impl PenaltyMatrix {
     pub fn as_dense_cow(&self) -> std::borrow::Cow<'_, Array2<f64>> {
         match self {
             Self::Dense(m) => std::borrow::Cow::Borrowed(m),
-            Self::KroneckerFactored { .. } | Self::Blockwise { .. } | Self::Labeled { .. } => {
-                std::borrow::Cow::Owned(self.to_dense())
-            }
+            Self::KroneckerFactored { .. }
+            | Self::Blockwise { .. }
+            | Self::Labeled { .. }
+            | Self::Fixed { .. } => std::borrow::Cow::Owned(self.to_dense()),
         }
     }
 
@@ -138,6 +146,7 @@ impl PenaltyMatrix {
     pub fn as_dense_ref(&self) -> Option<&Array2<f64>> {
         match self {
             Self::Dense(m) => Some(m),
+            Self::Fixed { inner, .. } => inner.as_dense_ref(),
             Self::KroneckerFactored { .. } | Self::Blockwise { .. } | Self::Labeled { .. } => None,
         }
     }
@@ -152,6 +161,22 @@ impl PenaltyMatrix {
     pub fn precision_label(&self) -> Option<&str> {
         match self {
             Self::Labeled { label, .. } => Some(label.as_str()),
+            Self::Fixed { .. } => None,
+            _ => None,
+        }
+    }
+
+    pub fn with_fixed_log_lambda(self, log_lambda: f64) -> Self {
+        Self::Fixed {
+            log_lambda,
+            inner: Box::new(self),
+        }
+    }
+
+    pub fn fixed_log_lambda(&self) -> Option<f64> {
+        match self {
+            Self::Fixed { log_lambda, .. } => Some(*log_lambda),
+            Self::Labeled { inner, .. } => inner.fixed_log_lambda(),
             _ => None,
         }
     }
@@ -186,7 +211,7 @@ impl PenaltyMatrix {
                     .assign(&result_block);
                 out
             }
-            Self::Labeled { inner, .. } => inner.dot(v),
+            Self::Labeled { inner, .. } | Self::Fixed { inner, .. } => inner.dot(v),
         }
     }
 
@@ -223,7 +248,9 @@ impl PenaltyMatrix {
                     .slice_mut(ndarray::s![col_range.clone(), col_range.clone()])
                     .scaled_add(lambda, local);
             }
-            Self::Labeled { inner, .. } => inner.add_scaled_to(lambda, target),
+            Self::Labeled { inner, .. } | Self::Fixed { inner, .. } => {
+                inner.add_scaled_to(lambda, target)
+            }
         }
     }
 
@@ -260,7 +287,9 @@ impl PenaltyMatrix {
                     target[col_range.start + local_idx] += lambda * local[[local_idx, local_idx]];
                 }
             }
-            Self::Labeled { inner, .. } => inner.add_scaled_diag_to(lambda, target),
+            Self::Labeled { inner, .. } | Self::Fixed { inner, .. } => {
+                inner.add_scaled_diag_to(lambda, target)
+            }
         }
     }
 
@@ -279,7 +308,7 @@ impl PenaltyMatrix {
                 let sv = local.dot(&beta_block);
                 beta_block.dot(&sv)
             }
-            Self::Labeled { inner, .. } => inner.quadratic_form(beta),
+            Self::Labeled { inner, .. } | Self::Fixed { inner, .. } => inner.quadratic_form(beta),
         }
     }
 
@@ -1426,9 +1455,13 @@ fn assert_states_match_specs(
             spec.design.ncols(),
             "{context}: beta length mismatch in block {block}"
         );
+        // `state.eta` is produced from `solver_design()` (see
+        // `refresh_all_block_etas`), which is `stacked_design` when set
+        // (3·n_obs rows for survival LS time-varying blocks) and `design`
+        // (n_obs rows) otherwise. Use the same accessor here.
         assert_eq!(
             state.eta.len(),
-            spec.design.nrows(),
+            spec.solver_design().nrows(),
             "{context}: eta length mismatch in block {block}"
         );
     }
@@ -2152,14 +2185,13 @@ pub trait CustomFamily {
     /// lacks an explicit callback, so the audit routes channel-aware
     /// automatically. The total channel count is `channels.iter().max() + 1`.
     ///
-    /// Default `None`: the family is single-output (or has already wired its
-    /// own multi-output callbacks); the flat audit is used unchanged.
+    /// Default: every block drives output channel 0. `wire_output_channels`
+    /// recognizes this as the single-output flat route and leaves specs unchanged.
     ///
     /// When `Some`, the returned vector MUST have length equal to the number
     /// of blocks; `fit_custom_family` surfaces a structured error otherwise.
     fn output_channel_assignment(&self, specs: &[ParameterBlockSpec]) -> Option<Vec<usize>> {
-        assert_valid_blockspecs(specs, "output_channel_assignment");
-        None
+        Some(vec![0; specs.len()])
     }
 
     /// Optional dynamic geometry hook for blocks whose design/offset depend on
@@ -2724,8 +2756,42 @@ pub trait CustomFamily {
         } else if self.has_explicit_joint_hessian() {
             self.exact_newton_joint_hessian(block_states)
         } else {
-            Ok(None)
+            // Multi-block coupled family that did NOT set the explicit marker.
+            // The marker exists because the trait cannot reflect on whether
+            // `exact_newton_joint_hessian` was overridden — its *default* impl
+            // assembles a strictly block-diagonal matrix from per-block exact
+            // blocks, which would silently drop cross-block ∂²L/∂β_a∂β_b
+            // curvature for a coupled likelihood. But the marker is not the
+            // only available signal: a family that genuinely overrides the
+            // joint Hessian with true coupled curvature produces a matrix with
+            // *nonzero off-diagonal blocks*, which the block-diagonal default
+            // can never produce. Detect that structurally and trust it. A
+            // returned matrix that is block-diagonal is indistinguishable from
+            // the default for a coupled family, so it stays gated to None.
+            match self.exact_newton_joint_hessian(block_states)? {
+                Some(hessian) if joint_hessian_has_cross_block_coupling(&hessian, block_states) => {
+                    Ok(Some(hessian))
+                }
+                _ => Ok(None),
+            }
         }
+    }
+
+    /// Structural-coupling probe shared by the `_with_specs` joint dispatch
+    /// gates: is the family's `exact_newton_joint_hessian` a genuinely coupled
+    /// matrix (nonzero off-diagonal blocks), as opposed to the trait's
+    /// block-diagonal default? This is the marker-free signal that lets the
+    /// engine trust a coupled multi-block family that overrode the joint
+    /// Hessian without hand-setting `has_explicit_joint_hessian()`. Returns
+    /// `false` when no joint Hessian is available or it is block-diagonal.
+    fn joint_hessian_is_structurally_coupled(
+        &self,
+        block_states: &[ParameterBlockState],
+    ) -> Result<bool, String> {
+        Ok(match self.exact_newton_joint_hessian(block_states)? {
+            Some(hessian) => joint_hessian_has_cross_block_coupling(&hessian, block_states),
+            None => false,
+        })
     }
 
     /// Whether the family's log-likelihood Hessian is block-diagonal in the
@@ -2889,7 +2955,12 @@ pub trait CustomFamily {
                     d_beta_flat,
                 ),
             }
-        } else if self.has_explicit_joint_hessian() {
+        } else if self.has_explicit_joint_hessian()
+            || self.joint_hessian_is_structurally_coupled(block_states)?
+        {
+            // Marked, or structurally detected coupled (see
+            // `exact_newton_joint_hessian_with_specs`): the family's own
+            // directional derivative is the trusted cross-block `D_β H[u]`.
             self.exact_newton_joint_hessian_directional_derivative(block_states, d_beta_flat)
         } else {
             Ok(None)
@@ -2931,7 +3002,13 @@ pub trait CustomFamily {
         // outer trace assembly on coupled families.  Unlike the lower-order
         // paths, there is no working-sets fallback — both trusted branches
         // call the same delegate, so a single helper predicate suffices.
-        if !self.outer_default_trustworthy_for_joint_hessian(specs) {
+        // The marker predicate is supplemented by the marker-free structural
+        // probe so an auto-routed coupled family (one that returns a genuinely
+        // off-diagonal joint Hessian without setting the explicit marker) is
+        // trusted consistently across all three derivative orders.
+        if !self.outer_default_trustworthy_for_joint_hessian(specs)
+            && !self.joint_hessian_is_structurally_coupled(block_states)?
+        {
             return Ok(None);
         }
         self.exact_newton_joint_hessiansecond_directional_derivative(
@@ -3207,16 +3284,6 @@ pub trait CustomFamily {
         Ok(None)
     }
 
-    /// Whether pseudo-Laplace traces and sensitivities may use the positive
-    /// curvature subspace when the exact mode Hessian is only semidefinite.
-    ///
-    /// Families that legitimately optimize to boundary regimes with exact
-    /// zero-curvature directions can opt in; truly indefinite Hessians are
-    /// still rejected.
-    fn exact_newton_allows_semidefinitehessian(&self) -> bool {
-        false
-    }
-
     /// How the penalized Hessian's log-determinant and its derivatives
     /// should handle eigenvalues below the numerical-stability floor.
     ///
@@ -3379,6 +3446,35 @@ pub struct BlockwiseFitOptions {
     /// `ParameterBlockSpec.penalties`. The per-block path is unchanged.
     /// `None` preserves legacy behaviour for every existing caller.
     pub joint_penalties: Option<Arc<crate::families::joint_penalty::JointPenaltyBundle>>,
+    /// Whether the outer smoothing optimizer screens the explicit
+    /// `initial_rho` seed through the seed-screening cascade before the
+    /// solver starts.
+    ///
+    /// **Default `true`** — the general path benefits from ranking the
+    /// initial seed against the generated exploration seeds via cheap
+    /// capped proxy fits.
+    ///
+    /// A caller sets this `false` when `initial_rho` is already the correct,
+    /// identified optimum for its regime so that re-screening it adds only
+    /// cost. The survival location-scale constant-scale (parametric-AFT)
+    /// path uses this: its time-warp ρ seed is pinned AT the inner ρ box
+    /// bound (the affine-baseline limit), where the REML/LAML profile is a
+    /// dead-flat unidentified ridge. Running the screening cascade there
+    /// drives each proxy fit (and, when every capped stage collapses to
+    /// non-finite cost, the uncapped final stage) into a full inner solve on
+    /// the near-singular flat Hessian — the source of the multi-minute
+    /// no-iteration-log stall (#736, #735, #721). Skipping screening lets the
+    /// already-correct seed flow straight to the outer solver, which certifies
+    /// box-constraint stationarity at iteration 0. Genuinely flexible regimes
+    /// (smooth scale / spatial) leave this `true` and keep full screening.
+    pub screen_initial_rho: bool,
+    /// Universal under-identification robustness policy threaded from the
+    /// workflow `FitConfig`. `Off` (default) is byte-identical to the released
+    /// solver: every pinned BMS ridge stays installed and no Firth/orthogonal
+    /// reparameterization machinery runs. `Auto`/`Force` arm the structural
+    /// cure on supported custom-family paths (BMS-probit). The struct's
+    /// `Default` keeps this `Off` so no existing caller changes behavior.
+    pub robust_identification: crate::solver::workflow::RobustIdentification,
 }
 
 pub const DEFAULT_CUSTOM_FAMILY_INNER_MAX_CYCLES: usize = 1200;
@@ -3426,6 +3522,8 @@ impl Default for BlockwiseFitOptions {
             cache_session: None,
             cache_mirror_sessions: Vec::new(),
             joint_penalties: None,
+            screen_initial_rho: true,
+            robust_identification: crate::solver::workflow::RobustIdentification::Off,
         }
     }
 }
@@ -3712,6 +3810,11 @@ fn hash_cf_penalty(hasher: &mut Fingerprinter, penalty: &PenaltyMatrix) {
             hasher.write_str(label);
             hash_cf_penalty(hasher, inner);
         }
+        PenaltyMatrix::Fixed { log_lambda, inner } => {
+            hasher.write_str("fixed");
+            hasher.write_u64(log_lambda.to_bits());
+            hash_cf_penalty(hasher, inner);
+        }
     }
 }
 
@@ -3963,6 +4066,17 @@ pub struct BlockwiseFitResultParts {
     pub inner_cycles: usize,
     pub outer_converged: bool,
     pub geometry: Option<FitGeometry>,
+    /// Effective degrees of freedom computed by the caller in the *reduced*
+    /// (canonical) coefficient space, where the penalized Hessian is full rank,
+    /// as `(edf_total, edf_by_penalty, block_edf)`. The trace edf is invariant
+    /// under the canonical reparameterization, so computing it in the reduced
+    /// space and reporting it on the raw fit is exact — and it avoids the
+    /// `tr((H_raw + εI)⁻¹ S_raw)` blow-up that a rank-deficient raw-lifted
+    /// Hessian (zero rows/cols on canonicalization-dropped directions) would
+    /// otherwise inject. `None` when the caller has no reduced geometry (e.g.
+    /// the one-cycle inner probe), in which case `blockwise_fit_from_parts`
+    /// falls back to computing edf from whatever geometry it was handed.
+    pub precomputed_edf: Option<(f64, Vec<f64>, Vec<f64>)>,
 }
 
 use crate::inference::diagnostics::format_top_abs as format_top_abs_array_entries;
@@ -4053,6 +4167,189 @@ fn validate_lambda_pair_consistency(
     Ok(())
 }
 
+/// Effective degrees of freedom for a converged blockwise custom-family fit,
+/// computed from the joint penalized Hessian `H = X'W_HX + S(λ)` and the
+/// per-penalty matrices `S_k` exactly as the standard GAM path and mgcv do:
+///
+/// ```text
+/// edf_total   = p − Σ_k λ_k · tr(H⁻¹ S_k)
+/// edf_penalty = (rank_k − λ_k · tr(H⁻¹ S_k))   clamped to [0, rank_k]
+/// ```
+///
+/// `S_k` here is the *unscaled* penalty (its `λ_k` factor is applied here), and
+/// each `S_k.to_dense()` is already embedded in the joint `p × p` coefficient
+/// layout (the Blockwise / Kronecker variants place their local block at the
+/// correct column range), so the trace solve runs in the full joint space and
+/// no per-block offset bookkeeping is required.
+///
+/// The custom-family path (CTN transformation-normal, Dirichlet, …) builds its
+/// fit through `blockwise_fit_from_parts` and previously left `inference` at
+/// `None`, so `edf_total` was unavailable for every custom family even though
+/// the converged geometry already carries the penalized Hessian. This mirrors
+/// the survival-path repair (`survival_transformation_edf`, #565) for the
+/// blockwise engine: the same trace formula, factorized with the same
+/// ridge-retry stabilization so a marginally indefinite Hessian at a boundary
+/// optimum still yields a usable trace instead of dropping inference.
+///
+/// `edf_penalty` is returned aligned 1:1 with the flattened `lambdas`
+/// (one entry per penalty across all blocks), matching the
+/// `FitInference::edf_by_block` ↔ `lambdas` length invariant. The per-block
+/// aggregate edf (for `FittedBlock::edf`) is the sum of that block's penalty
+/// edfs, with an unpenalized block contributing its full column count.
+fn custom_family_blockwise_edf(
+    penalized_hessian: &Array2<f64>,
+    specs: &[ParameterBlockSpec],
+    lambdas: &ndarray::ArrayView1<'_, f64>,
+) -> Result<(f64, Vec<f64>, Vec<f64>), String> {
+    let p = penalized_hessian.nrows();
+    let total_cols: usize = specs.iter().map(|s| s.design.ncols()).sum();
+    if penalized_hessian.ncols() != p || total_cols != p {
+        return Err(format!(
+            "custom-family edf: penalized Hessian {}x{} inconsistent with total block width {}",
+            penalized_hessian.nrows(),
+            penalized_hessian.ncols(),
+            total_cols
+        ));
+    }
+    let expected_rho: usize = specs.iter().map(|s| s.penalties.len()).sum();
+    if lambdas.len() != expected_rho {
+        return Err(format!(
+            "custom-family edf: lambdas length {} does not match total penalty count {}",
+            lambdas.len(),
+            expected_rho
+        ));
+    }
+
+    let h_sym = SymmetricMatrix::Dense(penalized_hessian.clone());
+    // Sparse-aware factorization with ridge retry (mirrors estimate.rs and
+    // survival_transformation_edf): a boundary-constrained optimum can leave
+    // the penalized Hessian marginally indefinite, in which case we add the
+    // smallest diagonal shift that restores definiteness so the trace solve
+    // succeeds rather than dropping inference for the whole fit.
+    let factor = {
+        let scale = h_sym.max_abs_diag();
+        let min_step = scale * 1e-10;
+        let mut ridge = 0.0_f64;
+        let mut attempts = 0_usize;
+        loop {
+            let candidate = if ridge > 0.0 {
+                h_sym.addridge(ridge).unwrap_or_else(|_| h_sym.clone())
+            } else {
+                h_sym.clone()
+            };
+            if let Ok(f) = candidate.factorize() {
+                break f;
+            }
+            attempts += 1;
+            if attempts >= 8 {
+                return Err(
+                    "custom-family edf: penalized Hessian could not be factorized".to_string(),
+                );
+            }
+            ridge = if ridge <= 0.0 { min_step } else { ridge * 10.0 };
+        }
+    };
+
+    let mut edf_by_penalty = vec![0.0_f64; expected_rho];
+    let mut block_edf = Vec::with_capacity(specs.len());
+    let mut total_trace = 0.0_f64;
+    let mut penalty_offset = 0usize;
+    let mut block_col_start = 0usize;
+    for spec in specs.iter() {
+        let block_cols = spec.design.ncols();
+        let mut block_edf_acc = block_cols as f64;
+        for (local_k, penalty) in spec.penalties.iter().enumerate() {
+            let global_k = penalty_offset + local_k;
+            let lambda = lambdas[global_k];
+            // Embed S_k into the full p×p joint layout. `PenaltyMatrix::to_dense`
+            // returns the *local* block matrix for the `Dense` variant but the
+            // already-embedded full-width matrix for `Blockwise`/`Kronecker`, so
+            // dispatch on the materialized dimension: a local (block_cols-wide)
+            // penalty is placed at this block's column range, a full-width
+            // penalty is used as-is (mirrors `survival_transformation_edf`'s
+            // explicit block placement).
+            let s_local = penalty.to_dense();
+            let mut s_full = Array2::<f64>::zeros((p, p));
+            if s_local.nrows() == p && s_local.ncols() == p {
+                s_full.assign(&s_local);
+            } else if s_local.nrows() == block_cols && s_local.ncols() == block_cols {
+                let r = block_col_start..block_col_start + block_cols;
+                s_full.slice_mut(ndarray::s![r.clone(), r]).assign(&s_local);
+            } else {
+                return Err(format!(
+                    "custom-family edf: penalty {global_k} materialized to {}x{}, expected {p}x{p} or {block_cols}x{block_cols}",
+                    s_local.nrows(),
+                    s_local.ncols()
+                ));
+            }
+            // tr(H⁻¹ S_k) via H Z = S_k, summing the diagonal of Z.
+            let z = factor.solvemulti(&s_full).map_err(|e| {
+                format!("custom-family edf trace solve failed for penalty {global_k}: {e}")
+            })?;
+            let mut trace = 0.0_f64;
+            for d in 0..p {
+                trace += z[[d, d]];
+            }
+            let lam_trace = if lambda > 0.0 { lambda * trace } else { 0.0 };
+            total_trace += lam_trace;
+            // Per-penalty edf is bounded by the columns this penalty acts on,
+            // i.e. its block's column count (a `Blockwise` penalty reports the
+            // full joint width from `dim()`, so cap at `block_cols`, not `dim()`).
+            let penalty_cols = block_cols as f64;
+            let edf_k = (penalty_cols - lam_trace).clamp(0.0, penalty_cols);
+            edf_by_penalty[global_k] = edf_k;
+            // The block's edf is the column count minus the total trace this
+            // block's penalties spend (so multiple penalties on one block
+            // compose), clamped to the block's column count.
+            block_edf_acc -= lam_trace;
+        }
+        block_edf.push(block_edf_acc.clamp(0.0, block_cols as f64));
+        penalty_offset += spec.penalties.len();
+        block_col_start += block_cols;
+    }
+
+    let edf_total = (p as f64 - total_trace).clamp(0.0, p as f64);
+    if !edf_total.is_finite()
+        || edf_by_penalty.iter().any(|v| !v.is_finite())
+        || block_edf.iter().any(|v| !v.is_finite())
+    {
+        return Err("custom-family edf: non-finite effective degrees of freedom".to_string());
+    }
+    Ok((edf_total, edf_by_penalty, block_edf))
+}
+
+/// Compute reduced-space effective degrees of freedom for a converged fit,
+/// to be carried through `BlockwiseFitResultParts::precomputed_edf`.
+///
+/// The reduced (canonical) geometry's penalized Hessian is full rank and its
+/// `reduced_specs` carry the pulled-back penalties `T_iᵀ S_k T_i`, so the trace
+/// edf is computed exactly here (no rank-deficiency ridge bias). Because the
+/// trace edf is invariant under the canonical reparameterization, the resulting
+/// `edf_total` / per-penalty / per-block values are the same as they would be
+/// in the raw basis and are reported directly on the lifted raw fit. Returns
+/// `None` when no reduced geometry is available, so the caller can leave
+/// `precomputed_edf` unset (and the raw-geometry fallback applies).
+fn reduced_blockwise_edf(
+    reduced_geometry: Option<&FitGeometry>,
+    canonical: &crate::solver::identifiability_canonical::CanonicalSpecs,
+    lambdas: &Array1<f64>,
+) -> Option<(f64, Vec<f64>, Vec<f64>)> {
+    let geom = reduced_geometry?;
+    match custom_family_blockwise_edf(
+        geom.penalized_hessian.as_array(),
+        &canonical.reduced_specs,
+        &lambdas.view(),
+    ) {
+        Ok(triple) => Some(triple),
+        Err(err) => {
+            log::warn!(
+                "[custom-family inference] reduced-space effective degrees of freedom unavailable: {err}"
+            );
+            None
+        }
+    }
+}
+
 /// Build a `UnifiedFitResult` from blockwise-specific fields.
 pub fn blockwise_fit_from_parts(
     parts: BlockwiseFitResultParts,
@@ -4071,6 +4368,7 @@ pub fn blockwise_fit_from_parts(
         inner_cycles,
         outer_converged,
         geometry,
+        precomputed_edf,
     } = parts;
 
     if block_states.is_empty() {
@@ -4184,6 +4482,50 @@ pub fn blockwise_fit_from_parts(
             expected_rho
         ) }.into());
     }
+    // Effective degrees of freedom and the inference block. When the
+    // converged geometry carries the joint penalized Hessian we compute the
+    // mgcv trace edf `p − Σ_k λ_k·tr(H⁻¹ S_k)` here so every custom-family fit
+    // (CTN transformation-normal, Dirichlet, …) reports `edf_total` /
+    // per-block `edf` like the standard GAM path, instead of leaving inference
+    // unpopulated. A factorization failure is non-fatal: the fit still returns
+    // with `edf=0`/`inference=None` rather than aborting, but in practice the
+    // ridge-retry inside `custom_family_blockwise_edf` recovers any boundary
+    // indefiniteness.
+    let (edf_total_opt, edf_by_penalty, block_edf): (Option<f64>, Vec<f64>, Vec<f64>) =
+        match precomputed_edf {
+            // Reduced-space edf supplied by the caller (the principled path:
+            // the trace is computed where the Hessian is full rank, then
+            // reported on the raw fit — exact because the trace edf is
+            // reparameterization-invariant).
+            Some((edf_total, edf_by_penalty, block_edf)) => {
+                (Some(edf_total), edf_by_penalty, block_edf)
+            }
+            // Fallback: compute from whatever geometry we were handed. Used
+            // only when the caller did not precompute (no reduced geometry);
+            // the ridge-retry factorization makes this robust to a marginally
+            // indefinite Hessian.
+            None => match geometry.as_ref() {
+                Some(geom) => {
+                    match custom_family_blockwise_edf(
+                        geom.penalized_hessian.as_array(),
+                        specs,
+                        &lambdas.view(),
+                    ) {
+                        Ok((edf_total, edf_by_penalty, block_edf)) => {
+                            (Some(edf_total), edf_by_penalty, block_edf)
+                        }
+                        Err(err) => {
+                            log::warn!(
+                                "[custom-family inference] effective degrees of freedom unavailable: {err}"
+                            );
+                            (None, Vec::new(), vec![0.0; block_states.len()])
+                        }
+                    }
+                }
+                None => (None, Vec::new(), vec![0.0; block_states.len()]),
+            },
+        };
+
     let mut lambda_offset = 0usize;
     let blocks: Vec<FittedBlock> = block_states
         .iter()
@@ -4198,12 +4540,38 @@ pub fn blockwise_fit_from_parts(
             FittedBlock {
                 beta: bs.beta.clone(),
                 role,
-                edf: 0.0,
+                edf: block_edf.get(i).copied().unwrap_or(0.0),
                 lambdas: block_lambdas,
             }
         })
         .collect();
     let deviance = -2.0 * log_likelihood;
+
+    // Assemble the inference block from the converged geometry. CTN and other
+    // custom families estimate their own likelihood scale, so the penalized
+    // Hessian is reported unscaled (dispersion = 1) — the EDF trace is
+    // dispersion-free, and downstream covariance scaling pairs `H` with the
+    // family's own dispersion where needed.
+    let inference = match (edf_total_opt, geometry.as_ref()) {
+        (Some(edf_total), Some(geom)) => Some(crate::solver::estimate::FitInference {
+            edf_by_block: edf_by_penalty,
+            edf_total,
+            smoothing_correction: None,
+            penalized_hessian: geom.penalized_hessian.clone(),
+            working_weights: geom.working_weights.clone(),
+            working_response: geom.working_response.clone(),
+            reparam_qs: None,
+            dispersion: crate::solver::estimate::Dispersion::Known(1.0),
+            beta_covariance: None,
+            beta_standard_errors: None,
+            beta_covariance_corrected: None,
+            beta_standard_errors_corrected: None,
+            beta_covariance_frequentist: None,
+            coefficient_influence: None,
+            bias_correction_beta: None,
+        }),
+        _ => None,
+    };
 
     crate::solver::estimate::UnifiedFitResult::try_from_parts(UnifiedFitResultParts {
         blocks,
@@ -4223,7 +4591,7 @@ pub fn blockwise_fit_from_parts(
         standard_deviation: 1.0,
         covariance_conditional,
         covariance_corrected: None,
-        inference: None,
+        inference,
         fitted_link: FittedLinkState::Standard(None),
         geometry,
         block_states,
@@ -6762,6 +7130,12 @@ pub struct ExactNewtonJointPsiSecondOrderTerms {
     pub hessian_psi_psi_operator: Option<Box<dyn HyperOperator>>,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum JointHessianSourcePreference {
+    Dense,
+    Operator,
+}
+
 pub trait ExactNewtonJointHessianWorkspace: Send + Sync {
     /// Pre-build any per-row jet caches the workspace will hand to the
     /// outer-eval directional-derivative path. Called once when the
@@ -6782,6 +7156,12 @@ pub trait ExactNewtonJointHessianWorkspace: Send + Sync {
 
     fn hessian_dense(&self) -> Result<Option<Array2<f64>>, String> {
         Ok(None)
+    }
+
+    /// Preferred representation for callers that can consume either the dense
+    /// coefficient Hessian or the matrix-free HVP source.
+    fn hessian_source_preference(&self) -> JointHessianSourcePreference {
+        JointHessianSourcePreference::Dense
     }
 
     /// Forced dense materialization that bypasses any amortization gate the
@@ -6848,6 +7228,53 @@ pub trait ExactNewtonJointHessianWorkspace: Send + Sync {
             }
             None => Ok(false),
         }
+    }
+
+    /// Batched multi-RHS Hessian apply: writes `H · V` into `out`, where `V`
+    /// and `out` are `(total, n_rhs)` with each column an independent
+    /// direction. Returns `Ok(true)` when the apply was performed and
+    /// `Ok(false)` when the workspace exposes no matrix-free apply (mirroring
+    /// `hessian_matvec_into`).
+    ///
+    /// The default implementation applies `hessian_matvec_into` column by
+    /// column, so every existing workspace gets a correct batched apply for
+    /// free and the batched result is, column for column, **numerically
+    /// identical** to looping the single-vector HVP. Workspaces whose Hessian
+    /// is `Σ_i Jᵢᵀ Hᵢ Jᵢ` over a streamed/tiled per-row primary Hessian `Hᵢ`
+    /// (Bernoulli marginal-slope) override this to sweep each row tile **once**
+    /// and apply its `Hᵢ` to all `n_rhs` columns in that single pass — the
+    /// per-tile `Hᵢ` read and the design-row projection are then amortised
+    /// across every RHS instead of paid once per column. This is the
+    /// representation that makes dense reconstruction of a matrix-free operator
+    /// (`H = H · [e_0 | … | e_{p-1}]`) one tile sweep wide instead of `p`.
+    fn hessian_apply_mat(
+        &self,
+        v_cols: &Array2<f64>,
+        out: &mut Array2<f64>,
+    ) -> Result<bool, String> {
+        if v_cols.nrows() != out.nrows() || v_cols.ncols() != out.ncols() {
+            return Err(CustomFamilyError::DimensionMismatch {
+                reason: format!(
+                    "hessian_apply_mat: v_cols {}x{} != out {}x{}",
+                    v_cols.nrows(),
+                    v_cols.ncols(),
+                    out.nrows(),
+                    out.ncols()
+                ),
+            }
+            .into());
+        }
+        let total = v_cols.nrows();
+        let mut col_in = Array1::<f64>::zeros(total);
+        let mut col_out = Array1::<f64>::zeros(total);
+        for col in 0..v_cols.ncols() {
+            col_in.assign(&v_cols.column(col));
+            if !self.hessian_matvec_into(&col_in, &mut col_out)? {
+                return Ok(false);
+            }
+            out.column_mut(col).assign(&col_out);
+        }
+        Ok(true)
     }
 
     fn hessian_diagonal(&self) -> Result<Option<Array1<f64>>, String> {
@@ -6921,6 +7348,16 @@ pub trait ExactNewtonJointHessianWorkspace: Send + Sync {
                     crate::solver::estimate::reml::unified::DenseMatrixHyperOperator { matrix },
                 ) as Arc<dyn HyperOperator>
             }))
+    }
+
+    fn second_directional_derivative_operators(
+        &self,
+        d_beta_pairs: &[(Array1<f64>, Array1<f64>)],
+    ) -> Result<Vec<Option<Arc<dyn HyperOperator>>>, String> {
+        d_beta_pairs
+            .iter()
+            .map(|(u, v)| self.second_directional_derivative_operator(u, v))
+            .collect()
     }
 }
 
@@ -7033,6 +7470,33 @@ pub struct CustomFamilyWarmStart {
 impl CustomFamilyWarmStart {
     pub(crate) fn compatible_with_rho(&self, rho: &Array1<f64>) -> bool {
         screened_outer_warm_start(Some(&self.inner), rho).is_some()
+    }
+
+    pub(crate) fn block_beta_len(&self, block_idx: usize) -> Option<usize> {
+        self.inner.block_beta.get(block_idx).map(|beta| beta.len())
+    }
+
+    pub(crate) fn block_beta_abs_argmax_in_range(
+        &self,
+        block_idx: usize,
+        range: std::ops::Range<usize>,
+    ) -> Option<(usize, f64)> {
+        let beta = self.inner.block_beta.get(block_idx)?;
+        let end = range.end.min(beta.len());
+        if range.start >= end {
+            return None;
+        }
+        beta.slice(s![range.start..end])
+            .iter()
+            .copied()
+            .enumerate()
+            .map(|(idx, value)| (range.start + idx, value.abs()))
+            .filter(|(_, abs)| abs.is_finite())
+            .max_by(|left, right| {
+                left.1
+                    .partial_cmp(&right.1)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
     }
 
     /// Build a warm-start payload from a flat cached β and the per-block
@@ -7212,7 +7676,7 @@ impl crate::solver::outer_strategy::OuterHessianOperator for OwnedDenseOuterHess
 
 struct LabeledOuterHessianOperator {
     base: Arc<dyn crate::solver::outer_strategy::OuterHessianOperator>,
-    physical_to_outer: Vec<usize>,
+    physical_to_outer: Vec<Option<usize>>,
     outer_dim: usize,
     /// Scratch buffers reused across `apply_into` calls to avoid
     /// per-call allocation of the permuted input and output vectors.
@@ -7252,8 +7716,8 @@ impl crate::solver::outer_strategy::OuterHessianOperator for LabeledOuterHessian
             ));
         }
         let mut physical = Array1::<f64>::zeros(self.physical_to_outer.len());
-        for (physical_idx, &outer_idx) in self.physical_to_outer.iter().enumerate() {
-            physical[physical_idx] = v[outer_idx];
+        for (physical_idx, outer_idx) in self.physical_to_outer.iter().enumerate() {
+            physical[physical_idx] = outer_idx.map(|idx| v[idx]).unwrap_or(0.0);
         }
         let physical_out = self.base.matvec(&physical)?;
         if physical_out.len() != self.physical_to_outer.len() {
@@ -7264,8 +7728,10 @@ impl crate::solver::outer_strategy::OuterHessianOperator for LabeledOuterHessian
             ));
         }
         let mut out = Array1::<f64>::zeros(self.outer_dim);
-        for (physical_idx, &outer_idx) in self.physical_to_outer.iter().enumerate() {
-            out[outer_idx] += physical_out[physical_idx];
+        for (physical_idx, outer_idx) in self.physical_to_outer.iter().enumerate() {
+            if let Some(outer_idx) = *outer_idx {
+                out[outer_idx] += physical_out[physical_idx];
+            }
         }
         Ok(out)
     }
@@ -7296,8 +7762,8 @@ impl crate::solver::outer_strategy::OuterHessianOperator for LabeledOuterHessian
             .lock()
             .map_err(|_| "labeled outer Hessian scratch lock poisoned".to_string())?;
         let (physical_in, physical_out) = &mut *guard;
-        for (physical_idx, &outer_idx) in self.physical_to_outer.iter().enumerate() {
-            physical_in[physical_idx] = v[outer_idx];
+        for (physical_idx, outer_idx) in self.physical_to_outer.iter().enumerate() {
+            physical_in[physical_idx] = outer_idx.map(|idx| v[idx]).unwrap_or(0.0);
         }
         self.base.apply_into(physical_in, physical_out)?;
         if physical_out.len() != self.physical_to_outer.len() {
@@ -7308,8 +7774,10 @@ impl crate::solver::outer_strategy::OuterHessianOperator for LabeledOuterHessian
             ));
         }
         out.fill(0.0);
-        for (physical_idx, &outer_idx) in self.physical_to_outer.iter().enumerate() {
-            out[outer_idx] += physical_out[physical_idx];
+        for (physical_idx, outer_idx) in self.physical_to_outer.iter().enumerate() {
+            if let Some(outer_idx) = *outer_idx {
+                out[outer_idx] += physical_out[physical_idx];
+            }
         }
         Ok(())
     }
@@ -7324,10 +7792,12 @@ impl crate::solver::outer_strategy::OuterHessianOperator for LabeledOuterHessian
         }
         let mut physical_factor =
             Array2::<f64>::zeros((self.physical_to_outer.len(), factor.ncols()));
-        for (physical_idx, &outer_idx) in self.physical_to_outer.iter().enumerate() {
-            physical_factor
-                .row_mut(physical_idx)
-                .assign(&factor.row(outer_idx));
+        for (physical_idx, outer_idx) in self.physical_to_outer.iter().enumerate() {
+            if let Some(outer_idx) = *outer_idx {
+                physical_factor
+                    .row_mut(physical_idx)
+                    .assign(&factor.row(outer_idx));
+            }
         }
         let physical_out = self.base.mul_mat(physical_factor.view())?;
         if physical_out.nrows() != self.physical_to_outer.len() {
@@ -7338,9 +7808,11 @@ impl crate::solver::outer_strategy::OuterHessianOperator for LabeledOuterHessian
             ));
         }
         let mut out = Array2::<f64>::zeros((self.outer_dim, factor.ncols()));
-        for (physical_idx, &outer_idx) in self.physical_to_outer.iter().enumerate() {
-            let physical_row = physical_out.row(physical_idx);
-            out.row_mut(outer_idx).scaled_add(1.0, &physical_row);
+        for (physical_idx, outer_idx) in self.physical_to_outer.iter().enumerate() {
+            if let Some(outer_idx) = *outer_idx {
+                let physical_row = physical_out.row(physical_idx);
+                out.row_mut(outer_idx).scaled_add(1.0, &physical_row);
+            }
         }
         Ok(out)
     }
@@ -7722,7 +8194,8 @@ fn flatten_log_lambdas(specs: &[ParameterBlockSpec]) -> Array1<f64> {
 #[derive(Clone, Debug)]
 struct PenaltyLabelLayout {
     penalty_counts: Vec<usize>,
-    physical_to_outer: Vec<usize>,
+    physical_to_outer: Vec<Option<usize>>,
+    fixed_log_lambdas: Vec<Option<f64>>,
     initial_rho: Array1<f64>,
 }
 
@@ -7741,11 +8214,25 @@ fn penalty_label_layout(
     penalty_counts: Vec<usize>,
 ) -> Result<PenaltyLabelLayout, String> {
     let mut label_to_outer = BTreeMap::<String, usize>::new();
-    let mut physical_to_outer = Vec::<usize>::new();
+    let mut physical_to_outer = Vec::<Option<usize>>::new();
+    let mut fixed_log_lambdas = Vec::<Option<f64>>::new();
     let mut initial = Vec::<f64>::new();
 
     for (block_idx, spec) in specs.iter().enumerate() {
         for penalty_idx in 0..spec.penalties.len() {
+            if let Some(fixed) = spec.penalties[penalty_idx].fixed_log_lambda() {
+                if !fixed.is_finite() {
+                    return Err(CustomFamilyError::ConstraintViolation {
+                        reason: format!(
+                            "block {block_idx} penalty {penalty_idx} fixed log-precision is non-finite: {fixed}"
+                        ),
+                    }
+                    .into());
+                }
+                physical_to_outer.push(None);
+                fixed_log_lambdas.push(Some(fixed));
+                continue;
+            }
             let label = spec.penalties[penalty_idx]
                 .precision_label()
                 .map(str::to_owned)
@@ -7765,13 +8252,15 @@ fn penalty_label_layout(
                 initial.push(rho0);
                 outer
             };
-            physical_to_outer.push(outer);
+            physical_to_outer.push(Some(outer));
+            fixed_log_lambdas.push(None);
         }
     }
 
     Ok(PenaltyLabelLayout {
         penalty_counts,
         physical_to_outer,
+        fixed_log_lambdas,
         initial_rho: Array1::from_vec(initial),
     })
 }
@@ -7791,8 +8280,18 @@ fn expand_labeled_log_lambdas(
         .into());
     }
     let mut expanded = Array1::<f64>::zeros(layout.physical_count());
-    for (physical, &outer) in layout.physical_to_outer.iter().enumerate() {
-        expanded[physical] = rho[outer];
+    for (physical, outer) in layout.physical_to_outer.iter().enumerate() {
+        expanded[physical] = match *outer {
+            Some(outer) => rho[outer],
+            None => layout.fixed_log_lambdas[physical].ok_or_else(|| {
+                CustomFamilyError::ConstraintViolation {
+                    reason: format!(
+                        "fixed penalty layout missing value at physical slot {physical}"
+                    ),
+                }
+                .to_string()
+            })?,
+        };
     }
     Ok(expanded)
 }
@@ -7820,8 +8319,10 @@ fn aggregate_labeled_gradient(
         .into());
     }
     let mut out = Array1::<f64>::zeros(layout.initial_rho.len());
-    for (physical, &outer) in layout.physical_to_outer.iter().enumerate() {
-        out[outer] += gradient[physical];
+    for (physical, outer) in layout.physical_to_outer.iter().enumerate() {
+        if let Some(outer) = *outer {
+            out[outer] += gradient[physical];
+        }
     }
     Ok(out)
 }
@@ -7843,9 +8344,12 @@ fn aggregate_labeled_hessian(
         .into());
     }
     let mut out = Array2::<f64>::zeros((layout.initial_rho.len(), layout.initial_rho.len()));
-    for (i, &oi) in layout.physical_to_outer.iter().enumerate() {
-        for (j, &oj) in layout.physical_to_outer.iter().enumerate() {
-            out[[oi, oj]] += hessian[[i, j]];
+    for (i, oi) in layout.physical_to_outer.iter().enumerate() {
+        let Some(oi) = *oi else { continue };
+        for (j, oj) in layout.physical_to_outer.iter().enumerate() {
+            if let Some(oj) = *oj {
+                out[[oi, oj]] += hessian[[i, j]];
+            }
         }
     }
     Ok(out)
@@ -9561,6 +10065,51 @@ fn validate_flat_direction_length(
     Ok::<(), _>(())
 }
 
+/// Does a joint Hessian carry genuine cross-block (off-diagonal) coupling?
+///
+/// The trait's default `exact_newton_joint_hessian` assembles a strictly
+/// block-diagonal matrix (per-block `Xᵀ W X` on the diagonal, zeros off-block).
+/// A family that overrides it with the true coupled curvature of a multi-block
+/// likelihood (GAMLSS μ-σ, Beta-logit `α`/`β`, Dirichlet K-block via the shared
+/// concentration sum, …) necessarily fills in nonzero off-diagonal blocks. This
+/// is the only structural signal — independent of any hand-set marker — that
+/// distinguishes a trusted coupled joint Hessian from the block-diagonal
+/// default. The block boundaries come from the per-block β widths.
+fn joint_hessian_has_cross_block_coupling(
+    hessian: &Array2<f64>,
+    block_states: &[ParameterBlockState],
+) -> bool {
+    let total = block_states
+        .iter()
+        .map(|state| state.beta.len())
+        .sum::<usize>();
+    if hessian.nrows() != total || hessian.ncols() != total {
+        // Shape disagreement is handled (loudly) by the symmetrizer/consumers;
+        // here we only answer the coupling question and must not claim coupling
+        // for a malformed matrix.
+        return false;
+    }
+    let mut ranges: Vec<(usize, usize)> = Vec::with_capacity(block_states.len());
+    let mut start = 0usize;
+    for state in block_states {
+        let end = start + state.beta.len();
+        ranges.push((start, end));
+        start = end;
+    }
+    for (a, (ra_start, ra_end)) in ranges.iter().copied().enumerate() {
+        for (rb_start, rb_end) in ranges.iter().copied().skip(a + 1) {
+            for i in ra_start..ra_end {
+                for j in rb_start..rb_end {
+                    if hessian[[i, j]] != 0.0 || hessian[[j, i]] != 0.0 {
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+    false
+}
+
 fn exact_newton_joint_hessian_from_exact_blocks<F: CustomFamily + ?Sized>(
     family: &F,
     block_states: &[ParameterBlockState],
@@ -9948,6 +10497,14 @@ enum JointHessianSource {
         /// removes thousands of small Vec<f64> allocations from the tightest
         /// loop. Wired from `workspace.hessian_matvec_into`.
         apply_into: Arc<dyn Fn(&Array1<f64>, &mut Array1<f64>) -> Result<(), String> + Send + Sync>,
+        /// Batched multi-RHS apply: `out = H · V` for `(total, n_rhs)` `V`.
+        /// Wired from `workspace.hessian_apply_mat`, which for the BMS tiled
+        /// row-primary Hessian sweeps each row tile once and applies its `Hᵢ`
+        /// to every column. Column-basis dense reconstruction below uses this
+        /// to materialise the operator in one batched sweep (`H = H · I`)
+        /// rather than `total` single-vector HVPs, each of which re-reads every
+        /// row tile. Numerically identical to looping `apply_into`.
+        apply_mat: Arc<dyn Fn(&Array2<f64>, &mut Array2<f64>) -> Result<(), String> + Send + Sync>,
         diagonal: Array1<f64>,
         /// Forced dense materialization that bypasses the workspace's
         /// `hessian_dense` amortization gate. Returns `Some` when the
@@ -10043,7 +10600,7 @@ fn materialize_joint_hessian_source(
     match source {
         JointHessianSource::Dense(matrix) => Ok(matrix.clone()),
         JointHessianSource::Operator {
-            apply,
+            apply_mat,
             dense_forced,
             ..
         } => {
@@ -10071,29 +10628,19 @@ fn materialize_joint_hessian_source(
                 symmetrize_dense_in_place(&mut matrix);
                 return Ok(matrix);
             }
+            // Column-basis reconstruction `H = H · I`. Driving it through the
+            // batched multi-RHS apply lets a tiled/streamed operator sweep each
+            // row tile exactly once for all `total` columns instead of once per
+            // column (`total` full sweeps). The result is, column for column,
+            // identical to applying the operator to each unit basis vector.
+            let identity = Array2::<f64>::eye(total);
             let mut matrix = Array2::<f64>::zeros((total, total));
-            let mut basis = Array1::<f64>::zeros(total);
-            for col in 0..total {
-                basis[col] = 1.0;
-                let applied = apply(&basis)?;
-                basis[col] = 0.0;
-                if applied.len() != total {
-                    return Err(CustomFamilyError::DimensionMismatch {
-                        reason: format!(
-                            "{context}: operator matvec length mismatch: got {}, expected {}",
-                            applied.len(),
-                            total
-                        ),
-                    }
-                    .into());
+            apply_mat(&identity, &mut matrix)?;
+            if matrix.iter().any(|value| !value.is_finite()) {
+                return Err(CustomFamilyError::NumericalFailure {
+                    reason: format!("{context}: operator matvec returned non-finite values"),
                 }
-                if applied.iter().any(|value| !value.is_finite()) {
-                    return Err(CustomFamilyError::NumericalFailure {
-                        reason: format!("{context}: operator matvec returned non-finite values"),
-                    }
-                    .into());
-                }
-                matrix.column_mut(col).assign(&applied);
+                .into());
             }
             symmetrize_dense_in_place(&mut matrix);
             Ok(matrix)
@@ -10106,6 +10653,12 @@ fn exact_newton_joint_hessian_source_from_workspace(
     total: usize,
     context: &str,
 ) -> Result<Option<JointHessianSource>, String> {
+    if workspace.hessian_source_preference() == JointHessianSourcePreference::Operator {
+        return exact_newton_joint_hessian_operator_source_from_workspace(
+            workspace, total, context,
+        );
+    }
+
     if let Some(mut hessian) = workspace.hessian_dense()? {
         if hessian.nrows() != total || hessian.ncols() != total {
             return Err(CustomFamilyError::DimensionMismatch {
@@ -10127,7 +10680,23 @@ fn exact_newton_joint_hessian_source_from_workspace(
         return Ok(Some(JointHessianSource::Dense(hessian)));
     }
 
+    exact_newton_joint_hessian_operator_source_from_workspace(workspace, total, context)
+}
+
+fn exact_newton_joint_hessian_operator_source_from_workspace(
+    workspace: &Arc<dyn ExactNewtonJointHessianWorkspace>,
+    total: usize,
+    context: &str,
+) -> Result<Option<JointHessianSource>, String> {
     let Some(diagonal) = workspace.hessian_diagonal()? else {
+        if workspace.hessian_source_preference() == JointHessianSourcePreference::Operator {
+            return Err(CustomFamilyError::UnsupportedConfiguration {
+                reason: format!(
+                    "{context}: operator-preferred Hessian workspace did not provide a diagonal"
+                ),
+            }
+            .into());
+        }
         return Ok(None);
     };
     if diagonal.len() != total {
@@ -10148,14 +10717,24 @@ fn exact_newton_joint_hessian_source_from_workspace(
     }
 
     if !workspace.hessian_matvec_available() {
+        if workspace.hessian_source_preference() == JointHessianSourcePreference::Operator {
+            return Err(CustomFamilyError::UnsupportedConfiguration {
+                reason: format!(
+                    "{context}: operator-preferred Hessian workspace did not provide HVPs"
+                ),
+            }
+            .into());
+        }
         return Ok(None);
     }
 
     let workspace_apply = Arc::clone(workspace);
     let workspace_apply_into = Arc::clone(workspace);
+    let workspace_apply_mat = Arc::clone(workspace);
     let workspace_dense_forced = Arc::clone(workspace);
     let context_apply: Arc<str> = Arc::from(context);
     let context_apply_into = Arc::clone(&context_apply);
+    let context_apply_mat = Arc::clone(&context_apply);
     let context_dense_forced = Arc::clone(&context_apply);
     Ok(Some(JointHessianSource::Operator {
         apply: Arc::new(move |v: &Array1<f64>| {
@@ -10219,6 +10798,48 @@ fn exact_newton_joint_hessian_source_from_workspace(
                     reason: format!(
                         "{}: operator matvec returned non-finite values",
                         &*context_apply_into
+                    ),
+                }
+                .into());
+            }
+            Ok(())
+        }),
+        apply_mat: Arc::new(move |v_cols: &Array2<f64>, out: &mut Array2<f64>| {
+            if v_cols.nrows() != total || out.nrows() != total {
+                return Err(CustomFamilyError::DimensionMismatch {
+                    reason: format!(
+                        "{}: operator batched apply row mismatch: v_cols={}x{} out={}x{} expected rows={total}",
+                        &*context_apply_mat,
+                        v_cols.nrows(),
+                        v_cols.ncols(),
+                        out.nrows(),
+                        out.ncols()
+                    ),
+                }
+                .into());
+            }
+            if v_cols.ncols() != out.ncols() {
+                return Err(CustomFamilyError::DimensionMismatch {
+                    reason: format!(
+                        "{}: operator batched apply column mismatch: v_cols has {} columns, out has {}",
+                        &*context_apply_mat,
+                        v_cols.ncols(),
+                        out.ncols()
+                    ),
+                }
+                .into());
+            }
+            if !workspace_apply_mat.hessian_apply_mat(v_cols, out)? {
+                return Err(CustomFamilyError::UnsupportedConfiguration {
+                    reason: "joint exact-newton operator batched apply unavailable".to_string(),
+                }
+                .into());
+            }
+            if out.iter().any(|value| !value.is_finite()) {
+                return Err(CustomFamilyError::NumericalFailure {
+                    reason: format!(
+                        "{}: operator batched apply returned non-finite values",
+                        &*context_apply_mat
                     ),
                 }
                 .into());
@@ -10438,17 +11059,20 @@ fn build_joint_hessian_closures<'a, F: CustomFamily + Clone + Send + Sync + 'sta
             1.0,
             hessian_workspace.clone(),
         );
+        let compute_d2h_many = exact_newton_d2h_many_closure(1.0, hessian_workspace.clone());
+        let owned_compute_d2h_many =
+            exact_newton_d2h_many_closure_owned(1.0, hessian_workspace.clone());
         return Ok(Some(JointHessianBundle {
             source: h_joint_unpen,
             beta_flat,
             compute_dh,
             compute_dh_many,
             compute_d2h,
-            compute_d2h_many: None,
+            compute_d2h_many,
             owned_compute_dh: Some(owned_compute_dh),
             owned_compute_dh_many,
             owned_compute_d2h: Some(owned_compute_d2h),
-            owned_compute_d2h_many: None,
+            owned_compute_d2h_many,
             rho_curvature_scale: 1.0,
             hessian_logdet_correction: 0.0,
         }));
@@ -10785,6 +11409,24 @@ fn exact_newton_d2h_closure<'a, F: CustomFamily + Sync>(
     }
 }
 
+fn exact_newton_d2h_many_closure<'a>(
+    scale: f64,
+    workspace: Option<Arc<dyn ExactNewtonJointHessianWorkspace>>,
+) -> Option<Box<DriftSecondDerivManyFn<'a>>> {
+    let workspace = workspace?;
+    Some(Box::new(move |pairs: &[(Array1<f64>, Array1<f64>)]| {
+        workspace
+            .second_directional_derivative_operators(pairs)?
+            .into_iter()
+            .map(|maybe_operator| {
+                Ok(maybe_operator.map(|operator| {
+                    scale_drift_deriv_result(DriftDerivResult::Operator(operator), scale)
+                }))
+            })
+            .collect()
+    }))
+}
+
 fn exact_newton_dh_closure_owned<F: CustomFamily + Clone + Send + Sync + 'static>(
     family: F,
     synced_states: Arc<Vec<ParameterBlockState>>,
@@ -10852,6 +11494,30 @@ fn exact_newton_d2h_closure_owned<F: CustomFamily + Clone + Send + Sync + 'stati
             v,
         )
     })
+}
+
+fn exact_newton_d2h_many_closure_owned(
+    scale: f64,
+    workspace: Option<Arc<dyn ExactNewtonJointHessianWorkspace>>,
+) -> Option<
+    Arc<
+        dyn Fn(&[(Array1<f64>, Array1<f64>)]) -> Result<Vec<Option<DriftDerivResult>>, String>
+            + Send
+            + Sync,
+    >,
+> {
+    let workspace = workspace?;
+    Some(Arc::new(move |pairs: &[(Array1<f64>, Array1<f64>)]| {
+        workspace
+            .second_directional_derivative_operators(pairs)?
+            .into_iter()
+            .map(|maybe_operator| {
+                Ok(maybe_operator.map(|operator| {
+                    scale_drift_deriv_result(DriftDerivResult::Operator(operator), scale)
+                }))
+            })
+            .collect()
+    }))
 }
 
 fn strict_solve_spd(matrix: &Array2<f64>, rhs: &Array1<f64>) -> Result<Array1<f64>, String> {
@@ -11026,146 +11692,75 @@ pub(crate) fn strict_solve_spd_with_lm_continuation(
     )
 }
 
-fn strict_inverse_spd(matrix: &Array2<f64>) -> Result<Array2<f64>, String> {
-    let mut sym = matrix.clone();
-    symmetrize_dense_in_place(&mut sym);
-    let chol = sym
-        .cholesky(Side::Lower)
-        .map_err(|_| "strict pseudo-laplace SPD inverse failed".to_string())?;
-    let mut ident = Array2::<f64>::eye(matrix.nrows());
-    chol.solve_mat_in_place(&mut ident);
-    Ok(ident)
-}
-
-/// Strict-mode SPD inverse with the same Levenberg-Marquardt δ-ridge
-/// continuation as [`strict_solve_spd_with_lm_continuation`]: when bare
-/// Cholesky on `H` rejects, factor `H + δI` with δ escalated geometrically,
-/// then invert.  If the cap is exhausted, fall back to a symmetric
-/// eigendecomposition with an eigenvalue floor `eps_floor = 1e-12 · max|λ|`
-/// applied uniformly, so the reconstructed inverse equals the
-/// pseudo-Laplace inverse on well-conditioned modes plus a floor-controlled
-/// regularization on rank-deficient directions.
+/// Exact pseudo-Laplace log-determinant `log|H + S_λ|` of the REML/LAML
+/// objective, computed from the eigenspectrum with **no δ-ridge** so the value
+/// stays on the same objective as the analytic gradient `tr((H+S_λ)⁻¹ ·)`
+/// (gam#748).
 ///
-/// Mirrors [`strict_solve_spd_with_lm_continuation`] for the inverse path:
-/// preserves strict semantics (a valid SPD inverse with bounded, recorded
-/// perturbation) while preventing fragile pilot Hessians from collapsing
-/// the spatial-adaptive seed and routing the optimizer into a cold
-/// full-data run.
-pub(crate) fn strict_inverse_spd_with_lm_continuation(
-    matrix: &Array2<f64>,
-) -> Result<(Array2<f64>, StrictSpdLmStats), String> {
-    let p = matrix.nrows();
-    strict_spd_lm_engine(
-        matrix,
-        "strict pseudo-laplace SPD inverse",
-        Array2::<f64>::zeros((0, 0)),
-        strict_inverse_spd,
-        |chol| {
-            let mut ident = Array2::<f64>::eye(p);
-            chol.solve_mat_in_place(&mut ident);
-            symmetrize_dense_in_place(&mut ident);
-            ident
-        },
-        |evals, evecs, eps_floor| {
-            // V · diag(1/max(λ, eps_floor)) · Vᵀ.
-            let mut inv = Array2::<f64>::zeros((p, p));
-            for (k, &ev) in evals.iter().enumerate() {
-                let inv_ev = 1.0 / ev.max(eps_floor);
-                for i in 0..p {
-                    let vi = evecs[[i, k]];
-                    for j in 0..p {
-                        inv[[i, j]] += inv_ev * vi * evecs[[j, k]];
-                    }
-                }
-            }
-            symmetrize_dense_in_place(&mut inv);
-            inv
-        },
-    )
-}
-
-fn strict_logdet_spd(matrix: &Array2<f64>) -> Result<f64, String> {
-    let mut sym = matrix.clone();
-    symmetrize_dense_in_place(&mut sym);
-    let chol = sym
-        .cholesky(Side::Lower)
-        .map_err(|_| "strict pseudo-laplace SPD logdet failed".to_string())?;
-    Ok(2.0 * chol.diag().mapv(f64::ln).sum())
-}
-
-/// Strict-mode logdet with the same Levenberg-Marquardt δ-ridge continuation
-/// schedule as [`strict_solve_spd_with_lm_continuation`]: when the bare
-/// Cholesky on `H` rejects, we factor `H + δI` with δ escalated geometrically
-/// until success.  Returns `log|H + δI|` and the δ used.
+/// The earlier strict path returned `log|H + S_λ + δI|` with `δ = δ(ρ)`
+/// escalated geometrically until factorization succeeded. That makes `V(ρ)`
+/// carry a ρ-dependent, discontinuous `δ(ρ)` the analytic derivatives ignore —
+/// exactly the objective/derivative mismatch the
+/// operator-dense path's own comment forbids ("mixing an approximate
+/// determinant with exact traces gives ARC a Hessian for a different
+/// objective"). The strict path now computes one honest quantity:
 ///
-/// The mathematical content is the regularized pseudo-Laplace logdet,
-/// `log|H + δI|`, not the bare `log|H|` — but this is precisely the quantity
-/// the controller needs at indefinite seeds to make a step decision.  Without
-/// continuation, every seed where H_β has a marginally-non-positive eigenvalue
-/// is rejected, the spatial-adaptive pilot loses its entire seed budget, and
-/// the controller fall-opens into a full-data path that was never gated for
-/// it (the Matern adaptive seed-failure → 14.56 GiB OOM in the recovery
-/// branch).  The δ that finally factors is recorded in `StrictSpdLmStats`
-/// so the outer controller can detect a recurring need for nontrivial ridges
-/// and react (e.g. tighten step length, fall through to a sparse path, or
-/// surface a structural diagnostic to the user).
-pub(crate) fn strict_logdet_spd_with_lm_continuation(
+/// - eigendecompose the symmetrised `H + S_λ`;
+/// - **reject** (return `Err`) when any eigenvalue is genuinely negative
+///   (`λ < −tol`). An indefinite joint coefficient Hessian is a real defect
+///   (a non-stationary inner β or a mis-signed curvature block); rejecting it
+///   tells the outer optimizer to step back, instead of masking it with a
+///   biased finite number;
+/// - sum `Σ_{λ > tol} log λ` — the exact pseudo-logdet on the positive
+///   eigenspace, which is `C∞` in ρ because the positive eigenspace of a PSD
+///   `S(ρ)=Σ e^{ρ_k} S_k` is structurally fixed. A near-zero band `[−tol, tol]`
+///   (a structural null space) is simply not in `range` and contributes no
+///   term, matching the projected `tr` derivative; a near-singular-but-positive
+///   curvature is accepted exactly as the historical Cholesky strict path did.
+fn strict_exact_pseudo_logdet(
     matrix: &Array2<f64>,
-) -> Result<(f64, StrictSpdLmStats), String> {
-    strict_spd_lm_engine(
-        matrix,
-        "strict pseudo-laplace SPD logdet",
-        0.0,
-        strict_logdet_spd,
-        |chol| 2.0 * chol.diag().mapv(f64::ln).sum(),
-        |evals, _evecs, eps_floor| evals.iter().map(|&ev| ev.max(eps_floor).ln()).sum(),
-    )
-}
-
-fn strict_logdet_spd_with_semidefinite_option(
-    matrix: &Array2<f64>,
-    allow_semidefinite: bool,
     accumulation_depth: usize,
 ) -> Result<f64, String> {
-    if allow_semidefinite {
-        let mut sym = matrix.clone();
-        symmetrize_dense_in_place(&mut sym);
-        let (evals, _) = FaerEigh::eigh(&sym, Side::Lower)
-            .map_err(|e| format!("strict pseudo-laplace PSD eigendecomposition failed: {e}"))?;
-        let p = sym.nrows();
-        let max_abs_eval = evals.iter().fold(0.0_f64, |acc, &ev| acc.max(ev.abs()));
-        // Bauer-Fike: |δσ| ≤ p·‖δH‖_∞; n-term fma roundoff gives ‖δH‖_∞ ≤ ε·n·‖H‖,
-        // so σ_noise ≤ ε·n·p·‖H‖₂. Tenfold slack absorbs sign cancellations,
-        // and a 100·ε floor handles the ‖H‖→0 limit.
-        let eps = f64::EPSILON;
-        let eps_np = eps * (accumulation_depth as f64) * (p as f64);
-        let tol = (10.0 * eps_np * max_abs_eval).max(100.0 * eps);
-        if evals.iter().any(|&ev| ev < -tol) {
-            let min_eval = evals.iter().copied().fold(f64::INFINITY, f64::min);
-            let below = evals.iter().filter(|&&ev| ev < -tol).count();
-            return Err(CustomFamilyError::NumericalFailure { reason: format!(
-                "strict pseudo-laplace SPD solve failed: {below} eigenvalue(s) below -tol \
-                 (min(λ)={min_eval:.6e}, max|λ|={max_abs_eval:.6e}, tol={tol:.6e}, εnp={eps_np:.6e})"
-            ) }.into());
+    let mut sym = matrix.clone();
+    symmetrize_dense_in_place(&mut sym);
+    let (evals, _) = FaerEigh::eigh(&sym, Side::Lower)
+        .map_err(|e| format!("strict pseudo-laplace eigendecomposition failed: {e}"))?;
+    let p = sym.nrows();
+    let max_abs_eval = evals.iter().fold(0.0_f64, |acc, &ev| acc.max(ev.abs()));
+    // Bauer-Fike: |δσ| ≤ p·‖δH‖_∞; n-term fma roundoff gives ‖δH‖_∞ ≤ ε·n·‖H‖,
+    // so σ_noise ≤ ε·n·p·‖H‖₂. Tenfold slack absorbs sign cancellations,
+    // and a 100·ε floor handles the ‖H‖→0 limit.
+    let eps = f64::EPSILON;
+    let eps_np = eps * (accumulation_depth as f64) * (p as f64);
+    let tol = (10.0 * eps_np * max_abs_eval).max(100.0 * eps);
+    // Reject ONLY genuine indefiniteness. A matrix that symmetrises to PSD —
+    // including a near-singular-but-positive curvature (smallest eigenvalue just
+    // above the noise floor) or a structural null space (eigenvalues inside the
+    // `[−tol, tol]` band) — is NOT a defect: the bare Cholesky the strict path
+    // historically used accepted every such matrix, and the exact positive-
+    // eigenspace pseudo-logdet `Σ_{λ>tol} log λ` is well defined and matches the
+    // `tr((H+S_λ)⁻¹ ·)` derivative on `range(H+S_λ)`. Only a genuinely negative
+    // eigenvalue (`λ < −tol`) signals an indefinite curvature — a non-stationary
+    // inner β or a mis-signed block — and is rejected so the outer optimizer
+    // steps back instead of δ-ridge masking it (gam#748).
+    if evals.iter().any(|&ev| ev < -tol) {
+        let min_eval = evals.iter().copied().fold(f64::INFINITY, f64::min);
+        let below = evals.iter().filter(|&&ev| ev < -tol).count();
+        return Err(CustomFamilyError::NumericalFailure {
+            reason: format!(
+                "strict pseudo-laplace logdet: {below} eigenvalue(s) below -tol \
+             (min(λ)={min_eval:.6e}, max|λ|={max_abs_eval:.6e}, tol={tol:.6e}, εnp={eps_np:.6e}); \
+             indefinite joint coefficient Hessian rejected (no δ-ridge masking, gam#748)"
+            ),
         }
-        let logdet = evals
-            .iter()
-            .copied()
-            .filter(|&ev| ev > tol)
-            .map(f64::ln)
-            .sum();
-        return Ok(logdet);
+        .into());
     }
-    let (logdet, stats) = strict_logdet_spd_with_lm_continuation(matrix)?;
-    if stats.escalations > 0 {
-        log::debug!(
-            "[strict-spd] logdet δ-ridge continuation: δ={:.3e}, escalations={}, p={}",
-            stats.delta_used,
-            stats.escalations,
-            matrix.nrows(),
-        );
-    }
-    Ok(logdet)
+    Ok(evals
+        .iter()
+        .copied()
+        .filter(|&ev| ev > tol)
+        .map(f64::ln)
+        .sum())
 }
 
 fn pinv_positive_part(matrix: &Array2<f64>, ridge_floor: f64) -> Result<Array2<f64>, String> {
@@ -11285,7 +11880,6 @@ fn blockwise_logdet_terms_with_workspace<F: CustomFamily + Clone + Send + Sync +
         return Ok((0.0, 0.0));
     }
     let strict_spd = use_exact_newton_strict_spd(family);
-    let allow_semidefinite = strict_spd && family.exact_newton_allows_semidefinitehessian();
     refresh_all_block_etas(family, specs, states)?;
     let ranges = block_param_ranges(specs);
     let total = ranges.last().map(|(_, e)| *e).unwrap_or(0);
@@ -11402,11 +11996,7 @@ fn blockwise_logdet_terms_with_workspace<F: CustomFamily + Clone + Send + Sync +
                 .scaled_add(curvature.rho_curvature_scale, s_lambda);
         }
         let logdet_h_scaled = if strict_spd {
-            strict_logdet_spd_with_semidefinite_option(
-                &h_joint,
-                allow_semidefinite,
-                joint_observation_count(states),
-            )?
+            strict_exact_pseudo_logdet(&h_joint, joint_observation_count(states))?
         } else {
             stable_logdet_with_ridge_policy(
                 &h_joint,
@@ -11461,11 +12051,7 @@ fn blockwise_logdet_terms_with_workspace<F: CustomFamily + Clone + Send + Sync +
                 .scaled_add(1.0, s_lambda);
         }
         let logdet_h_total = if strict_spd {
-            strict_logdet_spd_with_semidefinite_option(
-                &h_joint,
-                allow_semidefinite,
-                joint_observation_count(states),
-            )?
+            strict_exact_pseudo_logdet(&h_joint, joint_observation_count(states))?
         } else {
             stable_logdet_with_ridge_policy(&h_joint, options.ridge_floor, options.ridge_policy)?
         };
@@ -11488,11 +12074,7 @@ fn blockwise_logdet_terms_with_workspace<F: CustomFamily + Clone + Send + Sync +
                 .scaled_add(1.0, s_lambda);
         }
         let logdet_h_total = if strict_spd {
-            strict_logdet_spd_with_semidefinite_option(
-                &h_joint,
-                allow_semidefinite,
-                joint_observation_count(states),
-            )?
+            strict_exact_pseudo_logdet(&h_joint, joint_observation_count(states))?
         } else {
             stable_logdet_with_ridge_policy(&h_joint, options.ridge_floor, options.ridge_policy)?
         };
@@ -11545,11 +12127,7 @@ fn blockwise_logdet_terms_with_workspace<F: CustomFamily + Clone + Send + Sync +
         let mut h = xtwx;
         h += s_lambda;
         logdet_h_total += if strict_spd {
-            strict_logdet_spd_with_semidefinite_option(
-                &h,
-                allow_semidefinite,
-                joint_observation_count(states),
-            )?
+            strict_exact_pseudo_logdet(&h, joint_observation_count(states))?
         } else {
             stable_logdet_with_ridge_policy(&h, options.ridge_floor, options.ridge_policy)?
         };
@@ -11975,9 +12553,16 @@ fn block_residual_diagnostic_string(
         }
         Err(_) => (vec![f64::NAN; states.len()], f64::NAN),
     };
+    // Empty / zero-width blocks contribute `f64::NAN` to `block_residual_inf`
+    // above (the `acc >= end` branch). A `max_by` over `partial_cmp` treats
+    // NaN as `Ordering::Equal`, so an empty block can falsely win the max and
+    // be reported as the carrying block even though all finite residual lives
+    // in the active blocks. Restrict the selection to finite residuals so a
+    // genuinely zero-width block can never be named the dominant block.
     let dominant_idx = block_residual_inf
         .iter()
         .enumerate()
+        .filter(|(_, v)| v.is_finite())
         .max_by(|a, b| a.1.partial_cmp(b.1).unwrap_or(std::cmp::Ordering::Equal))
         .map(|(i, _)| i);
     let dominant = if let Some(i) = dominant_idx {
@@ -12101,6 +12686,21 @@ impl KktRefusalDiagnosis {
 /// penalty-rank machinery uses for "structurally zero".
 const KKT_REFUSAL_RANK_TOL: f64 = 1e-10;
 
+/// Self-vanishing Levenberg–Marquardt damping factor for the range-restricted
+/// spectral Newton step (`solve_joint_newton_step_on_spectral_range`). The
+/// per-cycle damping is `μ = JOINT_SPECTRAL_LEVENBERG_FACTOR · ‖∇L − Sβ‖∞`:
+/// proportional to the current stationarity residual so it is large enough to
+/// cap the unbounded `component/λ` step along near-singular (ill-conditioned but
+/// above-`KKT_REFUSAL_RANK_TOL`) eigen-directions of a degenerate small-n
+/// Hessian — the modes that make the undamped step oscillate and prevent the
+/// inner solve from settling — yet `→ 0` as the iterate converges, recovering
+/// the exact Moore–Penrose Newton step so the KKT fixed point and the
+/// well-identified fast path are unchanged. `1e-3` keeps the damping two to
+/// three orders below the dominant curvature on a well-conditioned problem (so
+/// it never perturbs a healthy quadratic Newton step) while still dominating the
+/// near-zero curvatures that drive the degenerate-design oscillation.
+const JOINT_SPECTRAL_LEVENBERG_FACTOR: f64 = 1.0e-3;
+
 #[derive(Clone, Debug)]
 struct JointSpectralNewtonStep {
     delta: Array1<f64>,
@@ -12124,6 +12724,7 @@ fn solve_joint_newton_step_on_spectral_range(
     rhs: &Array1<f64>,
     rank_tol: f64,
     null_tol: f64,
+    levenberg_mu: f64,
 ) -> Result<JointSpectralNewtonStep, String> {
     let p = h_pen.nrows();
     if h_pen.ncols() != p || rhs.len() != p {
@@ -12199,6 +12800,51 @@ fn solve_joint_newton_step_on_spectral_range(
     // fallback) then validates the actual decrease, so no curvature guarantee
     // is weakened — an indefinite model yields a safe descent step rather than
     // a hard failure, and a PSD model still gets the exact Newton step.
+    //
+    // `levenberg_mu` is a self-vanishing Levenberg–Marquardt damping added to
+    // each range-space curvature: the per-direction step is
+    // `(u_kᵀ rhs)/(|λ_k| + μ)` rather than `(u_kᵀ rhs)/|λ_k|`. It is chosen by
+    // the caller proportional to the current stationarity-residual norm
+    // (μ = c·‖∇L − Sβ‖∞), so it has two regimes that make the inner solve
+    // converge on a genuinely ill-conditioned degenerate design WITHOUT moving
+    // the KKT fixed point:
+    //   * Far from the optimum (residual O(1)), a direction whose curvature
+    //     `|λ_k|` is tiny-but-above-`cutoff` (a near-singular but not-quite-null
+    //     mode of the n=23 binary-covariate CTM Hessian) would otherwise take an
+    //     enormous `component/λ_k` step. Those modes are exactly what makes the
+    //     undamped range-restricted Newton step oscillate: the trust region
+    //     clips a huge proposal every cycle and the residual along that mode
+    //     never settles, so neither `step_inf ≤ step_tol` nor the identified-
+    //     subspace residual ever reaches tolerance and the solve burns its
+    //     cycle budget. Adding μ caps the component at ≈ `component/μ`, turning
+    //     the proposal into a bounded, stable descent step.
+    //   * At the optimum (residual → 0 ⇒ μ → 0), the damping vanishes and the
+    //     step is exactly the undamped range-restricted (Moore–Penrose) Newton
+    //     step, so the converged β and the KKT certificate are identical to the
+    //     undamped solve. A well-identified problem (e.g. the #720 continuous
+    //     fast path) sits at small residual quickly, so μ is negligible there
+    //     and quadratic Newton convergence is preserved.
+    //
+    // The damping is only ever needed when `H_pen` carries a numerical
+    // nullspace (`nullity > 0`): that is when near-singular-but-above-cutoff
+    // modes exist whose undamped `component/λ` step oscillates. On a FULLY
+    // IDENTIFIED Hessian (`nullity == 0`, e.g. the post-reduction
+    // constant-scale AFT, #736/#735/#721/#733/#734) every range curvature is a
+    // genuine non-degenerate eigenvalue and the exact Newton step converges
+    // quadratically; applying even the self-vanishing μ then throttles the
+    // step by the geometric ratio λ/(λ+μ) per cycle and stalls the small-
+    // curvature blocks (an unpenalized intercept at small n) at a residual
+    // plateau orders above `residual_tol`. So count the nullity first and use
+    // μ only when the model is genuinely rank-deficient.
+    let spectral_nullity = evals
+        .iter()
+        .filter(|v| !v.is_finite() || v.abs() <= cutoff)
+        .count();
+    let effective_mu = if spectral_nullity > 0 {
+        levenberg_mu.max(0.0)
+    } else {
+        0.0
+    };
     for k in 0..p {
         let lambda = evals[k];
         let u_k = evecs.column(k);
@@ -12217,7 +12863,14 @@ fn solve_joint_newton_step_on_spectral_range(
         };
         range_rhs_inf = range_rhs_inf.max(component.abs());
         lambda_min_positive = lambda_min_positive.min(curvature);
-        let scale = component / curvature;
+        // Self-vanishing Levenberg–Marquardt damping on the range-space
+        // curvature, applied only when the Hessian is genuinely rank-deficient
+        // (`effective_mu` is `0.0` on a full-rank identified model — see the
+        // `spectral_nullity` gate above). `μ ≥ 0` and `curvature > cutoff > 0`,
+        // so the denominator stays strictly positive and the descent property
+        // (∇L − Sβ)·δ = Σ_k (u_kᵀ rhs)²/(|λ_k| + μ) > 0 is preserved.
+        let damped_curvature = curvature + effective_mu;
+        let scale = component / damped_curvature;
         for i in 0..p {
             delta[i] += scale * u_k[i];
         }
@@ -12232,28 +12885,34 @@ fn solve_joint_newton_step_on_spectral_range(
         );
     }
     if null_rhs_inf > null_tol {
-        // Reaching this branch means the canonical-gauge identifiability
-        // pipeline did NOT remove a redundant cross-block direction that
-        // is now showing up as a Hessian nullspace at the joint Newton
-        // step.  The expected handler is
-        // `canonicalize_for_identifiability`, which compares block gauge
-        // priorities and routes alias drops to the lower-priority block.
-        // If that pass left a structural null behind, the most likely
-        // causes are (a) two blocks sharing the same `gauge_priority`
-        // and the same direction (no ordering exists to resolve them),
-        // or (b) a >2-way alias that the pairwise scan / RRQR could not
-        // attribute.  The audit log line `alias-cluster A ~ B` upstream
-        // identifies the offending pair.
-        return Err(format!(
-            "joint Newton model-space error: nonzero gradient in Hessian nullspace \
+        // The penalized joint Hessian carries a numerical nullspace and the
+        // stationarity RHS has a nonzero component inside it. That component
+        // lies along an *unidentified* direction: no finite Newton/KKT step
+        // can reduce a gradient component in `ker(H)` (the quadratic model is
+        // flat there), so the direction contributes nothing to the fit. The
+        // accumulation loop above already projected the step onto the Hessian
+        // *range* — every null direction hit the `continue` branch and was
+        // dropped from `delta` — so `delta` is exactly the range-restricted
+        // (Moore–Penrose) Newton step `H⁺(−g)`, well-defined regardless of the
+        // null-RHS magnitude.
+        //
+        // Historically this was a hard error on the theory that a residual
+        // nullspace meant the canonical-gauge identifiability pass had failed.
+        // But for genuinely degenerate small-n designs (e.g. an n=23 binary-
+        // covariate CTM with a degenerate two-arm split) the joint Hessian is
+        // structurally singular along a direction the pairwise-RRQR alias scan
+        // cannot attribute to a single block, so the gauge pass legitimately
+        // cannot drop it. Refusing there aborts an otherwise well-posed fit.
+        // Projecting the RHS onto the range (which the loop already did) is the
+        // principled repair: the unidentified direction is simply left at its
+        // current value, and the downstream trust-region globalization
+        // validates the resulting step by actual objective decrease.
+        log::debug!(
+            "[PIRLS/joint-Newton] range-projected Newton step over a residual Hessian nullspace \
              (|P0 rhs|∞={null_rhs_inf:.3e} > tol={null_tol:.3e}, |P+ rhs|∞={range_rhs_inf:.3e}, \
              λ_min+={lambda_min_positive:.3e}, λ_max={lambda_max_abs:.3e}, nullity@{rank_tol:.0e}={nullity}/{p}); \
-             the canonical-gauge identifiability pass left a structural null direction in the \
-             joint Hessian. Inspect the upstream identifiability-audit log for `alias-cluster A ~ B` \
-             entries: if both blocks share the same `gauge_priority`, assign them strictly \
-             different priorities so RRQR demotes the lower-priority block's column; otherwise \
-             reduce the smooth's basis width or add an explicit model-level regularizer."
-        ));
+             the unidentified null direction is left unchanged and contributes nothing to the fit.",
+        );
     }
     if !delta.iter().all(|v| v.is_finite()) {
         return Err("joint Newton spectral solve produced non-finite step".to_string());
@@ -12270,6 +12929,36 @@ fn solve_joint_newton_step_on_spectral_range(
         reflected_negative_modes,
         most_negative_eigenvalue: most_negative,
     })
+}
+
+/// Numerical nullity of a symmetric penalized Hessian at the shared
+/// `KKT_REFUSAL_RANK_TOL` relative cutoff (the same threshold the spectral
+/// range solve and the REML penalty-rank machinery use). Returns `None` only
+/// when the eigendecomposition fails or the matrix is the zero matrix (no
+/// finite curvature scale to normalize against); callers treat a `None` as
+/// "could not certify full rank" and fall back to the conservative (damped)
+/// path.
+///
+/// This exists so the CONSTRAINED active-set QP branch can decide whether the
+/// joint design is genuinely rank-deficient (`nullity > 0` ⇒ an unidentified
+/// gauge direction that needs the self-vanishing Levenberg floor to make the
+/// QP minimizer unique) or fully identified (`nullity == 0` ⇒ the exact,
+/// undamped Newton/KKT step is well-posed and converges quadratically). The
+/// spectral-range branch already gets this for free via
+/// `JointSpectralNewtonStep::nullity`; the constrained branch never runs the
+/// eigensolve otherwise, so it computes it here on the already-penalized `lhs`.
+fn symmetric_penalized_hessian_nullity(lhs: &Array2<f64>) -> Option<usize> {
+    let p = lhs.nrows();
+    if p == 0 || lhs.ncols() != p {
+        return Some(0);
+    }
+    let (evals, _) = FaerEigh::eigh(lhs, Side::Lower).ok()?;
+    let max_abs = evals.iter().map(|x: &f64| x.abs()).fold(0.0_f64, f64::max);
+    if !(max_abs.is_finite() && max_abs > 0.0) {
+        return None;
+    }
+    let cutoff = KKT_REFUSAL_RANK_TOL * max_abs;
+    Some(evals.iter().filter(|x| x.abs() < cutoff).count())
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -12368,11 +13057,20 @@ fn compute_kkt_refusal_report(
         Some(residual) => ranges
             .iter()
             .map(|(start, end)| {
-                residual
-                    .slice(ndarray::s![*start..*end])
-                    .iter()
-                    .map(|x: &f64| x.abs())
-                    .fold(0.0_f64, f64::max)
+                // A zero-width block (start == end) has no residual of its own;
+                // an empty `fold` would report a spurious `0.0`. Mark it `NaN`
+                // so the `is_finite()` filter below excludes it from the
+                // carrying-block selection (it cannot carry residual it has no
+                // parameters for).
+                if start >= end {
+                    f64::NAN
+                } else {
+                    residual
+                        .slice(ndarray::s![*start..*end])
+                        .iter()
+                        .map(|x: &f64| x.abs())
+                        .fold(0.0_f64, f64::max)
+                }
             })
             .collect(),
         None => vec![f64::NAN; states.len()],
@@ -13744,6 +14442,75 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
                         joint_bundle,
                     );
                     let rhs_step = &grad_joint - &penalty_beta_joint;
+                    // Self-vanishing Levenberg–Marquardt damping for the
+                    // CONSTRAINED active-set QP, mirroring the spectral-range
+                    // branch below (μ = JOINT_SPECTRAL_LEVENBERG_FACTOR·‖rhs‖∞).
+                    //
+                    // When the joint design carries inequality constraints
+                    // (the monotone I-spline time-warp of a survival
+                    // location-scale / AFT fit) the spectral range step that
+                    // drops ker(H_pen) is NOT taken — this dense active-set QP
+                    // runs instead. On a constant-scale AFT the 12-col monotone
+                    // time-warp's non-affine deviation is statistically
+                    // UNIDENTIFIED, so H_pen is rank-deficient along that gauge
+                    // direction. An undamped QP then has a continuum of optima
+                    // differing only by the free gauge component, and the
+                    // active set slides along the monotone constraint face
+                    // taking an O(1) proposal step in that direction every
+                    // cycle. The proposal `step_inf` never exhausts, so the
+                    // identified-subspace KKT certificate (gated on
+                    // `step_inf ≤ step_tol`) never fires and the inner
+                    // joint-Newton grinds the full `inner_max_cycles` on EVERY
+                    // outer ρ-eval — the survival-LS AFT "hang" (#736/#735/#721).
+                    //
+                    // Adding μ·I to the QP Hessian gives ker(H_pen) a tiny
+                    // positive curvature, so the constrained minimizer is unique
+                    // and its gauge component is driven toward zero; the proposal
+                    // step then exhausts at the identified-subspace optimum and
+                    // the certificate fires in a handful of cycles. Because
+                    // μ ∝ ‖∇L − Sβ‖∞ → 0 at the KKT fixed point, the converged β
+                    // and the well-identified flexible-scale fast path (where the
+                    // time-warp IS identified and H_pen is non-singular) are
+                    // unchanged — a genuinely flexible survival-LS fit still
+                    // performs its full search.
+                    //
+                    // CRITICAL: the floor is only correct on a genuinely
+                    // rank-deficient `H_pen`. Gate it strictly on
+                    // `nullity > 0`. On a FULLY IDENTIFIED constrained fit
+                    // (e.g. the post-reduction constant-scale loglogistic AFT,
+                    // #736/#735/#721/#733/#734 — a 3-parameter model with
+                    // block_widths = [1,1,1] and an empty `ker(H_pen)`) the QP
+                    // minimizer is already unique, so the floor adds nothing it
+                    // is needed for but everything it costs: with residual r and
+                    // factor 1e-3 the floor is μ≈1e-3·r, and on an unpenalized
+                    // location intercept whose likelihood curvature H is small
+                    // at n=23 the damped Newton component shrinks the residual
+                    // only by the GEOMETRIC ratio H/(H+μ) per cycle instead of
+                    // quadratically. With μ≈1e-6 and a small H that ratio is far
+                    // from 1, so the threshold-block stationarity residual
+                    // plateaus at ~1e-3–1e-4 and the inner solve burns its whole
+                    // cycle budget without ever reaching `residual_tol`. The
+                    // self-vanishing μ→0 is too slow because it vanishes only as
+                    // fast as the residual it is throttling. Disabling the floor
+                    // when `nullity == 0` makes the constrained QP solve the
+                    // EXACT undamped Newton/KKT system, recovering quadratic
+                    // convergence to `residual_tol` in a handful of cycles. The
+                    // rank-deficient case (`nullity > 0`, the pre-reduction
+                    // unidentified time-warp gauge) keeps the floor and its hang
+                    // fix unchanged. `None` (eigensolve failed / zero Hessian)
+                    // falls back to the damped path conservatively.
+                    let hpen_nullity = symmetric_penalized_hessian_nullity(&lhs);
+                    let apply_constrained_floor = hpen_nullity.map(|n| n > 0).unwrap_or(true);
+                    let rhs_inf = rhs_step.iter().map(|v| v.abs()).fold(0.0_f64, f64::max);
+                    let constrained_levenberg_mu = JOINT_SPECTRAL_LEVENBERG_FACTOR * rhs_inf;
+                    if apply_constrained_floor
+                        && constrained_levenberg_mu > 0.0
+                        && constrained_levenberg_mu.is_finite()
+                    {
+                        for d in 0..lhs.nrows() {
+                            lhs[[d, d]] += constrained_levenberg_mu;
+                        }
+                    }
                     let rhs_beta = &lhs.dot(&beta_joint) + &rhs_step;
                     let solve_result = if let Some(bounds) = lower_bounds.as_ref() {
                         solve_quadratic_with_simple_lower_bounds(
@@ -13926,11 +14693,27 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
                             joint_mode_diagonal_ridge,
                             joint_bundle,
                         );
+                        // Self-vanishing Levenberg–Marquardt damping for the
+                        // range-restricted spectral step. Scaled to the current
+                        // stationarity-residual magnitude ‖∇L − Sβ‖∞ so it is
+                        // dimensionally consistent with the eigenvalues it floors
+                        // (μ = JOINT_SPECTRAL_LEVENBERG_FACTOR · ‖rhs‖∞). As the
+                        // inner solve converges (‖rhs‖∞ → 0) μ → 0 and the step
+                        // collapses to the exact range-restricted Newton step, so
+                        // the KKT fixed point and the well-identified #720 fast
+                        // path are unchanged; far from the optimum on a
+                        // near-singular degenerate design it caps the otherwise
+                        // unbounded component/λ step along ill-conditioned modes
+                        // and stops the oscillation that prevented the n=23
+                        // binary-covariate CTM from settling (#733/#734).
+                        let rhs_inf = rhs.iter().map(|v| v.abs()).fold(0.0_f64, f64::max);
+                        let spectral_levenberg_mu = JOINT_SPECTRAL_LEVENBERG_FACTOR * rhs_inf;
                         let spectral_step = solve_joint_newton_step_on_spectral_range(
                             &lhs_true,
                             &rhs,
                             KKT_REFUSAL_RANK_TOL,
                             residual_tol_for_solve,
+                            spectral_levenberg_mu,
                         )?;
                         spectral_nullity_for_step = spectral_step.nullity;
                         if spectral_step.reflected_negative_modes > 0 {
@@ -14927,6 +15710,104 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
                 converged = true;
                 break;
             }
+            // Identified-subspace (range-space) KKT certificate.
+            //
+            // The strict certificate above tests the FULL stationarity residual
+            // ‖∇L − Sβ‖∞. On a genuinely rank-deficient penalized inner problem
+            // — a degenerate small-n transformation-normal CTM/Box-Cox fit whose
+            // joint Hessian carries an *unidentified* direction the
+            // canonical-gauge pass cannot attribute to a single block (the same
+            // structural null root-caused for the joint-Newton panic at
+            // `solve_joint_newton_step_on_spectral_range`) — the stationarity
+            // gradient keeps a fixed nonzero component inside ker(H_pen). The
+            // spectral Newton step drops exactly that component (range-restricted
+            // Moore–Penrose step: every null direction hits the `continue` branch
+            // in the accumulation loop), so β converges on the identified
+            // subspace and the step exhausts, yet the FULL residual never reaches
+            // `residual_tol`. The strict test then runs the whole cycle budget
+            // "non-converged" on an iterate that is, in fact, the optimum on the
+            // only identifiable directions.
+            //
+            // The principled certificate is stationarity on range(H_pen): the
+            // residual restricted to the curved (identified) subspace is at
+            // tolerance while the leftover mass is provably confined to
+            // ker(H_pen) — an unidentified direction with neither curvature nor
+            // constraint. That null component is dropped by the spectral step
+            // here and projected out of the KKT residual by the outer IFT
+            // pseudo-inverse `U_S·H_proj⁻¹·U_Sᵀ` before the envelope correction
+            // (see the gam#553 note and `projected_residual_range_space_inf`), so
+            // it cannot bias the outer gradient.
+            //
+            // The remaining requirement is to prove we are AT the
+            // range-restricted optimum rather than mid-descent, so this does not
+            // short-circuit a genuinely nonlinear CTM fit that is still moving β.
+            // There are two independent, equally-rigorous proofs of that, and
+            // EITHER suffices once `range_residual ≤ residual_tol` has fired:
+            //   (a) the full Newton step is exhausted (`step_inf ≤ step_tol`):
+            //       the well-identified case, where the range-restricted step
+            //       collapses to zero and the leftover ker(H_pen) component is
+            //       already dropped by the spectral step, so the FULL step is
+            //       small too; OR
+            //   (b) the objective has stopped changing
+            //       (`objective_change ≤ objective_tol`): the joint objective
+            //       (−loglik + ½βᵀSβ) is a function of the IDENTIFIED coordinates
+            //       ONLY — moving β along an unidentified direction in ker(H_pen)
+            //       = ker(H_L) ∩ ker(S) changes neither the likelihood nor the
+            //       penalty by construction — so a flat objective proves no
+            //       identified-direction descent remains regardless of how large
+            //       the FULL step is.
+            // Proof (b) is the certificate that the constant-scale AFT (#736) and
+            // the degenerate CTM (#733/#734) need: their unidentified cross-block
+            // null (the time_transform polynomial/affine deviation aliased into
+            // threshold/log_sigma) keeps the Levenberg-damped, trust-region-clamped
+            // FULL step perpetually nonzero — `step_inf` never reaches `step_tol`
+            // — even though the identified fit is exactly at its optimum (zero
+            // range-space residual, frozen objective). Tying the certificate ONLY
+            // to the full step (proof (a)) therefore burned the entire 200/84-cycle
+            // budget on an iterate that is already optimal on every identifiable
+            // direction, and the inner solve was rejected by the FULL-residual KKT
+            // check. Adding proof (b) certifies on the identified subspace without
+            // loosening anything for a genuinely-identified fit: there
+            // `projected_residual_range_space_inf` returns `None` (nullity == 0 ⇒
+            // range == whole space), so this branch is dormant and the strict
+            // full-residual path above governs unchanged.
+            //
+            // Unlike the constrained-stationary path below, this fires on a pure
+            // identifiability null without requiring the `linearized_rel ≥ 0.5`
+            // constraint-multiplier signature, which a structural rank-deficiency
+            // need not produce.
+            if (step_inf <= step_tol || objective_change <= objective_tol)
+                && let Some(range_residual) = projected_residual_range_space_inf(
+                    &projected_residual_vec,
+                    &joint_hessian_source,
+                    &ranges,
+                    &s_lambdas,
+                    ridge,
+                    options.ridge_policy,
+                    total_p,
+                )
+                && range_residual <= residual_tol
+            {
+                log::info!(
+                    "[PIRLS/joint-Newton convergence] cycle {:>3} | identified-subspace KKT certificate: total residual={:.3e} > tol={:.3e} but its range-space (identified-subspace) component={:.3e} ≤ tol={:.3e}, step_inf={:.3e} (step_tol={:.3e}), |Δobjective|={:.3e} (obj_tol={:.3e}); the leftover residual lies in the unidentified penalized-Hessian null space ker(H_pen) (dropped by the range-restricted spectral step and projected out by the outer IFT pseudo-inverse) — the iterate is stationary on the entire identifiable subspace (proof: {}).",
+                    cycle,
+                    residual,
+                    residual_tol,
+                    range_residual,
+                    residual_tol,
+                    step_inf,
+                    step_tol,
+                    objective_change,
+                    objective_tol,
+                    if step_inf <= step_tol {
+                        "full Newton step exhausted"
+                    } else {
+                        "objective frozen on the identified subspace while the unidentified null keeps the full step nonzero"
+                    },
+                );
+                converged = true;
+                break;
+            }
             // Noise-floor KKT certificate.
             //
             // Reading the joint stationarity residual ‖∇L(β) − Sβ‖_∞ at finite
@@ -15397,6 +16278,54 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
             // ── end timing-driven adaptive early-exit ────────────────────────
         }
 
+        // Explicit terminal verdict for the joint-Newton inner solve.
+        //
+        // The per-cycle `[PIRLS/JN] cyc=N/MAX … resid=… (tol=…)` line prints
+        // the KKT/step/objective gaps at every cycle but never states which
+        // criterion *terminated* the loop, so the final visible line on a
+        // budget-exhausted solve looks identical to an ordinary mid-run cycle
+        // (gam#744). A reader scanning a sweep log cannot tell a fit that
+        // reached a stationary point from one that simply ran out of cycles
+        // with the residual still orders of magnitude above tolerance and only
+        // the objective stalled. Emit one authoritative line, on every exit
+        // path, naming the terminating condition: `converged` is the honest
+        // status the result carries downstream, `budget_exhausted` distinguishes
+        // "ran the full cap" from an early certificate/divergence exit, and the
+        // residual/step/objective stall flags say *why*. A budget-exhausted,
+        // non-converged exit is logged at WARN so it is impossible to miss even
+        // when per-cycle INFO is filtered out; a clean convergence is INFO.
+        {
+            let budget_exhausted = cycles_done >= inner_max_cycles;
+            let terminator = if converged {
+                "KKT/certificate-converged"
+            } else if budget_exhausted {
+                "budget-exhausted (max cycles reached)"
+            } else {
+                "early-exit non-converged (divergence/stall guard)"
+            };
+            let verdict = format!(
+                "[PIRLS/joint-Newton terminal] converged={} terminator={} cycles={}/{} \
+                 best_residual_inf={:.3e} (tol={:.3e}) last_residual_below_tol={} \
+                 last_obj_change_below_tol={} objective={:.6e}; this is the status the inner \
+                 solve reports to the outer REML/LAML evaluation — a non-converged exit \
+                 (residual ≫ tol with only the objective stalled) is rejected, not accepted",
+                converged,
+                terminator,
+                cycles_done,
+                inner_max_cycles,
+                best_residual_seen,
+                last_residual_tol,
+                last_cycle_residual_below_tol,
+                last_cycle_obj_change_below_tol,
+                lastobjective,
+            );
+            if converged {
+                log::info!("{verdict}");
+            } else {
+                log::warn!("{verdict}");
+            }
+        }
+
         // If joint Newton converged, skip the blockwise loop entirely.
         if converged {
             let penalty_value = total_quadratic_penalty(
@@ -15467,38 +16396,6 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
                 joint_workspace: cached_joint_workspace.clone(),
                 kkt_residual: Some(kkt_residual),
                 active_constraints,
-            });
-        }
-        if cycles_done >= inner_max_cycles {
-            let penalty_value = total_quadratic_penalty(
-                &states,
-                &s_lambdas,
-                ridge,
-                options.ridge_policy,
-                joint_bundle,
-                Some(specs),
-            );
-            let (block_logdet_h, block_logdet_s) = blockwise_logdet_terms_with_workspace(
-                family,
-                specs,
-                &mut states,
-                block_log_lambdas,
-                options,
-                cached_joint_workspace.clone(),
-            )?;
-            return Ok(BlockwiseInnerResult {
-                block_states: states,
-                active_sets: normalize_active_sets(cached_active_sets),
-                log_likelihood: current_log_likelihood,
-                penalty_value,
-                cycles: cycles_done,
-                converged,
-                block_logdet_h,
-                block_logdet_s,
-                s_lambdas,
-                joint_workspace: cached_joint_workspace.clone(),
-                kkt_residual: None,
-                active_constraints: None,
             });
         }
         if cycles_done >= inner_max_cycles {
@@ -15584,7 +16481,7 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
                     })
                     .unwrap_or_else(|| "last_newton_math=<none>".to_string());
                 log::warn!(
-                    "[PIRLS/joint-Newton] cycle={} budget-exhausted without KKT: objective_start={:.6e} objective_end={:.6e} objective_drop={:+.3e} beta_inf={:.3e} exit_unprojected_kkt_inf={:.3e} total_p={} total_n={} block_widths={:?} block_beta_inf={:?} block_grad_inf={:?} block_diag_hessian_default={} {}; returning non-converged warm-start iterate and rejecting this outer REML/LAML evaluation",
+                    "[PIRLS/joint-Newton] cycle={} budget-exhausted without KKT: objective_start={:.6e} objective_end={:.6e} objective_drop={:+.3e} beta_inf={:.3e} exit_unprojected_kkt_inf={:.3e} total_p={} total_n={} block_widths={:?} block_beta_inf={:?} block_grad_inf={:?} block_diag_hessian_default={} {}; rejecting this outer REML/LAML evaluation",
                     cycles_done,
                     initial_joint_objective,
                     lastobjective,
@@ -15599,6 +16496,22 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
                     block_diag_default,
                     last_math_summary,
                 );
+                if coupled_exact_joint_required {
+                    let block_diag = match last_kkt_refusal_report.as_ref() {
+                        Some(report) => report.format_bubbled_error(),
+                        None => block_residual_diagnostic_string(
+                            cached_joint_gradient.as_ref(),
+                            &states,
+                            specs,
+                            &s_lambdas,
+                            ridge,
+                            options.ridge_policy,
+                        ),
+                    };
+                    return Err(format!(
+                        "coupled exact-joint inner solve exhausted the joint Newton budget without KKT convergence after {cycles_done} cycle(s) — {block_diag}"
+                    ));
+                }
             }
             let penalty_value = total_quadratic_penalty(
                 &states,
@@ -17637,59 +18550,77 @@ fn joint_penalty_subspace_trace_parts(
         }
     }
 
-    let mut h_times_u = Array2::<f64>::zeros((total, rank));
-    for col in 0..rank {
-        let basis = u_s.column(col).to_owned();
-        let h_col = match h_joint_unpen {
-            JointHessianSource::Dense(h_joint) => {
-                let mut out = fast_av(h_joint, &basis);
-                let penalty = apply_joint_block_penalty(
-                    ranges,
-                    s_lambdas,
-                    &basis,
-                    hessian_diagonal_ridge,
-                    None,
-                );
-                out += &penalty;
-                out
-            }
-            JointHessianSource::Operator { apply, .. } => {
-                let mut out = apply(&basis)?;
-                let penalty = apply_joint_block_penalty(
-                    ranges,
-                    s_lambdas,
-                    &basis,
-                    hessian_diagonal_ridge,
-                    None,
-                );
-                out += &penalty;
-                out
-            }
-        };
-        h_times_u.column_mut(col).assign(&h_col);
-    }
-
-    let mut h_proj = fast_atb(&u_s, &h_times_u);
-    symmetrize_dense_in_place(&mut h_proj);
-    let (h_evals, h_evecs) = h_proj
-        .eigh(Side::Lower)
-        .map_err(|e| format!("joint projected Hessian eigendecomposition failed: {e}"))?;
-    let h_threshold = positive_eigenvalue_threshold(h_evals.as_slice().unwrap());
-    let logdet = exact_pseudo_logdet(h_evals.as_slice().unwrap(), h_threshold);
-
-    let mut h_proj_inverse = Array2::<f64>::zeros((rank, rank));
-    for eig_idx in 0..rank {
-        let sigma = h_evals[eig_idx];
-        if sigma <= h_threshold {
+    // ── REML log|H + Sλ|₊ and its trace kernel over the FULL identifiable
+    //    subspace range(H + Sλ) ──────────────────────────────────────────────
+    //
+    // The REML penalty-determinant term is `½ log|H + Sλ|₊`, and its ρ-gradient
+    // is the trace `½ tr((H + Sλ)⁻¹ ∂Sλ/∂ρ)`. BOTH must be taken over
+    // range(H + Sλ) — the full identifiable subspace — not over range(Sλ).
+    //
+    // The previous code projected onto range(Sλ): it computed
+    // `log|U_Sᵀ(H+Sλ)U_S| = log|M_rr|` and the kernel `M_rr⁻¹`. That DROPS the
+    // determinant of the penalty-null block `M_kk = U_kᵀ H U_k` (on ker(Sλ), Sλ
+    // vanishes, so this is pure likelihood curvature) and the Schur coupling
+    // between the two. `M_kk` is the unpenalized polynomial trend; on a
+    // near-collinear design (admixture-cline PCs at small n) its curvature is
+    // large and GROWS as the smooth part is shrunk. Omitting it from
+    // `log|H+Sλ|` while `½ log|Sλ|₊` is correctly taken over range(Sλ) makes
+    // the ρ-derivative of the REML criterion inconsistent in the marginal
+    // block: the outer optimizer drives that block's λ → ∞ chasing a
+    // flat-increasing profile (gh#752), the coupled inner joint-Newton can no
+    // longer certify stationarity on the now-ill-conditioned trend, and the
+    // envelope-theorem outer gradient — valid only at a stationary β̂ — diverges
+    // on the coupled (logslope) block while the objective stalls, so ARC never
+    // reaches a KKT point.
+    //
+    // The correct generalized determinant (mgcv's treatment) takes both terms
+    // over range(H + Sλ): identical to the ordinary log-det / inverse when
+    // H + Sλ is non-singular (the well-posed case), and dropping only the truly
+    // unidentified directions ker(H) ∩ ker(Sλ) when it is singular — exactly the
+    // directions `½ log|Sλ|₊` also omits, keeping value and gradient consistent.
+    //
+    // To preserve value/gradient consistency the trace kernel must be the
+    // range(Sλ) BLOCK of the FULL pseudo-inverse `(H+Sλ)⁺` (its Schur reduction
+    // onto range(Sλ)), NOT `M_rr⁻¹`. Then
+    //   tr(h_proj_inverse · U_Sᵀ ∂Sλ U_S) = tr((H+Sλ)⁺ ∂Sλ) = ∂_ρ log|H+Sλ|₊,
+    // since ∂Sλ/∂ρ is supported on range(Sλ). Both are derived from the same
+    // materialized `M = H + Sλ` so they cannot drift apart.
+    //
+    // The #752 fix requires the full identifiable-subspace determinant. There
+    // is no lower-dimensional fallback that preserves that objective: the old
+    // range(Sλ) reduction is exactly the bug, because it drops the penalty-null
+    // likelihood determinant. If the dense path is over budget, fail loudly so
+    // the caller can choose a different Hessian representation instead of
+    // optimizing a different REML surface.
+    ensure_exact_joint_hessian_dense_budget(total, "joint penalty subspace logdet")?;
+    let m_dense =
+        materialize_joint_hessian_source(h_joint_unpen, total, "joint penalty subspace logdet")?;
+    let mut m = m_dense;
+    add_joint_penalty_to_matrix(&mut m, ranges, s_lambdas, hessian_diagonal_ridge, None);
+    symmetrize_dense_in_place(&mut m);
+    let (m_evals, m_evecs) = m.eigh(Side::Lower).map_err(|e| {
+        format!("joint penalty subspace full Hessian eigendecomposition failed: {e}")
+    })?;
+    let m_threshold = positive_eigenvalue_threshold(m_evals.as_slice().unwrap());
+    let logdet = exact_pseudo_logdet(m_evals.as_slice().unwrap(), m_threshold);
+    // Full Moore-Penrose pseudo-inverse `M+` (drop ker(H+Sλ)), then its
+    // range(Sλ) block `U_S^T M+ U_S` as the trace kernel.
+    let mut m_pinv = Array2::<f64>::zeros((total, total));
+    for eig_idx in 0..total {
+        let sigma = m_evals[eig_idx];
+        if sigma <= m_threshold {
             continue;
         }
         let inv = 1.0 / sigma;
-        for i in 0..rank {
-            for j in 0..rank {
-                h_proj_inverse[[i, j]] += inv * h_evecs[[i, eig_idx]] * h_evecs[[j, eig_idx]];
+        for i in 0..total {
+            let vi = inv * m_evecs[[i, eig_idx]];
+            for j in 0..total {
+                m_pinv[[i, j]] += vi * m_evecs[[j, eig_idx]];
             }
         }
     }
+    symmetrize_dense_in_place(&mut m_pinv);
+    let mut h_proj_inverse = fast_atb(&u_s, &fast_ab(&m_pinv, &u_s));
     symmetrize_dense_in_place(&mut h_proj_inverse);
 
     Ok((
@@ -19796,6 +20727,16 @@ fn evaluate_custom_family_hyper_internal_shared<F: CustomFamily + Clone + Send +
             },
             hessian_workspace.clone(),
         );
+        let compute_d2h_many = if use_outer_curvature_derivatives {
+            None
+        } else {
+            exact_newton_d2h_many_closure(rho_curvature_scale, hessian_workspace.clone())
+        };
+        let owned_compute_d2h_many = if use_outer_curvature_derivatives {
+            None
+        } else {
+            exact_newton_d2h_many_closure_owned(rho_curvature_scale, hessian_workspace.clone())
+        };
 
         // Route through the unified path (joint_outer_evaluate → reml_laml_evaluate).
         let eval_result = joint_outer_evaluate(
@@ -19823,11 +20764,11 @@ fn evaluate_custom_family_hyper_internal_shared<F: CustomFamily + Clone + Send +
             &compute_dh,
             compute_dh_many.as_deref(),
             &compute_d2h,
-            None,
+            compute_d2h_many.as_deref(),
             Some(owned_compute_dh),
             owned_compute_dh_many,
             Some(owned_compute_d2h),
-            None,
+            owned_compute_d2h_many,
             ext_bundle,
             None,
             custom_family_batched_outer_hessian_operator(
@@ -20778,8 +21719,18 @@ fn evaluate_custom_family_joint_hyper_efs_internal_shared<
         } else {
             rho_curvature_scale
         },
-        hessian_workspace,
+        hessian_workspace.clone(),
     );
+    let compute_d2h_many = if use_outer_curvature_derivatives {
+        None
+    } else {
+        exact_newton_d2h_many_closure(rho_curvature_scale, hessian_workspace.clone())
+    };
+    let owned_compute_d2h_many = if use_outer_curvature_derivatives {
+        None
+    } else {
+        exact_newton_d2h_many_closure_owned(rho_curvature_scale, hessian_workspace.clone())
+    };
 
     let efs_eval = joint_outer_evaluate_efs(
         &inner,
@@ -20805,11 +21756,11 @@ fn evaluate_custom_family_joint_hyper_efs_internal_shared<
         &compute_dh,
         compute_dh_many.as_deref(),
         &compute_d2h,
-        None,
+        compute_d2h_many.as_deref(),
         Some(owned_compute_dh),
         owned_compute_dh_many,
         Some(owned_compute_d2h),
-        None,
+        owned_compute_d2h_many,
         Some(ext_bundle),
     )
     .map_err(CustomFamilyError::from)?;
@@ -21911,16 +22862,37 @@ fn compute_joint_covariance<F: CustomFamily + Clone + Send + Sync + 'static>(
     }
     symmetrize_dense_in_place(&mut h);
     if use_exact_newton_strict_spd(family) {
-        let (inv, stats) = strict_inverse_spd_with_lm_continuation(&h)?;
-        if stats.escalations > 0 {
-            log::debug!(
-                "[strict-spd] inverse δ-ridge continuation: δ={:.3e}, escalations={}, p={}",
-                stats.delta_used,
-                stats.escalations,
-                h.nrows(),
-            );
+        // #748: the strict posterior precision is `H + S_λ` AT THE CONVERGED
+        // OPTIMUM. A δ-ridge inverse `(H + S_λ + δI)⁻¹` would mask a genuinely
+        // non-PD curvature and report it as if it were the posterior
+        // covariance, biasing every standard error. Instead: eigendecompose and
+        // **reject** when the precision is genuinely indefinite (a real
+        // fit-quality failure — the mode is not a strict maximum), and on the
+        // PSD case return the honest positive-eigenspace pseudo-inverse (the
+        // structural null space of a penalised model is a flat posterior
+        // direction, not something to ridge away).
+        let p = h.nrows();
+        let (evals, _) = FaerEigh::eigh(&h, Side::Lower).map_err(|e| {
+            format!("strict pseudo-laplace covariance eigendecomposition failed: {e}")
+        })?;
+        let max_abs_eval = evals.iter().fold(0.0_f64, |acc, &ev| acc.max(ev.abs()));
+        let eps_np = f64::EPSILON * (p as f64) * (p as f64);
+        let tol = (10.0 * eps_np * max_abs_eval).max(100.0 * f64::EPSILON);
+        if let Some(&min_eval) = evals
+            .iter()
+            .filter(|&&ev| ev < -tol)
+            .min_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+        {
+            let below = evals.iter().filter(|&&ev| ev < -tol).count();
+            return Err(format!(
+                "strict pseudo-laplace covariance: joint coefficient Hessian is non-PD at the \
+                 converged optimum ({below} eigenvalue(s) below -tol, min(λ)={min_eval:.6e}, \
+                 max|λ|={max_abs_eval:.6e}, tol={tol:.6e}); the mode is not a strict posterior \
+                 maximum, so the reported covariance would be meaningless — fit-quality failure \
+                 surfaced instead of δ-ridge masking (gam#748)"
+            ));
         }
-        Ok(inv)
+        pinv_positive_part(&h, effective_solverridge(options.ridge_floor))
     } else {
         match inverse_spdwith_retry(&h, effective_solverridge(options.ridge_floor), 8) {
             Ok(cov) => Ok(cov),
@@ -21962,32 +22934,67 @@ fn compute_joint_geometry<F: CustomFamily + Clone + Send + Sync + 'static>(
         let Some(eval) = eval else {
             return Ok(None);
         };
-        let [
-            BlockWorkingSet::Diagonal {
-                working_response,
-                working_weights,
-            },
-        ] = eval.blockworking_sets.as_slice()
-        else {
-            return Ok(None);
-        };
         let spec = &specs[0];
         let lambdas = per_block_log_lambdas[0].mapv(f64::exp);
-        let Some(mut h) = spec
-            .design
-            .xt_diag_x_signed_op(SignedWeightsView::from_array(working_weights))
-            .ok()
-        else {
-            return Ok(None);
+        // The penalized joint Hessian `H_pen = H_lik + Σ_k λ_k S_k` is the exact
+        // mgcv quantity the trace edf `p − Σ_k λ_k·tr(H_pen⁻¹ S_k)` consumes. Two
+        // single-block working-set shapes reach here:
+        //
+        // * `Diagonal` — IRLS/GLM families expose only the diagonal working
+        //   weights, so the likelihood curvature is reconstructed as the
+        //   Gauss–Newton gram `XᵀWX`.
+        // * `ExactNewton` — coefficient-space exact-curvature families (CTN
+        //   transformation-normal, …) already carry the dense negative
+        //   log-likelihood Hessian `−∇²log L = H_lik` directly. Materialize it
+        //   and add the penalties, so these families report inference / total
+        //   edf instead of dropping geometry (and therefore inference) for the
+        //   whole fit (#720).
+        let (mut h, working_weights, working_response) = match eval.blockworking_sets.as_slice() {
+            [
+                BlockWorkingSet::Diagonal {
+                    working_response,
+                    working_weights,
+                },
+            ] => {
+                let Some(h) = spec
+                    .design
+                    .xt_diag_x_signed_op(SignedWeightsView::from_array(working_weights))
+                    .ok()
+                else {
+                    return Ok(None);
+                };
+                (h, working_weights.clone(), working_response.clone())
+            }
+            [BlockWorkingSet::ExactNewton { hessian, .. }] => {
+                let h = hessian.to_dense();
+                if h.nrows() != spec.design.ncols() || h.ncols() != spec.design.ncols() {
+                    return Ok(None);
+                }
+                // The exact-Newton block carries no IRLS pseudo-data; the
+                // trace edf reads only the penalized Hessian, and the
+                // downstream IRLS covariance path is unused for these
+                // families (they report dispersion = 1). Match the joint
+                // multi-block branch's zero-length convention.
+                let working_len = states.first().map(|state| state.eta.len()).unwrap_or(0);
+                (h, Array1::zeros(working_len), Array1::zeros(working_len))
+            }
+            _ => return Ok(None),
         };
         for (k, s) in spec.penalties.iter().enumerate() {
             let s_dense = s.as_dense_cow();
             h.scaled_add(lambdas[k], &*s_dense);
         }
+        // Exact-Newton families may return a Hessian assembled from directional
+        // callbacks whose off-diagonal entries differ by floating-point order
+        // or, for pseudo-Laplace tests, by a deliberately non-symmetric input
+        // that is accepted only after symmetrization. Export the same symmetric
+        // penalized Hessian used by the determinant/covariance path instead of
+        // letting result assembly reject an otherwise valid fit geometry.
+        symmetrize_dense_in_place(&mut h);
         return Ok(Some(FitGeometry {
             penalized_hessian: h.into(),
-            working_weights: working_weights.clone(),
-            working_response: working_response.clone(),
+            working_weights,
+            working_response,
         }));
     }
 
@@ -22118,6 +23125,7 @@ fn wire_output_channels<F: CustomFamily + ?Sized>(
     family: &F,
     specs: &[ParameterBlockSpec],
 ) -> Result<Option<Vec<ParameterBlockSpec>>, CustomFamilyError> {
+    validate_blockspecs(specs)?;
     let Some(channels) = family.output_channel_assignment(specs) else {
         return Ok(None);
     };
@@ -22296,10 +23304,12 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
         load_persistent_custom_family_warm_start::<F>(family, specs, options, rho0.len());
 
     if rho0.is_empty() {
+        let physical_rho0 = expand_labeled_log_lambdas(&rho0, &label_layout)?;
+        let per_block = split_labeled_log_lambdas(&rho0, &label_layout)?;
         let mut inner = inner_blockwise_fit(
             family,
             specs,
-            &vec![Array1::zeros(0); specs.len()],
+            &per_block,
             options,
             persistent_warm_start.as_ref(),
         )?;
@@ -22308,7 +23318,7 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
             family,
             specs,
             &inner.block_states,
-            &vec![Array1::zeros(0); specs.len()],
+            &per_block,
             options,
         )?;
         let reml_term = if options.use_remlobjective {
@@ -22316,8 +23326,7 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
         } else {
             0.0
         };
-        let no_pen = vec![Array1::zeros(0); specs.len()];
-        let geometry = compute_joint_geometry(family, specs, &inner.block_states, &no_pen)
+        let geometry = compute_joint_geometry(family, specs, &inner.block_states, &per_block)
             .map_err(|reason| CustomFamilyError::Optimization {
                 context: "fit_custom_family no-smoothing joint geometry",
                 reason,
@@ -22339,14 +23348,17 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
             &warm_start,
         );
         let block_states_raw = lift_block_states_to_raw(&canonical, inner.block_states);
+        let lambdas = physical_rho0.mapv(f64::exp);
+        let log_lambdas = lambdas.mapv(|v| v.max(1e-300).ln());
+        let precomputed_edf = reduced_blockwise_edf(geometry.as_ref(), &canonical, &lambdas);
         let (covariance_conditional, geometry) =
             lift_fit_geometry_to_raw(&canonical, covariance_conditional, geometry);
         return blockwise_fit_from_parts(
             BlockwiseFitResultParts {
                 block_states: block_states_raw,
                 log_likelihood: inner.log_likelihood,
-                log_lambdas: Array1::zeros(0),
-                lambdas: Array1::zeros(0),
+                log_lambdas,
+                lambdas,
                 covariance_conditional,
                 stable_penalty_term: 2.0 * inner.penalty_value,
                 penalized_objective,
@@ -22356,6 +23368,7 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
                 inner_cycles: inner.cycles,
                 outer_converged: inner.converged,
                 geometry,
+                precomputed_edf,
             },
             raw_specs,
         )
@@ -22373,7 +23386,7 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
         log::info!(
             "[OUTER] custom family: skipping smoothing outer solve for explicit one-cycle inner probe"
         );
-        let per_block = split_log_lambdas(&rho0, &penalty_counts)?;
+        let per_block = split_labeled_log_lambdas(&rho0, &label_layout)?;
         let mut inner = inner_blockwise_fit(family, specs, &per_block, options, None)?;
         refresh_all_block_etas(family, specs, &mut inner.block_states).map_err(|reason| {
             CustomFamilyError::Optimization {
@@ -22399,7 +23412,8 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
             context: "fit_custom_family one-cycle penalized objective",
             reason,
         })?;
-        let lambdas = rho0.mapv(f64::exp);
+        let physical_rho0 = expand_labeled_log_lambdas(&rho0, &label_layout)?;
+        let lambdas = physical_rho0.mapv(f64::exp);
         let log_lambdas = lambdas.mapv(|v| v.max(1e-300).ln());
         let block_states_raw = lift_block_states_to_raw(&canonical, inner.block_states);
         return blockwise_fit_from_parts(
@@ -22416,6 +23430,7 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
                 inner_cycles: inner.cycles,
                 outer_converged: inner.converged,
                 geometry: None,
+                precomputed_edf: None,
             },
             raw_specs,
         )
@@ -22494,9 +23509,8 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
         .with_max_iter(outer_max_iter)
         .with_bfgs_step_cap(bfgs_step_cap)
         .with_seed_config(family.outer_seed_config(n_rho))
-        .with_screening_cap(Arc::clone(&screening_cap))
         .with_initial_rho(rho0.clone())
-        .with_screen_initial_rho(true)
+        .with_screen_initial_rho(options.screen_initial_rho)
         // Tighten the per-coord ρ bound from the OuterConfig default of 30
         // to 10. λ = exp(10) ≈ 22k is already extremely strong shrinkage —
         // any smooth whose data prefers more aggressive shrinkage is
@@ -22511,6 +23525,27 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
         // cap, but tightening this bound is cheap belt-and-suspenders
         // against any path that bypasses the projected-kernel fix.
         .with_rho_bound(10.0);
+    // Install the seed-screening cap only when initial-rho screening is
+    // wanted. A caller that pins an already-identified `initial_rho` and
+    // opts out (`screen_initial_rho == false`) leaves the OuterConfig
+    // screening cap `None`, so `should_screen_seeds` short-circuits and the
+    // screening cascade never runs. This is the lever the survival
+    // constant-scale (parametric-AFT) regime uses: its time-warp ρ seed is
+    // pinned AT the inner ρ box bound (the affine-baseline limit) on a
+    // dead-flat, statistically-unidentified time ridge where every capped
+    // proxy fit collapses to non-finite cost and the cascade escalates to a
+    // full uncapped inner solve per seed on the near-singular Hessian — the
+    // multi-minute no-iteration-log stall (#736, #735, #721). With the cap
+    // unset, the pinned seed flows straight to the outer solver, which
+    // certifies box-constraint stationarity at iteration 0. Every other
+    // custom-family caller defaults `screen_initial_rho = true` and keeps
+    // full screening; genuinely flexible scale/spatial survival fits carry
+    // log-sigma penalties, never set the flag false, and screen normally.
+    let problem = if options.screen_initial_rho {
+        problem.with_screening_cap(Arc::clone(&screening_cap))
+    } else {
+        problem
+    };
     // Attach the workflow-level warm-start session if one was threaded
     // through. This makes the custom-family outer optimizer (BFGS / ARC
     // depending on derivative capabilities) use the same persistent
@@ -22859,6 +23894,7 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
     let lambdas_final = rho_star_physical.mapv(f64::exp);
     let log_lambdas_final = lambdas_final.mapv(|v| v.max(1e-300).ln());
     let block_states_raw = lift_block_states_to_raw(&canonical, inner.block_states);
+    let precomputed_edf = reduced_blockwise_edf(geometry.as_ref(), &canonical, &lambdas_final);
     let (covariance_conditional, geometry) =
         lift_fit_geometry_to_raw(&canonical, covariance_conditional, geometry);
     blockwise_fit_from_parts(
@@ -22875,6 +23911,7 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
             inner_cycles: inner.cycles,
             outer_converged: outer_result.converged,
             geometry,
+            precomputed_edf,
         },
         raw_specs,
     )
@@ -22957,6 +23994,11 @@ pub(crate) fn fit_custom_family_fixed_log_lambdas<
             inner_cycles: inner.cycles,
             outer_converged,
             geometry,
+            // This path passes `specs` directly (no canonicalization/lift), so
+            // the geometry's penalized Hessian is full rank in the same space —
+            // the raw-geometry edf fallback inside `blockwise_fit_from_parts` is
+            // exact here, no reduced-space precompute needed.
+            precomputed_edf: None,
         },
         specs,
     )
@@ -23191,6 +24233,61 @@ mod tests {
     use faer::sparse::{SparseColMat, Triplet};
     use ndarray::{Array1, Array2, array};
 
+    /// The marker-free coupled-joint-Hessian gate (#727, #729) trusts a family
+    /// that returns a genuinely coupled joint Hessian — nonzero off-diagonal
+    /// blocks — without a hand-set `has_explicit_joint_hessian()`. Pin the
+    /// structural probe that drives every `_with_specs` dispatch: block-diagonal
+    /// (the trait default) is NOT coupling, a single nonzero off-block IS, and a
+    /// shape disagreement must never be claimed as coupling.
+    #[test]
+    fn joint_hessian_coupling_probe_detects_off_diagonal_blocks() {
+        // Two blocks of width 2 each → a 4×4 joint Hessian. Only `beta.len()`
+        // is read, so the `eta` lengths are immaterial.
+        let states = vec![
+            ParameterBlockState {
+                beta: Array1::zeros(2),
+                eta: Array1::zeros(3),
+            },
+            ParameterBlockState {
+                beta: Array1::zeros(2),
+                eta: Array1::zeros(3),
+            },
+        ];
+
+        // Strictly block-diagonal (per-block curvature, zero off-blocks): the
+        // trait default shape, NOT coupling.
+        let block_diagonal = array![
+            [1.0_f64, 0.5, 0.0, 0.0],
+            [0.5, 1.0, 0.0, 0.0],
+            [0.0, 0.0, 2.0, 0.3],
+            [0.0, 0.0, 0.3, 2.0],
+        ];
+        assert!(
+            !joint_hessian_has_cross_block_coupling(&block_diagonal, &states),
+            "block-diagonal joint Hessian must not be treated as coupled"
+        );
+
+        // A single nonzero off-diagonal-block entry (and its transpose) is
+        // genuine cross-block curvature the block-diagonal default can never
+        // produce, so it must be trusted as coupled.
+        let mut coupled = block_diagonal.clone();
+        coupled[[0, 2]] = 1.0e-9;
+        coupled[[2, 0]] = 1.0e-9;
+        assert!(
+            joint_hessian_has_cross_block_coupling(&coupled, &states),
+            "a nonzero off-diagonal block must be detected as coupling"
+        );
+
+        // A matrix whose dimension disagrees with the total β width is
+        // malformed; the probe must answer the coupling question with `false`
+        // rather than claim coupling for a mis-shaped Hessian.
+        let wrong_shape = Array2::<f64>::zeros((3, 3));
+        assert!(
+            !joint_hessian_has_cross_block_coupling(&wrong_shape, &states),
+            "shape disagreement must not be claimed as coupling"
+        );
+    }
+
     fn solve_blockweighted_system(
         x: &DesignMatrix,
         y_star: &Array1<f64>,
@@ -23231,7 +24328,12 @@ mod tests {
         let s_lambda = array![[1.0, 0.0, 0.0], [0.0, 2.0, 0.0], [0.0, 0.0, 0.0]];
         let penalties = vec![s_lambda];
         let h = array![[4.0, 0.2, 7.0], [0.2, 9.0, -3.0], [7.0, -3.0, 30.0]];
-        let drift = array![[0.7, -0.4, 11.0], [-0.4, 1.3, -5.0], [11.0, -5.0, 17.0]];
+        // `∂Sλ/∂ρ` is supported on range(Sλ) (here the leading 2×2 block, the
+        // positive-eigenvalue subspace of `S`); the trace kernel differentiates
+        // the FULL `log|H+Sλ|₊` only for such penalty-supported perturbations.
+        // Use a range(Sλ)-supported drift so the FD exercises the same contract
+        // the production `∂Sλ/∂ρ` does.
+        let drift = array![[0.7, -0.4, 0.0], [-0.4, 1.3, 0.0], [0.0, 0.0, 0.0]];
 
         let (logdet, kernel) = joint_penalty_subspace_trace_parts(
             &JointHessianSource::Dense(h.clone()),
@@ -23243,11 +24345,13 @@ mod tests {
         .expect("projection parts build");
         let kernel = kernel.expect("rank-deficient penalty still has an identified subspace");
         assert_eq!(kernel.u_s.ncols(), 2);
-        assert_relative_eq!(
-            logdet,
-            (5.0_f64 * 11.0 - 0.2_f64 * 0.2).ln(),
-            epsilon = 1e-12
-        );
+        // logdet is the FULL identifiable-subspace `log|H + Sλ|₊`. Here H + Sλ
+        // is full rank (3), so this is the ordinary log-det of
+        //   M = [[5, 0.2, 7], [0.2, 11, -3], [7, -3, 30]],  det(M) = 1056.4.
+        let m = array![[5.0, 0.2, 7.0], [0.2, 11.0, -3.0], [7.0, -3.0, 30.0]];
+        let (m_evals, _) = m.eigh(faer::Side::Lower).expect("M eigendecomposition");
+        let expected_logdet: f64 = m_evals.iter().map(|&v| v.ln()).sum();
+        assert_relative_eq!(logdet, expected_logdet, epsilon = 1e-10);
 
         let analytic = kernel.trace_projected_logdet(&drift);
         let eps = 1.0e-6;
@@ -24284,12 +25388,17 @@ mod tests {
     struct CountingHessianWorkspace {
         dense_calls: Arc<AtomicUsize>,
         matvec_calls: Arc<AtomicUsize>,
+        source_preference: JointHessianSourcePreference,
     }
 
     impl ExactNewtonJointHessianWorkspace for CountingHessianWorkspace {
         fn hessian_dense(&self) -> Result<Option<Array2<f64>>, String> {
             self.dense_calls.fetch_add(1, Ordering::Relaxed);
             Ok(Some(Array2::eye(2)))
+        }
+
+        fn hessian_source_preference(&self) -> JointHessianSourcePreference {
+            self.source_preference
         }
 
         fn hessian_matvec_available(&self) -> bool {
@@ -24319,6 +25428,7 @@ mod tests {
             Arc::new(CountingHessianWorkspace {
                 dense_calls: Arc::clone(&dense_calls),
                 matvec_calls: Arc::clone(&matvec_calls),
+                source_preference: JointHessianSourcePreference::Dense,
             });
 
         let source =
@@ -24333,6 +25443,40 @@ mod tests {
             JointHessianSource::Operator { .. } => panic!("dense source was not preferred"),
         }
         assert_eq!(matvec_calls.load(Ordering::Relaxed), 0);
+    }
+
+    #[test]
+    fn workspace_hessian_source_honors_operator_preference_before_dense_probe() {
+        let dense_calls = Arc::new(AtomicUsize::new(0));
+        let matvec_calls = Arc::new(AtomicUsize::new(0));
+        let workspace: Arc<dyn ExactNewtonJointHessianWorkspace> =
+            Arc::new(CountingHessianWorkspace {
+                dense_calls: Arc::clone(&dense_calls),
+                matvec_calls: Arc::clone(&matvec_calls),
+                source_preference: JointHessianSourcePreference::Operator,
+            });
+
+        let source = exact_newton_joint_hessian_source_from_workspace(
+            &workspace,
+            2,
+            "operator-preferred counting workspace",
+        )
+        .expect("hessian source should build")
+        .expect("hessian source should be present");
+
+        assert_eq!(
+            dense_calls.load(Ordering::Relaxed),
+            0,
+            "operator-preferred source construction must not probe hessian_dense"
+        );
+        match source {
+            JointHessianSource::Operator { apply, .. } => {
+                let v = array![3.0, -2.0];
+                assert_eq!(apply(&v).expect("operator apply should succeed"), v);
+                assert_eq!(matvec_calls.load(Ordering::Relaxed), 1);
+            }
+            JointHessianSource::Dense(_) => panic!("operator source was not preferred"),
+        }
     }
 
     #[test]
@@ -25497,6 +26641,38 @@ mod tests {
         }
     }
 
+    #[test]
+    fn fit_custom_family_rejects_invalid_blockspec_before_output_channel_probe() {
+        let spec = ParameterBlockSpec {
+            name: "bad_penalty".to_string(),
+            design: DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(array![
+                [1.0],
+                [2.0],
+            ])),
+            offset: Array1::zeros(2),
+            penalties: vec![PenaltyMatrix::Dense(Array2::<f64>::eye(2))],
+            nullspace_dims: vec![0],
+            initial_log_lambdas: array![0.0],
+            initial_beta: Some(array![0.0]),
+            gauge_priority: 100,
+            jacobian_callback: None,
+            stacked_design: None,
+            stacked_offset: None,
+        };
+
+        let err = fit_custom_family(
+            &OneBlockIdentityFamily,
+            &[spec],
+            &BlockwiseFitOptions::default(),
+        )
+        .expect_err("invalid block spec should return a typed error");
+        let message = err.to_string();
+        assert!(
+            message.contains("block 0 penalty 0 must be 1x1, got 2x2"),
+            "unexpected error: {message}",
+        );
+    }
+
     #[derive(Clone)]
     struct OneBlockGaussianFamily {
         y: Array1<f64>,
@@ -25807,6 +26983,54 @@ mod tests {
                 a: array![[1.0]],
                 b: array![0.0],
             }))
+        }
+    }
+
+    #[derive(Clone)]
+    struct TwoBlockPersistentGradientFamily;
+
+    impl CustomFamily for TwoBlockPersistentGradientFamily {
+        fn evaluate(
+            &self,
+            block_states: &[ParameterBlockState],
+        ) -> Result<FamilyEvaluation, String> {
+            let beta0 = block_states[0].beta[0];
+            let beta1 = block_states[1].beta[0];
+            Ok(FamilyEvaluation {
+                log_likelihood: beta0 + beta1,
+                blockworking_sets: vec![
+                    BlockWorkingSet::ExactNewton {
+                        gradient: array![1.0],
+                        hessian: SymmetricMatrix::Dense(array![[1.0]]),
+                    },
+                    BlockWorkingSet::ExactNewton {
+                        gradient: array![1.0],
+                        hessian: SymmetricMatrix::Dense(array![[1.0]]),
+                    },
+                ],
+            })
+        }
+
+        fn exact_newton_joint_hessian(
+            &self,
+            block_states: &[ParameterBlockState],
+        ) -> Result<Option<Array2<f64>>, String> {
+            assert!(block_states.len() <= isize::MAX as usize);
+            Ok(Some(array![[1.0, 0.25], [0.25, 1.0]]))
+        }
+
+        fn exact_newton_joint_hessian_directional_derivative(
+            &self,
+            block_states: &[ParameterBlockState],
+            arr: &Array1<f64>,
+        ) -> Result<Option<Array2<f64>>, String> {
+            assert!(block_states.len() <= isize::MAX as usize);
+            assert!(arr.iter().all(|v| !v.is_nan()));
+            Ok(Some(Array2::zeros((2, 2))))
+        }
+
+        fn has_explicit_joint_hessian(&self) -> bool {
+            true
         }
     }
 
@@ -26169,6 +27393,8 @@ mod tests {
             cache_session: None,
             cache_mirror_sessions: Vec::new(),
             joint_penalties: None,
+            screen_initial_rho: true,
+            robust_identification: crate::solver::workflow::RobustIdentification::Off,
         };
 
         let result = fit_custom_family(&OneBlockIdentityFamily, &[spec], &options)
@@ -26221,6 +27447,8 @@ mod tests {
             cache_session: None,
             cache_mirror_sessions: Vec::new(),
             joint_penalties: None,
+            screen_initial_rho: true,
+            robust_identification: crate::solver::workflow::RobustIdentification::Off,
         };
         let per_block_log_lambdas = vec![array![10.0_f64.ln()]];
         let inner = inner_blockwise_fit(&family, &[spec], &per_block_log_lambdas, &options, None)
@@ -26276,6 +27504,8 @@ mod tests {
             cache_session: None,
             cache_mirror_sessions: Vec::new(),
             joint_penalties: None,
+            screen_initial_rho: true,
+            robust_identification: crate::solver::workflow::RobustIdentification::Off,
         };
         let inner = inner_blockwise_fit(&family, &[spec], &[Array1::zeros(0)], &options, None)
             .expect("inner blockwise fit should succeed");
@@ -26463,6 +27693,60 @@ mod tests {
         assert!((result.block_states[0].beta[0] - 0.8).abs() < 1e-8);
         assert!((result.block_states[1].beta[0] - 0.8).abs() < 1e-8);
         assert_eq!(result.active_sets, vec![None, None]);
+    }
+
+    #[test]
+    fn joint_newton_budget_exhaustion_refuses_coupled_exact_inner() {
+        let spec0 = ParameterBlockSpec {
+            name: "block0".to_string(),
+            design: DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(array![[1.0]])),
+            offset: array![0.0],
+            penalties: vec![],
+            nullspace_dims: vec![],
+            initial_log_lambdas: Array1::zeros(0),
+            initial_beta: Some(array![0.0]),
+            gauge_priority: 100,
+            jacobian_callback: None,
+            stacked_design: None,
+            stacked_offset: None,
+        };
+        let spec1 = ParameterBlockSpec {
+            name: "block1".to_string(),
+            design: DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(array![[1.0]])),
+            offset: array![0.0],
+            penalties: vec![],
+            nullspace_dims: vec![],
+            initial_log_lambdas: Array1::zeros(0),
+            initial_beta: Some(array![0.0]),
+            gauge_priority: 100,
+            jacobian_callback: None,
+            stacked_design: None,
+            stacked_offset: None,
+        };
+        let options = BlockwiseFitOptions {
+            inner_max_cycles: 1,
+            inner_tol: 1e-12,
+            ridge_floor: CUSTOM_FAMILY_RIDGE_FLOOR,
+            ..BlockwiseFitOptions::default()
+        };
+        let per_block = vec![Array1::zeros(0), Array1::zeros(0)];
+
+        let err = inner_blockwise_fit(
+            &TwoBlockPersistentGradientFamily,
+            &[spec0, spec1],
+            &per_block,
+            &options,
+            None,
+        )
+        .expect_err("coupled exact-joint max-budget exhaustion must fail loudly");
+        assert!(
+            err.contains("exhausted the joint Newton budget without KKT convergence"),
+            "budget exhaustion should be named explicitly: {err}"
+        );
+        assert!(
+            err.contains("block_residual_inf"),
+            "error should carry per-block residual diagnostics: {err}"
+        );
     }
 
     /// Independent derivation and direct numerical proof of the
@@ -26854,22 +28138,20 @@ mod tests {
     }
 
     #[test]
-    fn pseudo_laplace_exact_newton_lm_continuation_recovers_marginal_indefiniteness() {
-        // Marginally-indefinite Hessian (here a 1×1 block with H=-1) used to
-        // be rejected outright by the strict pseudo-Laplace path; the
-        // adaptive-seed pilot would lose its entire seed budget and the
-        // controller fall-opened into an unguarded full-data path. With
-        // `strict_logdet_spd_with_lm_continuation` the strict-mode logdet
-        // factors `H + δI` along the same δ-ridge schedule the strict solve
-        // already uses, so a marginally-indefinite block is saved by a
-        // small, principled regularization and the seed proceeds.
-        //
-        // For the 1×1 H=[[-1]] family below: trace_scale=1, δ₀=1e-12,
-        // δ grows ×10 per escalation, so δ=10 (escalation 14) lifts H to
-        // H+δI=[[9]] which Cholesky factors cleanly (logdet=log 9≈2.197).
-        // The fit therefore succeeds where it formerly errored.
+    fn pseudo_laplace_exact_newton_rejects_indefinite_hessian() {
+        // #748: an indefinite joint coefficient Hessian (here a 1×1 block with
+        // H=-1) is a real defect — a mis-signed / non-convex curvature, or a β
+        // that is not at the inner block optimum. The strict pseudo-Laplace
+        // REML logdet must REJECT such a ρ-trial, not mask it. The earlier path
+        // returned `log|H + δI|` with δ escalated to 10 (so H+δI=[[9]],
+        // logdet=log 9) and let the fit "succeed" — but the analytic REML
+        // gradient still used `tr((H+S_λ)⁻¹·)` on the un-ridged H, so value and
+        // gradient described two different objectives. Rejecting is the honest
+        // signal: the outer optimizer steps back instead of optimizing a biased,
+        // δ-shifted surface. The fit therefore now ERRORS where it formerly
+        // returned a masked result.
         let spec = ParameterBlockSpec {
-            name: "marginally_indefinite".to_string(),
+            name: "indefinite".to_string(),
             design: DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(array![[1.0]])),
             offset: array![0.0],
             penalties: vec![],
@@ -26890,52 +28172,15 @@ mod tests {
                 ..BlockwiseFitOptions::default()
             },
         );
+        let err = result
+            .expect_err(
+                "strict pseudo-Laplace must reject the indefinite Hessian H=[[-1]], not δ-ridge mask it",
+            )
+            .to_string();
         assert!(
-            result.is_ok(),
-            "LM δ-ridge continuation should save the marginally-indefinite \
-             Hessian H=[[-1]]; got error: {:?}",
-            result.err(),
+            err.contains("indefinite") || err.contains("below -tol"),
+            "rejection error should name the indefiniteness; got: {err}",
         );
-    }
-
-    #[test]
-    fn strict_logdet_lm_continuation_accepts_marginal_indefiniteness() {
-        // Direct test of the continuation primitive: H=[[-1]] is rejected
-        // by bare Cholesky but the LM δ-ridge schedule lifts it to
-        // H+δI=[[9]] at δ=10, yielding logdet=log(9). The reported stats
-        // must show a non-trivial escalation count so a recurring need
-        // for nontrivial ridges is detectable by the controller.
-        let h = array![[-1.0_f64]];
-        let (logdet, stats) = strict_logdet_spd_with_lm_continuation(&h)
-            .expect("LM continuation must save 1×1 marginally-indefinite H");
-        assert!(
-            (logdet - (9.0_f64).ln()).abs() < 1e-12,
-            "logdet={logdet}, expected log(9)={}",
-            (9.0_f64).ln(),
-        );
-        assert!(stats.escalations > 0, "δ-ridge escalation must have fired");
-        assert!(
-            stats.delta_used >= 1.0,
-            "δ_used={} must exceed |min_eig|=1",
-            stats.delta_used,
-        );
-    }
-
-    #[test]
-    fn strict_logdet_lm_continuation_passes_through_when_h_is_already_spd() {
-        // When H is already SPD the bare strict logdet succeeds and the
-        // continuation must report no escalation (δ_used=0) — i.e. callers
-        // pay no extra cost on the well-conditioned hot path.
-        let h = array![[2.0_f64, 0.5], [0.5, 3.0]];
-        let (logdet, stats) = strict_logdet_spd_with_lm_continuation(&h)
-            .expect("strict logdet must succeed on SPD H");
-        let expected = (2.0_f64 * 3.0 - 0.5 * 0.5).ln();
-        assert!(
-            (logdet - expected).abs() < 1e-12,
-            "logdet={logdet}, expected={expected}",
-        );
-        assert_eq!(stats.escalations, 0);
-        assert_eq!(stats.delta_used, 0.0);
     }
 
     #[test]
@@ -28567,39 +29812,6 @@ mod tests {
         }
     }
 
-    /// Companion regression check for `strict_logdet_spd_with_lm_continuation`:
-    /// on a strongly negative-definite matrix the LM δ-ridge schedule cannot
-    /// factor `H + δI` (`|λ_min|` exceeds the terminal δ), so the eigen-floor
-    /// fallback must return `Σ log Λ̃_i` with `Λ̃_i = max(Λ_i, ε λ_max)`.
-    #[test]
-    fn strict_logdet_spd_falls_back_to_eigen_floor_on_indefinite_matrix() {
-        let p = 4usize;
-        let mut h = Array2::<f64>::zeros((p, p));
-        for i in 0..p {
-            h[[i, i]] = -1e32 - (i as f64) * 1e30;
-        }
-        let (logdet, stats) = strict_logdet_spd_with_lm_continuation(&h)
-            .expect("eigen-floor logdet fallback must succeed");
-        assert!(
-            stats.escalations > 16,
-            "expected eigen-floor terminal fallback for logdet, got escalations={}",
-            stats.escalations,
-        );
-        let mut sym = h.clone();
-        symmetrize_dense_in_place(&mut sym);
-        let (evals, _) = FaerEigh::eigh(&sym, Side::Lower).expect("eigh");
-        let max_abs_eval = evals.iter().fold(0.0_f64, |a, &b| a.max(b.abs()));
-        let eps_floor = (CUSTOM_FAMILY_EVAL_FLOOR * max_abs_eval).max(1e-300);
-        let want: f64 = evals.iter().map(|&ev| ev.max(eps_floor).ln()).sum();
-        let tol = 1e-10 * want.abs().max(1.0) + 1e-10;
-        assert!(
-            (want - logdet).abs() <= tol,
-            "eigen-floor logdet: want={:.6e}, got={:.6e}",
-            want,
-            logdet,
-        );
-    }
-
     // ---------- eta_backup heterogeneous-shape regression tests ----------
     //
     // Regression note: a previous `inner_blockwise_fit` implementation
@@ -29671,7 +30883,7 @@ mod tests {
     fn spectral_joint_newton_step_uses_pseudoinverse_when_null_gradient_is_zero() {
         let h = array![[4.0, 0.0], [0.0, 0.0]];
         let rhs = array![8.0, 0.0];
-        let step = solve_joint_newton_step_on_spectral_range(&h, &rhs, 1.0e-10, 1.0e-12)
+        let step = solve_joint_newton_step_on_spectral_range(&h, &rhs, 1.0e-10, 1.0e-12, 0.0)
             .expect("range-only RHS should have a minimum-norm Newton step");
 
         assert_relative_eq!(step.delta[0], 2.0, epsilon = 1.0e-12);
@@ -29698,7 +30910,7 @@ mod tests {
         // trust region then globalizes.
         let h = array![[4.0, 0.0], [0.0, -1.0]];
         let rhs = array![8.0, 3.0];
-        let step = solve_joint_newton_step_on_spectral_range(&h, &rhs, 1.0e-10, 1.0e-12)
+        let step = solve_joint_newton_step_on_spectral_range(&h, &rhs, 1.0e-10, 1.0e-12, 0.0)
             .expect("indefinite model must yield a modified-Newton step, not an error");
 
         // Exactly one negative-curvature mode was reflected.
@@ -29723,17 +30935,30 @@ mod tests {
     }
 
     #[test]
-    fn spectral_joint_newton_step_rejects_nonzero_null_gradient() {
+    fn spectral_joint_newton_step_range_projects_nonzero_null_gradient() {
+        // A nonzero stationarity component inside ker(H_pen) is an *unidentified*
+        // direction: the quadratic model is flat there, so no finite Newton/KKT
+        // step can reduce it and it contributes nothing to the fit. The
+        // principled response (the #720/#733 range-projection repair) is NOT to
+        // error — that aborts an otherwise well-posed degenerate small-n fit —
+        // but to return the range-restricted (Moore–Penrose) Newton step that
+        // leaves the null direction untouched, while reporting the leftover null
+        // residual so the caller's identified-subspace KKT certificate can fire.
         let h = array![[4.0, 0.0], [0.0, 0.0]];
         let rhs = array![8.0, 0.25];
-        let err = solve_joint_newton_step_on_spectral_range(&h, &rhs, 1.0e-10, 1.0e-12)
-            .expect_err("nonzero null RHS means no stationary quadratic minimizer");
+        let step = solve_joint_newton_step_on_spectral_range(&h, &rhs, 1.0e-10, 1.0e-12, 0.0)
+            .expect("nonzero null RHS must range-project, not error");
 
-        assert!(
-            err.contains("nonzero gradient in Hessian nullspace"),
-            "unexpected error: {err}"
-        );
-        assert!(err.contains("|P0 rhs|"));
+        // Identified direction [1,0] (λ=4): 8/4 = 2. Null direction [0,1] (λ=0):
+        // dropped, so the step leaves coordinate 1 unchanged at 0.
+        assert_relative_eq!(step.delta[0], 2.0, epsilon = 1.0e-12);
+        assert_relative_eq!(step.delta[1], 0.0, epsilon = 1.0e-12);
+        assert_eq!(step.nullity, 1);
+        // The unidentified null mass is surfaced (not silently zeroed) so the
+        // caller can distinguish "stationary on the identified subspace" from a
+        // genuine non-stationarity in the curved subspace.
+        assert_relative_eq!(step.null_rhs_inf, 0.25, epsilon = 1.0e-12);
+        assert!(step.delta.iter().all(|v| v.is_finite()));
     }
 
     #[test]

@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import logging
 import os
+import signal
 import sys
 import threading
 from contextlib import suppress
@@ -99,8 +100,27 @@ def _setup_logging(log_level: str, log_file: str | None = None) -> None:
     activate_log_queue_handler()
 
 
+def _exit_cleanly_on_signal(signum: int, _frame: object) -> None:
+    """Exit 0 on a stop signal the event loop isn't trapping itself."""
+    logging.getLogger(_LOGGER_NAME).info("Received stop signal %s; shutting down cleanly", signum)
+    raise SystemExit(0)
+
+
 def main() -> None:
     """Run the ESPHome Device Builder."""
+    # Trap the platform's stop signal so a quit exits cleanly instead of
+    # the OS default disposition. POSIX: a startup-window SIGTERM exits
+    # 143 ("did not handle SIGTERM") before aiohttp arms its run-loop
+    # handler; once serving, ``web.run_app`` replaces this with its own.
+    # Windows: aiohttp installs no handler at all, and the desktop quits
+    # the backend with CTRL_BREAK_EVENT (→ SIGBREAK; SIGTERM is
+    # uncatchable there), so without this the break default-terminates
+    # abruptly instead of draining. The Proactor loop's wakeup fd makes
+    # the break land promptly while serving.
+    signal.signal(signal.SIGTERM, _exit_cleanly_on_signal)
+    if sys.platform == "win32":
+        signal.signal(signal.SIGBREAK, _exit_cleanly_on_signal)
+
     parser = argparse.ArgumentParser(
         description="ESPHome Device Builder",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -271,6 +291,7 @@ def main() -> None:
     from .controllers.config import DashboardSettings  # noqa: PLC0415
     from .device_builder import DeviceBuilder  # noqa: PLC0415
     from .helpers.single_instance import ensure_single_execution  # noqa: PLC0415
+    from .helpers.windows_build_paths import windows_short_build_paths  # noqa: PLC0415
 
     settings = DashboardSettings()
     settings.parse_args(args)
@@ -284,7 +305,13 @@ def main() -> None:
     # ``$ESPHOME_DATA_DIR`` and falls back to ``<config_dir>/.esphome``
     # — ``parse_args`` above sets ``CORE.config_path``, which the
     # fallback needs.
-    with ensure_single_execution(CORE.data_dir) as lock:
+    # Windows: relocate the build tree to a short, space-free root (MAX_PATH + spaces)
+    # first, so the lock lands in the relocated dir (CORE.data_dir is evaluated after the
+    # relocation enters) and migration runs before any lock file is held open in old .esphome.
+    with (
+        windows_short_build_paths(settings.config_dir),
+        ensure_single_execution(CORE.data_dir) as lock,
+    ):
         if lock.exit_code is not None:
             sys.exit(lock.exit_code)
         device_builder = DeviceBuilder(settings)

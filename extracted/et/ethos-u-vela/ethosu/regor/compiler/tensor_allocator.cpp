@@ -84,7 +84,10 @@ void PrintAllocation(LiveRangeGraph &lrGraph, Address totalSize)
         }
         auto address = (*lr->tensors.begin())->AllocatedAddress();
         auto peakUsageDuringLiveRange = *std::max_element(memHist.begin() + lr->startTime, memHist.begin() + lr->endTime + 1);
-        for ( const auto &tens : lr->tensors )
+        // Print all tensors in the live range, sorted by name
+        std::vector<SchedulerTensor *> tensors(lr->tensors.begin(), lr->tensors.end());
+        std::sort(tensors.begin(), tensors.end(), [](const auto *a, const auto *b) { return a->Name() < b->Name(); });
+        for ( const auto &tens : tensors )
         {
             LOG_PRINT("{0:10} - {1:10}: {2:#10x} - {3:#10x}: {4:11}: {5:12}: {6:14} : {7}\n", lr->startTime, lr->endTime, address,
                 address + lr->size, lr->size, peakUsageDuringLiveRange, EnumToString<TensorFormat>(tens->format), tens->Name());
@@ -141,10 +144,9 @@ Address IncrementalLinearAllocator::Allocate(LiveRangeGraph *lrGraph, int alignm
     return _highestAddress;
 }
 
-void AllocateTensors(const std::vector<std::unique_ptr<SchedulerOperation>> &schedOps, Schedule *schedule,
-    const MemArea &memArea, TensorAllocator allocator, int alignment, bool verboseAllocation, bool reuseIfms, Address sizeLimit)
+void AllocateTensors(const std::vector<std::unique_ptr<SchedulerOperation>> &schedOps, Schedule *schedule, LiveRangeGraph &lrGraph,
+    const MemArea &memArea, TensorAllocator allocator, int alignment, bool verboseAllocation, Address sizeLimit)
 {
-    LiveRangeGraph lrGraph{reuseIfms};
     auto totalSize = Allocate(lrGraph, schedOps, schedule, memArea, allocator, alignment, sizeLimit);
     if ( verboseAllocation )
     {

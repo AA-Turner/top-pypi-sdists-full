@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: matrix-synapse
-Version: 1.153.0
+Version: 1.154.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Topic :: Communications :: Chat
 Requires-Dist: jsonschema>=3.0.0
@@ -23,7 +23,7 @@ Requires-Dist: pymacaroons>=0.13.0
 Requires-Dist: msgpack>=0.5.2
 Requires-Dist: phonenumbers>=8.2.0
 Requires-Dist: prometheus-client>=0.6.0
-Requires-Dist: attrs!=21.1.0,>=26.1.0
+Requires-Dist: attrs>=19.2.0,!=21.1.0
 Requires-Dist: netaddr>=0.7.18
 Requires-Dist: jinja2>=3.0
 Requires-Dist: bleach>=3.2.0

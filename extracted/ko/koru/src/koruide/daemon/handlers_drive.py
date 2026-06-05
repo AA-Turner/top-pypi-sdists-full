@@ -22,10 +22,10 @@ from koru.observability_events import (
 from koruide.daemon.protocol import _Client
 from koruide.command_catalog_store import command_picker_enabled
 from koruide.command_picker import pick_command_order
-from koruide.drive_orchestrator import DriveOrchestrator
+from koruide.drive_policy import DrivePolicy as DriveOrchestrator
 from koruide.ide import detect_running_ides_cached as detect_running_ides
 from koruide.ide import normalize_ide_id, pick_target, resolve_drive_target
-from koruide.injector import InjectorError
+from gillm.injection.errors import InjectorError
 from koruide.protocol import Message, ack, chat_send, error
 
 
@@ -307,12 +307,13 @@ def _deliver_chat_via_plugin_socket(
         data={"chars": len(text), "submit": submit, "corr": corr},
     )
     daemon.audit.record(
-        "drive",
+        "drive_requested",
         ide=plugin.ide,
         backend="plugin",
         chars=len(text),
         submit=submit,
-        ok=True,
+        status="awaiting_ack",
+        corr=corr,
     )
 
 
@@ -345,34 +346,33 @@ def _drive_via_plugin(
 def _try_os_injector_drive(
     daemon: Any, target_id: str, text: str, submit: bool
 ) -> dict[str, Any] | None:
-    """Run :mod:`os_injector` when configured; ``None`` means use keyboard."""
-    daemon.log(f"try_os_injector_drive: target_id={target_id}, chars={len(text)}, submit={submit}")
-    from koruide import os_injector as oi
+    """Run :mod:`gillm.injection.drive_backend` when configured; ``None`` → keyboard."""
+    from gillm.injection.drive_backend import try_os_injector_drive as _try_os
 
+    daemon.log(f"try_os_injector_drive: target_id={target_id}, chars={len(text)}, submit={submit}")
     try:
-        result = oi.try_drive_with_profile(
-            tool_id=target_id,
-            text=text,
-            submit=submit,
+        result = _try_os(
+            target_id,
+            text,
+            submit,
             project=daemon.project,
-            cli_dry_run=False,
             _log=daemon.log,
         )
-        if result:
-            daemon.log(
-                f"try_os_injector_drive: SUCCESS backend={result.get('backend')}, "
-                f"chat_coords=({result.get('chat_x')}, {result.get('chat_y')}), "
-                f"input_method={result.get('input_method')}"
-            )
-        else:
-            daemon.log(
-                f"try_os_injector_drive: no profile for '{target_id}' — "
-                f"uruchom: koru autopilot calibrate --ide {target_id}"
-            )
-        return result
-    except oi.OsInjectorError as exc:
+    except InjectorError as exc:
         daemon.log(f"try_os_injector_drive: FAILED: {exc}")
-        raise InjectorError(str(exc)) from exc
+        raise
+    if result:
+        daemon.log(
+            f"try_os_injector_drive: SUCCESS backend={result.get('backend')}, "
+            f"chat_coords=({result.get('chat_x')}, {result.get('chat_y')}), "
+            f"input_method={result.get('input_method')}"
+        )
+    else:
+        daemon.log(
+            f"try_os_injector_drive: no profile for '{target_id}' — "
+            f"uruchom: koru autopilot calibrate --ide {target_id}"
+        )
+    return result
 
 
 def _drive_via_keyboard(
@@ -465,22 +465,15 @@ def _drive_via_os_injector_backend(
         return False
     if os_res is None:
         return False
+    from gillm.injection.drive_backend import format_os_injector_ack
+
     daemon.log(
         f"drive → os_injector/{profile_id}: klik ({os_res.get('chat_x')}, "
         f"{os_res.get('chat_y')}) + {os_res.get('input_method', 'type')} "
         f"«{preview}»",
     )
-    info: dict[str, Any] = {
-        "backend": str(os_res.get("backend", "os_injector")),
-        "submitted": bool(os_res.get("submitted", submit)),
-    }
-    if os_res.get("dry_run"):
-        info["dry_run"] = True
-    tid = os_res.get("tool_id")
-    if isinstance(tid, str):
-        info["tool_id"] = tid
-    if target is not None:
-        info["ide"] = target.to_dict()
+    target_dict = target.to_dict() if target is not None else None
+    info = format_os_injector_ack(os_res, submit=submit, target=target_dict)
     daemon._send(client, ack(msg.id or "", info=info).encode())
     daemon.log(
         f"drive → {target_id} via {info['backend']}"
@@ -513,8 +506,15 @@ def _drive_via_keyboard_backend(
         f"drive → keyboard/{target_id}: {backend_name or 'no-backend'} "
         f"({len(text)} zn) «{preview}»",
     )
+    from gillm.injection.drive_backend import apply_keyboard_injection
+
     try:
-        result = daemon.injector.type_text(text, ide=target_id, submit=submit)
+        result = apply_keyboard_injection(
+            daemon.injector,
+            text,
+            target_id=target_id,
+            submit=submit,
+        )
     except InjectorError as exc:
         daemon._send(client, error(msg.id, str(exc)).encode())
         daemon.log(f"drive failed: {exc}")

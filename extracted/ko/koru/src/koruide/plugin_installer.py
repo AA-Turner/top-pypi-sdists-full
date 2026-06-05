@@ -384,9 +384,24 @@ def _newest_existing_vsix(candidates: Iterable[Path]) -> Path | None:
 
 
 def _resolve_ide_command(ide: str) -> str | None:
+    try:
+        from koru.autopilot.install_plugin_cli import resolve_plugin_editor_bin
+
+        return resolve_plugin_editor_bin(ide)
+    except RuntimeError:
+        return None
+    except Exception:  # noqa: BLE001 - install path may run without full koru tree
+        pass
     for name in _IDE_COMMANDS.get(ide, ()):
         resolved = shutil.which(name)
-        if resolved:
+        if not resolved:
+            continue
+        try:
+            from koru.autopilot.install_plugin_cli import _editor_bin_usable_for_cli_install
+
+            if _editor_bin_usable_for_cli_install(resolved):
+                return resolved
+        except Exception:  # noqa: BLE001
             return resolved
     return None
 
@@ -461,6 +476,11 @@ def _run(
 def _env_reassert_extension_install() -> bool:
     raw = os.environ.get("KORU_AUTOPILOT_REASSERT_INSTALL", "1").strip().lower()
     return raw not in {"0", "false", "no", "off"}
+
+
+def _env_force_reassert_extension_install() -> bool:
+    raw = os.environ.get("KORU_AUTOPILOT_FORCE_REASSERT_INSTALL", "").strip().lower()
+    return raw in {"1", "true", "yes", "on"}
 
 
 def _env_build_local_vsix() -> bool:
@@ -826,6 +846,7 @@ def _reassert_extension_extra(
     decision = _decide_reassert_policy(
         dry_run=dry_run,
         reassert_enabled=reassert_enabled,
+        force_reassert=_env_force_reassert_extension_install(),
         installed_sha=installed_sha,
         expected_sha=expected_sha,
     )
@@ -859,11 +880,14 @@ def _decide_reassert_policy(
     *,
     dry_run: bool,
     reassert_enabled: bool,
+    force_reassert: bool = False,
     installed_sha: str | None,
     expected_sha: str | None,
 ) -> ReassertDecision:
     if dry_run or not reassert_enabled:
         return ReassertDecision(should_reassert=False)
+    if force_reassert:
+        return ReassertDecision(should_reassert=True)
     if installed_sha and expected_sha and installed_sha == expected_sha:
         return ReassertDecision(
             should_reassert=False,

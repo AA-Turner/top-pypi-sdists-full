@@ -4,11 +4,15 @@ Covers the helpers introduced by Stage B1 PR 1 and made live by Stage B1
 PR 2 of the post-refactoring plan
 (``docs/post-refactoring-plan-2026-05-27.md``):
 
-- :class:`notebooklm._session_init.ClientInternals` dataclass
-- :func:`notebooklm._session_init.resolve_seam_defaults`
-- :func:`notebooklm._session_init.compose_client_internals`
+- :class:`notebooklm._runtime.init.ClientInternals` dataclass
+- :func:`notebooklm._runtime.init.compose_client_internals`
 - ``ClientComposed.bind_*`` write-once setters
 - ``ClientComposed`` required-property guards
+
+The redundant ``resolve_seam_defaults`` resolver was removed in issue
+#1327 — ``compose_client_internals`` resolves seams directly via
+``resolve_client_seams`` + ``_resolve_async_client_factory``, so the
+parallel dict-shaped resolver had no production caller.
 
 Session-elimination Phase 3 leaves ``NotebookLMClient`` as both composition
 root and public surface; all composition runtime state belongs to
@@ -21,16 +25,14 @@ import asyncio
 import logging
 from typing import Any
 
-import httpx
 import pytest
 
 from _helpers.client_factory import build_client_shell_for_tests
 from notebooklm._client_composed import ClientComposed
 from notebooklm._client_seams import ClientSeams
-from notebooklm._session_init import (
+from notebooklm._runtime.init import (
     ClientInternals,
     compose_client_internals,
-    resolve_seam_defaults,
 )
 from notebooklm.auth import AuthTokens
 from notebooklm.client import NotebookLMClient
@@ -51,71 +53,6 @@ def _make_auth() -> AuthTokens:
 
 
 # ---------------------------------------------------------------------------
-# resolve_seam_defaults
-# ---------------------------------------------------------------------------
-
-
-def test_resolve_seam_defaults_returns_module_bindings_when_none() -> None:
-    """All four seams default to the canonical module bindings."""
-    resolved = resolve_seam_defaults(
-        sleep=None,
-        async_client_factory=None,
-        is_auth_error=None,
-        decode_response=None,
-    )
-
-    # ``sleep`` resolves to ``asyncio.sleep`` via the client seam defaults.
-    assert resolved["sleep"] is asyncio.sleep
-
-    # ``async_client_factory`` resolves to :class:`httpx.AsyncClient`.
-    assert resolved["async_client_factory"] is httpx.AsyncClient
-
-    # ``is_auth_error`` resolves to :func:`notebooklm._session_helpers.is_auth_error`
-    # via the lazy import inside :func:`_default_is_auth_error`.
-    from notebooklm._session_helpers import is_auth_error as canonical_is_auth_error
-
-    assert resolved["is_auth_error"] is canonical_is_auth_error
-
-    # ``decode_response`` resolves to :func:`notebooklm.rpc.decode_response`
-    # via the lazy import inside :func:`_default_decode_response`.
-    from notebooklm.rpc import decode_response as canonical_decode_response
-
-    assert resolved["decode_response"] is canonical_decode_response
-
-
-def test_resolve_seam_defaults_passes_through_explicit_callables() -> None:
-    """Explicit callables override the module-binding defaults."""
-
-    async def fake_sleep(_d: float) -> None:
-        """Sentinel callable — identity-checked, never invoked."""
-        return None
-
-    def fake_factory(*_a: Any, **_kw: Any) -> Any:  # pragma: no cover - identity check
-        """Sentinel callable — identity-checked, never invoked."""
-        raise AssertionError
-
-    def fake_is_auth_error(_exc: Exception) -> bool:  # pragma: no cover
-        """Sentinel callable — identity-checked, never invoked."""
-        return False
-
-    def fake_decode(*_a: Any, **_kw: Any) -> Any:  # pragma: no cover
-        """Sentinel callable — identity-checked, never invoked."""
-        return None
-
-    resolved = resolve_seam_defaults(
-        sleep=fake_sleep,
-        async_client_factory=fake_factory,
-        is_auth_error=fake_is_auth_error,
-        decode_response=fake_decode,
-    )
-
-    assert resolved["sleep"] is fake_sleep
-    assert resolved["async_client_factory"] is fake_factory
-    assert resolved["is_auth_error"] is fake_is_auth_error
-    assert resolved["decode_response"] is fake_decode
-
-
-# ---------------------------------------------------------------------------
 # compose_client_internals — client-owned composition root
 # ---------------------------------------------------------------------------
 
@@ -127,7 +64,7 @@ def test_compose_client_internals_returns_client_internals() -> None:
 
     assert isinstance(internals, ClientInternals)
     assert holder.executor is internals.executor
-    assert holder.session_collaborators is internals.collaborators
+    assert holder.runtime_collaborators is internals.collaborators
     assert holder.transport is internals.executor._transport
     assert holder.chain_host._transport is holder.transport
     assert holder.chain_builder is not None
@@ -141,7 +78,7 @@ def test_shell_helpers_carry_client_holders() -> None:
     assert isinstance(client._seams, ClientSeams)
     assert isinstance(client._composed, ClientComposed)
     assert client._composed.max_concurrent_rpcs == 3
-    assert client._composed.session_collaborators is client._collaborators
+    assert client._composed.runtime_collaborators is client._collaborators
     assert client._composed.executor is client._rpc_executor
 
 
@@ -151,7 +88,7 @@ def test_notebooklm_client_initializes_client_holders() -> None:
 
     assert isinstance(client._seams, ClientSeams)
     assert isinstance(client._composed, ClientComposed)
-    assert client._composed.session_collaborators is client._collaborators
+    assert client._composed.runtime_collaborators is client._collaborators
     assert client._composed.max_concurrent_rpcs == 2
     assert client._composed.executor is client._rpc_executor
     assert client._composed.transport is client._rpc_executor._transport
@@ -356,7 +293,7 @@ def test_client_composed_chain_metadata_binder_raises_on_double_bind() -> None:
 
     # Build a sentinel ``WiredMiddleware`` carrying the existing values so
     # the rejection comes from the write-once guard, not a missing field.
-    from notebooklm._session_init import WiredMiddleware
+    from notebooklm._runtime.init import WiredMiddleware
 
     wired = WiredMiddleware(
         chain_builder=holder.chain_builder,
@@ -375,12 +312,12 @@ def test_client_composed_chain_host_binder_raises_on_double_bind() -> None:
         holder.bind_chain_host(holder.chain_host)
 
 
-def test_client_composed_session_collaborators_binder_raises_on_double_bind() -> None:
+def test_client_composed_runtime_collaborators_binder_raises_on_double_bind() -> None:
     holder = ClientComposed()
     internals = compose_client_internals(auth=_make_auth(), composed=holder)
 
-    with pytest.raises(RuntimeError, match="_session_collaborators already bound"):
-        holder.bind_session_collaborators(internals.collaborators)
+    with pytest.raises(RuntimeError, match="_runtime_collaborators already bound"):
+        holder.bind_runtime_collaborators(internals.collaborators)
 
 
 # ---------------------------------------------------------------------------
@@ -396,7 +333,7 @@ def test_client_composed_session_collaborators_binder_raises_on_double_bind() ->
         ("chain_host", "_chain_host"),
         ("chain_builder", "_chain_builder"),
         ("middlewares", "_middlewares"),
-        ("session_collaborators", "_session_collaborators"),
+        ("runtime_collaborators", "_runtime_collaborators"),
     ],
 )
 def test_client_composed_properties_raise_before_binding(attr_name: str, message: str) -> None:

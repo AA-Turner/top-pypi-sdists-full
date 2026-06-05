@@ -27,9 +27,6 @@ import requests
 
 from . import record_edit, base, record_totp, record_file_report
 from .base import Command, GroupCommand, RecordMixin, FolderMixin, fields_to_titles
-from .ksm import KSMCommand
-from .pam import gateway_helper
-from .pam.router_helper import router_get_connected_gateways
 from .. import api, display, crypto, utils, vault, vault_extensions, subfolder, record_types
 from ..breachwatch import BreachWatch
 from ..display import bcolors
@@ -143,9 +140,11 @@ get_info_parser.add_argument('uid', type=str, action='store', help='UID or title
 search_parser = argparse.ArgumentParser(prog='search', description='Search the vault. Words can be in any order.')
 search_parser.add_argument('pattern', nargs='*', type=str, action='store', help='search terms (space-separated, order independent)')
 search_parser.add_argument('-v', '--verbose', dest='verbose', action='store_true', help='verbose output')
-search_parser.add_argument('-c', '--categories', dest='categories', action='store',
-                           help='One or more of these letters for categories to search: "r" = records, '
-                                '"s" = shared folders, "t" = teams, "d" = Nested Share Folders')
+search_parser.add_argument('-c', '--categories', dest='categories', action='append',
+                           help='Category to search — repeatable: "r" = records, "s" = shared folders, '
+                                '"t" = teams, "d" = Nested Share folders. '
+                                'Pass multiple times (e.g. -c s -c d) or combine letters (e.g. -c sd). '
+                                'Default when omitted: all categories (rstd).')
 search_parser.add_argument('--regex', dest='regex', action='store_true',
                            help='treat pattern as a regular expression instead of space-separated search terms')
 search_parser.add_argument('--device', dest='device', action='store_true',
@@ -305,10 +304,18 @@ class RecordGetUidCommand(Command):
             sf = api.get_shared_folder(params, uid)
             if fmt == 'json':
                 path = get_folder_path(params, sf.shared_folder_uid, delimiter=os.sep) if sf.shared_folder_uid else ''
+                sf_node = params.folder_cache.get(sf.shared_folder_uid) if sf.shared_folder_uid else None
+                parent_uid = sf_node.parent_uid if sf_node and sf_node.parent_uid else None
                 sfo = {
-                    "shared_folder_uid": sf.shared_folder_uid,
+                    "folder_uid": sf.shared_folder_uid,
+                    "type": "classic_folder",
                     "name": sf.name,
                     "path": path,
+                    "parent_uid": parent_uid,
+                    "folder": {
+                        "uid": parent_uid,
+                        "path": get_folder_path(params, parent_uid) if parent_uid else "/"
+                    },
                     "manage_users": sf.default_manage_users,
                     "manage_records": sf.default_manage_records,
                     "can_edit": sf.default_can_edit,
@@ -362,20 +369,42 @@ class RecordGetUidCommand(Command):
         if uid in params.folder_cache:
             f = params.folder_cache[uid]
             if fmt == 'json':
+                folder_type = 'nested_share_folder' if f.type == BaseFolderNode.NestedShareFolderType else 'classic_folder'
+                parent_uid = f.parent_uid or None
                 fo = {
                     'folder_uid': f.uid,
-                    'type': f.type,
-                    'name': f.name
+                    'type': folder_type,
+                    'name': f.name,
+                    'path': get_folder_path(params, f.uid),
+                    'parent_uid': parent_uid,
+                    'folder': {
+                        'uid': parent_uid,
+                        'path': get_folder_path(params, parent_uid) if parent_uid else '/'
+                    }
                 }
-                if isinstance(f, (subfolder.SharedFolderFolderNode, subfolder.SharedFolderNode)):
-                    fo['shared_folder_uid'] = f.shared_folder_uid if isinstance(f, subfolder.SharedFolderFolderNode) \
-                        else f.uid
-                if f.parent_uid:
-                    fo['parent_folder_uid'] = f.parent_uid
+                if isinstance(f, subfolder.SharedFolderFolderNode):
+                    fo['shared_folder_uid'] = f.shared_folder_uid
                 if f.type == BaseFolderNode.UserFolderType:
-                    fo['path'] = get_folder_path(params, f.uid)
                     record_uids = params.subfolder_record_cache.get(f.uid, set())
-                    fo['records'] = [{'record_uid': r} for r in record_uids]
+                    records_list = []
+                    for r_uid in record_uids:
+                        entry = {'record_uid': r_uid}
+                        rec = vault.KeeperRecord.load(params, r_uid)
+                        if rec:
+                            entry['record_name'] = rec.title
+                        records_list.append(entry)
+                    fo['records'] = records_list
+                elif f.type == BaseFolderNode.NestedShareFolderType:
+                    from .nested_share_folder.helpers import collect_records_in_folder
+                    record_uids = collect_records_in_folder(params, f.uid, recursive=False)
+                    records_list = []
+                    for r_uid in record_uids:
+                        entry = {'record_uid': r_uid}
+                        rec = vault.KeeperRecord.load(params, r_uid)
+                        if rec:
+                            entry['record_name'] = rec.title
+                        records_list.append(entry)
+                    fo['records'] = records_list
                 print(json.dumps(fo, indent=2))
             else:
                 f.display()
@@ -446,9 +475,11 @@ class RecordGetUidCommand(Command):
             if r:
                 params.queue_audit_event('open_record', record_uid=uid)
                 if fmt == 'json':
-
+                    is_nsf_record = (hasattr(params, 'nested_share_records')
+                                     and uid in getattr(params, 'nested_share_records', {}))
                     ro = {
                         'record_uid': uid,
+                        'source': 'nested' if is_nsf_record else 'classic',
                     }
                     if version < 3 or kwargs.get('legacy') is True:
                         ro['title'] = r.title
@@ -521,6 +552,17 @@ class RecordGetUidCommand(Command):
                     ro['revision'] = r.revision
                     if version == 3 and kwargs.get('include_dag') is True:
                         self.include_dag(params, ro, r)
+
+                    if is_nsf_record:
+                        from .nested_share_folder.helpers import find_folder_location
+                        folder_loc = find_folder_location(params, uid)
+                        ro['folder'] = folder_loc if folder_loc else {'uid': None, 'path': '/'}
+                    else:
+                        folder_uid = next(find_folders(params, uid), None)
+                        ro['folder'] = {
+                            'uid': folder_uid,
+                            'path': get_folder_path(params, folder_uid) if folder_uid else '/'
+                        }
 
                     print(json.dumps(ro, indent=2))
                 elif fmt == 'password':
@@ -1302,6 +1344,8 @@ class RecordGetUidCommand(Command):
 
 
 def _resolve_gateways_by_pattern(params, pattern):
+    from .pam import gateway_helper
+    from .pam.router_helper import router_get_connected_gateways
     """Resolve a `--device` pattern to a list of Gateway controller objects.
 
     Matches both: exact controllerUid AND case-insensitive substring on
@@ -1372,6 +1416,7 @@ def _find_pam_configs_for_gateway(params, gateway_uid_str):
 
 
 def _build_gateway_info(c, connected_instances, params, is_router_down, is_verbose):
+    from .ksm import KSMCommand
     """Build a dict describing one Gateway, suitable for table or JSON rendering."""
     gateway_uid_str = utils.base64_url_encode(c.controllerUid)
     ksm_app_uid_str = utils.base64_url_encode(c.applicationUid)
@@ -1455,7 +1500,7 @@ class SearchCommand(Command):
             else:
                 pattern = ''  # Empty pattern matches all in token mode
 
-        categories = (kwargs.get('categories') or 'rstd').lower()
+        categories = ''.join(kwargs.get('categories') or ['rstd']).lower()
         skip_details = not verbose
 
         nsf_records_map = getattr(params, 'nested_share_records', {}) or {}
@@ -1575,13 +1620,14 @@ class SearchCommand(Command):
                                f"Type: {item['record_type']}, Description: {item['description']}, Record Category: {item.get('record_category', 'Classic')}"]
                     elif item['type'] == 'shared_folder':
                         row = [item['type'], item['shared_folder_uid'], item['name'],
-                               f"Can Edit: {item['can_edit']}, Can Share: {item['can_share']}"]
+                               f"Folder Category: Classic, Can Edit: {item['can_edit']}, Can Share: {item['can_share']}"]
                     elif item['type'] == 'team':
                         row = [item['type'], item['team_uid'], item['name'],
                                f"Restrict Edit: {item['restrict_edit']}, Restrict View: {item['restrict_view']}, Restrict Share: {item['restrict_share']}"]
                     elif item['type'] == 'nested_share_folder':
-                        details = (f"Parent UID: {item['parent_uid']}"
-                                   if item.get('parent_uid') else '')
+                        details = 'Folder Category: NestedShare'
+                        if item.get('parent_uid'):
+                            details += f", Parent UID: {item['parent_uid']}"
                         row = [item['type'], item['folder_uid'], item['name'], details]
                     table.append(row)
                 

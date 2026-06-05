@@ -517,7 +517,7 @@ class CfnConnectorProfile(
         
                         # the properties below are optional
                         access_token="accessToken",
-                        connector_oAuth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
+                        connector_o_auth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
                             auth_code="authCode",
                             redirect_uri="redirectUri"
                         ),
@@ -535,7 +535,7 @@ class CfnConnectorProfile(
         
                         # the properties below are optional
                         access_token="accessToken",
-                        connector_oAuth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
+                        connector_o_auth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
                             auth_code="authCode",
                             redirect_uri="redirectUri"
                         )
@@ -543,7 +543,7 @@ class CfnConnectorProfile(
                     pardot=appflow.CfnConnectorProfile.PardotConnectorProfileCredentialsProperty(
                         access_token="accessToken",
                         client_credentials_arn="clientCredentialsArn",
-                        connector_oAuth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
+                        connector_o_auth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
                             auth_code="authCode",
                             redirect_uri="redirectUri"
                         ),
@@ -556,7 +556,7 @@ class CfnConnectorProfile(
                     salesforce=appflow.CfnConnectorProfile.SalesforceConnectorProfileCredentialsProperty(
                         access_token="accessToken",
                         client_credentials_arn="clientCredentialsArn",
-                        connector_oAuth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
+                        connector_o_auth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
                             auth_code="authCode",
                             redirect_uri="redirectUri"
                         ),
@@ -573,7 +573,7 @@ class CfnConnectorProfile(
                             access_token="accessToken",
                             client_id="clientId",
                             client_secret="clientSecret",
-                            connector_oAuth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
+                            connector_o_auth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
                                 auth_code="authCode",
                                 redirect_uri="redirectUri"
                             ),
@@ -603,7 +603,7 @@ class CfnConnectorProfile(
         
                         # the properties below are optional
                         access_token="accessToken",
-                        connector_oAuth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
+                        connector_o_auth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
                             auth_code="authCode",
                             redirect_uri="redirectUri"
                         )
@@ -625,7 +625,7 @@ class CfnConnectorProfile(
         
                         # the properties below are optional
                         access_token="accessToken",
-                        connector_oAuth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
+                        connector_o_auth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
                             auth_code="authCode",
                             redirect_uri="redirectUri"
                         )
@@ -1166,7 +1166,7 @@ class CfnConnectorProfile(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_appflow as appflow
                 
-                connector_oAuth_request_property = appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
+                connector_o_auth_request_property = appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
                     auth_code="authCode",
                     redirect_uri="redirectUri"
                 )
@@ -1291,7 +1291,7 @@ class CfnConnectorProfile(
                 
                             # the properties below are optional
                             access_token="accessToken",
-                            connector_oAuth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
+                            connector_o_auth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
                                 auth_code="authCode",
                                 redirect_uri="redirectUri"
                             ),
@@ -1309,7 +1309,7 @@ class CfnConnectorProfile(
                 
                             # the properties below are optional
                             access_token="accessToken",
-                            connector_oAuth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
+                            connector_o_auth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
                                 auth_code="authCode",
                                 redirect_uri="redirectUri"
                             )
@@ -1317,7 +1317,7 @@ class CfnConnectorProfile(
                         pardot=appflow.CfnConnectorProfile.PardotConnectorProfileCredentialsProperty(
                             access_token="accessToken",
                             client_credentials_arn="clientCredentialsArn",
-                            connector_oAuth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
+                            connector_o_auth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
                                 auth_code="authCode",
                                 redirect_uri="redirectUri"
                             ),
@@ -1330,7 +1330,7 @@ class CfnConnectorProfile(
                         salesforce=appflow.CfnConnectorProfile.SalesforceConnectorProfileCredentialsProperty(
                             access_token="accessToken",
                             client_credentials_arn="clientCredentialsArn",
-                            connector_oAuth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
+                            connector_o_auth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
                                 auth_code="authCode",
                                 redirect_uri="redirectUri"
                             ),
@@ -1347,7 +1347,7 @@ class CfnConnectorProfile(
                                 access_token="accessToken",
                                 client_id="clientId",
                                 client_secret="clientSecret",
-                                connector_oAuth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
+                                connector_o_auth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
                                     auth_code="authCode",
                                     redirect_uri="redirectUri"
                                 ),
@@ -1377,7 +1377,7 @@ class CfnConnectorProfile(
                 
                             # the properties below are optional
                             access_token="accessToken",
-                            connector_oAuth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
+                            connector_o_auth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
                                 auth_code="authCode",
                                 redirect_uri="redirectUri"
                             )
@@ -1399,7 +1399,7 @@ class CfnConnectorProfile(
                 
                             # the properties below are optional
                             access_token="accessToken",
-                            connector_oAuth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
+                            connector_o_auth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
                                 auth_code="authCode",
                                 redirect_uri="redirectUri"
                             )
@@ -1666,7 +1666,7 @@ class CfnConnectorProfile(
                 
                         # the properties below are optional
                         access_token="accessToken",
-                        connector_oAuth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
+                        connector_o_auth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
                             auth_code="authCode",
                             redirect_uri="redirectUri"
                         ),
@@ -1684,7 +1684,7 @@ class CfnConnectorProfile(
                 
                         # the properties below are optional
                         access_token="accessToken",
-                        connector_oAuth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
+                        connector_o_auth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
                             auth_code="authCode",
                             redirect_uri="redirectUri"
                         )
@@ -1692,7 +1692,7 @@ class CfnConnectorProfile(
                     pardot=appflow.CfnConnectorProfile.PardotConnectorProfileCredentialsProperty(
                         access_token="accessToken",
                         client_credentials_arn="clientCredentialsArn",
-                        connector_oAuth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
+                        connector_o_auth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
                             auth_code="authCode",
                             redirect_uri="redirectUri"
                         ),
@@ -1705,7 +1705,7 @@ class CfnConnectorProfile(
                     salesforce=appflow.CfnConnectorProfile.SalesforceConnectorProfileCredentialsProperty(
                         access_token="accessToken",
                         client_credentials_arn="clientCredentialsArn",
-                        connector_oAuth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
+                        connector_o_auth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
                             auth_code="authCode",
                             redirect_uri="redirectUri"
                         ),
@@ -1722,7 +1722,7 @@ class CfnConnectorProfile(
                             access_token="accessToken",
                             client_id="clientId",
                             client_secret="clientSecret",
-                            connector_oAuth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
+                            connector_o_auth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
                                 auth_code="authCode",
                                 redirect_uri="redirectUri"
                             ),
@@ -1752,7 +1752,7 @@ class CfnConnectorProfile(
                 
                         # the properties below are optional
                         access_token="accessToken",
-                        connector_oAuth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
+                        connector_o_auth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
                             auth_code="authCode",
                             redirect_uri="redirectUri"
                         )
@@ -1774,7 +1774,7 @@ class CfnConnectorProfile(
                 
                         # the properties below are optional
                         access_token="accessToken",
-                        connector_oAuth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
+                        connector_o_auth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
                             auth_code="authCode",
                             redirect_uri="redirectUri"
                         )
@@ -2426,7 +2426,7 @@ class CfnConnectorProfile(
             self,
             *,
             custom_authentication_type: builtins.str,
-            credentials_map: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            credentials_map: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         ) -> None:
             '''The custom credentials required for custom authentication.
 
@@ -2474,13 +2474,13 @@ class CfnConnectorProfile(
         @builtins.property
         def credentials_map(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''A map that holds custom authentication credentials.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-connectorprofile-customauthcredentials.html#cfn-appflow-connectorprofile-customauthcredentials-credentialsmap
             '''
             result = self._values.get("credentials_map")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2662,7 +2662,7 @@ class CfnConnectorProfile(
             self,
             *,
             o_auth2_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnectorProfile.OAuth2PropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            profile_properties: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            profile_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         ) -> None:
             '''The profile properties required by the custom connector.
 
@@ -2715,13 +2715,13 @@ class CfnConnectorProfile(
         @builtins.property
         def profile_properties(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''A map of properties that are required to create a profile for the custom connector.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-connectorprofile-customconnectorprofileproperties.html#cfn-appflow-connectorprofile-customconnectorprofileproperties-profileproperties
             '''
             result = self._values.get("profile_properties")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3007,7 +3007,7 @@ class CfnConnectorProfile(
                 
                     # the properties below are optional
                     access_token="accessToken",
-                    connector_oAuth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
+                    connector_o_auth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
                         auth_code="authCode",
                         redirect_uri="redirectUri"
                     ),
@@ -3293,7 +3293,7 @@ class CfnConnectorProfile(
                 
                     # the properties below are optional
                     access_token="accessToken",
-                    connector_oAuth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
+                    connector_o_auth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
                         auth_code="authCode",
                         redirect_uri="redirectUri"
                     )
@@ -3557,7 +3557,7 @@ class CfnConnectorProfile(
             *,
             o_auth2_grant_type: typing.Optional[builtins.str] = None,
             token_url: typing.Optional[builtins.str] = None,
-            token_url_custom_properties: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            token_url_custom_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         ) -> None:
             '''The OAuth 2.0 properties required for OAuth 2.0 authentication.
 
@@ -3616,7 +3616,7 @@ class CfnConnectorProfile(
         @builtins.property
         def token_url_custom_properties(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''Associates your token URL with a map of properties that you define.
 
             Use this parameter to provide any additional details that the connector requires to authenticate your request.
@@ -3624,7 +3624,7 @@ class CfnConnectorProfile(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-connectorprofile-oauth2properties.html#cfn-appflow-connectorprofile-oauth2properties-tokenurlcustomproperties
             '''
             result = self._values.get("token_url_custom_properties")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3679,7 +3679,7 @@ class CfnConnectorProfile(
                     access_token="accessToken",
                     client_id="clientId",
                     client_secret="clientSecret",
-                    connector_oAuth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
+                    connector_o_auth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
                         auth_code="authCode",
                         redirect_uri="redirectUri"
                     ),
@@ -3889,7 +3889,7 @@ class CfnConnectorProfile(
                 pardot_connector_profile_credentials_property = appflow.CfnConnectorProfile.PardotConnectorProfileCredentialsProperty(
                     access_token="accessToken",
                     client_credentials_arn="clientCredentialsArn",
-                    connector_oAuth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
+                    connector_o_auth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
                         auth_code="authCode",
                         redirect_uri="redirectUri"
                     ),
@@ -4347,7 +4347,7 @@ class CfnConnectorProfile(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_appflow as appflow
                 
-                s_aPOData_connector_profile_credentials_property = appflow.CfnConnectorProfile.SAPODataConnectorProfileCredentialsProperty(
+                s_apo_data_connector_profile_credentials_property = appflow.CfnConnectorProfile.SAPODataConnectorProfileCredentialsProperty(
                     basic_auth_credentials=appflow.CfnConnectorProfile.BasicAuthCredentialsProperty(
                         password="password",
                         username="username"
@@ -4356,7 +4356,7 @@ class CfnConnectorProfile(
                         access_token="accessToken",
                         client_id="clientId",
                         client_secret="clientSecret",
-                        connector_oAuth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
+                        connector_o_auth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
                             auth_code="authCode",
                             redirect_uri="redirectUri"
                         ),
@@ -4454,7 +4454,7 @@ class CfnConnectorProfile(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_appflow as appflow
                 
-                s_aPOData_connector_profile_properties_property = appflow.CfnConnectorProfile.SAPODataConnectorProfilePropertiesProperty(
+                s_apo_data_connector_profile_properties_property = appflow.CfnConnectorProfile.SAPODataConnectorProfilePropertiesProperty(
                     application_host_url="applicationHostUrl",
                     application_service_path="applicationServicePath",
                     client_number="clientNumber",
@@ -4630,7 +4630,7 @@ class CfnConnectorProfile(
                 salesforce_connector_profile_credentials_property = appflow.CfnConnectorProfile.SalesforceConnectorProfileCredentialsProperty(
                     access_token="accessToken",
                     client_credentials_arn="clientCredentialsArn",
-                    connector_oAuth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
+                    connector_o_auth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
                         auth_code="authCode",
                         redirect_uri="redirectUri"
                     ),
@@ -5097,7 +5097,7 @@ class CfnConnectorProfile(
                 
                     # the properties below are optional
                     access_token="accessToken",
-                    connector_oAuth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
+                    connector_o_auth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
                         auth_code="authCode",
                         redirect_uri="redirectUri"
                     )
@@ -5656,7 +5656,7 @@ class CfnConnectorProfile(
                 
                     # the properties below are optional
                     access_token="accessToken",
-                    connector_oAuth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
+                    connector_o_auth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
                         auth_code="authCode",
                         redirect_uri="redirectUri"
                     )
@@ -5881,7 +5881,7 @@ class CfnConnectorProfileProps:
             
                             # the properties below are optional
                             access_token="accessToken",
-                            connector_oAuth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
+                            connector_o_auth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
                                 auth_code="authCode",
                                 redirect_uri="redirectUri"
                             ),
@@ -5899,7 +5899,7 @@ class CfnConnectorProfileProps:
             
                             # the properties below are optional
                             access_token="accessToken",
-                            connector_oAuth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
+                            connector_o_auth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
                                 auth_code="authCode",
                                 redirect_uri="redirectUri"
                             )
@@ -5907,7 +5907,7 @@ class CfnConnectorProfileProps:
                         pardot=appflow.CfnConnectorProfile.PardotConnectorProfileCredentialsProperty(
                             access_token="accessToken",
                             client_credentials_arn="clientCredentialsArn",
-                            connector_oAuth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
+                            connector_o_auth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
                                 auth_code="authCode",
                                 redirect_uri="redirectUri"
                             ),
@@ -5920,7 +5920,7 @@ class CfnConnectorProfileProps:
                         salesforce=appflow.CfnConnectorProfile.SalesforceConnectorProfileCredentialsProperty(
                             access_token="accessToken",
                             client_credentials_arn="clientCredentialsArn",
-                            connector_oAuth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
+                            connector_o_auth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
                                 auth_code="authCode",
                                 redirect_uri="redirectUri"
                             ),
@@ -5937,7 +5937,7 @@ class CfnConnectorProfileProps:
                                 access_token="accessToken",
                                 client_id="clientId",
                                 client_secret="clientSecret",
-                                connector_oAuth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
+                                connector_o_auth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
                                     auth_code="authCode",
                                     redirect_uri="redirectUri"
                                 ),
@@ -5967,7 +5967,7 @@ class CfnConnectorProfileProps:
             
                             # the properties below are optional
                             access_token="accessToken",
-                            connector_oAuth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
+                            connector_o_auth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
                                 auth_code="authCode",
                                 redirect_uri="redirectUri"
                             )
@@ -5989,7 +5989,7 @@ class CfnConnectorProfileProps:
             
                             # the properties below are optional
                             access_token="accessToken",
-                            connector_oAuth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
+                            connector_o_auth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
                                 auth_code="authCode",
                                 redirect_uri="redirectUri"
                             )
@@ -7426,7 +7426,7 @@ class CfnFlow(
             self,
             *,
             entity_name: builtins.str,
-            custom_properties: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            custom_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             error_handling_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.ErrorHandlingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             id_field_names: typing.Optional[typing.Sequence[builtins.str]] = None,
             write_operation_type: typing.Optional[builtins.str] = None,
@@ -7496,13 +7496,13 @@ class CfnFlow(
         @builtins.property
         def custom_properties(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''The custom properties that are specific to the connector when it's used as a destination in the flow.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-customconnectordestinationproperties.html#cfn-appflow-flow-customconnectordestinationproperties-customproperties
             '''
             result = self._values.get("custom_properties")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def error_handling_config(
@@ -7558,7 +7558,7 @@ class CfnFlow(
             self,
             *,
             entity_name: builtins.str,
-            custom_properties: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            custom_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             data_transfer_api: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.DataTransferApiProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The properties that are applied when the custom connector is being used as a source.
@@ -7615,13 +7615,13 @@ class CfnFlow(
         @builtins.property
         def custom_properties(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''Custom properties that are required to use the custom connector as a source.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-customconnectorsourceproperties.html#cfn-appflow-flow-customconnectorsourceproperties-customproperties
             '''
             result = self._values.get("custom_properties")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def data_transfer_api(
@@ -9799,7 +9799,7 @@ class CfnFlow(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_appflow as appflow
                 
-                s_aPOData_destination_properties_property = appflow.CfnFlow.SAPODataDestinationPropertiesProperty(
+                s_apo_data_destination_properties_property = appflow.CfnFlow.SAPODataDestinationPropertiesProperty(
                     object_path="objectPath",
                 
                     # the properties below are optional
@@ -9924,7 +9924,7 @@ class CfnFlow(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_appflow as appflow
                 
-                s_aPOData_pagination_config_property = appflow.CfnFlow.SAPODataPaginationConfigProperty(
+                s_apo_data_pagination_config_property = appflow.CfnFlow.SAPODataPaginationConfigProperty(
                     max_page_size=123
                 )
             '''
@@ -9980,7 +9980,7 @@ class CfnFlow(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_appflow as appflow
                 
-                s_aPOData_parallelism_config_property = appflow.CfnFlow.SAPODataParallelismConfigProperty(
+                s_apo_data_parallelism_config_property = appflow.CfnFlow.SAPODataParallelismConfigProperty(
                     max_parallelism=123
                 )
             '''
@@ -10044,7 +10044,7 @@ class CfnFlow(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_appflow as appflow
                 
-                s_aPOData_source_properties_property = appflow.CfnFlow.SAPODataSourcePropertiesProperty(
+                s_apo_data_source_properties_property = appflow.CfnFlow.SAPODataSourcePropertiesProperty(
                     object_path="objectPath",
                 
                     # the properties below are optional
@@ -13213,7 +13213,7 @@ def _typecheckingstub__65e5865d49e1e2770f8833632ac69e47b3b029c81a4772e3b1c5426bd
 def _typecheckingstub__7f1703eb3a58b3e6fd9b4a3833c2dc0fda48f2e43ba626529bc4a347a6d456e2(
     *,
     custom_authentication_type: builtins.str,
-    credentials_map: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    credentials_map: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13232,7 +13232,7 @@ def _typecheckingstub__706a9d527abbd20fd254cc98e3158ee9239289a3d14735ef9c32c2c9b
 def _typecheckingstub__cdb89c4d5019ae54344a6656863ce47417e2890bffc90e8167ec429bcb73d3b5(
     *,
     o_auth2_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorProfile.OAuth2PropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    profile_properties: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    profile_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13326,7 +13326,7 @@ def _typecheckingstub__12b3508701004e181ac97abfefbe0c0e2c32f353cdc4077fc915d1e79
     *,
     o_auth2_grant_type: typing.Optional[builtins.str] = None,
     token_url: typing.Optional[builtins.str] = None,
-    token_url_custom_properties: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    token_url_custom_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13717,7 +13717,7 @@ def _typecheckingstub__d0948b4cb879f7f09a0ff8663e81bf08fbed9c98d8935ce5ea10cae90
 def _typecheckingstub__c9546f78b7b6588933605f813de3303d240c8a8ea3ec8140f299a55377383a6d(
     *,
     entity_name: builtins.str,
-    custom_properties: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    custom_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     error_handling_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.ErrorHandlingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     id_field_names: typing.Optional[typing.Sequence[builtins.str]] = None,
     write_operation_type: typing.Optional[builtins.str] = None,
@@ -13728,7 +13728,7 @@ def _typecheckingstub__c9546f78b7b6588933605f813de3303d240c8a8ea3ec8140f299a5537
 def _typecheckingstub__dca7f6a437784e099abbe4b67b153f5f8442b7f8bf74f61a2961a5fe146e546b(
     *,
     entity_name: builtins.str,
-    custom_properties: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    custom_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     data_transfer_api: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.DataTransferApiProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

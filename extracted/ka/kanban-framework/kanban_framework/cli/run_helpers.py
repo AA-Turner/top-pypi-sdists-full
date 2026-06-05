@@ -11,6 +11,7 @@ from kanban_framework.domain.task import TaskManager
 from kanban_framework.domain.workflow import WorkflowEngine
 from kanban_framework.domain.guard import Guard
 from kanban_framework.types import Phase
+from kanban_framework.infra.consts import Consts
 
 
 _BRAINSTORMING_ELEMENTS = [
@@ -35,11 +36,9 @@ _KEYWORDS_MAP = {
 def _validate_fsm_state(task, tm) -> dict | None:
     """Validate task's FSM state before executing CLI commands.
     Returns error dict if state is inconsistent, None if OK."""
-    mode = getattr(task, 'mode', 'full')
+    mode = getattr(task, 'mode', '') or Consts.DEFAULT_MODE
     workflow = tm._cfg.workflow if tm._cfg else None
     order = Scheduler.dispatch_order(
-        lightweight=task.lightweight,
-        quick=(mode == 'quick'),
         mode=mode,
         workflow=workflow,
         kanban_dir=tm._fs.kanban_dir,
@@ -75,26 +74,19 @@ def _validate_fsm_state(task, tm) -> dict | None:
 
 def _get_agents_for_phase(fs: Filesystem, phase_id: str,
                           task_description: str = "",
-                          lightweight: bool = False) -> list[dict]:
+                          mode: str | None = None) -> list[dict]:
     cfg = Config(fs)
     workflow = cfg.workflow
     for p in workflow.get("phases", []):
         if p.get("id") == phase_id:
             agents = p.get("agents", [])
-            # Lightweight evaluate: override with QA only
-            if lightweight and phase_id == "evaluate":
-                from kanban_framework.infra.scheduler import Scheduler
-                return Scheduler.eval_roles(lightweight=True)
-            if lightweight and phase_id == "retrospective":
-                from kanban_framework.infra.scheduler import Scheduler
-                return Scheduler.retrospective_roles(lightweight=True)
             return _apply_trigger_conditions(agents, task_description)
     if phase_id == "evaluate":
         from kanban_framework.infra.scheduler import Scheduler
-        return Scheduler.eval_roles(lightweight)
-    if phase_id == "retrospective" and lightweight:
+        return Scheduler.eval_roles(mode=mode, kanban_dir=fs.kanban_dir)
+    if phase_id == "retrospective":
         from kanban_framework.infra.scheduler import Scheduler
-        return Scheduler.retrospective_roles(lightweight)
+        return Scheduler.retrospective_roles(mode=mode)
     # Check workflow extensions for custom phase agents
     from kanban_framework.domain.workflow_extensions import WorkflowExtension
     ext = WorkflowExtension(workflow)

@@ -2,6 +2,7 @@ from chalk._gen.chalk.arrow.v1 import arrow_pb2 as _arrow_pb2
 from chalk._gen.chalk.expression.v1 import expression_pb2 as _expression_pb2
 from chalk._gen.chalk.planner.v1 import batch_udf_pb2 as _batch_udf_pb2
 from google.protobuf import duration_pb2 as _duration_pb2
+from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
@@ -128,6 +129,7 @@ class LogicalPlanArgument(_message.Message):
         "bytes_value",
         "double_value",
         "duration_value",
+        "timestamp_value",
         "arrow_schema",
         "arrow_field",
         "list_value",
@@ -144,6 +146,7 @@ class LogicalPlanArgument(_message.Message):
     BYTES_VALUE_FIELD_NUMBER: _ClassVar[int]
     DOUBLE_VALUE_FIELD_NUMBER: _ClassVar[int]
     DURATION_VALUE_FIELD_NUMBER: _ClassVar[int]
+    TIMESTAMP_VALUE_FIELD_NUMBER: _ClassVar[int]
     ARROW_SCHEMA_FIELD_NUMBER: _ClassVar[int]
     ARROW_FIELD_FIELD_NUMBER: _ClassVar[int]
     LIST_VALUE_FIELD_NUMBER: _ClassVar[int]
@@ -159,6 +162,7 @@ class LogicalPlanArgument(_message.Message):
     bytes_value: bytes
     double_value: float
     duration_value: _duration_pb2.Duration
+    timestamp_value: _timestamp_pb2.Timestamp
     arrow_schema: _arrow_pb2.Schema
     arrow_field: _arrow_pb2.Field
     list_value: LogicalPlanArgumentList
@@ -176,6 +180,7 @@ class LogicalPlanArgument(_message.Message):
         bytes_value: _Optional[bytes] = ...,
         double_value: _Optional[float] = ...,
         duration_value: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
+        timestamp_value: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         arrow_schema: _Optional[_Union[_arrow_pb2.Schema, _Mapping]] = ...,
         arrow_field: _Optional[_Union[_arrow_pb2.Field, _Mapping]] = ...,
         list_value: _Optional[_Union[LogicalPlanArgumentList, _Mapping]] = ...,

@@ -1,6 +1,6 @@
 [project]
 name = "garminconnect"
-version = "0.3.4"
+version = "0.3.5"
 description = "Python 3 API wrapper for Garmin Connect"
 authors = [
     { name = "Ron Klinkien", email = "ron@cyberjunky.nl" },
@@ -92,6 +92,8 @@ module = [
     "test_garmin_unit",
     "test_retry_decorator",
     "test_workout_constants",
+    "test_login_recovery",
+    "test_token_permissions",
     "conftest",
 ]
 disallow_untyped_defs = false
@@ -306,6 +308,13 @@ unfixable = []
     "PLR0911",
     "T20",
     "PERF203",
+]
+"test_strategy.py" = [
+    "T20",
+    "D103",
+]
+"tests/test_token_permissions.py" = [
+    "S105",
 ]
 
 [tool.coverage.run]

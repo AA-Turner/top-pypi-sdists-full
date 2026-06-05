@@ -113,6 +113,8 @@ def parse_push_filters(args: list[str]) -> dict:
             filters["severity"] = args[i + 1]; i += 2
         elif args[i] == "--since" and i + 1 < len(args):
             filters["since"] = args[i + 1]; i += 2
+        elif args[i] == "--biz" and i + 1 < len(args):
+            filters.setdefault("biz_list", []).append(args[i + 1]); i += 2
         elif args[i] == "--dry-run":
             filters["dry_run"] = True; i += 1
         else:
@@ -128,6 +130,8 @@ def apply_push_filters(entries: list[dict], filters: dict) -> list[dict]:
         result = [e for e in result if e.get("category") == filters["category"]]
     if "severity" in filters:
         result = [e for e in result if e.get("severity") == filters["severity"]]
+    if "biz_list" in filters:
+        result = [e for e in result if e.get("biz_context", "") in filters["biz_list"]]
     if "since" in filters:
         from datetime import datetime
         try:

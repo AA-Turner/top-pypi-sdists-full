@@ -1673,7 +1673,7 @@ class CfnApplication(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_applicationinsights as applicationinsights
                 
-                h_aCluster_prometheus_exporter_property = applicationinsights.CfnApplication.HAClusterPrometheusExporterProperty(
+                h_a_cluster_prometheus_exporter_property = applicationinsights.CfnApplication.HAClusterPrometheusExporterProperty(
                     prometheus_port="prometheusPort"
                 )
             '''
@@ -1746,7 +1746,7 @@ class CfnApplication(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_applicationinsights as applicationinsights
                 
-                h_aNAPrometheus_exporter_property = applicationinsights.CfnApplication.HANAPrometheusExporterProperty(
+                h_ana_prometheus_exporter_property = applicationinsights.CfnApplication.HANAPrometheusExporterProperty(
                     agree_to_install_hanadb_client=False,
                     hana_port="hanaPort",
                     hana_secret_name="hanaSecretName",
@@ -1872,7 +1872,7 @@ class CfnApplication(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_applicationinsights as applicationinsights
                 
-                j_mXPrometheus_exporter_property = applicationinsights.CfnApplication.JMXPrometheusExporterProperty(
+                j_mx_prometheus_exporter_property = applicationinsights.CfnApplication.JMXPrometheusExporterProperty(
                     host_port="hostPort",
                     jmxurl="jmxurl",
                     prometheus_port="prometheusPort"
@@ -2439,7 +2439,7 @@ class CfnApplication(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_applicationinsights as applicationinsights
                 
-                s_qLServer_prometheus_exporter_property = applicationinsights.CfnApplication.SQLServerPrometheusExporterProperty(
+                s_ql_server_prometheus_exporter_property = applicationinsights.CfnApplication.SQLServerPrometheusExporterProperty(
                     prometheus_port="prometheusPort",
                     sql_secret_name="sqlSecretName"
                 )

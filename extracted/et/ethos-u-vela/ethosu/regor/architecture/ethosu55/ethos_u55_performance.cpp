@@ -141,7 +141,10 @@ int64_t EthosU55Performance::MemToMemCycles(const ArchitectureMemory *dest, cons
     return std::max(fromCycles, toCycles);
 }
 
-static Shape GetOfmMicroBlock(const Shape &archUBlock, const Shape &ofmShape, EthosU55NpuOp npuOp, const Kernel *kernel)
+namespace
+{
+
+Shape GetOfmMicroBlock(const Shape &archUBlock, const Shape &ofmShape, EthosU55NpuOp npuOp, const Kernel *kernel)
 {
     // HW Optimisation check
     if ( (archUBlock.Height() == 2) && (npuOp == EthosU55NpuOp::Convolution || npuOp == EthosU55NpuOp::VectorProduct) &&
@@ -153,6 +156,98 @@ static Shape GetOfmMicroBlock(const Shape &archUBlock, const Shape &ofmShape, Et
 
     return archUBlock;
 }
+
+int64_t EstimateMemoryTransfer(int cores, bool isRead, ArchitectureMemory *memory, TensorFormat format, int elementBits,
+    Shape block, Shape shape, int64_t toTransfer)
+{
+    int burstLen = 8;
+
+    if ( format == TensorFormat::NHCWB16 )
+    {
+        int zStride = (shape.Width() * elementBits * 16) / 8;
+        if ( zStride == block.Depth() )
+        {
+            burstLen = elementBits * block.ElementsWC();
+        }
+        else if ( isRead )
+        {
+            burstLen = 16 * elementBits * block.Width();
+        }
+        else
+        {
+            burstLen = 16 * elementBits * block.Width() * cores;
+        }
+    }
+    else if ( format == TensorFormat::NHWC )
+    {
+        int xStride = (shape.Depth() * elementBits) / 8;
+        if ( isRead )
+        {
+            if ( xStride == block.Depth() )
+            {
+                burstLen = elementBits * block.ElementsWC();
+            }
+            else
+            {
+                burstLen = elementBits * block.Depth();
+            }
+        }
+        else
+        {
+            if ( (block.Depth() <= 16) && xStride == block.Depth() )
+            {
+                burstLen = elementBits * block.ElementsWC();
+            }
+            else
+            {
+                burstLen = std::min(std::min(64 * 8, 16 * elementBits * cores), block.Depth() * elementBits);
+            }
+        }
+    }
+
+    burstLen = std::min(memory->MaxBurstLength(), burstLen / 8);
+    assert(burstLen > 0 && "Burst length cannot be zero");
+    return (toTransfer * memory->MaxBurstLength()) / burstLen;
+}
+
+
+int64_t MinimumIfmCycles(const PerformanceQuery &query, int cores)
+{
+    EthosU55OpConfig *opConfig = static_cast<EthosU55OpConfig *>(query.config);
+
+    int ifmBits = DataTypeSizeBits(query.ifmType[0]);  // All inputs expect same bit width
+    const int ifmCount = query.ifmShape[1] ? int(std::size(query.ifmShape)) : 1;
+    int64_t cyclesIfm = 0;
+    for ( int i = 0; i < ifmCount; i++ )
+    {
+        // Input block HW transfer (only for elements present)
+        int64_t ifmBytes = Shape::Min(query.ifmShape[i], opConfig->IfmBlock()).Elements64() * ifmBits / 8;
+        int64_t cyclesIfmBlk = query.ifmMemory[i]->ReadLatency();
+        int64_t tx = EstimateMemoryTransfer(cores, true, query.ifmMemory[i], query.ifmFormat[i], ifmBits,
+            opConfig->IfmBlock(), query.ifmShape[i], ifmBytes);
+        cyclesIfmBlk += int64_t(float(tx) / query.ifmMemory[i]->Bandwidth());
+
+        cyclesIfm = std::max(cyclesIfm, cyclesIfmBlk);
+    }
+    return cyclesIfm;
+}
+
+int64_t MinimumOfmCycles(const PerformanceQuery &query, int cores)
+{
+    EthosU55OpConfig *opConfig = static_cast<EthosU55OpConfig *>(query.config);
+
+    // Output block HW transfer (only for elements present)
+    int ofmBits = DataTypeSizeBits(query.ofmType);
+    int64_t ofmBytes = Shape::Min(query.ofmShape, opConfig->OfmBlock()).Elements64() * ofmBits / 8;
+    int64_t cyclesOfm = query.ofmMemory->WriteLatency();
+    int64_t tx = EstimateMemoryTransfer(
+        cores, false, query.ofmMemory, query.ofmFormat, ofmBits, opConfig->OfmBlock(), query.ofmShape, ofmBytes);
+    cyclesOfm += int64_t(float(tx) / query.ofmMemory->Bandwidth());
+
+    return cyclesOfm;
+}
+
+}  // namespace
 
 int64_t EthosU55Performance::EstimateMacCyclesPerBlock(const PerformanceQuery &query)
 {
@@ -298,7 +393,8 @@ EthosU55Cycles EthosU55Performance::EstimateMacOpCycles(const PerformanceQuery &
     if ( (npuOp == EthosU55NpuOp::Convolution || npuOp == EthosU55NpuOp::Depthwise || npuOp == EthosU55NpuOp::VectorProduct) &&
          query.constShape.Size() > 0 && query.constShape.Depth() > 0 )
     {
-        biasCyclesPerBlock = double(10) * ofmBlock.Depth() * query.constMemory->ReadLatency() / 256;
+        auto *fromMem = query.weightStagingMemory ? query.weightStagingMemory : query.constMemory;
+        biasCyclesPerBlock = double(10) * ofmBlock.Depth() * fromMem->ReadLatency() / 256;
     }
     const double aoCyclesPerBlock = std::max(aoComputeCyclesPerBlock, biasCyclesPerBlock);
 
@@ -306,25 +402,29 @@ EthosU55Cycles EthosU55Performance::EstimateMacOpCycles(const PerformanceQuery &
     const double macCyclesPerBlock = EstimateMacCyclesPerBlock(query);
 
     // Estimate the command issuing limit cycles
-    const double minMemCycles = EstimateMinimumMemoryCycles(query);
+    int64_t ifmBlockCycles = MinimumIfmCycles(query, _arch->_cores);
+    int64_t ofmBlockCycles = MinimumOfmCycles(query, _arch->_cores);
+    int64_t minMemCycles = (numOfmBlks > 1) ? std::abs(ofmBlockCycles - ifmBlockCycles) : 0;
     const double cmdIssueLimitCycles = (minMemCycles + macCyclesPerBlock + aoCyclesPerBlock) / 4;  // Per DPU
 
     // Estimate full Op cycles
     const double balancedMacCyclesPerBlock = std::max(macCyclesPerBlock, cmdIssueLimitCycles);
     const double balancedAoCyclesPerBlock = std::max(aoCyclesPerBlock, cmdIssueLimitCycles);
-
     int64_t totalCycles = 0;
     if ( balancedMacCyclesPerBlock > balancedAoCyclesPerBlock )
     {
-        totalCycles = balancedMacCyclesPerBlock * numOfmBlks + balancedAoCyclesPerBlock;
+        totalCycles = int64_t(balancedMacCyclesPerBlock * numOfmBlks);
+        if ( query.scheduling & OpScheduling::Last ) totalCycles += balancedAoCyclesPerBlock;
     }
     else
     {
         totalCycles = balancedAoCyclesPerBlock * numOfmBlks + balancedMacCyclesPerBlock;
     }
 
-    // Estimate total number of MACs
-    int64_t totalMacs = int64_t(query.kernel->ElementsWH()) * query.ofmShape.Elements();
+    if ( query.scheduling & OpScheduling::Last ) totalCycles += ofmBlockCycles;
+    if ( query.scheduling & OpScheduling::First ) totalCycles += ifmBlockCycles;
+
+    int64_t totalMacs = int64_t(query.kernel->ElementsWH()) * query.ofmShape.Elements64();
     if ( (npuOp != EthosU55NpuOp::Depthwise) && (npuOp != EthosU55NpuOp::Pooling) )
     {
         totalMacs *= query.ifmShape[0].Depth();
@@ -359,7 +459,9 @@ EthosU55Cycles EthosU55Performance::EstimateElementwiseCycles(const PerformanceQ
     // Estimate the command issuing limit cycles
     const int ofmBlockElements = opConfig->OfmBlock().Elements();
     assert(ofmBlockElements > 0);
-    const double cmdCyclesPerElem = (EstimateMinimumMemoryCycles(query) / double(ofmBlockElements) + aoCyclesPerElem) / 4.0;  // per DPU
+    // Assumes overlapped I/O
+    const double blockCycles = std::max(MinimumOfmCycles(query, _arch->_cores), MinimumIfmCycles(query, _arch->_cores));
+    const double cmdCyclesPerElem = (blockCycles / ofmBlockElements + aoCyclesPerElem) / 4.0;  // per DPU
     const double cmdIssueLimitCycles = std::ceil(cmdCyclesPerElem * elements);
 
     const int64_t totalCycles = std::max(cmdIssueLimitCycles, aoCycles);
@@ -410,92 +512,6 @@ EthosU55Cycles EthosU55Performance::EstimateMatMulCycles(const PerformanceQuery 
     return cycles;
 }
 
-static int EstimateMemoryTransfer(int cores, bool isRead, ArchitectureMemory *memory, TensorFormat format,
-    int elementBits, Shape block, Shape shape, int toTransfer)
-{
-    int burstLen = 8;
-
-    if ( format == TensorFormat::NHCWB16 )
-    {
-        int zStride = (shape.Width() * elementBits * 16) / 8;
-        if ( zStride == block.Depth() )
-        {
-            burstLen = elementBits * block.ElementsWC();
-        }
-        else if ( isRead )
-        {
-            burstLen = 16 * elementBits * block.Width();
-        }
-        else
-        {
-            burstLen = 16 * elementBits * block.Width() * cores;
-        }
-    }
-    else if ( format == TensorFormat::NHWC )
-    {
-        int xStride = (shape.Depth() * elementBits) / 8;
-        if ( isRead )
-        {
-            if ( xStride == block.Depth() )
-            {
-                burstLen = elementBits * block.ElementsWC();
-            }
-            else
-            {
-                burstLen = elementBits * block.Depth();
-            }
-        }
-        else
-        {
-            if ( (block.Depth() <= 16) && xStride == block.Depth() )
-            {
-                burstLen = elementBits * block.ElementsWC();
-            }
-            else
-            {
-                burstLen = std::min(std::min(64 * 8, 16 * elementBits * cores), block.Depth() * elementBits);
-            }
-        }
-    }
-
-    burstLen = std::min(memory->MaxBurstLength(), burstLen / 8);
-    assert(burstLen > 0 && "Burst length cannot be zero");
-    return (toTransfer * memory->MaxBurstLength()) / burstLen;
-}
-
-
-int64_t EthosU55Performance::EstimateMinimumMemoryCycles(const PerformanceQuery &query)
-{
-    EthosU55OpConfig *opConfig = static_cast<EthosU55OpConfig *>(query.config);
-
-    int ifmBits = DataTypeSizeBits(query.ifmType[0]);  // All inputs expect same bit width
-    const int ifmCount = query.ifmShape[1].Elements() > 0 ? int(std::size(query.ifmShape)) : 1;
-    int64_t cyclesIfm = 0;
-    for ( int i = 0; i < ifmCount; i++ )
-    {
-        // Input block HW transfer (only for elements present)
-        int ifmBytes = Shape::Min(query.ifmShape[i], opConfig->IfmBlock()).Elements() * ifmBits / 8;
-        int64_t cyclesIfmBlk = query.ifmMemory[i]->ReadLatency();
-        int64_t tx = EstimateMemoryTransfer(_arch->_cores, true, query.ifmMemory[i], query.ifmFormat[i], ifmBits,
-            opConfig->IfmBlock(), query.ifmShape[i], ifmBytes);
-        cyclesIfmBlk += int64_t(float(tx) / query.ifmMemory[i]->Bandwidth());
-
-        cyclesIfm = std::max(cyclesIfm, cyclesIfmBlk);
-    }
-
-    // Output block HW transfer (only for elements present)
-    int ofmBits = DataTypeSizeBits(query.ofmType);
-    int ofmBytes = Shape::Min(query.ofmShape, opConfig->OfmBlock()).Elements() * ofmBits / 8;
-
-    assert(query.ofmMemory);
-    int64_t cyclesOfm = query.ofmMemory->WriteLatency();
-    int64_t tx = EstimateMemoryTransfer(_arch->_cores, false, query.ofmMemory, query.ofmFormat, ofmBits,
-        opConfig->OfmBlock(), query.ofmShape, ofmBytes);
-    cyclesOfm += int64_t(float(tx) / query.ofmMemory->Bandwidth());
-
-    return cyclesIfm + cyclesOfm;
-}
-
 double EthosU55Performance::EstimateAOCyclesPerElement(const PerformanceQuery &query)
 {
     EthosU55OpConfig *opConfig = static_cast<EthosU55OpConfig *>(query.config);
@@ -509,7 +525,7 @@ double EthosU55Performance::EstimateAOCyclesPerElement(const PerformanceQuery &q
     if ( (npuOp == EthosU55NpuOp::Elementwise) && (ifmBits == 32) )
     {
         // Unary op else Binary op
-        outputPerfIndex = query.ifmShape[1].Elements() > 0 ? 1 : 0;
+        outputPerfIndex = query.ifmShape[1] ? 1 : 0;
     }
     else if ( query.type == OpType::Mul && ofmBits == 32 )
     {
@@ -622,49 +638,44 @@ ElementAccess EthosU55Performance::MeasureElementAccess(const PerformanceQuery &
     else if ( npuOp == EthosU55NpuOp::Elementwise )
     {
         // IFM1 is scalar
-        if ( query.ifmShape[0].Elements() == 1 )
+        if ( query.ifmShape[0].Elements64() == 1 )
         {
             if ( DataTypeSizeBits(query.ifmType[0]) > 8 )  // IFM1 is a non 8-bit scalar
             {
-                access.ifmRead[0] = Shape::RoundAway(query.ifmShape[0], ifmRounding).Elements();
+                access.ifmRead[0] = Shape::RoundAway(query.ifmShape[0], ifmRounding).Elements64();
             }
-            else if ( query.ifmShape[1].Elements() > 0 )
+            else if ( query.ifmShape[1].Elements64() > 0 )
             {
-                access.ifmRead[1] = Shape::RoundAway(query.ofmShape, ifmRounding).Elements();
+                access.ifmRead[1] = Shape::RoundAway(query.ofmShape, ifmRounding).Elements64();
             }
         }
         else  // IFM1 is not scalar
         {
-            access.ifmRead[0] = Shape::RoundAway(query.ofmShape, ifmRounding).Elements();
-            if ( query.ifmShape[1].Elements() > 0 )
+            access.ifmRead[0] = Shape::RoundAway(query.ofmShape, ifmRounding).Elements64();
+            if ( query.ifmShape[1].Elements64() > 0 )
             {
                 // IFM2 is not scalar
-                if ( query.ifmShape[1].Elements() > 1 )
+                if ( query.ifmShape[1].Elements64() > 1 )
                 {
                     access.ifmRead[1] = access.ifmRead[0];
                 }
                 else if ( DataTypeSizeBits(query.ifmType[1]) > 8 )  // IFM2 is a non 8-bit scalar
                 {
-                    access.ifmRead[1] = Shape::RoundAway(query.ifmShape[1], ifmRounding).Elements();
+                    access.ifmRead[1] = Shape::RoundAway(query.ifmShape[1], ifmRounding).Elements64();
                 }
             }
         }
     }
-    else if ( query.type == OpType::Tile )
-    {
-        // IFM0 is read multiple times to cover all elements in ofmShape
-        access.ifmRead[0] = Shape::RoundAway(query.ofmShape, ofmRounding).Elements();
-    }
     else if ( query.type == OpType::Transpose )
     {
-        access.ifmRead[0] = query.ifmShape[0].Elements();
+        access.ifmRead[0] = query.ifmShape[0].Elements64();
     }
     else if ( query.type == OpType::MatMul )
     {
         // Requires pretransposed operand
         int cols = query.ifmShape[1].Width();
-        access.ifmRead[0] = query.ifmShape[0].Elements() * cols;
-        access.ifmRead[1] = query.ifmShape[1].Elements();
+        access.ifmRead[0] = query.ifmShape[0].Elements64() * cols;
+        access.ifmRead[1] = query.ifmShape[1].Elements64();
         access.tmpRead = access.tmpWrite = access.ifmRead[0];
     }
     else
@@ -672,7 +683,7 @@ ElementAccess EthosU55Performance::MeasureElementAccess(const PerformanceQuery &
         assert(false);
     }
 
-    access.ofmWrite = Shape::RoundAway(query.ofmShape, ofmRounding).Elements();
+    access.ofmWrite = Shape::RoundAway(query.ofmShape, ofmRounding).Elements64();
 
     return access;
 }
@@ -686,7 +697,7 @@ ElementAccess EthosU55Performance::ElementTransferToBytes(const PerformanceQuery
 
     // IFM bytes transferred
     int ifmBits = DataTypeSizeBits(query.ifmType[0]);  // All inputs expect same bit width
-    const int ifmCount = query.ifmShape[1].Elements() > 0 ? int(std::size(query.ifmShape)) : 1;
+    const int ifmCount = query.ifmShape[1] ? int(std::size(query.ifmShape)) : 1;
     for ( int i = 0; i < ifmCount; i++ )
     {
         result.ifmRead[i] = EstimateMemoryTransfer(_arch->_cores, true, query.ifmMemory[i], query.ifmFormat[i], ifmBits,
@@ -757,7 +768,7 @@ void EthosU55Performance::RecordToDB(int opId)
     }
 }
 
-int64_t EthosU55Performance::MinReadCycles(ArchitectureMemory *mem, int size, TensorUsage usage, OpType type, bool fastWeights)
+int64_t EthosU55Performance::MinReadCycles(ArchitectureMemory *mem, int64_t size, TensorUsage usage, OpType type, bool fastWeights)
 {
     auto transferCycles = size / double(mem->Bandwidth());
     // Add on latency since this function returns the cycle count for the transfer itself which is not necessarily the
@@ -765,7 +776,7 @@ int64_t EthosU55Performance::MinReadCycles(ArchitectureMemory *mem, int size, Te
     return transferCycles + mem->ReadLatency();
 }
 
-int64_t EthosU55Performance::MinWriteCycles(ArchitectureMemory *mem, int size)
+int64_t EthosU55Performance::MinWriteCycles(ArchitectureMemory *mem, int64_t size)
 {
     auto transferCycles = size / double(mem->Bandwidth());
     return transferCycles + mem->WriteLatency();
@@ -822,9 +833,9 @@ EthosU55Performance::MeasureAccessCycles(const PerformanceQuery &query, const El
     {
         AccessCycles accessCycles;
         int64_t totalBytes = 0;
-        for ( auto &[group, bytes] : groups )
+        for ( auto &group : groups )
         {
-            totalBytes += bytes;
+            totalBytes += group.second;
         }
 
         accessCycles.fmAccessCycles = groups.count(TransferGroup::FeatureMaps) ? groups[TransferGroup::FeatureMaps] / mem->Bandwidth() : 0;

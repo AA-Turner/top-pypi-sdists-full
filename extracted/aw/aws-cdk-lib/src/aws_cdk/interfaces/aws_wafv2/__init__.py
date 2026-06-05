@@ -158,7 +158,7 @@ class IPSetReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_wafv2 as interfaces_wafv2
             
-            i_pSet_reference = {
+            i_p_set_reference = {
                 "ip_set_arn": "ipSetArn",
                 "ip_set_id": "ipSetId",
                 "ip_set_name": "ipSetName",
@@ -660,7 +660,7 @@ class WebACLAssociationReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_wafv2 as interfaces_wafv2
             
-            web_aCLAssociation_reference = interfaces_wafv2.WebACLAssociationReference(
+            web_acl_association_reference = interfaces_wafv2.WebACLAssociationReference(
                 resource_arn="resourceArn",
                 web_acl_arn="webAclArn"
             )
@@ -734,7 +734,7 @@ class WebACLReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_wafv2 as interfaces_wafv2
             
-            web_aCLReference = interfaces_wafv2.WebACLReference(
+            web_acl_reference = interfaces_wafv2.WebACLReference(
                 scope="scope",
                 web_acl_arn="webAclArn",
                 web_acl_id="webAclId",

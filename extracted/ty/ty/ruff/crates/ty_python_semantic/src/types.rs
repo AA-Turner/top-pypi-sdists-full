@@ -80,7 +80,7 @@ pub(crate) use crate::types::signatures::{Parameter, Parameters};
 use crate::types::signatures::{ParameterForm, walk_signature};
 use crate::types::special_form::TypeQualifier;
 use crate::types::tuple::TupleSpec;
-use crate::types::type_alias::TypeAliasType;
+pub use crate::types::type_alias::TypeAliasType;
 pub(crate) use crate::types::typed_dict::TypedDictType;
 use crate::types::typevar::TypeVarInstance;
 pub use crate::types::typevar::{
@@ -3522,8 +3522,7 @@ impl<'db> Type<'db> {
             }
 
             Type::NominalInstance(instance)
-                if matches!(name.as_str(), "major" | "minor")
-                    && instance.has_known_class(db, KnownClass::VersionInfo) =>
+                if matches!(name.as_str(), "major" | "minor") && instance.is_sys_version_info() =>
             {
                 let python_version = Program::get(db).python_version(db);
                 let segment = if name == "major" {

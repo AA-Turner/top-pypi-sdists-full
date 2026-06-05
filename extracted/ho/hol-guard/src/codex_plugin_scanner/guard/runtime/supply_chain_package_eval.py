@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import io
 import json
 import posixpath
@@ -27,6 +26,7 @@ from packaging.version import InvalidVersion, Version
 
 from ..config import load_guard_config, resolve_risk_action
 from ..models import GuardArtifact
+from ..stable_digest import stable_digest_hex
 from ..store import GuardStore
 from ..store_evidence import EvidenceRecord
 from .js_semver import highest_js_version_for_selector, version_matches_js_selector
@@ -37,6 +37,7 @@ from .package_manifest_diff import (
     parse_manifest_dependencies,
 )
 from .runner import (
+    GuardSyncAuthorizationExpiredError,
     GuardSyncNotConfiguredError,
     _guard_sync_headers,
     _normalized_receipts_sync_url,
@@ -274,7 +275,11 @@ def evaluate_package_request_artifact(
                 now_value,
             )
         return result
-    if bundle_evaluation is not None and bundle_evaluation.refresh_required:
+    if (
+        bundle_evaluation is not None
+        and bundle_evaluation.refresh_required
+        and store.get_oauth_local_credentials() is None
+    ):
         fallback = _finalize_evaluation(
             bundle_evaluation,
             package_intent_hash=package_intent_hash,
@@ -583,8 +588,31 @@ def _evaluate_with_cloud(
 ) -> tuple[PackageRequestEvaluation | None, dict[str, object] | None]:
     if workspace_id is None or workspace_fingerprint is None:
         return None, None
+    fail_closed_decision: str | None = None
+
+    def resolve_fail_closed_decision() -> str:
+        nonlocal fail_closed_decision
+        if fail_closed_decision is None:
+            fail_closed_decision = _cloud_fail_closed_decision(store=store, workspace_dir=workspace_dir)
+        result: str = fail_closed_decision
+        return result
+
     try:
         auth_context = _resolve_guard_sync_auth_context(store)
+    except GuardSyncAuthorizationExpiredError:
+        return (
+            _cloud_fail_closed_evaluation(
+                code="cloud_auth_error",
+                message="Guard cloud evaluation was not authorized, so this package request needs review.",
+                artifact=artifact,
+                targets=targets,
+                workspace_dir=workspace_dir,
+                workspace_fingerprint=workspace_fingerprint,
+                bundle_meta=bundle_meta,
+                fail_closed_decision=resolve_fail_closed_decision(),
+            ),
+            None,
+        )
     except GuardSyncNotConfiguredError:
         return None, None
     evaluate_url = _normalized_supply_chain_evaluate_url(auth_context["sync_url"], workspace_id)
@@ -601,7 +629,6 @@ def _evaluate_with_cloud(
         headers=_guard_sync_headers(auth_context, request_url=evaluate_url, method="POST"),
         method="POST",
     )
-    fail_closed_decision = _cloud_fail_closed_decision(store=store, workspace_dir=workspace_dir)
     try:
         response_payload = _urlopen_json_with_timeout_retry(
             request=request,
@@ -616,7 +643,7 @@ def _evaluate_with_cloud(
             workspace_dir=workspace_dir,
             workspace_fingerprint=workspace_fingerprint,
             bundle_meta=bundle_meta,
-            fail_closed_decision=fail_closed_decision,
+            fail_closed_decision=resolve_fail_closed_decision(),
         )
         if fail_closed is not None:
             return fail_closed, None
@@ -625,7 +652,7 @@ def _evaluate_with_cloud(
             message=(f"Guard cloud evaluation returned HTTP {error.code}, so Guard fell back to local intelligence."),
         )
     except OSError:
-        if fail_closed_decision == "block":
+        if resolve_fail_closed_decision() == "block":
             return (
                 _cloud_fail_closed_evaluation(
                     code="cloud_validation_error",
@@ -635,7 +662,7 @@ def _evaluate_with_cloud(
                     workspace_dir=workspace_dir,
                     workspace_fingerprint=workspace_fingerprint,
                     bundle_meta=bundle_meta,
-                    fail_closed_decision=fail_closed_decision,
+                    fail_closed_decision=resolve_fail_closed_decision(),
                 ),
                 None,
             )
@@ -653,7 +680,7 @@ def _evaluate_with_cloud(
                 workspace_dir=workspace_dir,
                 workspace_fingerprint=workspace_fingerprint,
                 bundle_meta=bundle_meta,
-                fail_closed_decision=fail_closed_decision,
+                fail_closed_decision=resolve_fail_closed_decision(),
             ),
             None,
         )
@@ -667,7 +694,7 @@ def _evaluate_with_cloud(
                 workspace_dir=workspace_dir,
                 workspace_fingerprint=workspace_fingerprint,
                 bundle_meta=bundle_meta,
-                fail_closed_decision=fail_closed_decision,
+                fail_closed_decision=resolve_fail_closed_decision(),
             ),
             None,
         )
@@ -683,7 +710,7 @@ def _evaluate_with_cloud(
                 workspace_dir=workspace_dir,
                 workspace_fingerprint=workspace_fingerprint,
                 bundle_meta=bundle_meta,
-                fail_closed_decision=fail_closed_decision,
+                fail_closed_decision=resolve_fail_closed_decision(),
             ),
             None,
         )
@@ -1265,7 +1292,7 @@ def _lockfile_context(workspace_dir: Path | None, artifact: GuardArtifact) -> di
     return {
         "dependencyCount": len(dependencies),
         "fileName": lockfile_path.name,
-        "lockfileHash": hashlib.sha256(lockfile_text.encode("utf-8")).hexdigest(),
+        "lockfileHash": stable_digest_hex(lockfile_text.encode("utf-8")),
         "manifestHash": manifest_hashes[0] if manifest_hashes else None,
         "repository": workspace_dir.name,
     }
@@ -3321,14 +3348,14 @@ def _hash_paths(workspace_dir: Path | None, raw_paths: object) -> list[str]:
         if not path.exists():
             continue
         try:
-            hashes.append(hashlib.sha256(path.read_bytes()).hexdigest())
+            hashes.append(stable_digest_hex(path.read_bytes()))
         except OSError:
             continue
     return hashes
 
 
 def _stable_hash(value: object) -> str:
-    return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
+    return stable_digest_hex(json.dumps(value, sort_keys=True, separators=(",", ":")).encode("utf-8"))
 
 
 def _split_namespace_name(value: str) -> tuple[str | None, str]:
@@ -3480,7 +3507,7 @@ def _evidence_id(package_intent_hash: str, package: dict[str, object]) -> str:
     )
     dependency_path = _optional_string(package.get("dependencyPath")) or "direct"
     identity = f"{package_intent_hash}:{package_name}:{resolved_version}:{dependency_path}:{decision}"
-    return f"evidence-{hashlib.sha256(identity.encode()).hexdigest()[:16]}"
+    return f"evidence-{stable_digest_hex(identity.encode(), length=16)}"
 
 
 def _with_additional_reason(

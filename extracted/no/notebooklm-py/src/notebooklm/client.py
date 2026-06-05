@@ -24,7 +24,6 @@ from __future__ import annotations
 import asyncio
 import dataclasses
 import logging
-import warnings
 from collections.abc import Callable, Generator
 from pathlib import Path
 from types import TracebackType
@@ -41,23 +40,25 @@ from ._auth.session import refresh_auth_session
 from ._chat import ChatAPI
 from ._client_composed import ClientComposed
 from ._client_seams import resolve_client_seams
+from ._deprecation import warn_deprecated
 from ._env import get_base_url as get_base_url
 from ._mind_map import NoteBackedMindMapService
+from ._mind_maps_api import MindMapsAPI
 from ._note_service import NoteService
 from ._notebooks import NotebooksAPI
 from ._notes import NotesAPI
 from ._research import ResearchAPI
-from ._session_config import (
+from ._runtime.config import (
     DEFAULT_KEEPALIVE_MIN_INTERVAL,
     DEFAULT_MAX_CONCURRENT_RPCS,
     DEFAULT_MAX_CONCURRENT_UPLOADS,
     DEFAULT_TIMEOUT,
 )
-from ._session_init import compose_client_internals
-from ._session_lifecycle import CookieRotator, CookieSaver
+from ._runtime.init import compose_client_internals
+from ._runtime.lifecycle import CookieRotator, CookieSaver
 from ._settings import SettingsAPI
 from ._sharing import SharingAPI
-from ._source_upload import SourceUploadPipeline
+from ._source.upload import SourceUploadPipeline
 from ._sources import SourcesAPI
 from ._url_utils import is_google_auth_redirect as is_google_auth_redirect
 from .auth import AuthTokens
@@ -201,14 +202,14 @@ class NotebookLMClient:
                 backend-agnostic ``RpcTelemetryEvent`` so applications can
                 forward telemetry to logging, Prometheus, OpenTelemetry, or
                 another metrics backend without this package depending on one.
-            cookie_saver: Optional injectable seam (Phase 2 PR 3) overriding
+            cookie_saver: Optional injectable seam overriding
                 the on-disk cookie writer used on close / refresh / keepalive.
                 ``None`` (default) preserves the current behavior of resolving
                 ``notebooklm._auth.storage.save_cookies_to_storage`` via a
                 late-bound wrapper. Must be sync (``def``, not ``async def``)
                 — it runs inside ``asyncio.to_thread``. Custom callables
                 bypass the late-bind hop entirely.
-            cookie_rotator: Optional injectable seam (Phase 2 PR 3)
+            cookie_rotator: Optional injectable seam
                 overriding the keepalive-loop cookie rotator. ``None``
                 (default) preserves the current behavior of resolving
                 ``notebooklm._auth.keepalive._rotate_cookies`` via a
@@ -232,7 +233,7 @@ class NotebookLMClient:
         # captures the same (possibly rebound) instance that
         # :func:`compose_client_internals` then propagates into
         # :class:`CookiePersistence`, the snapshot-provider lambdas,
-        # and :class:`SourceUploadPipeline`. ADR-016's Auth Instance
+        # and :class:`SourceUploadPipeline`. ADR-0016's Auth Instance
         # Invariant requires every reference across the live object graph
         # to alias this exact same mutable object so
         # :meth:`AuthRefreshCoordinator.update_auth_tokens` in-place
@@ -240,8 +241,7 @@ class NotebookLMClient:
         #
         # ``refresh_auth()``, the public ``auth`` property, and the
         # ``SourceUploadPipeline(auth=...)`` constructor argument all back
-        # off this field instead of any former Session-owned auth
-        # reference. The client shell helper
+        # off this field. The client shell helper
         # (``tests/_helpers/client_factory.build_client_shell_for_tests``)
         # mirrors the production attribute shape so tests exercise the
         # same code path as production.
@@ -289,10 +289,8 @@ class NotebookLMClient:
                     "clean back-pressure."
                 )
 
-        # Stage B1 PR 2 of the post-refactoring plan inverted the
-        # composition root. Session-elimination Phase 3 finishes the
-        # ownership move: :func:`compose_client_internals` binds
-        # composition state onto ``self._composed`` and returns only the
+        # The client is the composition root: :func:`compose_client_internals`
+        # binds composition state onto ``self._composed`` and returns only the
         # collaborators + executor that feature adapters need.
         #
         # The public NotebookLMClient kwarg surface is unchanged — the
@@ -300,6 +298,14 @@ class NotebookLMClient:
         # ``is_auth_error`` / ``async_client_factory``) live on
         # ``compose_client_internals`` and the client-shell test helper
         # only.
+        #
+        # TEST-ONLY injection points: production passes ``None`` for all
+        # three runtime seams here (and never supplies an
+        # ``async_client_factory``), so they always resolve to the
+        # canonical module bindings. The non-``None`` paths exist solely
+        # for deterministic test injection — see ``_client_seams`` module
+        # docstring. Do not promote any of them to a public kwarg without
+        # a production caller that varies them.
         self._seams = resolve_client_seams(
             decode_response=None,
             sleep=None,
@@ -320,10 +326,9 @@ class NotebookLMClient:
             max_concurrent_uploads=max_concurrent_uploads,
             max_concurrent_rpcs=max_concurrent_rpcs,
             on_rpc_event=on_rpc_event,
-            # Phase 2 PR 3 injectable seams — pass-through to the
-            # lifecycle. ``None`` (default) preserves the legacy late-
-            # binding contract via ``_default_cookie_saver`` /
-            # ``_default_cookie_rotator``.
+            # Injectable seams — pass-through to the lifecycle. ``None``
+            # (default) preserves the late-binding contract via
+            # ``_default_cookie_saver`` / ``_default_cookie_rotator``.
             cookie_saver=cookie_saver,
             cookie_rotator=cookie_rotator,
             seams=self._seams,
@@ -344,11 +349,11 @@ class NotebookLMClient:
         # ``rpc_call`` sees the swap on every feature consumer).
         self._rpc_executor = internals.executor
 
-        # ADR-014 Rule 2: the upload pipeline takes its three runtime
+        # ADR-0014 Rule 2: the upload pipeline takes its three runtime
         # collaborators (``rpc`` + ``drain`` + ``lifecycle``) directly
         # instead of via a composite-runtime adapter. ``Kernel`` and
         # ``AuthMetadata`` continue to flow as separate parameters per
-        # the ADR-014 Rule 6 example. ``NotebookLMClient.__init__`` is
+        # the ADR-0014 Rule 6 example. ``NotebookLMClient.__init__`` is
         # the composition root that knows these internals;
         # ``SourcesAPI`` no longer reads them back off a broad host.
         source_uploader = SourceUploadPipeline(
@@ -356,7 +361,7 @@ class NotebookLMClient:
             drain=internals.collaborators.drain_tracker,
             lifecycle=internals.collaborators.lifecycle,
             kernel=internals.collaborators.kernel,
-            # ADR-016's Auth Instance Invariant: the upload pipeline
+            # ADR-0016's Auth Instance Invariant: the upload pipeline
             # reads the client-owned ``self._auth`` reference set above
             # instead of a detached auth copy. Production refresh-time
             # mutation is therefore observed by the uploader unchanged.
@@ -365,10 +370,17 @@ class NotebookLMClient:
             max_concurrent_uploads=max_concurrent_uploads,
             record_upload_queue_wait=internals.collaborators.metrics.record_upload_queue_wait,
         )
-        # ADR-014 Rule 3 Stage B (Stage B1 PR 2 of the post-refactoring
-        # plan): simple features take their RpcCaller dependency directly
-        # from the composition root's executor, not from a Stage A
-        # accessor on the deleted Session surface.
+        # Hold the uploader as a first-class client attribute so the
+        # open-time loop-affinity reset (issue #1196 upload variant) can
+        # reach it independently of the ``self.sources`` feature surface:
+        # the upload semaphore is a lazily-built loop-bound
+        # ``asyncio.Semaphore`` that must be discarded on close→reopen, the
+        # same as the RPC semaphore. ``__aenter__`` threads this into
+        # ``ClientLifecycle.open`` which calls
+        # ``set_bound_loop`` / ``reset_after_open`` on it.
+        self._source_uploader = source_uploader
+        # Per ADR-0014 Rule 3: simple features take their RpcCaller dependency
+        # directly from the composition root's executor.
         self.sources = SourcesAPI(
             internals.executor,
             uploader=source_uploader,
@@ -376,16 +388,14 @@ class NotebookLMClient:
             max_concurrent_uploads=max_concurrent_uploads,
         )
         self.notebooks = NotebooksAPI(internals.executor, sources_api=self.sources)
-        # Phase 5 wiring per docs/refactor-history.md Migration Plan steps 6-7:
-        # the legacy single-service handoff passed as ``mind_map_service=``
-        # is replaced with the explicit
+        # Note wiring (see docs/refactor-history.md): an explicit
         # NoteService + NoteBackedMindMapService split. NoteService owns the
         # raw row primitives; NoteBackedMindMapService is the mind-map-only
         # adapter the download path uses; the artifact-generation path uses
         # NoteService.create_note directly to persist a generated mind map.
         note_service = NoteService(internals.executor)
         mind_maps = NoteBackedMindMapService(note_service)
-        # ADR-014 Rule 2: the artifacts API takes its three runtime
+        # ADR-0014 Rule 2: the artifacts API takes its three runtime
         # collaborators (``rpc`` + ``drain`` + ``lifecycle``) directly
         # instead of via a composite-runtime adapter. ``rpc`` covers
         # RPC dispatch; ``drain`` covers ``operation_scope`` and the
@@ -400,14 +410,8 @@ class NotebookLMClient:
             note_service=note_service,
             storage_path=storage_path,
         )
-        # ``chat`` MUST be constructed before ``notes`` so the
-        # ``save_chat_answer`` callback (= ``chat.save_answer_as_note``)
-        # exists at NotesAPI construction time. Phase 6 (refactor-history.md
-        # Step 8, ADR-013) moves saved-chat ownership to ChatAPI and
-        # has NotesAPI delegate via constructor injection.
-        #
-        # Wave 8 of session-decoupling (ADR-014 Rule 2 Corollary): ChatAPI
-        # takes its four direct collaborators (RpcCaller, SessionTransport,
+        # ChatAPI (per ADR-0014) takes its
+        # four direct collaborators (RpcCaller, RuntimeTransport,
         # ReqidCounter, LoopGuard) by keyword argument. The transport is
         # sourced from ``self._composed``; other runtime fields come from
         # the :class:`ClientInternals` returned by the composition root.
@@ -421,13 +425,18 @@ class NotebookLMClient:
         self.notes = NotesAPI(
             notes=note_service,
             mind_maps=mind_maps,
-            save_chat_answer=self.chat.save_answer_as_note,
         )
-        # Pure-RPC features (typed as ``rpc: RpcCaller``). Wave 7 of
-        # session-decoupling: pass the ``RpcExecutor`` collaborator
-        # directly. Stage B1 PR 2 updated the source from
-        # the deleted Session executor accessor to the
-        # composed executor.
+        # Unified mind-map surface over both backends (note-backed + interactive
+        # studio artifact); dispatches each op to the correct RPC family (#1256).
+        self.mind_maps = MindMapsAPI(
+            rpc=internals.executor,
+            mind_maps=mind_maps,
+            artifacts=self.artifacts,
+            notebooks=self.notebooks,
+        )
+        # Pure-RPC features (typed as ``rpc: RpcCaller``). Pass the
+        # ``RpcExecutor`` collaborator directly, sourced from the composed
+        # executor.
         self.research = ResearchAPI(internals.executor)
         self.settings = SettingsAPI(internals.executor)
         self.sharing = SharingAPI(internals.executor)
@@ -436,7 +445,7 @@ class NotebookLMClient:
     def auth(self) -> AuthTokens:
         """Get the authentication tokens.
 
-        ADR-016's Auth Instance Invariant requires every reference across
+        ADR-0016's Auth Instance Invariant requires every reference across
         the live object graph to alias the same mutable
         :class:`AuthTokens` object set in :meth:`__init__`, so the public
         ``client.auth`` identity and behavior are unchanged.
@@ -455,6 +464,8 @@ class NotebookLMClient:
             reqid=self._collaborators.reqid,
             cookie_persistence=self._collaborators.cookie_persistence,
             composed=self._composed,
+            uploader=self._source_uploader,
+            chat=self.chat,
         )
         return self
 
@@ -559,7 +570,7 @@ class NotebookLMClient:
         (e.g. ``artifacts.polls``) run BEFORE the drain wait, not just in
         the shielded lifecycle close below. In-flight artifact polls wrap
         themselves in ``TransportDrainTracker.operation_scope`` (see
-        :meth:`notebooklm._artifact_polling.ArtifactPollingService._run_poll_loop_in_scope`),
+        :meth:`notebooklm._artifact.polling.ArtifactPollingService._run_poll_loop_in_scope`),
         which increments the same in-flight counter ``drain()`` waits on.
         Without firing the cancel hooks first, ``drain()`` would block on a
         poll that the cancel hook is supposed to short-circuit — up to the
@@ -623,9 +634,7 @@ class NotebookLMClient:
                     # continues to run regardless.
                     # NOTE: deliberately NOT catching ``BaseException`` —
                     # ``KeyboardInterrupt`` and ``SystemExit`` are
-                    # process-exit signals that must propagate unchanged
-                    # (per CodeRabbit feedback on PR #950, comment
-                    # 3285205066).
+                    # process-exit signals that must propagate unchanged.
                     pass
                 raise
             # Any other exception from drain (e.g. ``ValueError`` for a
@@ -663,10 +672,8 @@ class NotebookLMClient:
     def metrics_snapshot(self) -> ClientMetricsSnapshot:
         """Return cumulative observability counters for this client.
 
-        Stage B1 PR 2 of the post-refactoring plan migrated the read off
-        the deleted Stage A collaborator accessor onto the
-        bundle stored by :meth:`__init__` from the composition root's
-        :class:`ClientInternals`.
+        Reads from the collaborator bundle stored by :meth:`__init__` from
+        the composition root's :class:`ClientInternals`.
         """
         return self._collaborators.metrics.snapshot()
 
@@ -823,10 +830,9 @@ class NotebookLMClient:
         This helps prevent 'Session Expired' errors by obtaining a fresh CSRF
         token (SNlM0e) and session ID (FdrFJe).
 
-        Wave 2 of plan ``host-protocol-removal`` rewired this call site
-        onto explicit collaborators sourced from ``self._auth`` and
-        ``self._collaborators``. The five kwargs mirror the new
-        :func:`refresh_auth_session` signature: ``auth`` is the
+        This call site uses explicit collaborators sourced from
+        ``self._auth`` and ``self._collaborators``. The five kwargs mirror
+        the :func:`refresh_auth_session` signature: ``auth`` is the
         client-owned :class:`AuthTokens` instance (the Auth Instance
         Invariant guarantees this is the same object every auth consumer
         observes), and the remaining four come from the collaborator
@@ -934,12 +940,12 @@ class _FromStorageContext:
         Emits ``DeprecationWarning`` (removed in v1.0). Prefer the
         ``async with NotebookLMClient.from_storage(...) as client:`` idiom.
         """
-        warnings.warn(
+        warn_deprecated(
             "Awaiting NotebookLMClient.from_storage(...) is deprecated; use "
             "`async with NotebookLMClient.from_storage(...) as client:` "
             "instead. The await form will be removed in v1.0.",
-            DeprecationWarning,
-            stacklevel=2,
+            removal="1.0",
+            stacklevel=3,
         )
         return self._build().__await__()
 

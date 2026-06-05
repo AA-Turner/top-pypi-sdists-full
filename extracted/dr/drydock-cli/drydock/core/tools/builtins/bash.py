@@ -1005,17 +1005,36 @@ class Bash(
                 timeout_state[args.command] = count
                 if count == 1:
                     hint = (
-                        "The command was killed. If it starts a server or "
-                        "long-running process, background it with `command &` "
-                        "instead of running it in the foreground."
+                        "The command was killed. DO NOT retry the same "
+                        "command. Recovery options by command type:\n"
+                        " • SERVER / long-running process: background with "
+                        "`command &` and use `ps`/`ss -tlnp` to confirm it "
+                        "started.\n"
+                        " • LARGE DOWNLOAD / git clone / pip install: re-run "
+                        "with smaller scope first (e.g. `git clone --depth=1`, "
+                        "`pip install` only the immediate deps you need), or "
+                        "background with `nohup ... > /tmp/out.log 2>&1 &` "
+                        "and poll the log.\n"
+                        " • BUILD / compile: split into stages (configure → "
+                        "make a single target → test), and check intermediate "
+                        "artifacts. `make -j1` to avoid parallel build noise.\n"
+                        " • SEARCH / find / grep recursive: narrow with "
+                        "`--max-depth`, specific path, or `--include='*.py'`.\n"
+                        " • DATA processing: process a small slice first "
+                        "(`head -c 10M file | ...`), verify shape, then scale.\n"
+                        "Whatever the cause: change the COMMAND before "
+                        "running again. Retrying as-is will time out again."
                     )
                 else:
                     hint = (
                         f"[TIMEOUT #{count}] You have timed out {count}x on "
-                        f"this exact command. Running it again will produce the "
-                        f"same result. STOP retrying. Background servers with "
-                        f"`&`, check existing listeners with `ss -tlnp`, or fix "
-                        f"the underlying cause before re-running."
+                        f"this EXACT command. Retrying it produces the same "
+                        f"result. STOP. Either change the command shape "
+                        f"(smaller scope, background with `&`, narrower "
+                        f"filter) OR move on to a different approach. The "
+                        f"verifier doesn't care about this specific command — "
+                        f"it cares about your output files. Write a "
+                        f"best-attempt answer file and exit this rabbit hole."
                     )
                 yield BashResult(
                     command=args.command,

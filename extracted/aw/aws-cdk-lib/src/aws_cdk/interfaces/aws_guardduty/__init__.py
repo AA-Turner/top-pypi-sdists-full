@@ -435,7 +435,7 @@ class IPSetReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_guardduty as interfaces_guardduty
             
-            i_pSet_reference = {
+            i_p_set_reference = {
                 "detector_id": "detectorId",
                 "ip_set_id": "ipSetId"
             }

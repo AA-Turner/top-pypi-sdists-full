@@ -204,7 +204,7 @@ class CfnApi(
         open_api_version: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         tracing_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        variables: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        variables: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
     ) -> None:
         '''Create a new ``AWS::Serverless::Api``.
 
@@ -684,13 +684,13 @@ class CfnApi(
     @jsii.member(jsii_name="variables")
     def variables(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], jsii.get(self, "variables"))
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "variables"))
 
     @variables.setter
     def variables(
         self,
-        value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e18d5b2f60202118ae9b46b2c208eab95ae644832c6148e75937bc7ad0ae9622)
@@ -869,7 +869,7 @@ class CfnApi(
             *,
             deployment_id: typing.Optional[builtins.str] = None,
             percent_traffic: typing.Optional[jsii.Number] = None,
-            stage_variable_overrides: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            stage_variable_overrides: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             use_stage_cache: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         ) -> None:
             '''
@@ -931,12 +931,12 @@ class CfnApi(
         @builtins.property
         def stage_variable_overrides(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-serverless-api-canarysetting.html#cfn-serverless-api-canarysetting-stagevariableoverrides
             '''
             result = self._values.get("stage_variable_overrides")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def use_stage_cache(
@@ -1653,7 +1653,7 @@ class CfnApiProps:
         open_api_version: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         tracing_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        variables: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        variables: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnApi``.
 
@@ -2052,12 +2052,12 @@ class CfnApiProps:
     @builtins.property
     def variables(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-api.html#cfn-serverless-api-variables
         '''
         result = self._values.get("variables")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2111,7 +2111,7 @@ class CfnApplication(
         *,
         location: typing.Union[builtins.str, "_IResolvable_da3f097b", typing.Union["CfnApplication.ApplicationLocationProperty", typing.Dict[builtins.str, typing.Any]]],
         notification_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-        parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         timeout_in_minutes: typing.Optional[jsii.Number] = None,
     ) -> None:
@@ -2245,13 +2245,13 @@ class CfnApplication(
     @jsii.member(jsii_name="parameters")
     def parameters(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], jsii.get(self, "parameters"))
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "parameters"))
 
     @parameters.setter
     def parameters(
         self,
-        value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__05c9df790cddd4512e3cf1277ea55b48b4d5ddfef54d5b82a13d917e4712e8d8)
@@ -2374,7 +2374,7 @@ class CfnApplicationProps:
         *,
         location: typing.Union[builtins.str, "_IResolvable_da3f097b", typing.Union["CfnApplication.ApplicationLocationProperty", typing.Dict[builtins.str, typing.Any]]],
         notification_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-        parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         timeout_in_minutes: typing.Optional[jsii.Number] = None,
     ) -> None:
@@ -2450,12 +2450,12 @@ class CfnApplicationProps:
     @builtins.property
     def parameters(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-application.html#cfn-serverless-application-parameters
         '''
         result = self._values.get("parameters")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
@@ -3857,7 +3857,7 @@ class CfnFunction(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_sam as sam
                 
-                bucket_sAMPTProperty = sam.CfnFunction.BucketSAMPTProperty(
+                bucket_sampt_property = sam.CfnFunction.BucketSAMPTProperty(
                     bucket_name="bucketName"
                 )
             '''
@@ -4131,7 +4131,7 @@ class CfnFunction(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_sam as sam
                 
-                collection_sAMPTProperty = sam.CfnFunction.CollectionSAMPTProperty(
+                collection_sampt_property = sam.CfnFunction.CollectionSAMPTProperty(
                     collection_id="collectionId"
                 )
             '''
@@ -4617,7 +4617,7 @@ class CfnFunction(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_sam as sam
                 
-                domain_sAMPTProperty = sam.CfnFunction.DomainSAMPTProperty(
+                domain_sampt_property = sam.CfnFunction.DomainSAMPTProperty(
                     domain_name="domainName"
                 )
             '''
@@ -4700,7 +4700,7 @@ class CfnFunction(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_sam as sam
                 
-                dynamo_dBEvent_property = sam.CfnFunction.DynamoDBEventProperty(
+                dynamo_db_event_property = sam.CfnFunction.DynamoDBEventProperty(
                     starting_position="startingPosition",
                     stream="stream",
                 
@@ -4871,7 +4871,7 @@ class CfnFunction(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_sam as sam
                 
-                empty_sAMPTProperty = sam.CfnFunction.EmptySAMPTProperty()
+                empty_sampt_property = sam.CfnFunction.EmptySAMPTProperty()
             '''
             self._values: typing.Dict[builtins.str, typing.Any] = {}
 
@@ -5371,7 +5371,7 @@ class CfnFunction(
         def __init__(
             self,
             *,
-            variables: typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"],
+            variables: typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]],
         ) -> None:
             '''
             :param variables: 
@@ -5401,13 +5401,13 @@ class CfnFunction(
         @builtins.property
         def variables(
             self,
-        ) -> typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-serverless-function-functionenvironment.html#cfn-serverless-function-functionenvironment-variables
             '''
             result = self._values.get("variables")
             assert result is not None, "Required property 'variables' is missing"
-            return typing.cast(typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5439,7 +5439,7 @@ class CfnFunction(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_sam as sam
                 
-                function_sAMPTProperty = sam.CfnFunction.FunctionSAMPTProperty(
+                function_sampt_property = sam.CfnFunction.FunctionSAMPTProperty(
                     function_name="functionName"
                 )
             '''
@@ -5882,7 +5882,7 @@ class CfnFunction(
                 
                 # statement: Any
                 
-                i_aMPolicy_document_property = {
+                i_am_policy_document_property = {
                     "statement": statement,
                 
                     # the properties below are optional
@@ -5946,7 +5946,7 @@ class CfnFunction(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_sam as sam
                 
-                identity_sAMPTProperty = sam.CfnFunction.IdentitySAMPTProperty(
+                identity_sampt_property = sam.CfnFunction.IdentitySAMPTProperty(
                     identity_name="identityName"
                 )
             '''
@@ -6087,7 +6087,7 @@ class CfnFunction(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_sam as sam
                 
-                io_tRule_event_property = sam.CfnFunction.IoTRuleEventProperty(
+                io_t_rule_event_property = sam.CfnFunction.IoTRuleEventProperty(
                     sql="sql",
                 
                     # the properties below are optional
@@ -6151,7 +6151,7 @@ class CfnFunction(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_sam as sam
                 
-                key_sAMPTProperty = sam.CfnFunction.KeySAMPTProperty(
+                key_sampt_property = sam.CfnFunction.KeySAMPTProperty(
                     key_id="keyId"
                 )
             '''
@@ -6321,7 +6321,7 @@ class CfnFunction(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_sam as sam
                 
-                log_group_sAMPTProperty = sam.CfnFunction.LogGroupSAMPTProperty(
+                log_group_sampt_property = sam.CfnFunction.LogGroupSAMPTProperty(
                     log_group_name="logGroupName"
                 )
             '''
@@ -6371,7 +6371,7 @@ class CfnFunction(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_sam as sam
                 
-                parameter_name_sAMPTProperty = sam.CfnFunction.ParameterNameSAMPTProperty(
+                parameter_name_sampt_property = sam.CfnFunction.ParameterNameSAMPTProperty(
                     parameter_name="parameterName"
                 )
             '''
@@ -6473,7 +6473,7 @@ class CfnFunction(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_sam as sam
                 
-                queue_sAMPTProperty = sam.CfnFunction.QueueSAMPTProperty(
+                queue_sampt_property = sam.CfnFunction.QueueSAMPTProperty(
                     queue_name="queueName"
                 )
             '''
@@ -7287,7 +7287,7 @@ class CfnFunction(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_sam as sam
                 
-                s_aMPolicy_template_property = sam.CfnFunction.SAMPolicyTemplateProperty(
+                s_am_policy_template_property = sam.CfnFunction.SAMPolicyTemplateProperty(
                     ami_describe_policy=sam.CfnFunction.EmptySAMPTProperty(),
                     aws_secrets_manager_get_secret_value_policy=sam.CfnFunction.SecretArnSAMPTProperty(
                         secret_arn="secretArn"
@@ -7853,7 +7853,7 @@ class CfnFunction(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_sam as sam
                 
-                s_nSEvent_property = sam.CfnFunction.SNSEventProperty(
+                s_ns_event_property = sam.CfnFunction.SNSEventProperty(
                     topic="topic"
                 )
             '''
@@ -7915,7 +7915,7 @@ class CfnFunction(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_sam as sam
                 
-                s_qSEvent_property = sam.CfnFunction.SQSEventProperty(
+                s_qs_event_property = sam.CfnFunction.SQSEventProperty(
                     queue="queue",
                 
                     # the properties below are optional
@@ -8113,7 +8113,7 @@ class CfnFunction(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_sam as sam
                 
-                secret_arn_sAMPTProperty = sam.CfnFunction.SecretArnSAMPTProperty(
+                secret_arn_sampt_property = sam.CfnFunction.SecretArnSAMPTProperty(
                     secret_arn="secretArn"
                 )
             '''
@@ -8163,7 +8163,7 @@ class CfnFunction(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_sam as sam
                 
-                state_machine_sAMPTProperty = sam.CfnFunction.StateMachineSAMPTProperty(
+                state_machine_sampt_property = sam.CfnFunction.StateMachineSAMPTProperty(
                     state_machine_name="stateMachineName"
                 )
             '''
@@ -8213,7 +8213,7 @@ class CfnFunction(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_sam as sam
                 
-                stream_sAMPTProperty = sam.CfnFunction.StreamSAMPTProperty(
+                stream_sampt_property = sam.CfnFunction.StreamSAMPTProperty(
                     stream_name="streamName"
                 )
             '''
@@ -8263,7 +8263,7 @@ class CfnFunction(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_sam as sam
                 
-                table_sAMPTProperty = sam.CfnFunction.TableSAMPTProperty(
+                table_sampt_property = sam.CfnFunction.TableSAMPTProperty(
                     table_name="tableName"
                 )
             '''
@@ -8319,7 +8319,7 @@ class CfnFunction(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_sam as sam
                 
-                table_stream_sAMPTProperty = sam.CfnFunction.TableStreamSAMPTProperty(
+                table_stream_sampt_property = sam.CfnFunction.TableStreamSAMPTProperty(
                     stream_name="streamName",
                     table_name="tableName"
                 )
@@ -8381,7 +8381,7 @@ class CfnFunction(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_sam as sam
                 
-                topic_sAMPTProperty = sam.CfnFunction.TopicSAMPTProperty(
+                topic_sampt_property = sam.CfnFunction.TopicSAMPTProperty(
                     topic_name="topicName"
                 )
             '''
@@ -9238,7 +9238,7 @@ class CfnHttpApi(
         fail_on_warnings: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         route_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnHttpApi.RouteSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         stage_name: typing.Optional[builtins.str] = None,
-        stage_variables: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        stage_variables: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''Create a new ``AWS::Serverless::HttpApi``.
@@ -9546,13 +9546,13 @@ class CfnHttpApi(
     @jsii.member(jsii_name="stageVariables")
     def stage_variables(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], jsii.get(self, "stageVariables"))
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "stageVariables"))
 
     @stage_variables.setter
     def stage_variables(
         self,
-        value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__449af0a02d8005f7a293a627e1cb45ddbc2347c0cd6d00355c6149e405bd71de)
@@ -10435,7 +10435,7 @@ class CfnHttpApiProps:
         fail_on_warnings: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         route_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnHttpApi.RouteSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         stage_name: typing.Optional[builtins.str] = None,
-        stage_variables: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        stage_variables: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''Properties for defining a ``CfnHttpApi``.
@@ -10688,12 +10688,12 @@ class CfnHttpApiProps:
     @builtins.property
     def stage_variables(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-httpapi.html#cfn-serverless-httpapi-stagevariables
         '''
         result = self._values.get("stage_variables")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
@@ -11534,7 +11534,7 @@ class CfnSimpleTable(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_sam as sam
                 
-                s_sESpecification_property = sam.CfnSimpleTable.SSESpecificationProperty(
+                s_se_specification_property = sam.CfnSimpleTable.SSESpecificationProperty(
                     sse_enabled=False
                 )
             '''
@@ -11771,7 +11771,7 @@ class CfnStateMachine(
         id: builtins.str,
         *,
         definition: typing.Any = None,
-        definition_substitutions: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        definition_substitutions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         definition_uri: typing.Optional[typing.Union[builtins.str, "_IResolvable_da3f097b", typing.Union["CfnStateMachine.S3LocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         events: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnStateMachine.EventSourceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         logging: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStateMachine.LoggingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -11907,13 +11907,13 @@ class CfnStateMachine(
     @jsii.member(jsii_name="definitionSubstitutions")
     def definition_substitutions(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], jsii.get(self, "definitionSubstitutions"))
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "definitionSubstitutions"))
 
     @definition_substitutions.setter
     def definition_substitutions(
         self,
-        value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5775a6876026b1a8c899a35d8111a4a33d5e70eba087059cf927fee69bfcad24)
@@ -12507,7 +12507,7 @@ class CfnStateMachine(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_sam as sam
                 
-                function_sAMPTProperty = sam.CfnStateMachine.FunctionSAMPTProperty(
+                function_sampt_property = sam.CfnStateMachine.FunctionSAMPTProperty(
                     function_name="functionName"
                 )
             '''
@@ -12560,7 +12560,7 @@ class CfnStateMachine(
                 
                 # statement: Any
                 
-                i_aMPolicy_document_property = {
+                i_am_policy_document_property = {
                     "statement": statement,
                     "version": "version"
                 }
@@ -12867,7 +12867,7 @@ class CfnStateMachine(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_sam as sam
                 
-                s_aMPolicy_template_property = sam.CfnStateMachine.SAMPolicyTemplateProperty(
+                s_am_policy_template_property = sam.CfnStateMachine.SAMPolicyTemplateProperty(
                     lambda_invoke_policy=sam.CfnStateMachine.FunctionSAMPTProperty(
                         function_name="functionName"
                     ),
@@ -13006,7 +13006,7 @@ class CfnStateMachine(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_sam as sam
                 
-                state_machine_sAMPTProperty = sam.CfnStateMachine.StateMachineSAMPTProperty(
+                state_machine_sampt_property = sam.CfnStateMachine.StateMachineSAMPTProperty(
                     state_machine_name="stateMachineName"
                 )
             '''
@@ -13116,7 +13116,7 @@ class CfnStateMachineProps:
         self,
         *,
         definition: typing.Any = None,
-        definition_substitutions: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        definition_substitutions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         definition_uri: typing.Optional[typing.Union[builtins.str, "_IResolvable_da3f097b", typing.Union["CfnStateMachine.S3LocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         events: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnStateMachine.EventSourceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         logging: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStateMachine.LoggingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -13245,12 +13245,12 @@ class CfnStateMachineProps:
     @builtins.property
     def definition_substitutions(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-statemachine.html#cfn-serverless-statemachine-definitionsubstitutions
         '''
         result = self._values.get("definition_substitutions")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
     @builtins.property
     def definition_uri(
@@ -13400,7 +13400,7 @@ def _typecheckingstub__3135996bb5e2b67d63a2144c699a4377166e2b1ebabc180e4c43b45b5
     open_api_version: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     tracing_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    variables: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    variables: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13562,7 +13562,7 @@ def _typecheckingstub__381be80448e4bb2d0dfa01f12de99215cac54995a787d289c523b6d8b
     pass
 
 def _typecheckingstub__e18d5b2f60202118ae9b46b2c208eab95ae644832c6148e75937bc7ad0ae9622(
-    value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13588,7 +13588,7 @@ def _typecheckingstub__a04c0e58764c2325f15e42a28ebefd2c7e52c177703a95e3b0742576c
     *,
     deployment_id: typing.Optional[builtins.str] = None,
     percent_traffic: typing.Optional[jsii.Number] = None,
-    stage_variable_overrides: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    stage_variable_overrides: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     use_stage_cache: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -13680,7 +13680,7 @@ def _typecheckingstub__0c3541ced1e3b9f417bf5019481767d1f0ed3628dc1464b54b8ea1849
     open_api_version: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     tracing_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    variables: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    variables: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13691,7 +13691,7 @@ def _typecheckingstub__64c7803062c8244dab10c00b85c3ab7470f7dfeddb1993dc048523593
     *,
     location: typing.Union[builtins.str, _IResolvable_da3f097b, typing.Union[CfnApplication.ApplicationLocationProperty, typing.Dict[builtins.str, typing.Any]]],
     notification_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-    parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     timeout_in_minutes: typing.Optional[jsii.Number] = None,
 ) -> None:
@@ -13729,7 +13729,7 @@ def _typecheckingstub__fdba732f0fdb414d7b870bb171355caae720f58a2e5c1495b6c5a846d
     pass
 
 def _typecheckingstub__05c9df790cddd4512e3cf1277ea55b48b4d5ddfef54d5b82a13d917e4712e8d8(
-    value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13758,7 +13758,7 @@ def _typecheckingstub__5cdd3da86c77e72e8f53daca88bd679d2d41f1881eeba6c4c20c6c5e7
     *,
     location: typing.Union[builtins.str, _IResolvable_da3f097b, typing.Union[CfnApplication.ApplicationLocationProperty, typing.Dict[builtins.str, typing.Any]]],
     notification_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-    parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     timeout_in_minutes: typing.Optional[jsii.Number] = None,
 ) -> None:
@@ -14241,7 +14241,7 @@ def _typecheckingstub__042927e3bdc41bb37d7a425bbdfe932f3c1c939361ff5d3c2e6aecdc7
 
 def _typecheckingstub__cede0a875bba921466167c6599c161022b6030dbd7aafacc22aff1e6368d599c(
     *,
-    variables: typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b],
+    variables: typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14613,7 +14613,7 @@ def _typecheckingstub__2810a638ba3e7320fe893fabc5f6e87ff6c30d560aa983c6a0d6c0f8b
     fail_on_warnings: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     route_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnHttpApi.RouteSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     stage_name: typing.Optional[builtins.str] = None,
-    stage_variables: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    stage_variables: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -14710,7 +14710,7 @@ def _typecheckingstub__690006efe3a8bbd86d333485a6f43ce5a5088b2ade6688f66fa4ed3f2
     pass
 
 def _typecheckingstub__449af0a02d8005f7a293a627e1cb45ddbc2347c0cd6d00355c6149e405bd71de(
-    value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14815,7 +14815,7 @@ def _typecheckingstub__8fee3d57c5905e9ae9b8f419c1e059cc2543719f1378802233950cf6f
     fail_on_warnings: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     route_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnHttpApi.RouteSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     stage_name: typing.Optional[builtins.str] = None,
-    stage_variables: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    stage_variables: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -15010,7 +15010,7 @@ def _typecheckingstub__aa34f84b79e27e3369f06403c6b18551d70f35e4a3b615bb7cd7c7098
     id: builtins.str,
     *,
     definition: typing.Any = None,
-    definition_substitutions: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    definition_substitutions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     definition_uri: typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, typing.Union[CfnStateMachine.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     events: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnStateMachine.EventSourceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     logging: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStateMachine.LoggingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -15050,7 +15050,7 @@ def _typecheckingstub__2d3d4f6819243ae5cfa1d9d6defa295a3b23790f17ebd02c4d51d355d
     pass
 
 def _typecheckingstub__5775a6876026b1a8c899a35d8111a4a33d5e70eba087059cf927fee69bfcad24(
-    value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -15232,7 +15232,7 @@ def _typecheckingstub__8568d1e5362e81260a69221e107002da0809dc2714f5960aaa894d488
 def _typecheckingstub__505a369e8f3bf625077dedf7f13099c6e0c8e2c05182396505111670528d74d7(
     *,
     definition: typing.Any = None,
-    definition_substitutions: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    definition_substitutions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     definition_uri: typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, typing.Union[CfnStateMachine.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     events: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnStateMachine.EventSourceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     logging: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStateMachine.LoggingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,

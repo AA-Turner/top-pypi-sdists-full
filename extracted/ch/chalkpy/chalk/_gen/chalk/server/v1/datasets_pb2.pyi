@@ -633,16 +633,36 @@ class ListMaterializedAggregateTilesResponse(_message.Message):
     ) -> None: ...
 
 class ListMaterializedAggregateTilesForTimelineRequest(_message.Message):
-    __slots__ = ("materialization_key_hash",)
+    __slots__ = ("materialization_key_hash", "time_window", "cursor", "limit")
     MATERIALIZATION_KEY_HASH_FIELD_NUMBER: _ClassVar[int]
+    TIME_WINDOW_FIELD_NUMBER: _ClassVar[int]
+    CURSOR_FIELD_NUMBER: _ClassVar[int]
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
     materialization_key_hash: str
-    def __init__(self, materialization_key_hash: _Optional[str] = ...) -> None: ...
+    time_window: _materialized_aggregate_tiles_pb2.MaterializedAggregateTileTimelineInterval
+    cursor: str
+    limit: int
+    def __init__(
+        self,
+        materialization_key_hash: _Optional[str] = ...,
+        time_window: _Optional[
+            _Union[_materialized_aggregate_tiles_pb2.MaterializedAggregateTileTimelineInterval, _Mapping]
+        ] = ...,
+        cursor: _Optional[str] = ...,
+        limit: _Optional[int] = ...,
+    ) -> None: ...
 
 class ListMaterializedAggregateTilesForTimelineResponse(_message.Message):
-    __slots__ = ("tiles",)
+    __slots__ = ("tiles", "next_cursor")
     TILES_FIELD_NUMBER: _ClassVar[int]
+    NEXT_CURSOR_FIELD_NUMBER: _ClassVar[int]
     tiles: _containers.RepeatedCompositeFieldContainer[MaterializedAggregateTileMeta]
-    def __init__(self, tiles: _Optional[_Iterable[_Union[MaterializedAggregateTileMeta, _Mapping]]] = ...) -> None: ...
+    next_cursor: str
+    def __init__(
+        self,
+        tiles: _Optional[_Iterable[_Union[MaterializedAggregateTileMeta, _Mapping]]] = ...,
+        next_cursor: _Optional[str] = ...,
+    ) -> None: ...
 
 class ListMaterializedAggregateTileFilesRequest(_message.Message):
     __slots__ = ("manifest_id", "cursor", "limit")

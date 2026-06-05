@@ -1,6 +1,8 @@
 """CLI output renderers — human-readable display functions."""
 from __future__ import annotations
 
+from kanban_framework.infra.consts import Consts
+
 
 def _format_table(rows: list[list[str]], headers: list[str]) -> str:
     """Format aligned table."""
@@ -103,7 +105,7 @@ def _render_create(data: dict):
         mode = assessment.get("recommended_mode", "?")
         reason = assessment.get("reason", "")
         risks = assessment.get("risk_factors", [])
-        mode_label = mode if mode else "lightweight"
+        mode_label = mode if mode else Consts.DEFAULT_MODE
         print(f"  推荐模式: {mode_label}")
         print(f"  原因: {reason}")
         if risks:
@@ -121,7 +123,7 @@ def _render_create(data: dict):
 
     task_id = data.get("id", "")
     desc = data.get("description", "") or "(无)"
-    recommended = assessment.get("recommended_mode", "lightweight")
+    recommended = assessment.get("recommended_mode", Consts.DEFAULT_MODE)
 
     print(f"\n  ── 确认检查点 ──")
     print(f"  标题: {data.get('title', '?')}")
@@ -129,12 +131,15 @@ def _render_create(data: dict):
         print(f"  描述: {desc[:80]}{'...' if len(desc) > 80 else ''}")
 
     if mode_pending:
-        alt = "quick" if recommended == "lightweight" else "lightweight"
+        # Show available modes from task result
+        available = data.get("mode_options", {}).get("available", [Consts.DEFAULT_MODE])
         print(f"\n  ⚠️  等待用户确认运行模式：")
-        print(f"     [1] lightweight（推荐）— Plan → Execute → Evaluate → Archive")
-        print(f"     [2] quick — Execute → Archive，最快速")
-        print(f"  → 选择后执行: kanban task edit {task_id} --mode quick")
-        print(f"                  kanban task edit {task_id} --mode lightweight")
+        for i, m in enumerate(available, 1):
+            tag = "（推荐）" if m == recommended else ""
+            print(f"     [{i}] {m}{tag}")
+        print(f"  → 选择后执行: " + ", ".join(
+            f"kanban task edit {task_id} --mode {m}" for m in available
+        ))
     else:
         print(f"  模式: {data.get('mode', 'lightweight')}")
 
@@ -150,10 +155,12 @@ def _render_create(data: dict):
 
 
 def _render_init(data: dict):
-    sync = data.get("sync", {})
+    sync = data.get("synced_files", data.get("sync", {}))
     added = sync.get("added", [])
     updated = sync.get("updated", [])
-    stale = sync.get("stale", [])
+    stale = sync.get("stale_cleaned", sync.get("stale", []))
+    errors = sync.get("errors", [])
+    pending_updates = sync.get("pending_updates", [])
     created = data.get("created", []) or added + updated
 
     parts = []
@@ -166,6 +173,13 @@ def _render_init(data: dict):
 
     status = ", ".join(parts) if parts else f"{len(created)} items created"
     print(f"  kanban env ready — {status}")
+
+    if errors:
+        print(f"\n  ⚠  {len(errors)} sync errors:")
+        for e in errors[:10]:
+            print(f"    ✗ {e}")
+        if len(errors) > 10:
+            print(f"    ... and {len(errors) - 10} more")
 
     agent_sync = data.get("agent_sync", {})
     if agent_sync.get("synced"):
@@ -181,13 +195,12 @@ def _render_init(data: dict):
     if updated:
         for f in updated[:5]:
             print(f"    ~ {f}")
-    pending = sync.get("pending_updates", [])
-    if pending:
-        print(f"\n  ⚠  {len(pending)} files have updates available (not applied)")
-        for f in pending[:5]:
+    if pending_updates:
+        print(f"\n  ⚠  {len(pending_updates)} files have updates available (not applied)")
+        for f in pending_updates[:5]:
             print(f"    → {f}")
-        if len(pending) > 5:
-            print(f"    ... and {len(pending) - 5} more")
+        if len(pending_updates) > 5:
+            print(f"    ... and {len(pending_updates) - 5} more")
         print(f"  Review changes and run: kanban init --apply")
     if stale:
         print(f"  ⚠  {len(stale)} stale files (not in framework source)")

@@ -10,6 +10,7 @@
 import os
 import shutil
 import random
+import tarfile
 
 from http import server
 
@@ -35,16 +36,19 @@ class HttpStorageAccessHandler(server.BaseHTTPRequestHandler):
             path = os.path.join(cache_path, fileList[0])
         else:
             # multiple files, make archive
-            unique = str(random.getrandbits(24))
+            unique = str(random.getrandbits(24))  # nosec B311
             fileString = " ".join(fileList)
-            os.system(f"tar -cf {cache_path}/dirac_data_{unique}.tar --remove-files -C {cache_path} {fileString}")
-            path = os.path.join(cache_path, f"dirac_data_{unique}.tar")
-
-        f = self.send_head(path)
-        if f:
-            shutil.copyfileobj(f, self.wfile)
-            f.close()
-            self.register.delete(key)
+            tar_path = os.path.join(cache_path, f"dirac_data_{unique}.tar")
+            with tarfile.open(tar_path, "w") as tar:
+                for fname in fileList:
+                    fpath = os.path.join(cache_path, fname)
+                    tar.add(fpath, arcname=fname)
+                    os.remove(fpath)
+            f = self.send_head(tar_path)
+            if f:
+                shutil.copyfileobj(f, self.wfile)
+                f.close()
+                self.register.delete(key)
 
     def send_head(self, path):
         """Prepare headers for the file download"""

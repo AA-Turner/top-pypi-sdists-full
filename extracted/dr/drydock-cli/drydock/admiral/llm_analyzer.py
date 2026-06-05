@@ -143,8 +143,13 @@ async def analyze(agent_loop: AgentLoop, finding: Finding) -> str | None:
     # Strip reasoning tokens that some models leak.
     if text.startswith("STUMPED"):
         return None
-    if "DIRECTIVE:" in text:
-        proposal = text.split("DIRECTIVE:", 1)[1].strip()
+    # The expected format is `DIRECTIVE [Bx,Cy]: <text>` — the colon comes
+    # after the bracket group, not immediately after "DIRECTIVE". A plain
+    # `"DIRECTIVE:" in text` check fails for this format, so use a regex.
+    import re as _re
+    m = _re.search(r"DIRECTIVE(?:\s*\[[^\]]*\])?\s*:(.*)", text, _re.DOTALL)
+    if m:
+        proposal = m.group(1).strip()
         # Take only the first line/paragraph — discard chain-of-thought.
         proposal = proposal.split("\n\n")[0].strip()
         return proposal or None

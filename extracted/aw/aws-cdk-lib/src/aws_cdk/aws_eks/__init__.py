@@ -192,6 +192,22 @@ eks.FargateCluster(self, "HelloEKS",
 )
 ```
 
+You can enable deletion protection for your cluster to prevent accidental deletion. When deletion protection is enabled,
+the cluster cannot be deleted until protection is disabled. This setting only applies to clusters in an active state.
+
+> For more details visit [Deletion protection](https://docs.aws.amazon.com/eks/latest/userguide/deletion-protection.html).
+
+```python
+from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
+
+
+eks.Cluster(self, "HelloEKS",
+    version=eks.KubernetesVersion.V1_35,
+    kubectl_layer=KubectlV35Layer(self, "kubectl"),
+    deletion_protection=True
+)
+```
+
 > **NOTE: Only 1 cluster per stack is supported.** If you have a use-case for multiple clusters per stack, or would like to understand more about this limitation, see [https://github.com/aws/aws-cdk/issues/10073](https://github.com/aws/aws-cdk/issues/10073).
 
 Below you'll find a few important cluster configuration options. First of which is Capacity.
@@ -737,7 +753,7 @@ from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
 eks.Cluster(self, "HelloEKS",
     version=eks.KubernetesVersion.V1_35,
     alb_controller=eks.AlbControllerOptions(
-        version=eks.AlbControllerVersion.V2_8_2
+        version=eks.AlbControllerVersion.V3_2_2
     ),
     kubectl_layer=KubectlV35Layer(self, "kubectl")
 )
@@ -752,7 +768,7 @@ from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
 eks.Cluster(self, "HelloEKS",
     version=eks.KubernetesVersion.V1_35,
     alb_controller=eks.AlbControllerOptions(
-        version=eks.AlbControllerVersion.V2_8_2,
+        version=eks.AlbControllerVersion.V3_2_2,
         additional_helm_chart_values=eks.AlbControllerHelmChartOptions(
             enable_wafv2=False
         )
@@ -770,7 +786,7 @@ from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
 eks.Cluster(self, "HelloEKS",
     version=eks.KubernetesVersion.V1_35,
     alb_controller=eks.AlbControllerOptions(
-        version=eks.AlbControllerVersion.V2_8_2,
+        version=eks.AlbControllerVersion.V3_2_2,
         overwrite_service_account=True
     ),
     kubectl_layer=KubectlV35Layer(self, "kubectl")
@@ -1879,7 +1895,7 @@ cluster.add_helm_chart("ExternalSecretsOperator",
     repository="https://charts.external-secrets.io",
     namespace="external-secrets",
     values={
-        "install_cRDs": True,
+        "install_cr_ds": True,
         "webhook": {
             "port": 9443
         }
@@ -3337,7 +3353,7 @@ class AlbControllerHelmChartOptions:
             eks.Cluster(self, "HelloEKS",
                 version=eks.KubernetesVersion.V1_35,
                 alb_controller=eks.AlbControllerOptions(
-                    version=eks.AlbControllerVersion.V2_8_2,
+                    version=eks.AlbControllerVersion.V3_2_2,
                     additional_helm_chart_values=eks.AlbControllerHelmChartOptions(
                         enable_wafv2=False
                     )
@@ -3427,7 +3443,7 @@ class AlbControllerOptions:
             eks.Cluster(self, "HelloEKS",
                 version=eks.KubernetesVersion.V1_35,
                 alb_controller=eks.AlbControllerOptions(
-                    version=eks.AlbControllerVersion.V2_8_2,
+                    version=eks.AlbControllerVersion.V3_2_2,
                     overwrite_service_account=True
                 ),
                 kubectl_layer=KubectlV35Layer(self, "kubectl")
@@ -3743,7 +3759,7 @@ class AlbControllerVersion(
         eks.Cluster(self, "HelloEKS",
             version=eks.KubernetesVersion.V1_35,
             alb_controller=eks.AlbControllerOptions(
-                version=eks.AlbControllerVersion.V2_8_2,
+                version=eks.AlbControllerVersion.V3_2_2,
                 overwrite_service_account=True
             ),
             kubectl_layer=KubectlV35Layer(self, "kubectl")
@@ -3809,6 +3825,96 @@ class AlbControllerVersion(
     def V2_1_3(cls) -> "AlbControllerVersion":
         '''v2.1.3.'''
         return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_1_3"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="V2_10_0")
+    def V2_10_0(cls) -> "AlbControllerVersion":
+        '''v2.10.0.'''
+        return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_10_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="V2_10_1")
+    def V2_10_1(cls) -> "AlbControllerVersion":
+        '''v2.10.1.'''
+        return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_10_1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="V2_11_0")
+    def V2_11_0(cls) -> "AlbControllerVersion":
+        '''v2.11.0.'''
+        return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_11_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="V2_12_0")
+    def V2_12_0(cls) -> "AlbControllerVersion":
+        '''v2.12.0.'''
+        return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_12_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="V2_13_0")
+    def V2_13_0(cls) -> "AlbControllerVersion":
+        '''v2.13.0.'''
+        return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_13_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="V2_13_1")
+    def V2_13_1(cls) -> "AlbControllerVersion":
+        '''v2.13.1.'''
+        return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_13_1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="V2_13_2")
+    def V2_13_2(cls) -> "AlbControllerVersion":
+        '''v2.13.2.'''
+        return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_13_2"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="V2_13_3")
+    def V2_13_3(cls) -> "AlbControllerVersion":
+        '''v2.13.3.'''
+        return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_13_3"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="V2_13_4")
+    def V2_13_4(cls) -> "AlbControllerVersion":
+        '''v2.13.4.'''
+        return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_13_4"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="V2_14_0")
+    def V2_14_0(cls) -> "AlbControllerVersion":
+        '''v2.14.0.'''
+        return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_14_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="V2_14_1")
+    def V2_14_1(cls) -> "AlbControllerVersion":
+        '''v2.14.1.'''
+        return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_14_1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="V2_15_0")
+    def V2_15_0(cls) -> "AlbControllerVersion":
+        '''v2.15.0.'''
+        return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_15_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="V2_16_0")
+    def V2_16_0(cls) -> "AlbControllerVersion":
+        '''v2.16.0.'''
+        return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_16_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="V2_17_0")
+    def V2_17_0(cls) -> "AlbControllerVersion":
+        '''v2.17.0.'''
+        return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_17_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="V2_17_1")
+    def V2_17_1(cls) -> "AlbControllerVersion":
+        '''v2.17.1.'''
+        return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_17_1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V2_2_0")
@@ -3977,6 +4083,60 @@ class AlbControllerVersion(
     def V2_8_2(cls) -> "AlbControllerVersion":
         '''v2.8.2.'''
         return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_8_2"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="V2_8_3")
+    def V2_8_3(cls) -> "AlbControllerVersion":
+        '''v2.8.3.'''
+        return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_8_3"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="V2_9_0")
+    def V2_9_0(cls) -> "AlbControllerVersion":
+        '''v2.9.0.'''
+        return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_9_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="V2_9_1")
+    def V2_9_1(cls) -> "AlbControllerVersion":
+        '''v2.9.1.'''
+        return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_9_1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="V2_9_2")
+    def V2_9_2(cls) -> "AlbControllerVersion":
+        '''v2.9.2.'''
+        return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_9_2"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="V3_0_0")
+    def V3_0_0(cls) -> "AlbControllerVersion":
+        '''v3.0.0.'''
+        return typing.cast("AlbControllerVersion", jsii.sget(cls, "V3_0_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="V3_1_0")
+    def V3_1_0(cls) -> "AlbControllerVersion":
+        '''v3.1.0.'''
+        return typing.cast("AlbControllerVersion", jsii.sget(cls, "V3_1_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="V3_2_0")
+    def V3_2_0(cls) -> "AlbControllerVersion":
+        '''v3.2.0.'''
+        return typing.cast("AlbControllerVersion", jsii.sget(cls, "V3_2_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="V3_2_1")
+    def V3_2_1(cls) -> "AlbControllerVersion":
+        '''v3.2.1.'''
+        return typing.cast("AlbControllerVersion", jsii.sget(cls, "V3_2_1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="V3_2_2")
+    def V3_2_2(cls) -> "AlbControllerVersion":
+        '''v3.2.2.'''
+        return typing.cast("AlbControllerVersion", jsii.sget(cls, "V3_2_2"))
 
     @builtins.property
     @jsii.member(jsii_name="custom")
@@ -11788,7 +11948,7 @@ class CfnNodegroup(
         disk_size: typing.Optional[jsii.Number] = None,
         force_update_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         instance_types: typing.Optional[typing.Sequence[builtins.str]] = None,
-        labels: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        labels: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         launch_template: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnNodegroup.LaunchTemplateSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         nodegroup_name: typing.Optional[builtins.str] = None,
         node_repair_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnNodegroup.NodeRepairConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -12078,14 +12238,14 @@ class CfnNodegroup(
     @jsii.member(jsii_name="labels")
     def labels(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''The Kubernetes ``labels`` applied to the nodes in the node group.'''
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], jsii.get(self, "labels"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "labels"))
 
     @labels.setter
     def labels(
         self,
-        value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bfdcdc90e2da680bcf24a101a162039fcfa5c8ddbf5eae9a97a45451dc10a0e1)
@@ -13166,7 +13326,7 @@ class CfnNodegroupProps:
         disk_size: typing.Optional[jsii.Number] = None,
         force_update_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         instance_types: typing.Optional[typing.Sequence[builtins.str]] = None,
-        labels: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        labels: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         launch_template: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnNodegroup.LaunchTemplateSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         nodegroup_name: typing.Optional[builtins.str] = None,
         node_repair_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnNodegroup.NodeRepairConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -13437,7 +13597,7 @@ class CfnNodegroupProps:
     @builtins.property
     def labels(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''The Kubernetes ``labels`` applied to the nodes in the node group.
 
         .. epigraph::
@@ -13447,7 +13607,7 @@ class CfnNodegroupProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-eks-nodegroup.html#cfn-eks-nodegroup-labels
         '''
         result = self._values.get("labels")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
     @builtins.property
     def launch_template(
@@ -21765,6 +21925,7 @@ class Cluster(
         cluster_handler_security_group: typing.Optional["_ISecurityGroup_acf8a799"] = None,
         cluster_logging: typing.Optional[typing.Sequence["ClusterLoggingTypes"]] = None,
         core_dns_compute_type: typing.Optional["CoreDnsComputeType"] = None,
+        deletion_protection: typing.Optional[builtins.bool] = None,
         endpoint_access: typing.Optional["EndpointAccess"] = None,
         ip_family: typing.Optional["IpFamily"] = None,
         kubectl_environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -21807,6 +21968,7 @@ class Cluster(
         :param cluster_handler_security_group: A security group to associate with the Cluster Handler's Lambdas. The Cluster Handler's Lambdas are responsible for calling AWS's EKS API. Requires ``placeClusterHandlerInVpc`` to be set to true. Default: - No security group.
         :param cluster_logging: The cluster log types which you want to enable. Default: - none
         :param core_dns_compute_type: Controls the "eks.amazonaws.com/compute-type" annotation in the CoreDNS configuration on your cluster to determine which compute type to use for CoreDNS. Default: CoreDnsComputeType.EC2 (for ``FargateCluster`` the default is FARGATE)
+        :param deletion_protection: The current deletion protection setting for the cluster. When true, deletion protection is enabled and the cluster cannot be deleted until protection is disabled. When false, the cluster can be deleted normally. This setting only applies to clusters in an active state. Default: - deletion protection is disabled
         :param endpoint_access: Configure access to the Kubernetes API server endpoint.. Default: EndpointAccess.PUBLIC_AND_PRIVATE
         :param ip_family: Specify which IP family is used to assign Kubernetes pod and service IP addresses. Default: - IpFamily.IP_V4
         :param kubectl_environment: Environment variables for the kubectl execution. Only relevant for kubectl enabled clusters. Default: - No environment variables.
@@ -21850,6 +22012,7 @@ class Cluster(
             cluster_handler_security_group=cluster_handler_security_group,
             cluster_logging=cluster_logging,
             core_dns_compute_type=core_dns_compute_type,
+            deletion_protection=deletion_protection,
             endpoint_access=endpoint_access,
             ip_family=ip_family,
             kubectl_environment=kubectl_environment,
@@ -22830,6 +22993,7 @@ class Cluster(
         "cluster_handler_security_group": "clusterHandlerSecurityGroup",
         "cluster_logging": "clusterLogging",
         "core_dns_compute_type": "coreDnsComputeType",
+        "deletion_protection": "deletionProtection",
         "endpoint_access": "endpointAccess",
         "ip_family": "ipFamily",
         "kubectl_environment": "kubectlEnvironment",
@@ -22866,6 +23030,7 @@ class ClusterOptions(CommonClusterOptions):
         cluster_handler_security_group: typing.Optional["_ISecurityGroup_acf8a799"] = None,
         cluster_logging: typing.Optional[typing.Sequence["ClusterLoggingTypes"]] = None,
         core_dns_compute_type: typing.Optional["CoreDnsComputeType"] = None,
+        deletion_protection: typing.Optional[builtins.bool] = None,
         endpoint_access: typing.Optional["EndpointAccess"] = None,
         ip_family: typing.Optional["IpFamily"] = None,
         kubectl_environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -22899,6 +23064,7 @@ class ClusterOptions(CommonClusterOptions):
         :param cluster_handler_security_group: A security group to associate with the Cluster Handler's Lambdas. The Cluster Handler's Lambdas are responsible for calling AWS's EKS API. Requires ``placeClusterHandlerInVpc`` to be set to true. Default: - No security group.
         :param cluster_logging: The cluster log types which you want to enable. Default: - none
         :param core_dns_compute_type: Controls the "eks.amazonaws.com/compute-type" annotation in the CoreDNS configuration on your cluster to determine which compute type to use for CoreDNS. Default: CoreDnsComputeType.EC2 (for ``FargateCluster`` the default is FARGATE)
+        :param deletion_protection: The current deletion protection setting for the cluster. When true, deletion protection is enabled and the cluster cannot be deleted until protection is disabled. When false, the cluster can be deleted normally. This setting only applies to clusters in an active state. Default: - deletion protection is disabled
         :param endpoint_access: Configure access to the Kubernetes API server endpoint.. Default: EndpointAccess.PUBLIC_AND_PRIVATE
         :param ip_family: Specify which IP family is used to assign Kubernetes pod and service IP addresses. Default: - IpFamily.IP_V4
         :param kubectl_environment: Environment variables for the kubectl execution. Only relevant for kubectl enabled clusters. Default: - No environment variables.
@@ -22967,6 +23133,7 @@ class ClusterOptions(CommonClusterOptions):
                 cluster_logging=[eks.ClusterLoggingTypes.API],
                 cluster_name="clusterName",
                 core_dns_compute_type=eks.CoreDnsComputeType.EC2,
+                deletion_protection=False,
                 endpoint_access=endpoint_access,
                 ip_family=eks.IpFamily.IP_V4,
                 kubectl_environment={
@@ -23022,6 +23189,7 @@ class ClusterOptions(CommonClusterOptions):
             check_type(argname="argument cluster_handler_security_group", value=cluster_handler_security_group, expected_type=type_hints["cluster_handler_security_group"])
             check_type(argname="argument cluster_logging", value=cluster_logging, expected_type=type_hints["cluster_logging"])
             check_type(argname="argument core_dns_compute_type", value=core_dns_compute_type, expected_type=type_hints["core_dns_compute_type"])
+            check_type(argname="argument deletion_protection", value=deletion_protection, expected_type=type_hints["deletion_protection"])
             check_type(argname="argument endpoint_access", value=endpoint_access, expected_type=type_hints["endpoint_access"])
             check_type(argname="argument ip_family", value=ip_family, expected_type=type_hints["ip_family"])
             check_type(argname="argument kubectl_environment", value=kubectl_environment, expected_type=type_hints["kubectl_environment"])
@@ -23068,6 +23236,8 @@ class ClusterOptions(CommonClusterOptions):
             self._values["cluster_logging"] = cluster_logging
         if core_dns_compute_type is not None:
             self._values["core_dns_compute_type"] = core_dns_compute_type
+        if deletion_protection is not None:
+            self._values["deletion_protection"] = deletion_protection
         if endpoint_access is not None:
             self._values["endpoint_access"] = endpoint_access
         if ip_family is not None:
@@ -23274,6 +23444,20 @@ class ClusterOptions(CommonClusterOptions):
         return typing.cast(typing.Optional["CoreDnsComputeType"], result)
 
     @builtins.property
+    def deletion_protection(self) -> typing.Optional[builtins.bool]:
+        '''The current deletion protection setting for the cluster.
+
+        When true, deletion protection is enabled and the cluster cannot be deleted until protection is disabled.
+        When false, the cluster can be deleted normally. This setting only applies to clusters in an active state.
+
+        :default: - deletion protection is disabled
+
+        :see: https://docs.aws.amazon.com/eks/latest/userguide/deletion-protection.html
+        '''
+        result = self._values.get("deletion_protection")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
     def endpoint_access(self) -> typing.Optional["EndpointAccess"]:
         '''Configure access to the Kubernetes API server endpoint..
 
@@ -23477,6 +23661,7 @@ class ClusterOptions(CommonClusterOptions):
         "cluster_handler_security_group": "clusterHandlerSecurityGroup",
         "cluster_logging": "clusterLogging",
         "core_dns_compute_type": "coreDnsComputeType",
+        "deletion_protection": "deletionProtection",
         "endpoint_access": "endpointAccess",
         "ip_family": "ipFamily",
         "kubectl_environment": "kubectlEnvironment",
@@ -23520,6 +23705,7 @@ class ClusterProps(ClusterOptions):
         cluster_handler_security_group: typing.Optional["_ISecurityGroup_acf8a799"] = None,
         cluster_logging: typing.Optional[typing.Sequence["ClusterLoggingTypes"]] = None,
         core_dns_compute_type: typing.Optional["CoreDnsComputeType"] = None,
+        deletion_protection: typing.Optional[builtins.bool] = None,
         endpoint_access: typing.Optional["EndpointAccess"] = None,
         ip_family: typing.Optional["IpFamily"] = None,
         kubectl_environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -23560,6 +23746,7 @@ class ClusterProps(ClusterOptions):
         :param cluster_handler_security_group: A security group to associate with the Cluster Handler's Lambdas. The Cluster Handler's Lambdas are responsible for calling AWS's EKS API. Requires ``placeClusterHandlerInVpc`` to be set to true. Default: - No security group.
         :param cluster_logging: The cluster log types which you want to enable. Default: - none
         :param core_dns_compute_type: Controls the "eks.amazonaws.com/compute-type" annotation in the CoreDNS configuration on your cluster to determine which compute type to use for CoreDNS. Default: CoreDnsComputeType.EC2 (for ``FargateCluster`` the default is FARGATE)
+        :param deletion_protection: The current deletion protection setting for the cluster. When true, deletion protection is enabled and the cluster cannot be deleted until protection is disabled. When false, the cluster can be deleted normally. This setting only applies to clusters in an active state. Default: - deletion protection is disabled
         :param endpoint_access: Configure access to the Kubernetes API server endpoint.. Default: EndpointAccess.PUBLIC_AND_PRIVATE
         :param ip_family: Specify which IP family is used to assign Kubernetes pod and service IP addresses. Default: - IpFamily.IP_V4
         :param kubectl_environment: Environment variables for the kubectl execution. Only relevant for kubectl enabled clusters. Default: - No environment variables.
@@ -23623,6 +23810,7 @@ class ClusterProps(ClusterOptions):
             check_type(argname="argument cluster_handler_security_group", value=cluster_handler_security_group, expected_type=type_hints["cluster_handler_security_group"])
             check_type(argname="argument cluster_logging", value=cluster_logging, expected_type=type_hints["cluster_logging"])
             check_type(argname="argument core_dns_compute_type", value=core_dns_compute_type, expected_type=type_hints["core_dns_compute_type"])
+            check_type(argname="argument deletion_protection", value=deletion_protection, expected_type=type_hints["deletion_protection"])
             check_type(argname="argument endpoint_access", value=endpoint_access, expected_type=type_hints["endpoint_access"])
             check_type(argname="argument ip_family", value=ip_family, expected_type=type_hints["ip_family"])
             check_type(argname="argument kubectl_environment", value=kubectl_environment, expected_type=type_hints["kubectl_environment"])
@@ -23676,6 +23864,8 @@ class ClusterProps(ClusterOptions):
             self._values["cluster_logging"] = cluster_logging
         if core_dns_compute_type is not None:
             self._values["core_dns_compute_type"] = core_dns_compute_type
+        if deletion_protection is not None:
+            self._values["deletion_protection"] = deletion_protection
         if endpoint_access is not None:
             self._values["endpoint_access"] = endpoint_access
         if ip_family is not None:
@@ -23894,6 +24084,20 @@ class ClusterProps(ClusterOptions):
         '''
         result = self._values.get("core_dns_compute_type")
         return typing.cast(typing.Optional["CoreDnsComputeType"], result)
+
+    @builtins.property
+    def deletion_protection(self) -> typing.Optional[builtins.bool]:
+        '''The current deletion protection setting for the cluster.
+
+        When true, deletion protection is enabled and the cluster cannot be deleted until protection is disabled.
+        When false, the cluster can be deleted normally. This setting only applies to clusters in an active state.
+
+        :default: - deletion protection is disabled
+
+        :see: https://docs.aws.amazon.com/eks/latest/userguide/deletion-protection.html
+        '''
+        result = self._values.get("deletion_protection")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def endpoint_access(self) -> typing.Optional["EndpointAccess"]:
@@ -24198,6 +24402,7 @@ class FargateCluster(
         cluster_handler_security_group: typing.Optional["_ISecurityGroup_acf8a799"] = None,
         cluster_logging: typing.Optional[typing.Sequence["ClusterLoggingTypes"]] = None,
         core_dns_compute_type: typing.Optional["CoreDnsComputeType"] = None,
+        deletion_protection: typing.Optional[builtins.bool] = None,
         endpoint_access: typing.Optional["EndpointAccess"] = None,
         ip_family: typing.Optional["IpFamily"] = None,
         kubectl_environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -24233,6 +24438,7 @@ class FargateCluster(
         :param cluster_handler_security_group: A security group to associate with the Cluster Handler's Lambdas. The Cluster Handler's Lambdas are responsible for calling AWS's EKS API. Requires ``placeClusterHandlerInVpc`` to be set to true. Default: - No security group.
         :param cluster_logging: The cluster log types which you want to enable. Default: - none
         :param core_dns_compute_type: Controls the "eks.amazonaws.com/compute-type" annotation in the CoreDNS configuration on your cluster to determine which compute type to use for CoreDNS. Default: CoreDnsComputeType.EC2 (for ``FargateCluster`` the default is FARGATE)
+        :param deletion_protection: The current deletion protection setting for the cluster. When true, deletion protection is enabled and the cluster cannot be deleted until protection is disabled. When false, the cluster can be deleted normally. This setting only applies to clusters in an active state. Default: - deletion protection is disabled
         :param endpoint_access: Configure access to the Kubernetes API server endpoint.. Default: EndpointAccess.PUBLIC_AND_PRIVATE
         :param ip_family: Specify which IP family is used to assign Kubernetes pod and service IP addresses. Default: - IpFamily.IP_V4
         :param kubectl_environment: Environment variables for the kubectl execution. Only relevant for kubectl enabled clusters. Default: - No environment variables.
@@ -24270,6 +24476,7 @@ class FargateCluster(
             cluster_handler_security_group=cluster_handler_security_group,
             cluster_logging=cluster_logging,
             core_dns_compute_type=core_dns_compute_type,
+            deletion_protection=deletion_protection,
             endpoint_access=endpoint_access,
             ip_family=ip_family,
             kubectl_environment=kubectl_environment,
@@ -24329,6 +24536,7 @@ class FargateCluster(
         "cluster_handler_security_group": "clusterHandlerSecurityGroup",
         "cluster_logging": "clusterLogging",
         "core_dns_compute_type": "coreDnsComputeType",
+        "deletion_protection": "deletionProtection",
         "endpoint_access": "endpointAccess",
         "ip_family": "ipFamily",
         "kubectl_environment": "kubectlEnvironment",
@@ -24366,6 +24574,7 @@ class FargateClusterProps(ClusterOptions):
         cluster_handler_security_group: typing.Optional["_ISecurityGroup_acf8a799"] = None,
         cluster_logging: typing.Optional[typing.Sequence["ClusterLoggingTypes"]] = None,
         core_dns_compute_type: typing.Optional["CoreDnsComputeType"] = None,
+        deletion_protection: typing.Optional[builtins.bool] = None,
         endpoint_access: typing.Optional["EndpointAccess"] = None,
         ip_family: typing.Optional["IpFamily"] = None,
         kubectl_environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -24400,6 +24609,7 @@ class FargateClusterProps(ClusterOptions):
         :param cluster_handler_security_group: A security group to associate with the Cluster Handler's Lambdas. The Cluster Handler's Lambdas are responsible for calling AWS's EKS API. Requires ``placeClusterHandlerInVpc`` to be set to true. Default: - No security group.
         :param cluster_logging: The cluster log types which you want to enable. Default: - none
         :param core_dns_compute_type: Controls the "eks.amazonaws.com/compute-type" annotation in the CoreDNS configuration on your cluster to determine which compute type to use for CoreDNS. Default: CoreDnsComputeType.EC2 (for ``FargateCluster`` the default is FARGATE)
+        :param deletion_protection: The current deletion protection setting for the cluster. When true, deletion protection is enabled and the cluster cannot be deleted until protection is disabled. When false, the cluster can be deleted normally. This setting only applies to clusters in an active state. Default: - deletion protection is disabled
         :param endpoint_access: Configure access to the Kubernetes API server endpoint.. Default: EndpointAccess.PUBLIC_AND_PRIVATE
         :param ip_family: Specify which IP family is used to assign Kubernetes pod and service IP addresses. Default: - IpFamily.IP_V4
         :param kubectl_environment: Environment variables for the kubectl execution. Only relevant for kubectl enabled clusters. Default: - No environment variables.
@@ -24450,6 +24660,7 @@ class FargateClusterProps(ClusterOptions):
             check_type(argname="argument cluster_handler_security_group", value=cluster_handler_security_group, expected_type=type_hints["cluster_handler_security_group"])
             check_type(argname="argument cluster_logging", value=cluster_logging, expected_type=type_hints["cluster_logging"])
             check_type(argname="argument core_dns_compute_type", value=core_dns_compute_type, expected_type=type_hints["core_dns_compute_type"])
+            check_type(argname="argument deletion_protection", value=deletion_protection, expected_type=type_hints["deletion_protection"])
             check_type(argname="argument endpoint_access", value=endpoint_access, expected_type=type_hints["endpoint_access"])
             check_type(argname="argument ip_family", value=ip_family, expected_type=type_hints["ip_family"])
             check_type(argname="argument kubectl_environment", value=kubectl_environment, expected_type=type_hints["kubectl_environment"])
@@ -24497,6 +24708,8 @@ class FargateClusterProps(ClusterOptions):
             self._values["cluster_logging"] = cluster_logging
         if core_dns_compute_type is not None:
             self._values["core_dns_compute_type"] = core_dns_compute_type
+        if deletion_protection is not None:
+            self._values["deletion_protection"] = deletion_protection
         if endpoint_access is not None:
             self._values["endpoint_access"] = endpoint_access
         if ip_family is not None:
@@ -24703,6 +24916,20 @@ class FargateClusterProps(ClusterOptions):
         '''
         result = self._values.get("core_dns_compute_type")
         return typing.cast(typing.Optional["CoreDnsComputeType"], result)
+
+    @builtins.property
+    def deletion_protection(self) -> typing.Optional[builtins.bool]:
+        '''The current deletion protection setting for the cluster.
+
+        When true, deletion protection is enabled and the cluster cannot be deleted until protection is disabled.
+        When false, the cluster can be deleted normally. This setting only applies to clusters in an active state.
+
+        :default: - deletion protection is disabled
+
+        :see: https://docs.aws.amazon.com/eks/latest/userguide/deletion-protection.html
+        '''
+        result = self._values.get("deletion_protection")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def endpoint_access(self) -> typing.Optional["EndpointAccess"]:
@@ -26396,7 +26623,7 @@ def _typecheckingstub__27ebd660a66f96284eec036f7614b1586f77d9990c9dd345fe73522c7
     disk_size: typing.Optional[jsii.Number] = None,
     force_update_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     instance_types: typing.Optional[typing.Sequence[builtins.str]] = None,
-    labels: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    labels: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     launch_template: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnNodegroup.LaunchTemplateSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     nodegroup_name: typing.Optional[builtins.str] = None,
     node_repair_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnNodegroup.NodeRepairConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -26485,7 +26712,7 @@ def _typecheckingstub__d7945a05c2376d70b30fc28a96959abf6f7e23d90fd6e700764137f4b
     pass
 
 def _typecheckingstub__bfdcdc90e2da680bcf24a101a162039fcfa5c8ddbf5eae9a97a45451dc10a0e1(
-    value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26643,7 +26870,7 @@ def _typecheckingstub__61a7b4277678abead400083fb1974a4f71ee28a78b5e79235fc3a4581
     disk_size: typing.Optional[jsii.Number] = None,
     force_update_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     instance_types: typing.Optional[typing.Sequence[builtins.str]] = None,
-    labels: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    labels: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     launch_template: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnNodegroup.LaunchTemplateSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     nodegroup_name: typing.Optional[builtins.str] = None,
     node_repair_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnNodegroup.NodeRepairConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -27454,6 +27681,7 @@ def _typecheckingstub__786576ad54eacdb9ab8e92277c0fd07f813bc56d4243937f3b5a85c0c
     cluster_handler_security_group: typing.Optional[_ISecurityGroup_acf8a799] = None,
     cluster_logging: typing.Optional[typing.Sequence[ClusterLoggingTypes]] = None,
     core_dns_compute_type: typing.Optional[CoreDnsComputeType] = None,
+    deletion_protection: typing.Optional[builtins.bool] = None,
     endpoint_access: typing.Optional[EndpointAccess] = None,
     ip_family: typing.Optional[IpFamily] = None,
     kubectl_environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -27705,6 +27933,7 @@ def _typecheckingstub__0b45b97fda36b43e872f90f9fe4cde65de855b50b3acfd236c1f400ef
     cluster_handler_security_group: typing.Optional[_ISecurityGroup_acf8a799] = None,
     cluster_logging: typing.Optional[typing.Sequence[ClusterLoggingTypes]] = None,
     core_dns_compute_type: typing.Optional[CoreDnsComputeType] = None,
+    deletion_protection: typing.Optional[builtins.bool] = None,
     endpoint_access: typing.Optional[EndpointAccess] = None,
     ip_family: typing.Optional[IpFamily] = None,
     kubectl_environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -27741,6 +27970,7 @@ def _typecheckingstub__ce7a73a63de29ba5e5b5cd5cabde7aca1c4bc7d119de52fc4c0f11d99
     cluster_handler_security_group: typing.Optional[_ISecurityGroup_acf8a799] = None,
     cluster_logging: typing.Optional[typing.Sequence[ClusterLoggingTypes]] = None,
     core_dns_compute_type: typing.Optional[CoreDnsComputeType] = None,
+    deletion_protection: typing.Optional[builtins.bool] = None,
     endpoint_access: typing.Optional[EndpointAccess] = None,
     ip_family: typing.Optional[IpFamily] = None,
     kubectl_environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -27779,6 +28009,7 @@ def _typecheckingstub__ae166d791f5d5176f3386726c22bc44afedf5d336437a3513e3740387
     cluster_handler_security_group: typing.Optional[_ISecurityGroup_acf8a799] = None,
     cluster_logging: typing.Optional[typing.Sequence[ClusterLoggingTypes]] = None,
     core_dns_compute_type: typing.Optional[CoreDnsComputeType] = None,
+    deletion_protection: typing.Optional[builtins.bool] = None,
     endpoint_access: typing.Optional[EndpointAccess] = None,
     ip_family: typing.Optional[IpFamily] = None,
     kubectl_environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -27823,6 +28054,7 @@ def _typecheckingstub__f11c7f989209f6213cb855d2846bb0b2b79a6a2b85eb0d65939e981df
     cluster_handler_security_group: typing.Optional[_ISecurityGroup_acf8a799] = None,
     cluster_logging: typing.Optional[typing.Sequence[ClusterLoggingTypes]] = None,
     core_dns_compute_type: typing.Optional[CoreDnsComputeType] = None,
+    deletion_protection: typing.Optional[builtins.bool] = None,
     endpoint_access: typing.Optional[EndpointAccess] = None,
     ip_family: typing.Optional[IpFamily] = None,
     kubectl_environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,

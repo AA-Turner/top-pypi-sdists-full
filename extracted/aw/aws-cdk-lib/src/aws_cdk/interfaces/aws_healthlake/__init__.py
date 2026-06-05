@@ -59,7 +59,7 @@ class FHIRDatastoreReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_healthlake as interfaces_healthlake
             
-            f_hIRDatastore_reference = interfaces_healthlake.FHIRDatastoreReference(
+            f_hir_datastore_reference = interfaces_healthlake.FHIRDatastoreReference(
                 datastore_arn="datastoreArn",
                 datastore_id="datastoreId"
             )

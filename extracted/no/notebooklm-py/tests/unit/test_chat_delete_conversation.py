@@ -4,13 +4,15 @@ Pins the wire contract for the ``J7Gthc`` RPC (params shape, source_path)
 and the local-cache invariant: the per-instance cache is purged only when
 the server-side delete succeeds.
 
-Wave 8 of the session-decoupling plan (ADR-014 Rule 2 Corollary): the
+Wave 8 of the session-decoupling plan (ADR-0014 Rule 2 Corollary): the
 chat-local ``ChatRuntime`` Protocol composite was deleted in favour of
 direct constructor injection of the underlying collaborators. These
-tests now use narrow ``MagicMock(spec=RpcCaller)`` fakes for the only
-collaborator ``delete_conversation`` actually touches (the ``rpc``
-dispatcher); the other three collaborators (transport, reqid,
-loop_guard) are unused by this method and are mocked without specs.
+tests use narrow ``MagicMock(spec=...)`` fakes for the two collaborators
+``delete_conversation`` actually touches: the ``rpc`` dispatcher and the
+``loop_guard`` (whose ``assert_bound_loop`` is invoked up front to reject
+cross-loop misuse before the per-conversation lock is acquired, #1225).
+The remaining two collaborators (transport, reqid) are unused by this
+method and are mocked without specs.
 """
 
 from __future__ import annotations
@@ -20,7 +22,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from notebooklm._chat import ChatAPI
-from notebooklm._session_contracts import RpcCaller
+from notebooklm._runtime.contracts import LoopGuard, RpcCaller
 from notebooklm.rpc import RPCMethod
 
 
@@ -29,9 +31,9 @@ def mock_rpc() -> MagicMock:
     """Narrow ``RpcCaller`` fake — the only collaborator this surface uses.
 
     Constructor injection via ``ChatAPI(rpc=..., transport=..., reqid=...,
-    loop_guard=...)`` satisfies ADR-007 (no post-hoc attribute assignment
+    loop_guard=...)`` satisfies ADR-0007 (no post-hoc attribute assignment
     of an ``AsyncMock`` onto ``rpc_call``); the ``AsyncMock`` is wired
-    into the ``MagicMock(spec=...)`` via its constructor so the ADR-007
+    into the ``MagicMock(spec=...)`` via its constructor so the ADR-0007
     meta-lint stays clean.
     """
     return MagicMock(spec=RpcCaller, rpc_call=AsyncMock(return_value=None))
@@ -43,7 +45,10 @@ def api(mock_rpc: MagicMock) -> ChatAPI:
         rpc=mock_rpc,
         transport=MagicMock(),
         reqid=MagicMock(),
-        loop_guard=MagicMock(),
+        # ``delete_conversation`` calls ``loop_guard.assert_bound_loop()`` up
+        # front (#1225), so the guard needs a ``LoopGuard`` spec — a bare
+        # ``MagicMock`` rejects ``assert_*`` attribute access as a typo guard.
+        loop_guard=MagicMock(spec=LoopGuard),
     )
 
 

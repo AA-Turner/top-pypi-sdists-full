@@ -1,26 +1,26 @@
 Metadata-Version: 2.4
 Name: djlint
-Version: 1.36.4
+Version: 1.38.1
 Summary: HTML Template Linter and Formatter
 Project-URL: documentation, https://djlint.com
 Project-URL: repository, https://github.com/djlint/djLint
 Author: Christopher Pickering
 Maintainer: Christopher Pickering
 Maintainer-email: monosans <hsyqixco@protonmail.com>
-License: GPL-3.0-or-later
+License-Expression: GPL-3.0-or-later
 License-File: LICENSE
-Classifier: License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Typing :: Typed
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Requires-Dist: click>=8.0.1
 Requires-Dist: colorama>=0.4.4
 Requires-Dist: cssbeautifier>=1.14.4
@@ -31,7 +31,7 @@ Requires-Dist: pyyaml>=6
 Requires-Dist: regex>=2023
 Requires-Dist: tomli>=2.0.1; python_version < '3.11'
 Requires-Dist: tqdm>=4.62.2
-Requires-Dist: typing-extensions>=3.6.6; python_version < '3.11'
+Requires-Dist: typing-extensions>=3.7.4; python_version < '3.11'
 Description-Content-Type: text/markdown
 
 <h1 align="center">
@@ -87,10 +87,16 @@ HTML templates were left out there on their own, in the cold, unformatted and un
 
 ## ✨ How?
 
-Grab it with `pip`
+Grab it from PyPI with `pip`
 
 ```bash
 pip install djlint
+```
+
+Or with the community-maintained [Homebrew formula](https://formulae.brew.sh/formula/djlint) on macOS or Linux
+
+```bash
+brew install djlint
 ```
 
 _Or with the npm experimental install - Note, this requires python and pip to be on your system path._
@@ -115,6 +121,17 @@ Fix my format!
 
 ```bash
 djlint . --extension=html.j2 --reformat
+```
+
+Or use `pre-commit` to reformat, then lint!
+
+```yaml
+repos:
+  - repo: https://github.com/djlint/djLint
+    rev: v1.36.4 # use latest version instead
+    hooks:
+      - id: djlint-reformat
+      - id: djlint
 ```
 
 ## 💙 Like it?

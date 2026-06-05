@@ -10,8 +10,16 @@ from typing_extensions import Annotated, NotRequired, TypedDict
 
 class FileListRequestTypedDict(TypedDict):
     limit: NotRequired[int]
+    r"""Page size. Unset uses the server default."""
     starting_after: NotRequired[str]
+    r"""Cursor for forward pagination. Set to the `file_id` of the last item
+    from the previous page.
+    """
     ending_before: NotRequired[str]
+    r"""Cursor for backward pagination. Set to the `file_id` of the first item
+    from the previous page.
+    """
+    project_id: NotRequired[str]
 
 
 class FileListRequest(BaseModel):
@@ -19,20 +27,34 @@ class FileListRequest(BaseModel):
         Optional[int],
         FieldMetadata(query=QueryParamMetadata(style="form", explode=True)),
     ] = None
+    r"""Page size. Unset uses the server default."""
 
     starting_after: Annotated[
         Optional[str],
         FieldMetadata(query=QueryParamMetadata(style="form", explode=True)),
     ] = None
+    r"""Cursor for forward pagination. Set to the `file_id` of the last item
+    from the previous page.
+    """
 
     ending_before: Annotated[
+        Optional[str],
+        FieldMetadata(query=QueryParamMetadata(style="form", explode=True)),
+    ] = None
+    r"""Cursor for backward pagination. Set to the `file_id` of the first item
+    from the previous page.
+    """
+
+    project_id: Annotated[
         Optional[str],
         FieldMetadata(query=QueryParamMetadata(style="form", explode=True)),
     ] = None
 
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
-        optional_fields = set(["limit", "starting_after", "ending_before"])
+        optional_fields = set(
+            ["limit", "starting_after", "ending_before", "project_id"]
+        )
         serialized = handler(self)
         m = {}
 

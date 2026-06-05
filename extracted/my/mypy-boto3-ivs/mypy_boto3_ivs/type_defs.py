@@ -154,6 +154,8 @@ __all__ = (
     "ThumbnailConfigurationTypeDef",
     "ThumbnailConfigurationUnionTypeDef",
     "UntagResourceRequestTypeDef",
+    "UpdateAdConfigurationRequestTypeDef",
+    "UpdateAdConfigurationResponseTypeDef",
     "UpdateChannelRequestTypeDef",
     "UpdateChannelResponseTypeDef",
     "UpdatePlaybackRestrictionPolicyRequestTypeDef",
@@ -550,6 +552,14 @@ class CreateAdConfigurationRequestTypeDef(TypedDict):
     tags: NotRequired[Mapping[str, str]]
 
 
+class UpdateAdConfigurationRequestTypeDef(TypedDict):
+    arn: str
+    name: NotRequired[str]
+    mediaTailorPlaybackConfigurations: NotRequired[
+        Sequence[MediaTailorPlaybackConfigurationTypeDef]
+    ]
+
+
 class EmptyResponseMetadataTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -796,6 +806,11 @@ class CreateAdConfigurationResponseTypeDef(TypedDict):
 
 
 class GetAdConfigurationResponseTypeDef(TypedDict):
+    adConfiguration: AdConfigurationTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateAdConfigurationResponseTypeDef(TypedDict):
     adConfiguration: AdConfigurationTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 

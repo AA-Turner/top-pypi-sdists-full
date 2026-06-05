@@ -13,6 +13,8 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from koru.autopilot.log_contract import emit_log
+
 if TYPE_CHECKING:
     from koru.autopilot.client import AutopilotClient
 
@@ -71,6 +73,14 @@ def action_status(
         Exit code (0 success, 1 error)
     """
     client: AutopilotClient = client_fn(args)
+    emit_log(
+        args,
+        component="autopilot.status",
+        level="info",
+        action="request",
+        result="started",
+        ide=str(getattr(args, "ide", "auto")),
+    )
     if not client.is_running():
         print(f"koru autopilot: daemon is NOT running on {client.socket_path}")
         print(f"hint: {daemon_start_hint_fn(args)}")
@@ -81,11 +91,29 @@ def action_status(
                 "hinted daemon command.",
                 file=sys.stderr,
             )
+        emit_log(
+            args,
+            component="autopilot.status",
+            level="error",
+            action="check_daemon",
+            result="failed",
+            rc=1,
+            socket=str(getattr(client, "socket_path", "")),
+        )
         return 1
     try:
         info = client.status()
     except (OSError, RuntimeError) as exc:
         print(f"koru autopilot status: {exc}", file=sys.stderr)
+        emit_log(
+            args,
+            component="autopilot.status",
+            level="error",
+            action="fetch_status",
+            result="failed",
+            rc=1,
+            reason=str(exc),
+        )
         return 1
 
     _print_status_json(info)
@@ -93,6 +121,17 @@ def action_status(
         _print_status_explain_summary(info, getattr(client, "socket_path", "-"))
 
     _maybe_print_empty_plugin_bridge_explain(args, info, client, normalize_ide_fn)
+    plugins = info.get("plugins") if isinstance(info, dict) and isinstance(info.get("plugins"), list) else []
+    emit_log(
+        args,
+        component="autopilot.status",
+        level="info",
+        action="request",
+        result="ok",
+        rc=0,
+        socket=str(getattr(client, "socket_path", "")),
+        plugin_count=len(plugins),
+    )
     return 0
 
 
@@ -123,10 +162,13 @@ def _maybe_print_empty_plugin_bridge_explain(
 
 
 def _status_explain_target_ide(args: argparse.Namespace, normalize_ide_fn: callable) -> str:
+    from koruide.ide import canonical_autopilot_ide_id
     from koruide.plugin_installer import resolve_target_ide
 
     requested = normalize_ide_fn(getattr(args, "ide", "auto"))
     instance = os.environ.get("KORU_AUTOPILOT_INSTANCE", "").strip()
     if requested and requested != "auto":
-        return requested
-    return (normalize_ide_fn(instance) if instance else resolve_target_ide("auto")) or "cursor"
+        return canonical_autopilot_ide_id(requested)
+    if instance:
+        return canonical_autopilot_ide_id(instance)
+    return canonical_autopilot_ide_id(resolve_target_ide("auto") or "cursor")

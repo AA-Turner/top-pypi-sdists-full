@@ -1,10 +1,172 @@
 """Shared fixtures for CLI unit tests."""
 
 import math
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from click.testing import CliRunner
+
+from notebooklm.types import (
+    MindMapResult,
+    ResearchSource,
+    ResearchStart,
+    ResearchStatus,
+    ResearchTask,
+    SourceGuide,
+)
+
+
+@pytest.fixture(autouse=True)
+def _pin_cli_console_width():
+    """Pin the shared Rich console to a wide, fixed width for every CLI unit test.
+
+    Under ``CliRunner`` (no TTY) Rich derives its line width from the terminal,
+    and that fallback diverges across the OS matrix and by terminal size — so an
+    exact ``"..." in result.output`` assertion flakes whenever a message reflows
+    at a different column (issue #1332; seen on ``test_login_multi_account``
+    where ``"not overwriting"`` wrapped across a newline as ``"not\noverwriting"``
+    in a narrow terminal). Forcing a wide fixed width removes the *incidental*
+    mid-line reflow, leaving only the **authored** newlines in the source strings
+    (the real render contract). The single shared ``console`` is reused by the
+    services, ``session_cmd`` and the error paths, so pinning its size once
+    covers every render site while still writing through to ``CliRunner``'s
+    captured stdout. ``Console.size`` only honours the pinned dimensions when
+    **both** ``_width`` and ``_height`` are set (otherwise it falls back to the
+    OS-divergent terminal/``COLUMNS`` detection), so both are patched.
+
+    ``rendering`` exposes a *second* console — ``stderr_console`` (a
+    ``Console(stderr=True)`` for diagnostic/status output in ``--json`` mode) —
+    and the ~15 CLI tests that assert on ``result.stderr`` reflow on its width
+    the same way (#1410). Pin both consoles to the same wide, fixed dimensions
+    so stderr assertions are as deterministic as stdout ones.
+    """
+    from notebooklm.cli import rendering
+
+    with (
+        patch.object(rendering.console, "_width", 400),
+        patch.object(rendering.console, "_height", 100),
+        patch.object(rendering.stderr_console, "_width", 400),
+        patch.object(rendering.stderr_console, "_height", 100),
+    ):
+        yield
+
+
+@pytest.fixture
+def narrow_console():
+    """Override the autouse wide pin with a narrow, fixed width.
+
+    The few tests that assert *width-dependent* rendering — e.g. ``list``
+    truncating an over-wide title (``test_*_list_default_truncates_long_title``)
+    — need a deterministic *narrow* width to exercise truncation. Requesting
+    this fixture re-pins the shared console to 80 columns on top of the autouse
+    400-wide pin (pytest runs the autouse fixture first, so this inner patch
+    wins for the test body), so truncation is exercised deterministically rather
+    than relying on the OS-divergent auto-detected width (issue #1332).
+
+    ``stderr_console`` is re-pinned to the same narrow width so any
+    width-dependent stderr rendering exercised by these tests stays
+    deterministic too (#1410).
+    """
+    from notebooklm.cli import rendering
+
+    with (
+        patch.object(rendering.console, "_width", 80),
+        patch.object(rendering.console, "_height", 100),
+        patch.object(rendering.stderr_console, "_width", 80),
+        patch.object(rendering.stderr_console, "_height", 100),
+    ):
+        yield
+
+
+def source_guide(spec: dict | None = None, **overrides: Any) -> SourceGuide:
+    """Build a typed ``SourceGuide`` from a legacy guide dict spec.
+
+    ``sources.get_guide`` now returns a typed ``SourceGuide`` (issue #1209);
+    CLI tests historically declared canned guides as the old dict shape.
+    """
+    data: dict[str, Any] = dict(spec or {})
+    data.update(overrides)
+    return SourceGuide(
+        summary=data.get("summary", ""),
+        keywords=data.get("keywords", []),
+    )
+
+
+def research_task(spec: dict | None = None, **overrides: Any) -> ResearchTask:
+    """Build a typed ``ResearchTask`` from a legacy poll/wait dict spec.
+
+    ``research.poll`` / ``research.wait_for_completion`` now return a typed
+    ``ResearchTask`` (issue #1209). CLI tests historically declared canned
+    results as the old dict shape; this helper adapts them. Unknown status
+    strings map to ``FAILED`` (mirroring the parser); ``sources`` entries are
+    coerced into ``ResearchSource``.
+    """
+    data: dict[str, Any] = dict(spec or {})
+    data.update(overrides)
+    raw_status = data.get("status", "no_research")
+    try:
+        status = ResearchStatus(raw_status)
+    except ValueError:
+        status = ResearchStatus.FAILED
+    raw_sources = data.get("sources") or []
+    sources = tuple(
+        ResearchSource.from_public_dict(s)
+        for s in (raw_sources if isinstance(raw_sources, list) else [])
+        if isinstance(s, dict)
+    )
+    raw_tasks = data.get("tasks") or []
+    tasks = tuple(
+        research_task(t)
+        for t in (raw_tasks if isinstance(raw_tasks, list) else [])
+        if isinstance(t, dict)
+    )
+    query = data.get("query", "")
+    report = data.get("report", "")
+    return ResearchTask(
+        task_id=data.get("task_id", ""),
+        status=status,
+        query=query if isinstance(query, str) else "",
+        sources=sources,
+        summary=data.get("summary", "") if isinstance(data.get("summary"), str) else "",
+        report=report if isinstance(report, str) else "",
+        tasks=tasks,
+    )
+
+
+def research_start(spec: dict | None = None, **overrides: Any) -> ResearchStart:
+    """Build a typed ``ResearchStart`` from a legacy start dict spec."""
+    data: dict[str, Any] = dict(spec or {})
+    data.update(overrides)
+    return ResearchStart(
+        task_id=data.get("task_id", ""),
+        report_id=data.get("report_id"),
+        notebook_id=data.get("notebook_id", ""),
+        query=data.get("query", ""),
+        mode=data.get("mode", "fast"),
+    )
+
+
+def mind_map_result(spec: dict | None = None, **overrides: Any) -> MindMapResult:
+    """Build a typed ``MindMapResult`` from a legacy mind-map dict spec."""
+    data: dict[str, Any] = dict(spec or {})
+    data.update(overrides)
+    return MindMapResult(mind_map=data.get("mind_map"), note_id=data.get("note_id"))
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _register_default_login_io():
+    """Ensure the browser-cookie login default ``LoginIO`` sink is registered.
+
+    The login DAG (``cli/services/login/*``) resolves its presentation / exit /
+    async sink via ``io_seam.resolve_login_io`` (#1393); the concrete default
+    factory is registered as a side effect of importing the command-layer
+    ``cli/playwright_login_io.py``. Direct-service unit tests import only the
+    service module, so without this they'd race on collection order to have the
+    factory wired. Importing it here once per session makes ``resolve_login_io``
+    deterministic for tests that call a driver without injecting ``io``.
+    """
+    import notebooklm.cli.playwright_login_io  # noqa: F401  (registration side effect)
 
 
 @pytest.fixture(autouse=True)
@@ -24,10 +186,10 @@ def _disable_chromium_profile_fanout():
     synthetic profiles — the autouse here just guarantees deterministic
     legacy-path behavior everywhere else.
 
-    D1 PR-3 migration: previously used
-    ``monkeypatch.setattr("notebooklm.cli._chromium_profiles...", ...)``
-    — the string-target form ADR-007 forbids because it silently no-ops
-    if the target relocates. Now uses ``patch(...)`` which raises
+    D1 PR-3 migration: previously used a ``monkeypatch`` string-target
+    setattr aimed at the ``cli._chromium_profiles`` discovery helper — the
+    string-target form ADR-0007 forbids because it silently no-ops if the
+    target relocates. Now uses ``patch(...)`` which raises
     ``AttributeError`` on missing targets.
     """
     with patch(
@@ -154,8 +316,12 @@ def create_mock_client():
     mock_client.research = MagicMock()
     mock_client.notes = MagicMock()
     mock_client.sharing = MagicMock()
+    mock_client.mind_maps = MagicMock()
+    # Default: no mind maps, so non-mind-map flows (e.g. ``artifact rename`` of a
+    # regular artifact) fall through without an unmocked-await on ``mind_maps.list``.
+    mock_client.mind_maps.list = AsyncMock(return_value=[])
 
-    mock_client.research.poll = AsyncMock(return_value={"status": "no_research"})
+    mock_client.research.poll = AsyncMock(return_value=research_task({"status": "no_research"}))
 
     async def wait_for_research_completion(
         notebook_id,
@@ -163,21 +329,23 @@ def create_mock_client():
         *,
         timeout=1800,
         interval=5,
+        initial_interval=None,
     ):
         if timeout < 0:
             raise ValueError("timeout must be non-negative")
-        if interval <= 0:
-            raise ValueError("interval must be positive")
+        # Mirror the real API: ``initial_interval`` is the canonical keyword and
+        # wins when supplied; ``interval`` is the deprecated alias kept working.
+        effective_interval = initial_interval if initial_interval is not None else interval
+        if effective_interval <= 0:
+            raise ValueError("poll interval must be positive")
         pinned_task_id = task_id
-        attempts = max(1, math.ceil(timeout / interval) + 1)
-        status = {"status": "no_research"}
+        attempts = max(1, math.ceil(timeout / effective_interval) + 1)
+        status: ResearchTask = research_task({"status": "no_research"})
         for _ in range(attempts):
             status = await mock_client.research.poll(notebook_id, task_id=pinned_task_id)
-            if pinned_task_id is None:
-                discovered_task_id = status.get("task_id")
-                if isinstance(discovered_task_id, str) and discovered_task_id:
-                    pinned_task_id = discovered_task_id
-            status_val = status.get("status")
+            if pinned_task_id is None and status.task_id:
+                pinned_task_id = status.task_id
+            status_val = status.status
             if status_val in ("completed", "failed"):
                 return status
             if status_val == "no_research" and pinned_task_id is None:
@@ -316,20 +484,21 @@ def mock_context_file(tmp_path):
 
     * ``cli.helpers`` — passes the resolver explicitly.
     * ``cli.context`` + ``cli.resolve`` — call-time lookups after the helper split.
-    * ``cli.session_cmd`` — legacy direct binding (preserved patch surface for
-      pre-existing tests).
-    * ``cli.services.session_context`` — the P3.T3 service-layer call site that
-      reads the context file in ``read_status``. Without this patch, the
-      service-layer ``read_status`` would fall through to the real
-      ``~/.notebooklm/context.json`` even when every other binding is patched
-      (rev-1 CodeRabbit feedback on #962).
+    * ``cli.services.session_context`` — the service-layer call site that reads
+      the context file in ``read_status``. This is the real consumer binding;
+      ``read_status`` resolves ``get_context_path`` here (the precedence chain's
+      level-1 service-module attribute), so without this patch the service-layer
+      ``read_status`` would fall through to the real ``~/.notebooklm/context.json``
+      even when every other binding is patched (rev-1 CodeRabbit feedback on #962).
+      Migrated off the legacy ``cli.session_cmd.get_context_path`` patch surface
+      (#1367): that re-export was a pure bridge fully shadowed by this binding and
+      never invoked, so patching it was a no-op.
     """
     context_file = tmp_path / "context.json"
     with (
         patch("notebooklm.cli.helpers.get_context_path", return_value=context_file),
         patch("notebooklm.cli.context.get_context_path", return_value=context_file),
         patch("notebooklm.cli.resolve.get_context_path", return_value=context_file),
-        patch("notebooklm.cli.session_cmd.get_context_path", return_value=context_file),
         patch(
             "notebooklm.cli.services.session_context.get_context_path",
             return_value=context_file,

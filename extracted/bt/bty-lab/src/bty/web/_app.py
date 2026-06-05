@@ -15,6 +15,7 @@ import html
 import json
 import os
 import re
+import shutil
 import sqlite3
 import sys
 import urllib.error
@@ -43,9 +44,19 @@ import bty
 from bty import catalog as _catalog
 from bty import images
 from bty import oras as _oras
-from bty.web import _backup, _db, _hash, _models, _release_mgr, _security, _settings_store, _ui
+from bty.web import (
+    _backup,
+    _db,
+    _hash,
+    _models,
+    _release_mgr,
+    _security,
+    _settings_store,
+    _ui,
+    _withcache,
+)
 from bty.web import _catalog as _web_catalog
-from bty.web._auth import SESSION_COOKIE, require_auth
+from bty.web._auth import SESSION_COOKIE, auth_enabled, require_auth
 from bty.web._events import (
     WORKER_STATE_CHANGED,
     MachineEvent,
@@ -84,23 +95,23 @@ def create_app(
 ) -> FastAPI:
     """Build the FastAPI app. All config flows through this function.
 
-    ``service_user`` is the Linux account whose OS password gates
-    ``POST /ui/login`` - typically the user bty-web is running as
-    (resolved from ``geteuid`` in :func:`bty.web.main`). Tests pass a
-    fixture name and monkeypatch ``pamela.authenticate``.
+    ``service_user`` is the Linux account bty-web runs as (resolved from
+    ``geteuid`` in :func:`bty.web.main`), shown in the UI for context.
+    ``POST /ui/login`` is gated by ``$BTY_ADMIN_PASSWORD`` (open when unset);
+    tests set that env var.
 
-    ``secret_key`` is the per-appliance random key used by Starlette's
+    ``secret_key`` is the per-server random key used by Starlette's
     :class:`SessionMiddleware` to sign session cookies. It must persist
     across bty-web restarts (otherwise every restart logs everyone out)
-    and must be unique per appliance (otherwise a cookie minted by one
-    server is valid on another). On the appliance,
-    ``bty-web-init`` writes a 32-byte random key to
-    ``/var/lib/bty/session-secret`` on first boot.
+    and must be unique per server (otherwise a cookie minted by one
+    server is valid on another). bty-web generates a 32-byte random key
+    at ``/var/lib/bty/session-secret`` on first start when none is
+    supplied via ``$BTY_SESSION_SECRET`` or an existing file.
 
     ``boot_root`` is where the live-env artifacts (kernel + initrd +
     squashfs) live for the ``GET /boot/{name}`` endpoint; defaults to
-    ``state_path.parent / "boot"`` (i.e. ``/var/lib/bty/boot`` on a
-    stock appliance).
+    ``state_path.parent / "boot"`` (i.e. ``/var/lib/bty/boot`` in the
+    default layout).
     """
     resolved_image_root: Path = image_root or images.default_image_root()
     resolved_boot_root: Path = boot_root or (state_path.parent / "boot")
@@ -189,6 +200,11 @@ def create_app(
         import logging as _logging
 
         _lifespan_log = _logging.getLogger(__name__)
+        if not auth_enabled():
+            _lifespan_log.warning(
+                "BTY_ADMIN_PASSWORD is not set - the operator UI is OPEN "
+                "(unauthenticated). Set it to gate /ui."
+            )
         for fp in resolved_image_root.iterdir():
             if not fp.is_file():
                 continue
@@ -238,7 +254,7 @@ def create_app(
         )
         # The hash manager always starts -- it operates on
         # ``image_root``, which exists for every bty-web shape
-        # (appliance, container, dev). Default parallelism is 1
+        # (container, host, dev). Default parallelism is 1
         # so a Pi-class box doesn't get hammered if multiple big
         # images need importing at once.
         hash_manager.start(resolved_image_root, state_path=state_path)
@@ -247,6 +263,11 @@ def create_app(
         # progress + cancel buttons). Default parallelism is 1
         # because fetching two GitHub releases in parallel is
         # operator-confusing and bandwidth-saturating.
+        # Seed boot_root with baked bootstrap artifacts (the container
+        # image bakes bty's custom iPXE binary here) so UEFI HTTP-Boot
+        # clients can fetch GET /boot/ipxe.efi out of the box. No-op on
+        # host / dev installs (BTY_BOOT_SEED_DIR unset).
+        _seed_boot_dir(resolved_boot_root)
         release_fetch_manager.start(resolved_boot_root, state_path=state_path)
         # Backup manager: powers ``/workers/backups`` + the Backup
         # tab's "Back up now" button. Wraps ``_portability.export_bundle``
@@ -336,7 +357,7 @@ def create_app(
             backup_stop_event.set()
             with contextlib.suppress(asyncio.CancelledError):
                 await backup_scheduler_task
-            # DownloadManager always starts (catalog-less appliances
+            # DownloadManager always starts (catalog-less instances
             # still have a DB-driven download path), so always stop.
             await download_manager.stop()
             await hash_manager.stop()
@@ -359,7 +380,7 @@ def create_app(
 
         Src shape: ``file://<rel-path>`` (path relative to image
         root; root-relocation invariant, so moving the image-store
-        disk between appliances does not change refs). Ref:
+        disk between hosts does not change refs). Ref:
         ``sha256(canonicalise_src(src))`` from
         ``bty.catalog.image_ref_for_src``. ``disk_image_sha`` is
         populated when the file has a ``.sha256`` sidecar already;
@@ -585,11 +606,11 @@ def create_app(
         session_cookie=SESSION_COOKIE,
         max_age=_SESSION_MAX_AGE,
         same_site="strict",
-        https_only=False,  # appliance is plain HTTP on a homelab segment
+        https_only=False,  # bty-web serves plain HTTP on a homelab segment
     )
 
     # Vendored client-side assets (Bootstrap CSS, HTMX, htmx-ext-sse)
-    # ship inside the wheel so the appliance has no runtime CDN
+    # ship inside the wheel so bty-web has no runtime CDN
     # dependency. See ``_static/README.md`` for provenance.
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
@@ -1234,9 +1255,23 @@ def create_app(
                 else:
                     url_name = image_name
                 image_name_encoded = urllib.parse.quote(url_name, safe="")
+                image_url = f"{base}/images/{ref}/{image_name_encoded}"
+                # Prefer a configured withcache as the source, but only for an
+                # https origin it already holds. Otherwise serve via /images
+                # exactly as before (which serves a local copy or streams the
+                # origin), so a cold/unset/unreachable withcache never breaks a
+                # flash. The is_cached HEAD also warms an auto-fetch withcache,
+                # so the next boot of this image flips to the cache. (oras refs
+                # need token-authenticated pre-seeding -- handled separately.)
+                src = _flash_src_for_ref(str(ref))
+                if src and src.startswith(("http://", "https://")):
+                    with _db.open_db(state_path) as conn:
+                        withcache_url = _settings_store.resolve_withcache_url(conn)
+                    if withcache_url and _withcache.is_cached(withcache_url, src):
+                        image_url = _withcache.blob_url(withcache_url, src)
                 plan = {
                     "mode": "flash",
-                    "image": f"{base}/images/{ref}/{image_name_encoded}",
+                    "image": image_url,
                     "target_disk_serial": str(target_disk_serial),
                     # Descriptive catalog name for display: the image URL's
                     # last segment may be a synthesised "image.<fmt>" (so
@@ -1800,6 +1835,17 @@ def create_app(
                 (ref,),
             ).fetchone()
         return str(row["format"]) if row and row["format"] else None
+
+    def _flash_src_for_ref(ref: str) -> str | None:
+        """The catalog entry's origin ``src`` for a ref, or None. Used to build
+        the withcache serve URL, since withcache keys on the origin URL, not on
+        bty's ``/images`` URL."""
+        with _db.open_db(state_path) as conn:
+            row = conn.execute(
+                "SELECT src FROM catalog_entries WHERE bty_image_ref = ?",
+                (ref,),
+            ).fetchone()
+        return str(row["src"]) if row and row["src"] else None
 
     def _resolve_image_for_key(key: str) -> Path | None:
         """Resolve a 64-hex key (bty_image_ref or disk_image_sha) to a
@@ -3299,7 +3345,7 @@ def create_app(
 
     @app.get("/catalog/downloads")
     async def list_downloads(_: str = Depends(require_auth)) -> dict[str, Any]:
-        # DownloadManager always starts now (catalog-less appliances
+        # DownloadManager always starts now (catalog-less instances
         # still have a DB-driven download path); "no catalog" is no
         # longer a hard 404 here.  The ``catalog`` field stays in the
         # response so the UI can distinguish manifest-backed setups
@@ -3591,7 +3637,7 @@ def _request_host(request: Request) -> str:
     Prefers the ``Host`` header (what the client actually typed in the
     URL bar); falls back to the parsed request URL when the header is
     missing -- bare TestClient and tightly-curated reverse proxies can
-    omit it. Default port mirrors the appliance's listen port.
+    omit it. Default port mirrors the server's listen port.
 
     If both the Host header AND ``request.url.hostname`` are unset
     (synthetic Request constructed without scope, rare), returns a
@@ -3639,6 +3685,45 @@ def _client_ip(request: Request) -> str | None:
             if first:
                 return _normalize_ip(first)
     return _normalize_ip(request.client.host if request.client else None)
+
+
+def _seed_boot_dir(boot_root: Path) -> None:
+    """Seed ``boot_root`` with baked bootstrap artifacts on startup.
+
+    The container image bakes bty's custom iPXE binary (the one whose
+    embedded script chains to ``/pxe-bootstrap.ipxe``, so the operator's
+    DHCP only needs a single bootfile) under ``$BTY_BOOT_SEED_DIR``. Copy
+    any file from there into ``boot_root`` when it isn't already present,
+    so UEFI HTTP-Boot clients can fetch ``GET /boot/ipxe.efi`` out of the
+    box.
+
+    A no-op when ``BTY_BOOT_SEED_DIR`` is unset (host / dev installs) or
+    its directory is absent. Existing files are never overwritten, so an
+    operator-placed bootfile always wins.
+    """
+    import logging as _logging
+
+    seed_dir = os.environ.get("BTY_BOOT_SEED_DIR")
+    if not seed_dir:
+        return
+    src = Path(seed_dir)
+    if not src.is_dir():
+        return
+    boot_root.mkdir(parents=True, exist_ok=True)
+    seed_log = _logging.getLogger(__name__)
+    for item in sorted(src.iterdir()):
+        # Skip dotfiles so a ``.gitkeep`` placeholder in an
+        # otherwise-empty seed dir (dev builds) isn't published.
+        if item.name.startswith(".") or not item.is_file():
+            continue
+        dst = boot_root / item.name
+        if dst.exists():
+            continue
+        try:
+            shutil.copy2(item, dst)
+            seed_log.info("seeded boot artifact %s into %s", item.name, boot_root)
+        except OSError as exc:
+            seed_log.warning("could not seed boot artifact %s: %s", item.name, exc)
 
 
 def _safe_path(root: Path, name: str) -> Path:

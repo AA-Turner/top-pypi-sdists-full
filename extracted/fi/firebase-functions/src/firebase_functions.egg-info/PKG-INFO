@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: firebase_functions
-Version: 0.5.0
+Version: 0.6.0
 Summary: Firebase Functions Python SDK
 Author: Firebase Team
 License-Expression: Apache-2.0

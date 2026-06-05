@@ -472,7 +472,7 @@ rule = events.Rule(self, "Rule",
 )
 
 rule.add_target(targets.AppSync(api,
-    graph_qLOperation="mutation Publish($message: String!){ publish(message: $message) { message } }",
+    graph_ql_operation="mutation Publish($message: String!){ publish(message: $message) { message } }",
     variables=events.RuleTargetInput.from_object({
         "message": "hello world"
     })
@@ -489,7 +489,7 @@ import aws_cdk.aws_appsync as appsync
 api = appsync.GraphqlApi.from_graphql_api_attributes(self, "ImportedAPI",
     graphql_api_id="<api-id>",
     graphql_api_arn="<api-arn>",
-    graph_qLEndpoint_arn="<api-endpoint-arn>",
+    graph_ql_endpoint_arn="<api-endpoint-arn>",
     visibility=appsync.Visibility.GLOBAL,
     modes=[appsync.AuthorizationType.IAM]
 )
@@ -501,7 +501,7 @@ role = iam.Role(self, "Role", assumed_by=iam.ServicePrincipal("events.amazonaws.
 api.grant_mutation(role, "publish")
 
 rule.add_target(targets.AppSync(api,
-    graph_qLOperation="mutation Publish($message: String!){ publish(message: $message) { message } }",
+    graph_ql_operation="mutation Publish($message: String!){ publish(message: $message) { message } }",
     variables=events.RuleTargetInput.from_object({
         "message": "hello world"
     }),
@@ -1211,7 +1211,7 @@ class AppSync(
         )
         
         rule.add_target(targets.AppSync(api,
-            graph_qLOperation="mutation Publish($message: String!){ publish(message: $message) { message } }",
+            graph_ql_operation="mutation Publish($message: String!){ publish(message: $message) { message } }",
             variables=events.RuleTargetInput.from_object({
                 "message": "hello world"
             })
@@ -4451,7 +4451,7 @@ class AppSyncGraphQLApiProps(TargetBaseProps):
             )
             
             rule.add_target(targets.AppSync(api,
-                graph_qLOperation="mutation Publish($message: String!){ publish(message: $message) { message } }",
+                graph_ql_operation="mutation Publish($message: String!){ publish(message: $message) { message } }",
                 variables=events.RuleTargetInput.from_object({
                     "message": "hello world"
                 })

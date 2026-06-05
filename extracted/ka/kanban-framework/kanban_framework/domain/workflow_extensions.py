@@ -16,11 +16,14 @@ class WorkflowExtension:
     """Parse and apply workflow.json extensions to produce customised
     phase order and step definitions."""
 
-    _DEFAULT_MODES = ["lightweight"]
+    @staticmethod
+    def _default_modes():
+        from kanban_framework.infra.consts import Consts
+        return [Consts.DEFAULT_MODE]
 
     def __init__(self, workflow: dict):
         self._extensions = workflow.get("extensions", {})
-        self._modes = self._extensions.get("modes", self._DEFAULT_MODES)
+        self._modes = self._extensions.get("modes", self._default_modes())
         self._phases_config = {
             p["id"]: p for p in workflow.get("phases", []) if "id" in p
         }
@@ -31,10 +34,12 @@ class WorkflowExtension:
 
     # ── Phase order ─────────────────────────────────────────────────────
 
-    def build_phase_order(self, base_order: list[str], mode: str = "lightweight") -> list[str]:
+    def build_phase_order(self, base_order: list[str], mode: str | None = None) -> list[str]:
         """Return *base_order* with add_phases inserted and remove_phases removed.
         Only applies if *mode* is in the extensions' modes list.
         """
+        from kanban_framework.infra.consts import Consts
+        mode = mode or Consts.DEFAULT_MODE
         if not self.is_active_for_mode(mode):
             return list(base_order)
         order = list(base_order)
@@ -54,11 +59,13 @@ class WorkflowExtension:
     # ── Step map ─────────────────────────────────────────────────────────
 
     def build_step_map(
-        self, base_steps: dict[str, list[StepDef]], mode: str = "lightweight"
+        self, base_steps: dict[str, list[StepDef]], mode: str | None = None
     ) -> dict[str, list[StepDef]]:
         """Return *base_steps* with add_steps injected and remove_steps filtered.
         Only applies if *mode* is in the extensions' modes list.
         """
+        from kanban_framework.infra.consts import Consts
+        mode = mode or Consts.DEFAULT_MODE
         if not self.is_active_for_mode(mode):
             return copy.deepcopy(base_steps)
         steps = copy.deepcopy(base_steps)

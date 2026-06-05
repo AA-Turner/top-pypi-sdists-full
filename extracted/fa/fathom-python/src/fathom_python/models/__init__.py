@@ -43,7 +43,12 @@ if TYPE_CHECKING:
         ListMeetingsRequestTypedDict,
         ListMeetingsResponse,
         ListMeetingsResponseTypedDict,
-        MeetingType,
+    )
+    from .listmeetingtypesop import (
+        ListMeetingTypesRequest,
+        ListMeetingTypesRequestTypedDict,
+        ListMeetingTypesResponse,
+        ListMeetingTypesResponseTypedDict,
     )
     from .listteammembersop import (
         ListTeamMembersRequest,
@@ -60,6 +65,11 @@ if TYPE_CHECKING:
     from .meeting import CalendarInviteesDomainsType, Meeting, MeetingTypedDict
     from .meetinglistresponse import MeetingListResponse, MeetingListResponseTypedDict
     from .meetingsummary import MeetingSummary, MeetingSummaryTypedDict
+    from .meetingtype import MeetingType, MeetingTypeTypedDict, Status
+    from .meetingtypelistresponse import (
+        MeetingTypeListResponse,
+        MeetingTypeListResponseTypedDict,
+    )
     from .security import Security, SecurityTypedDict
     from .team import Team, TeamTypedDict
     from .teamlistresponse import TeamListResponse, TeamListResponseTypedDict
@@ -112,6 +122,10 @@ __all__ = [
     "GetRecordingTranscriptResponseTypedDict",
     "Invitee",
     "InviteeTypedDict",
+    "ListMeetingTypesRequest",
+    "ListMeetingTypesRequestTypedDict",
+    "ListMeetingTypesResponse",
+    "ListMeetingTypesResponseTypedDict",
     "ListMeetingsCalendarInviteesDomainsType",
     "ListMeetingsRequest",
     "ListMeetingsRequestTypedDict",
@@ -131,9 +145,13 @@ __all__ = [
     "MeetingSummary",
     "MeetingSummaryTypedDict",
     "MeetingType",
+    "MeetingTypeListResponse",
+    "MeetingTypeListResponseTypedDict",
+    "MeetingTypeTypedDict",
     "MeetingTypedDict",
     "Security",
     "SecurityTypedDict",
+    "Status",
     "Team",
     "TeamListResponse",
     "TeamListResponseTypedDict",
@@ -192,7 +210,10 @@ _dynamic_imports: dict[str, str] = {
     "ListMeetingsRequestTypedDict": ".listmeetingsop",
     "ListMeetingsResponse": ".listmeetingsop",
     "ListMeetingsResponseTypedDict": ".listmeetingsop",
-    "MeetingType": ".listmeetingsop",
+    "ListMeetingTypesRequest": ".listmeetingtypesop",
+    "ListMeetingTypesRequestTypedDict": ".listmeetingtypesop",
+    "ListMeetingTypesResponse": ".listmeetingtypesop",
+    "ListMeetingTypesResponseTypedDict": ".listmeetingtypesop",
     "ListTeamMembersRequest": ".listteammembersop",
     "ListTeamMembersRequestTypedDict": ".listteammembersop",
     "ListTeamMembersResponse": ".listteammembersop",
@@ -208,6 +229,11 @@ _dynamic_imports: dict[str, str] = {
     "MeetingListResponseTypedDict": ".meetinglistresponse",
     "MeetingSummary": ".meetingsummary",
     "MeetingSummaryTypedDict": ".meetingsummary",
+    "MeetingType": ".meetingtype",
+    "MeetingTypeTypedDict": ".meetingtype",
+    "Status": ".meetingtype",
+    "MeetingTypeListResponse": ".meetingtypelistresponse",
+    "MeetingTypeListResponseTypedDict": ".meetingtypelistresponse",
     "Security": ".security",
     "SecurityTypedDict": ".security",
     "Team": ".team",

@@ -68,7 +68,7 @@ struct LiveRange
         assert(opDuration >= 0);
         int opTimeStart = std::max(opTime, 0);
         int opTimeEnd = opTime + opDuration;
-        if ( opTimeEnd > opTimeStart )
+        if ( opTimeEnd >= opTimeStart )
         {
             startTime = std::min(startTime, opTimeStart);
             endTime = std::max(endTime, opTimeEnd);
@@ -110,9 +110,13 @@ public:
         Schedule *schedule, const MemArea &targetMemory, bool addRollingBuffers);
     LiveRange *GetOrCreateRange(SchedulerTensor *tens, LRUsage usage);
     bool AreInSameRange(const SchedulerTensor *lhs, const SchedulerTensor *rhs) const;
+    LiveRange *SplitFromRange(SchedulerTensor *tens);
+    static bool CanReuseIFMTensors(const SchedulerTensor *ifmTens, const SchedulerTensor *ofmTens);
+    static bool IsOp1To1(const SchedulerOperation *op);
 
 private:
     LiveRange *FuseRanges(SchedulerTensor *inTens, SchedulerTensor *outTens);
+    SchedulerTensor *ReusableRollingBufferIFM(const std::unique_ptr<SchedulerOperation> &schedOp, UniqueId ofmEquivalenceId);
     SchedulerTensor *ReusableIFM(const std::unique_ptr<SchedulerOperation> &schedOp, const SchedulerTensor *ofmTensor,
         const MemArea &targetMemory);
     bool ShouldBeIgnored(const SchedulerTensor *tens, const MemArea &targetMemory);

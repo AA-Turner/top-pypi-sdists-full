@@ -183,6 +183,40 @@ fn stable_softplus(x: f64) -> f64 {
     }
 }
 
+/// Resolve a learnable penalty strength `base_weight · exp(rho)` without ever
+/// overflowing to `inf` or (for a nonzero base weight) underflowing to exact
+/// `0.0`.
+///
+/// For finite `rho ≳ 709` the naive `base_weight * rho.exp()` overflows to
+/// `inf`; the resulting `inf` then poisons the solve via `inf · 0.0 = NaN` or
+/// `inf / inf = NaN` in the value/grad/Hessian. Conversely for `rho ≲ -745`
+/// `rho.exp()` underflows to `0.0`, silently disabling a penalty whose base
+/// weight is strictly positive and reintroducing `0/0` in ratios that divide by
+/// the strength.
+///
+/// The fix is to evaluate the product in log-space and clamp the *log-strength*
+/// into the finite-normal band before exponentiating, so the returned strength
+/// is always finite (and strictly positive whenever `base_weight ≠ 0`). The
+/// clamp band is symmetric in log-strength about zero, matched to the largest /
+/// smallest positive normal `f64`, leaving a safety margin so subsequent
+/// multiplications by `O(1)` factors stay finite.
+fn resolve_learnable_weight(base_weight: f64, rho: f64) -> f64 {
+    // Largest / smallest log-magnitude that keeps the strength a finite normal
+    // `f64` with headroom for downstream `O(1)` arithmetic.
+    const MAX_LOG_STRENGTH: f64 = 700.0;
+    const MIN_LOG_STRENGTH: f64 = -700.0;
+    if base_weight == 0.0 {
+        return 0.0;
+    }
+    assert!(
+        base_weight.is_finite() && rho.is_finite(),
+        "resolve_learnable_weight requires finite inputs; got base_weight={base_weight}, rho={rho}"
+    );
+    let log_strength = base_weight.abs().ln() + rho;
+    let clamped = log_strength.clamp(MIN_LOG_STRENGTH, MAX_LOG_STRENGTH);
+    clamped.exp().copysign(base_weight)
+}
+
 /// Scalar annealing schedule for analytic penalty weights.
 ///
 /// This is the penalty-weight analogue of [`crate::terms::sae_manifold::GumbelTemperatureSchedule`]:
@@ -495,6 +529,13 @@ macro_rules! impl_learnable_weight_rho_count {
 pub enum IsometryReference {
     Euclidean,
     UserSupplied(Arc<Array2<f64>>), // (n_obs, d*d) row-major flattened
+    /// Scale-free reference: the per-atom MEAN pullback metric, the same row
+    /// broadcast to every observation. By the envelope theorem the LS-optimal
+    /// constant reference is the mean of the per-row metrics, so this penalizes
+    /// metric VARIATION across tokens (constant-speed / isometry up to a single
+    /// global scale) rather than absolute scale. Resolved dynamically from the
+    /// live pullback metric in effective_g_ref, so it carries no stored data.
+    MeanProfiled,
 }
 
 impl std::fmt::Debug for IsometryReference {
@@ -505,6 +546,7 @@ impl std::fmt::Debug for IsometryReference {
                 .debug_tuple("UserSupplied")
                 .field(&format_args!("{}×{}", a.nrows(), a.ncols()))
                 .finish(),
+            IsometryReference::MeanProfiled => f.write_str("MeanProfiled"),
         }
     }
 }
@@ -1187,7 +1229,7 @@ impl IsometryPenalty {
         let jac2 = self.jacobian_second(target.view(), n_obs, d)?;
         let jac3 = self.jacobian_third(target.view(), n_obs, d)?;
         let g = self.pullback_metric(d)?;
-        let g_ref = self.reference_metric(n_obs, d);
+        let g_ref = self.effective_g_ref(&g, n_obs, d);
         let mut wj_rows = Vec::with_capacity(n_obs);
         for n in 0..n_obs {
             wj_rows.push(self.weighted_jacobian_row(n, d)?);
@@ -1210,7 +1252,7 @@ impl IsometryPenalty {
         rho: ArrayView1<'_, f64>,
         v: ArrayView1<'_, f64>,
     ) -> Array1<f64> {
-        let mu = self.scalar_weight * rho[self.rho_index].exp();
+        let mu = resolve_learnable_weight(self.scalar_weight, rho[self.rho_index]);
         let d = state.d;
         let n_obs = state.n_obs;
         let p = state.p;
@@ -1351,6 +1393,52 @@ impl IsometryPenalty {
                 assert_eq!(a.ncols(), d * d);
                 CowArray::from(a.view())
             }
+            // MeanProfiled has no data-independent reference: it must be
+            // resolved from the live per-row pullback metric `G_n` via
+            // `effective_g_ref`. Any data-independent call site (none currently)
+            // falls back to the Euclidean identity reference rather than
+            // fabricating a metric.
+            IsometryReference::MeanProfiled => {
+                let mut out = Array2::<f64>::zeros((n_obs, d * d));
+                for n in 0..n_obs {
+                    for a in 0..d {
+                        out[[n, a * d + a]] = 1.0;
+                    }
+                }
+                CowArray::from(out)
+            }
+        }
+    }
+
+    /// Effective reference metric `g_ref`, resolved against the live per-row
+    /// pullback metric `G_n`. For `MeanProfiled` this is the row-mean of `G_n`
+    /// (the LS-optimal constant reference, by the envelope theorem) broadcast to
+    /// every row, making the penalty scale-free: it penalizes metric VARIATION
+    /// across tokens rather than absolute scale. For every other reference it
+    /// delegates to the data-independent `reference_metric`.
+    fn effective_g_ref(&self, g: &Array2<f64>, n_obs: usize, d: usize) -> CowArray<'_, f64, Ix2> {
+        match &self.reference {
+            IsometryReference::MeanProfiled => {
+                let dd = d * d;
+                let mut mean = vec![0.0_f64; dd];
+                for n in 0..n_obs {
+                    for k in 0..dd {
+                        mean[k] += g[[n, k]];
+                    }
+                }
+                let inv = if n_obs > 0 { 1.0 / n_obs as f64 } else { 0.0 };
+                for v in mean.iter_mut() {
+                    *v *= inv;
+                }
+                let mut out = Array2::<f64>::zeros((n_obs, dd));
+                for n in 0..n_obs {
+                    for k in 0..dd {
+                        out[[n, k]] = mean[k];
+                    }
+                }
+                CowArray::from(out)
+            }
+            _ => self.reference_metric(n_obs, d),
         }
     }
 
@@ -1391,8 +1479,8 @@ impl IsometryPenalty {
         let Some(g) = self.pullback_metric(d) else {
             return grad;
         };
-        let g_ref = self.reference_metric(n_obs, d);
-        let mu = self.scalar_weight * rho[self.rho_index].exp();
+        let g_ref = self.effective_g_ref(&g, n_obs, d);
+        let mu = resolve_learnable_weight(self.scalar_weight, rho[self.rho_index]);
         for n in 0..n_obs {
             let Some(wj) = self.weighted_jacobian_row(n, d) else {
                 return Array2::<f64>::zeros((n_obs, p * d));
@@ -1429,8 +1517,8 @@ impl AnalyticPenalty for IsometryPenalty {
         let Some(g) = self.pullback_metric(d) else {
             return Self::DEFAULT_VALUE_ON_MISSING_CACHE;
         };
-        let g_ref = self.reference_metric(n_obs, d);
-        let mu = self.scalar_weight * rho[self.rho_index].exp();
+        let g_ref = self.effective_g_ref(&g, n_obs, d);
+        let mu = resolve_learnable_weight(self.scalar_weight, rho[self.rho_index]);
         let mut acc = 0.0;
         for n in 0..n_obs {
             for k in 0..(d * d) {
@@ -1467,9 +1555,9 @@ impl AnalyticPenalty for IsometryPenalty {
         let Some(g) = self.pullback_metric(d) else {
             return Array1::<f64>::zeros(target.len());
         };
-        let g_ref = self.reference_metric(n_obs, d);
+        let g_ref = self.effective_g_ref(&g, n_obs, d);
         let p = self.p_out;
-        let mu = self.scalar_weight * rho[self.rho_index].exp();
+        let mu = resolve_learnable_weight(self.scalar_weight, rho[self.rho_index]);
         let mut grad = Array1::<f64>::zeros(target.len());
         let Some(jac2) = self.jacobian_second(target, n_obs, d) else {
             return grad;
@@ -1569,7 +1657,7 @@ impl AnalyticPenalty for IsometryPenalty {
             return Array1::<f64>::zeros(v.len());
         };
         let p = self.p_out;
-        let mu = self.scalar_weight * rho[self.rho_index].exp();
+        let mu = resolve_learnable_weight(self.scalar_weight, rho[self.rho_index]);
         let mut out = Array1::<f64>::zeros(v.len());
         for n in 0..n_obs {
             let Some(wj) = self.weighted_jacobian_row(n, d) else {
@@ -1754,7 +1842,7 @@ impl AnalyticPenalty for SoftmaxAssignmentSparsityPenalty {
     }
 
     fn value(&self, target: ArrayView1<'_, f64>, rho: ArrayView1<'_, f64>) -> f64 {
-        let lambda = self.weight * rho[0].exp();
+        let lambda = resolve_learnable_weight(self.weight, rho[0]);
         let n = target.len() / self.k_atoms;
         let values: Vec<f64> = target.iter().copied().collect();
         let mut acc = 0.0;
@@ -1771,7 +1859,7 @@ impl AnalyticPenalty for SoftmaxAssignmentSparsityPenalty {
     }
 
     fn grad_target(&self, target: ArrayView1<'_, f64>, rho: ArrayView1<'_, f64>) -> Array1<f64> {
-        let lambda = self.weight * rho[0].exp();
+        let lambda = resolve_learnable_weight(self.weight, rho[0]);
         let n = target.len() / self.k_atoms;
         let values: Vec<f64> = target.iter().copied().collect();
         let mut out = Array1::<f64>::zeros(target.len());
@@ -1816,7 +1904,7 @@ impl AnalyticPenalty for SoftmaxAssignmentSparsityPenalty {
         // This matches `hvp(...) . e_k` analytically (see derivation in the
         // bug-fix comment on `hvp`) and gives Newton/Arrow-Schur callers a
         // principled diagonal surrogate without per-row dense factorization.
-        let lambda = self.weight * rho[0].exp();
+        let lambda = resolve_learnable_weight(self.weight, rho[0]);
         let inv_tau = 1.0 / self.temperature;
         let scale = lambda * inv_tau * inv_tau;
         let n = target.len() / self.k_atoms;
@@ -1854,7 +1942,7 @@ impl AnalyticPenalty for SoftmaxAssignmentSparsityPenalty {
         below. `hessian_diag` returns the analytic diagonal extracted from
         this HVP by setting v = e_k row-by-row.
         */
-        let lambda = self.weight * rho[0].exp();
+        let lambda = resolve_learnable_weight(self.weight, rho[0]);
         assert_eq!(target.len(), v.len(), "hvp dimension mismatch");
         let n = target.len() / self.k_atoms;
         let values: Vec<f64> = target.iter().copied().collect();
@@ -1960,7 +2048,7 @@ impl IBPAssignmentPenalty {
 
     fn resolved_alpha(&self, rho: ArrayView1<'_, f64>) -> f64 {
         if self.learnable_alpha {
-            self.alpha * rho[0].exp()
+            resolve_learnable_weight(self.alpha, rho[0])
         } else {
             self.alpha
         }
@@ -2225,9 +2313,14 @@ impl SparsityPenalty {
 
     /// Resolve `(strength, eps_or_delta)` from the current ρ view.
     fn resolved(&self, rho: ArrayView1<'_, f64>) -> (f64, f64) {
-        let strength = self.weight * rho[self.strength_rho_index].exp();
+        let strength = resolve_learnable_weight(self.weight, rho[self.strength_rho_index]);
         let smoothing = match (self.eps_rho_index, self.kind) {
-            (Some(idx), _) => rho[idx].exp(),
+            // A learnable smoothing `exp(rho)` underflows to exact `0.0` for
+            // `rho ≲ -745`, which reintroduces a non-differentiable kink and a
+            // `0/0` at `x = 0` in `sqrt(x² + ε²)` / the Log sparsifier. Floor it
+            // at the smallest positive normal so the smoothing stays strictly
+            // positive while still shrinking arbitrarily close to zero.
+            (Some(idx), _) => rho[idx].exp().max(f64::MIN_POSITIVE),
             (None, SparsityKind::SmoothedL1 { eps }) => eps,
             (None, SparsityKind::Log { delta }) => delta,
             (None, SparsityKind::Hoyer) => 0.0,
@@ -2647,8 +2740,7 @@ impl AnalyticPenalty for ARDPenalty {
         let n_obs = target.len() / d;
         let mut acc = 0.0;
         for j in 0..d {
-            let rho_j = rho[self.rho_indices[j]];
-            let lam_j = self.weight * rho_j.exp();
+            let lam_j = resolve_learnable_weight(self.weight, rho[self.rho_indices[j]]);
             let mut sq = 0.0;
             for n in 0..n_obs {
                 let v = target[n * d + j];
@@ -2664,7 +2756,7 @@ impl AnalyticPenalty for ARDPenalty {
         let n_obs = target.len() / d;
         let mut g = Array1::<f64>::zeros(target.len());
         for j in 0..d {
-            let lam_j = self.weight * rho[self.rho_indices[j]].exp();
+            let lam_j = resolve_learnable_weight(self.weight, rho[self.rho_indices[j]]);
             for n in 0..n_obs {
                 g[n * d + j] = lam_j * target[n * d + j];
             }
@@ -2681,7 +2773,7 @@ impl AnalyticPenalty for ARDPenalty {
         let n_obs = target.len() / d;
         let mut diag = Array1::<f64>::zeros(target.len());
         for j in 0..d {
-            let lam_j = self.weight * rho[self.rho_indices[j]].exp();
+            let lam_j = resolve_learnable_weight(self.weight, rho[self.rho_indices[j]]);
             for n in 0..n_obs {
                 diag[n * d + j] = lam_j;
             }
@@ -2695,7 +2787,7 @@ impl AnalyticPenalty for ARDPenalty {
         let n_obs = target.len() / d;
         let mut out = Array1::<f64>::zeros(self.rho_count());
         for j in 0..d {
-            let lam_j = self.weight * rho[self.rho_indices[j]].exp();
+            let lam_j = resolve_learnable_weight(self.weight, rho[self.rho_indices[j]]);
             let mut sq = 0.0;
             for n in 0..n_obs {
                 let v = target[n * d + j];
@@ -2926,7 +3018,10 @@ impl JumpReLUPenalty {
     impl_with_weight_schedule!(weight);
 
     fn threshold(&self, axis: usize, rho: ArrayView1<'_, f64>) -> f64 {
-        self.thresholds[axis] * rho[axis].exp()
+        // A learnable threshold `θ·exp(rho)` overflows to `inf` for large `rho`;
+        // the downstream gate `σ((l−θ)/τ)` then evaluates `inf·gate = NaN`. Clamp
+        // the log-magnitude so the threshold stays a finite normal.
+        resolve_learnable_weight(self.thresholds[axis], rho[axis])
     }
 
     fn sigmoid_gate(&self, x: f64) -> f64 {
@@ -3192,7 +3287,7 @@ impl TotalVariationPenalty {
 
     fn resolved_weight(&self, rho: ArrayView1<'_, f64>) -> f64 {
         if self.learnable_weight {
-            self.weight * rho[self.rho_index].exp()
+            resolve_learnable_weight(self.weight, rho[self.rho_index])
         } else {
             self.weight
         }
@@ -3593,7 +3688,7 @@ impl MonotonicityPenalty {
 
     fn resolved_weight(&self, rho: ArrayView1<'_, f64>) -> f64 {
         if self.learnable_weight {
-            self.weight * rho[self.rho_index].exp()
+            resolve_learnable_weight(self.weight, rho[self.rho_index])
         } else {
             self.weight
         }
@@ -3854,7 +3949,7 @@ impl NuclearNormPenalty {
 
     fn resolved_weight(&self, rho: ArrayView1<'_, f64>) -> f64 {
         if self.learnable_weight {
-            self.weight * rho[self.rho_index].exp()
+            resolve_learnable_weight(self.weight, rho[self.rho_index])
         } else {
             self.weight
         }
@@ -3877,8 +3972,40 @@ impl NuclearNormPenalty {
         target.into_shape_with_order((self.n_eff, d)).ok()
     }
 
-    fn rank_limit(&self, rank: usize) -> usize {
-        self.max_rank.unwrap_or(rank).min(rank)
+    fn rank_limit(&self, thin_rank: usize) -> usize {
+        self.max_rank.unwrap_or(thin_rank).min(thin_rank)
+    }
+
+    /// Number of leading right-Gram eigen-directions (top singular values) the
+    /// HVP keeps active, identical to the rank `value`/`grad` sum over.
+    ///
+    /// The right Gram `TᵀT` is `d×d` but has at most `thin_rank = min(n_rows, d)`
+    /// nonzero eigenvalues (the squared singular values); the remaining
+    /// `d − thin_rank` are an exact, *tied* zero subspace. Capping the active
+    /// count with the Gram width `d` (or any value `> thin_rank`) would push the
+    /// active/inactive cutoff *inside* that tied zero subspace, where the split
+    /// is ill-defined — for a wide block (`n_rows < d`) with
+    /// `max_rank > thin_rank` this previously panicked. We therefore cap with the
+    /// true SVD length `thin_rank`, matching `rank_limit`, so the cutoff always
+    /// lands either between the zero subspace and the nonzero singular values, or
+    /// between distinct nonzero singular values, never bisecting the zero block.
+    fn right_filter_active_count(&self, n_rows: usize, n_cols: usize) -> usize {
+        let thin_rank = n_rows.min(n_cols);
+        match self.max_rank {
+            // No cap: keep every right-Gram direction. The `d − thin_rank` exact
+            // zero directions get a finite smoothed `(0+ε²)^(-1/2)` filter and
+            // contribute nothing to `G(T)` (since `T` has no projection onto
+            // them), so this is consistent with `value`/`grad`'s full sum.
+            None => n_cols,
+            // A cap that does not bite (`max_rank ≥ thin_rank`) is likewise a
+            // no-op: keep every direction.
+            Some(max_rank) if max_rank >= thin_rank => n_cols,
+            // A genuine cap keeps only the top `max_rank` singular directions —
+            // never more than `thin_rank`, so the active/inactive cutoff lands
+            // strictly inside the nonzero singular block and never bisects the
+            // tied zero subspace of the `d×d` Gram.
+            Some(max_rank) => max_rank,
+        }
     }
 
     fn compute_svd_cached(&self, t: ArrayView2<'_, f64>) -> NuclearSvdCache {
@@ -3904,6 +4031,8 @@ impl NuclearNormPenalty {
         // The Fréchet derivative dR uses divided differences in the right
         // singular-vector basis, avoiding any dense Hessian materialization.
         let d = t.ncols();
+        let active_count = self.right_filter_active_count(t.nrows(), d);
+        let active_start = d.saturating_sub(active_count);
         let mut gram = Array2::<f64>::zeros((d, d));
         let mut tangent_gram = Array2::<f64>::zeros((d, d));
         for a in 0..d {
@@ -3917,45 +4046,52 @@ impl NuclearNormPenalty {
                 gram[[a, b]] = g;
                 tangent_gram[[a, b]] = dg;
             }
-            gram[[a, a]] += self.smoothing_eps * self.smoothing_eps;
         }
 
-        let (evals, q) = gram
-            .eigh(Side::Lower)
-            .map_err(|err| format!("NuclearNormPenalty Gram eigendecomposition failed: {err}"))?;
-        let active_start = d.saturating_sub(self.rank_limit(d));
-        if self.max_rank.is_some() && active_start > 0 && active_start < d {
+        let (evals, q) = gram.eigh(Side::Lower).map_err(|err| {
+            format!("NuclearNormPenalty right-Gram eigendecomposition failed: {err}")
+        })?;
+        let trace_scale = evals
+            .iter()
+            .fold(0.0_f64, |acc, &lambda| acc.max(lambda.abs()))
+            .max(1.0);
+        let psd_tol = 1.0e-10 * trace_scale;
+        let mut raw_evals = Array1::<f64>::zeros(d);
+        for i in 0..d {
+            let lambda = evals[i];
+            if !lambda.is_finite() {
+                return Err(format!(
+                    "NuclearNormPenalty expected finite right-Gram eigenvalue; got {lambda}"
+                ));
+            }
+            if lambda < -psd_tol {
+                return Err(format!(
+                    "NuclearNormPenalty expected PSD right Gram; eigenvalue {lambda:.3e} \
+                     is below numerical tolerance {psd_tol:.3e}"
+                ));
+            }
+            raw_evals[i] = lambda.max(0.0);
+        }
+        if self.max_rank.is_some() && active_count < d && active_start > 0 {
             let left = evals[active_start - 1];
             let right = evals[active_start];
             let scale = (left.abs() + right.abs()).max(1.0);
             if (right - left).abs() <= 1.0e-12 * scale {
                 return Err(format!(
                     "NuclearNormPenalty HVP is undefined: max_rank splits a tied \
-                     smoothed Gram eigenvalue at the active/inactive cutoff \
+                     right-Gram eigenvalue at the active/inactive cutoff \
                      ({left:.3e}, {right:.3e})"
                 ));
             }
         }
         let mut f = Array1::<f64>::zeros(d);
         let mut df = Array1::<f64>::zeros(d);
-        let eig_floor = (self.smoothing_eps * self.smoothing_eps).max(1.0e-15);
+        let eps2 = self.smoothing_eps * self.smoothing_eps;
         for i in 0..d {
-            let mut lambda = evals[i];
-            if !lambda.is_finite() {
-                return Err(format!(
-                    "NuclearNormPenalty expected finite smoothed Gram eigenvalue; got {lambda}"
-                ));
-            }
-            if lambda < -1.0e-10 * eig_floor {
-                return Err(format!(
-                    "NuclearNormPenalty expected PSD smoothed Gram; eigenvalue {lambda:.3e} \
-                     is below numerical floor {eig_floor:.3e}"
-                ));
-            }
-            lambda = lambda.max(eig_floor);
             if i >= active_start {
-                f[i] = lambda.powf(-0.5);
-                df[i] = -0.5 * lambda.powf(-1.5);
+                let smoothed = raw_evals[i] + eps2;
+                f[i] = smoothed.powf(-0.5);
+                df[i] = -0.5 * smoothed.powf(-1.5);
             }
         }
 
@@ -3986,8 +4122,8 @@ impl NuclearNormPenalty {
         let mut derivative_basis = Array2::<f64>::zeros((d, d));
         for i in 0..d {
             for j in 0..d {
-                let denom = evals[i] - evals[j];
-                let scale = (evals[i].abs() + evals[j].abs()).max(1.0);
+                let denom = raw_evals[i] - raw_evals[j];
+                let scale = (raw_evals[i].abs() + raw_evals[j].abs()).max(1.0);
                 let divided_difference = if denom.abs() <= 1.0e-12 * scale {
                     let i_active = i >= active_start;
                     let j_active = j >= active_start;
@@ -4246,7 +4382,7 @@ impl BlockSparsityPenalty {
 
     fn resolved_weight(&self, rho: ArrayView1<'_, f64>) -> f64 {
         if self.learnable_weight {
-            self.weight * rho[self.rho_index].exp()
+            resolve_learnable_weight(self.weight, rho[self.rho_index])
         } else {
             self.weight
         }
@@ -4574,7 +4710,7 @@ impl MechanismSparsityPenalty {
 
     fn resolved_weight(&self, rho: ArrayView1<'_, f64>) -> f64 {
         if self.learnable_weight {
-            self.weight * rho[self.rho_index].exp()
+            resolve_learnable_weight(self.weight, rho[self.rho_index])
         } else {
             self.weight
         }
@@ -4891,7 +5027,7 @@ impl RowPrecisionPriorPenalty {
 
     fn resolved_weight(&self, rho: ArrayView1<'_, f64>) -> f64 {
         if self.learnable_weight {
-            self.weight * rho[self.rho_index].exp()
+            resolve_learnable_weight(self.weight, rho[self.rho_index])
         } else {
             self.weight
         }
@@ -5270,7 +5406,7 @@ impl IvaeRidgeMeanGauge {
 
     fn resolved_weight(&self, rho: ArrayView1<'_, f64>) -> f64 {
         if self.learnable_weight {
-            self.weight * rho[self.rho_index].exp()
+            resolve_learnable_weight(self.weight, rho[self.rho_index])
         } else {
             self.weight
         }
@@ -5707,7 +5843,7 @@ impl ParametricRowPrecisionPriorPenalty {
 
     fn resolved_weight(&self, rho: ArrayView1<'_, f64>) -> f64 {
         if self.learnable_weight {
-            self.weight * rho[self.weight_offset()].exp()
+            resolve_learnable_weight(self.weight, rho[self.weight_offset()])
         } else {
             self.weight
         }
@@ -6051,7 +6187,7 @@ impl ScadMcpPenalty {
 
     fn resolved_weight(&self, rho: ArrayView1<'_, f64>) -> f64 {
         if self.learnable_weight {
-            self.weight * rho[self.rho_index].exp()
+            resolve_learnable_weight(self.weight, rho[self.rho_index])
         } else {
             self.weight
         }
@@ -6404,7 +6540,7 @@ impl BlockOrthogonalityPenalty {
 
     fn resolved_weight(&self, rho: ArrayView1<'_, f64>) -> f64 {
         if self.learnable_weight {
-            self.weight * rho[self.rho_index].exp()
+            resolve_learnable_weight(self.weight, rho[self.rho_index])
         } else {
             self.weight
         }
@@ -6834,7 +6970,7 @@ impl DecoderIncoherencePenalty {
 
     fn resolved_weight(&self, rho: ArrayView1<'_, f64>) -> f64 {
         if self.learnable_weight {
-            self.weight * rho[self.rho_index].exp()
+            resolve_learnable_weight(self.weight, rho[self.rho_index])
         } else {
             self.weight
         }
@@ -7119,7 +7255,7 @@ impl OrthogonalityPenalty {
 
     fn resolved_weight(&self, rho: ArrayView1<'_, f64>) -> f64 {
         if self.learnable_weight {
-            self.weight * rho[self.rho_index].exp()
+            resolve_learnable_weight(self.weight, rho[self.rho_index])
         } else {
             self.weight
         }
@@ -8314,7 +8450,7 @@ impl NestedPrefixPenalty {
         self.prefix_sizes
             .iter()
             .enumerate()
-            .map(|(k, _)| self.shell_weights[k] * rho[self.rho_indices[k]].exp())
+            .map(|(k, _)| resolve_learnable_weight(self.shell_weights[k], rho[self.rho_indices[k]]))
             .collect()
     }
 
@@ -8486,6 +8622,31 @@ mod tests {
     use approx::assert_abs_diff_eq;
     use ndarray::array;
 
+    /// The scale-free isometry penalty (math review #681) defaults to a
+    /// `MeanProfiled` reference: the per-row pullback metric `G_n` is compared
+    /// against its own row-mean, so the penalty charges metric VARIATION across
+    /// tokens rather than absolute scale. Pin that `effective_g_ref` returns the
+    /// column-mean of `G_n` broadcast to every row.
+    #[test]
+    fn mean_profiled_isometry_reference_is_row_mean_broadcast() {
+        let n_obs = 2;
+        let d = 2;
+        let target = PsiSlice::full(n_obs * d, Some(d));
+        let pen = IsometryPenalty::new_euclidean(target, 3)
+            .with_reference(IsometryReference::MeanProfiled);
+
+        // Two per-row pullback metrics, flattened to d·d = 4 columns; the
+        // column means are [2, 3, 4, 5].
+        let g = array![[1.0_f64, 2.0, 3.0, 4.0], [3.0, 4.0, 5.0, 6.0]];
+        let g_ref = pen.effective_g_ref(&g, n_obs, d);
+        let expected = [2.0_f64, 3.0, 4.0, 5.0];
+        for n in 0..n_obs {
+            for k in 0..(d * d) {
+                assert_abs_diff_eq!(g_ref[[n, k]], expected[k], epsilon = 1e-12);
+            }
+        }
+    }
+
     #[test]
     fn ard_value_matches_quadratic_form() {
         let d = 2;
@@ -8574,6 +8735,33 @@ mod tests {
         assert!(
             max_err < 1.0e-7,
             "IBP grad-FD max abs error = {max_err:.3e}"
+        );
+    }
+
+    #[test]
+    fn ibp_assignment_extreme_logits_remain_finite() {
+        let pen = IBPAssignmentPenalty::new(3, 1.5, 1.0e-3, false);
+        let t = array![
+            1000.0_f64, -1000.0, 500.0, -500.0, 750.0, -750.0, 250.0, -250.0, 0.0
+        ];
+        let rho = Array1::<f64>::zeros(0);
+
+        let value = pen.value(t.view(), rho.view());
+        assert!(
+            value.is_finite(),
+            "IBP value must remain finite for saturated concrete logits"
+        );
+        let grad = pen.grad_target(t.view(), rho.view());
+        assert!(
+            grad.iter().all(|entry| entry.is_finite()),
+            "IBP gradient must remain finite for saturated concrete logits: {grad:?}"
+        );
+        let diag = pen
+            .hessian_diag(t.view(), rho.view())
+            .expect("IBP assignment exposes a diagonal Hessian");
+        assert!(
+            diag.iter().all(|entry| entry.is_finite()),
+            "IBP Hessian diagonal must remain finite for saturated concrete logits: {diag:?}"
         );
     }
 
@@ -9496,6 +9684,119 @@ mod tests {
     }
 
     #[test]
+    fn nuclear_norm_hvp_wide_matrix_max_rank_above_thin_rank_is_uncapped() {
+        // n_eff < latent_dim gives a permanent right-nullspace in T^T T. A
+        // max_rank above the thin SVD rank does not truncate the value/gradient,
+        // so the HVP must be the full smoothed nuclear-norm derivative too. The
+        // old right-Gram-width cap selected three of four right eigenvectors and
+        // split the tied zero-eigenvalue nullspace.
+        let n_eff = 2usize;
+        let p = 4usize;
+        let target = PsiSlice {
+            range: 0..n_eff * p,
+            latent_dim: Some(p),
+        };
+        let capped =
+            NuclearNormPenalty::new(target.clone(), 0.7, n_eff, 1.0e-3, Some(3), false).unwrap();
+        let uncapped = NuclearNormPenalty::new(target, 0.7, n_eff, 1.0e-3, None, false).unwrap();
+        let t = array![2.0_f64, 0.0, 0.0, 0.0, 0.0, 1.5, 0.0, 0.0];
+        let v = array![0.2_f64, -0.4, 0.6, -0.8, 0.3, -0.5, 0.7, -0.9];
+        let rho = Array1::<f64>::zeros(0);
+
+        let hv_capped = capped.hvp(t.view(), rho.view(), v.view());
+        let hv_uncapped = uncapped.hvp(t.view(), rho.view(), v.view());
+        for i in 0..t.len() {
+            assert!(
+                hv_capped[i].is_finite(),
+                "wide NuclearNorm HVP must stay finite at index {i}"
+            );
+            assert_abs_diff_eq!(hv_capped[i], hv_uncapped[i], epsilon = 1.0e-10);
+        }
+    }
+
+    #[test]
+    fn nuclear_norm_wide_block_max_rank_above_true_rank_value_grad_hvp_are_finite() {
+        // Regression for #742: with a 3x10 block and max_rank=4, the active SVD
+        // rank is still the thin rank 3. HVP must not use the right-Gram width
+        // cutoff, which would split the seven-dimensional right nullspace.
+        let n_eff = 3usize;
+        let p = 10usize;
+        let target = PsiSlice {
+            range: 0..n_eff * p,
+            latent_dim: Some(p),
+        };
+        let pen = NuclearNormPenalty::new(target, 0.9, n_eff, 1.0e-3, Some(4), false).unwrap();
+        let t = array![
+            2.0_f64, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, //
+            0.0, 1.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, //
+            0.0, 0.0, 1.2, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+        ];
+        let v = Array1::from_vec(
+            (0..n_eff * p)
+                .map(|i| 0.2 * ((i as f64) + 0.3).cos())
+                .collect(),
+        );
+        let rho = Array1::<f64>::zeros(0);
+
+        let value = pen.value(t.view(), rho.view());
+        let grad = pen.grad_target(t.view(), rho.view());
+        let hv = pen.hvp(t.view(), rho.view(), v.view());
+
+        assert!(value.is_finite(), "wide NuclearNorm value must be finite");
+        for i in 0..t.len() {
+            assert!(
+                grad[i].is_finite(),
+                "wide NuclearNorm gradient must be finite at index {i}"
+            );
+            assert!(
+                hv[i].is_finite(),
+                "wide NuclearNorm HVP must be finite at index {i}"
+            );
+        }
+    }
+
+    #[test]
+    fn nuclear_norm_hvp_truncated_rank_matches_gradient_directional_derivative() {
+        let n_eff = 4usize;
+        let p = 3usize;
+        let target = PsiSlice {
+            range: 0..n_eff * p,
+            latent_dim: Some(p),
+        };
+        let pen = NuclearNormPenalty::new(target, 1.1, n_eff, 0.2, Some(2), false).unwrap();
+        let t = array![
+            2.0_f64, 0.1, -0.2, 0.3, 1.5, 0.4, -0.1, 0.2, 0.9, 0.5, -0.4, 0.7
+        ];
+        let v = Array1::from_vec(
+            (0..t.len())
+                .map(|i| 0.25 * ((i as f64) + 0.7).sin())
+                .collect(),
+        );
+        let rho = Array1::<f64>::zeros(0);
+        let hv = pen.hvp(t.view(), rho.view(), v.view());
+        let eps = 1.0e-6;
+        let mut tp = t.clone();
+        let mut tm = t.clone();
+        for i in 0..t.len() {
+            tp[i] += eps * v[i];
+            tm[i] -= eps * v[i];
+        }
+        let gp = pen.grad_target(tp.view(), rho.view());
+        let gm = pen.grad_target(tm.view(), rho.view());
+        let mut max_err = 0.0_f64;
+        for i in 0..t.len() {
+            let fd = (gp[i] - gm[i]) / (2.0 * eps);
+            let err = (hv[i] - fd).abs();
+            max_err = max_err.max(err);
+            assert_abs_diff_eq!(hv[i], fd, epsilon = 1.0e-5);
+        }
+        assert!(
+            max_err <= 1.0e-5,
+            "truncated NuclearNorm HVP-FD max abs error = {max_err:.3e}"
+        );
+    }
+
+    #[test]
     fn decoder_incoherence_value_grad_self_consistent_fd() {
         let p = 3usize;
         let block_sizes = vec![2usize, 2usize];
@@ -9519,6 +9820,87 @@ mod tests {
         assert!(
             worst <= 1.0e-5,
             "DecoderIncoherence value↔grad FD max abs error = {worst:.3e}"
+        );
+    }
+
+    #[test]
+    fn decoder_incoherence_separability_semantics() {
+        // Two atoms, each a single decoder column in ℝ^{p_out=2}: atom 0 = first
+        // column, atom 1 = second. β layout is [B_0[:,0]=t0,t1 ; B_1[:,0]=t2,t3].
+        let p = 2usize;
+        let block_sizes = vec![1usize, 1usize];
+        let total: usize = block_sizes.iter().map(|m| m * p).sum();
+        let target = PsiSlice {
+            range: 0..total,
+            latent_dim: Some(total / p),
+        };
+        let full_coact = || {
+            let mut c = Array2::<f64>::zeros((2, 2));
+            c[[0, 1]] = 1.0;
+            c[[1, 0]] = 1.0;
+            c
+        };
+        let rho = Array1::<f64>::zeros(0);
+
+        // Orthogonal column-spaces ⇒ B_0^T B_1 = 0 ⇒ P ≈ 0.
+        let pen_ortho = DecoderIncoherencePenalty::new(
+            target.clone(),
+            block_sizes.clone(),
+            p,
+            full_coact(),
+            1.0,
+            false,
+        )
+        .unwrap();
+        let t_ortho = array![1.0_f64, 0.0, 0.0, 1.0];
+        let p_ortho = pen_ortho.value(t_ortho.view(), rho.view());
+        assert!(
+            p_ortho.abs() <= 1.0e-12,
+            "orthogonal decoder blocks must give P≈0, got {p_ortho:.3e}"
+        );
+
+        // Coincident column-spaces ⇒ B_0^T B_1 large ⇒ P large.
+        let pen_coinc = DecoderIncoherencePenalty::new(
+            target.clone(),
+            block_sizes.clone(),
+            p,
+            full_coact(),
+            1.0,
+            false,
+        )
+        .unwrap();
+        let t_coinc = array![1.0_f64, 0.0, 1.0, 0.0];
+        let p_coinc = pen_coinc.value(t_coinc.view(), rho.view());
+        // ½·w·W·‖B_0^T B_1‖_F² = ½·1·1·(1)² = 0.5.
+        assert!(
+            (p_coinc - 0.5).abs() <= 1.0e-12,
+            "coincident decoder blocks must give large P (=0.5 here), got {p_coinc:.3e}"
+        );
+        assert!(
+            p_coinc > p_ortho + 1.0e-3,
+            "coincident P must exceed orthogonal P"
+        );
+
+        // Co-activation weight 0 zeroes the pair's contribution even when the
+        // blocks are coincident.
+        let pen_zero = DecoderIncoherencePenalty::new(
+            target,
+            block_sizes,
+            p,
+            Array2::<f64>::zeros((2, 2)),
+            1.0,
+            false,
+        )
+        .unwrap();
+        let p_zero = pen_zero.value(t_coinc.view(), rho.view());
+        assert!(
+            p_zero.abs() <= 1.0e-12,
+            "zero co-activation must zero the pair contribution, got {p_zero:.3e}"
+        );
+        let g_zero = pen_zero.grad_target(t_coinc.view(), rho.view());
+        assert!(
+            g_zero.iter().all(|v| v.abs() <= 1.0e-12),
+            "zero co-activation must zero the pair gradient"
         );
     }
 

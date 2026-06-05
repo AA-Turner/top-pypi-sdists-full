@@ -145,7 +145,7 @@ class CfnBrowserSettings(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        additional_encryption_context: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         browser_policy: typing.Optional[builtins.str] = None,
         customer_managed_key: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -275,14 +275,14 @@ class CfnBrowserSettings(
     @jsii.member(jsii_name="additionalEncryptionContext")
     def additional_encryption_context(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''Additional encryption context of the browser settings.'''
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], jsii.get(self, "additionalEncryptionContext"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "additionalEncryptionContext"))
 
     @additional_encryption_context.setter
     def additional_encryption_context(
         self,
-        value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__70de4dee5d14f114274fd7960c64b6accb0ec49e02c002b5521af87f035095c2)
@@ -451,7 +451,7 @@ class CfnBrowserSettingsProps:
     def __init__(
         self,
         *,
-        additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        additional_encryption_context: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         browser_policy: typing.Optional[builtins.str] = None,
         customer_managed_key: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -514,13 +514,13 @@ class CfnBrowserSettingsProps:
     @builtins.property
     def additional_encryption_context(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''Additional encryption context of the browser settings.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-browsersettings.html#cfn-workspacesweb-browsersettings-additionalencryptioncontext
         '''
         result = self._values.get("additional_encryption_context")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
     @builtins.property
     def browser_policy(self) -> typing.Optional[builtins.str]:
@@ -643,7 +643,7 @@ class CfnDataProtectionSettings(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        additional_encryption_context: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         customer_managed_key: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         display_name: typing.Optional[builtins.str] = None,
@@ -787,14 +787,14 @@ class CfnDataProtectionSettings(
     @jsii.member(jsii_name="additionalEncryptionContext")
     def additional_encryption_context(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''The additional encryption context of the data protection settings.'''
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], jsii.get(self, "additionalEncryptionContext"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "additionalEncryptionContext"))
 
     @additional_encryption_context.setter
     def additional_encryption_context(
         self,
-        value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3fb99479367371b2a6c52e976d47a87740ba2c6f65f4fcf0c11ef7787923a279)
@@ -1379,7 +1379,7 @@ class CfnDataProtectionSettingsProps:
     def __init__(
         self,
         *,
-        additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        additional_encryption_context: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         customer_managed_key: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         display_name: typing.Optional[builtins.str] = None,
@@ -1472,13 +1472,13 @@ class CfnDataProtectionSettingsProps:
     @builtins.property
     def additional_encryption_context(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''The additional encryption context of the data protection settings.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-dataprotectionsettings.html#cfn-workspacesweb-dataprotectionsettings-additionalencryptioncontext
         '''
         result = self._values.get("additional_encryption_context")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
     @builtins.property
     def customer_managed_key(self) -> typing.Optional[builtins.str]:
@@ -1581,7 +1581,7 @@ class CfnIdentityProvider(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        identity_provider_details: typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"],
+        identity_provider_details: typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]],
         identity_provider_name: builtins.str,
         identity_provider_type: builtins.str,
         portal_arn: typing.Optional[builtins.str] = None,
@@ -1702,17 +1702,17 @@ class CfnIdentityProvider(
     @jsii.member(jsii_name="identityProviderDetails")
     def identity_provider_details(
         self,
-    ) -> typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]:
+    ) -> typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]:
         '''The identity provider details.
 
         The following list describes the provider detail keys for each identity provider type.
         '''
-        return typing.cast(typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"], jsii.get(self, "identityProviderDetails"))
+        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]], jsii.get(self, "identityProviderDetails"))
 
     @identity_provider_details.setter
     def identity_provider_details(
         self,
-        value: typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"],
+        value: typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6ae08bcbb1d55c54b06801705e4c1effec06173b9d5c1ab7d0301258d84aa63a)
@@ -1786,7 +1786,7 @@ class CfnIdentityProviderProps:
     def __init__(
         self,
         *,
-        identity_provider_details: typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"],
+        identity_provider_details: typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]],
         identity_provider_name: builtins.str,
         identity_provider_type: builtins.str,
         portal_arn: typing.Optional[builtins.str] = None,
@@ -1845,7 +1845,7 @@ class CfnIdentityProviderProps:
     @builtins.property
     def identity_provider_details(
         self,
-    ) -> typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]:
+    ) -> typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]:
         '''The identity provider details. The following list describes the provider detail keys for each identity provider type.
 
         - For Google and Login with Amazon:
@@ -1884,7 +1884,7 @@ class CfnIdentityProviderProps:
         '''
         result = self._values.get("identity_provider_details")
         assert result is not None, "Required property 'identity_provider_details' is missing"
-        return typing.cast(typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"], result)
+        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def identity_provider_name(self) -> builtins.str:
@@ -1984,7 +1984,7 @@ class CfnIpAccessSettings(
         id: builtins.str,
         *,
         ip_rules: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnIpAccessSettings.IpRuleProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        additional_encryption_context: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         customer_managed_key: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         display_name: typing.Optional[builtins.str] = None,
@@ -2143,14 +2143,14 @@ class CfnIpAccessSettings(
     @jsii.member(jsii_name="additionalEncryptionContext")
     def additional_encryption_context(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''Additional encryption context of the IP access settings.'''
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], jsii.get(self, "additionalEncryptionContext"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "additionalEncryptionContext"))
 
     @additional_encryption_context.setter
     def additional_encryption_context(
         self,
-        value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5f120862dd3a18b3da3624f1bbb9a6b2ec04ea91c5a0d22f1306ab87a46a1e28)
@@ -2302,7 +2302,7 @@ class CfnIpAccessSettingsProps:
         self,
         *,
         ip_rules: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnIpAccessSettings.IpRuleProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        additional_encryption_context: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         customer_managed_key: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         display_name: typing.Optional[builtins.str] = None,
@@ -2385,13 +2385,13 @@ class CfnIpAccessSettingsProps:
     @builtins.property
     def additional_encryption_context(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''Additional encryption context of the IP access settings.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-ipaccesssettings.html#cfn-workspacesweb-ipaccesssettings-additionalencryptioncontext
         '''
         result = self._values.get("additional_encryption_context")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
     @builtins.property
     def customer_managed_key(self) -> typing.Optional[builtins.str]:
@@ -2840,7 +2840,7 @@ class CfnPortal(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        additional_encryption_context: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         authentication_type: typing.Optional[builtins.str] = None,
         browser_settings_arn: typing.Optional[builtins.str] = None,
         customer_managed_key: typing.Optional[builtins.str] = None,
@@ -3054,14 +3054,14 @@ class CfnPortal(
     @jsii.member(jsii_name="additionalEncryptionContext")
     def additional_encryption_context(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''The additional encryption context of the portal.'''
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], jsii.get(self, "additionalEncryptionContext"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "additionalEncryptionContext"))
 
     @additional_encryption_context.setter
     def additional_encryption_context(
         self,
-        value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e96df37d1cd0e854d8d279f26233ce4f30ad6bd4d9de076905b0443b8c425f03)
@@ -3298,7 +3298,7 @@ class CfnPortalProps:
     def __init__(
         self,
         *,
-        additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        additional_encryption_context: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         authentication_type: typing.Optional[builtins.str] = None,
         browser_settings_arn: typing.Optional[builtins.str] = None,
         customer_managed_key: typing.Optional[builtins.str] = None,
@@ -3423,13 +3423,13 @@ class CfnPortalProps:
     @builtins.property
     def additional_encryption_context(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''The additional encryption context of the portal.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-portal.html#cfn-workspacesweb-portal-additionalencryptioncontext
         '''
         result = self._values.get("additional_encryption_context")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
     @builtins.property
     def authentication_type(self) -> typing.Optional[builtins.str]:
@@ -3648,7 +3648,7 @@ class CfnSessionLogger(
         *,
         event_filter: typing.Union["_IResolvable_da3f097b", typing.Union["CfnSessionLogger.EventFilterProperty", typing.Dict[builtins.str, typing.Any]]],
         log_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnSessionLogger.LogConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
-        additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        additional_encryption_context: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         customer_managed_key: typing.Optional[builtins.str] = None,
         display_name: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -3824,14 +3824,14 @@ class CfnSessionLogger(
     @jsii.member(jsii_name="additionalEncryptionContext")
     def additional_encryption_context(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''The additional encryption context of the session logger.'''
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], jsii.get(self, "additionalEncryptionContext"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "additionalEncryptionContext"))
 
     @additional_encryption_context.setter
     def additional_encryption_context(
         self,
-        value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__537d3e1f1f27dd421a4b648f2d1cfd2cafc17c6a94f1210fd5389a3d16c72bf0)
@@ -4163,7 +4163,7 @@ class CfnSessionLoggerProps:
         *,
         event_filter: typing.Union["_IResolvable_da3f097b", typing.Union["CfnSessionLogger.EventFilterProperty", typing.Dict[builtins.str, typing.Any]]],
         log_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnSessionLogger.LogConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
-        additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        additional_encryption_context: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         customer_managed_key: typing.Optional[builtins.str] = None,
         display_name: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -4266,13 +4266,13 @@ class CfnSessionLoggerProps:
     @builtins.property
     def additional_encryption_context(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''The additional encryption context of the session logger.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-sessionlogger.html#cfn-workspacesweb-sessionlogger-additionalencryptioncontext
         '''
         result = self._values.get("additional_encryption_context")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
     @builtins.property
     def customer_managed_key(self) -> typing.Optional[builtins.str]:
@@ -4948,7 +4948,7 @@ class CfnUserSettings(
         paste_allowed: builtins.str,
         print_allowed: builtins.str,
         upload_allowed: builtins.str,
-        additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        additional_encryption_context: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         branding_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserSettings.BrandingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         cookie_synchronization_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserSettings.CookieSynchronizationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         customer_managed_key: typing.Optional[builtins.str] = None,
@@ -5201,14 +5201,14 @@ class CfnUserSettings(
     @jsii.member(jsii_name="additionalEncryptionContext")
     def additional_encryption_context(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''The additional encryption context of the user settings.'''
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], jsii.get(self, "additionalEncryptionContext"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "additionalEncryptionContext"))
 
     @additional_encryption_context.setter
     def additional_encryption_context(
         self,
-        value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fca2cad6e9c549a52ed27d6e7203a4dde55fdf1eed387d37637b922c0743a318)
@@ -6179,7 +6179,7 @@ class CfnUserSettingsProps:
         paste_allowed: builtins.str,
         print_allowed: builtins.str,
         upload_allowed: builtins.str,
-        additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        additional_encryption_context: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         branding_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserSettings.BrandingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         cookie_synchronization_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserSettings.CookieSynchronizationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         customer_managed_key: typing.Optional[builtins.str] = None,
@@ -6398,13 +6398,13 @@ class CfnUserSettingsProps:
     @builtins.property
     def additional_encryption_context(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''The additional encryption context of the user settings.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-usersettings.html#cfn-workspacesweb-usersettings-additionalencryptioncontext
         '''
         result = self._values.get("additional_encryption_context")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
     @builtins.property
     def branding_configuration(
@@ -6540,7 +6540,7 @@ def _typecheckingstub__bddcc45afa30e005718c5da3d3034bff6b9c0453326851818da6294dc
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    additional_encryption_context: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     browser_policy: typing.Optional[builtins.str] = None,
     customer_managed_key: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -6574,7 +6574,7 @@ def _typecheckingstub__f4cab7e5af66cb2aa7162f6b46ea25dc53695260ce84c6550f897b70b
     pass
 
 def _typecheckingstub__70de4dee5d14f114274fd7960c64b6accb0ec49e02c002b5521af87f035095c2(
-    value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6614,7 +6614,7 @@ def _typecheckingstub__d653fef38c8440747febeeb204a9a13be6c35357662ad8ba8ddb3e8f9
 
 def _typecheckingstub__f99c227d497f6d51d01cc19398b94784835fab55afca7c6488466bb1cc1420b3(
     *,
-    additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    additional_encryption_context: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     browser_policy: typing.Optional[builtins.str] = None,
     customer_managed_key: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -6627,7 +6627,7 @@ def _typecheckingstub__851565cba0af7c67b6951a864a7d6671af0039654a56671ed86d28919
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    additional_encryption_context: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     customer_managed_key: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     display_name: typing.Optional[builtins.str] = None,
@@ -6662,7 +6662,7 @@ def _typecheckingstub__029b8eb91b5f7341d86b33581460523348eedfa665657364ac1293ba7
     pass
 
 def _typecheckingstub__3fb99479367371b2a6c52e976d47a87740ba2c6f65f4fcf0c11ef7787923a279(
-    value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6739,7 +6739,7 @@ def _typecheckingstub__93e3fa90dfeb5ed27de42632610186e3eec8e8ee42bce56d7f8dcb07d
 
 def _typecheckingstub__9bd186c92264d6b6332cc9ff86b6f530f1f3d30da79101020cac77924b86ea5a(
     *,
-    additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    additional_encryption_context: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     customer_managed_key: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     display_name: typing.Optional[builtins.str] = None,
@@ -6753,7 +6753,7 @@ def _typecheckingstub__439cd32d129b1f0a69c13fb5a494170084be122497b619a7175debec5
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    identity_provider_details: typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b],
+    identity_provider_details: typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]],
     identity_provider_name: builtins.str,
     identity_provider_type: builtins.str,
     portal_arn: typing.Optional[builtins.str] = None,
@@ -6787,7 +6787,7 @@ def _typecheckingstub__ec876abe2e87a8e0cb2641e36f36bd29bb0a19b65cc2d8f6be54a630a
     pass
 
 def _typecheckingstub__6ae08bcbb1d55c54b06801705e4c1effec06173b9d5c1ab7d0301258d84aa63a(
-    value: typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b],
+    value: typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6818,7 +6818,7 @@ def _typecheckingstub__f529ceae5ebe64b079470ab15dfc0b78fc406f1eaba9be1f4902b355c
 
 def _typecheckingstub__fc73238ea7aab35d7f7ec21a88a98c698e64b413b81129270666c830ae963a4d(
     *,
-    identity_provider_details: typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b],
+    identity_provider_details: typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]],
     identity_provider_name: builtins.str,
     identity_provider_type: builtins.str,
     portal_arn: typing.Optional[builtins.str] = None,
@@ -6832,7 +6832,7 @@ def _typecheckingstub__4e3f00304b675ee88c29734b1fad40f8e448afe808a4226188c1c74e8
     id: builtins.str,
     *,
     ip_rules: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIpAccessSettings.IpRuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    additional_encryption_context: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     customer_managed_key: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     display_name: typing.Optional[builtins.str] = None,
@@ -6872,7 +6872,7 @@ def _typecheckingstub__dc300ade0369b0ab447aa7806a51ee2809fea6ffd0fffc0129fb173b7
     pass
 
 def _typecheckingstub__5f120862dd3a18b3da3624f1bbb9a6b2ec04ea91c5a0d22f1306ab87a46a1e28(
-    value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6912,7 +6912,7 @@ def _typecheckingstub__6ef91a56d003f837ee2a6f8431647b2dcdd5ff9d72afb0d6f7cb1c50c
 def _typecheckingstub__332b0cacbcd242c5add5b067133a69e3ee9f775e64856bf6ae48c84e34d0b475(
     *,
     ip_rules: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIpAccessSettings.IpRuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    additional_encryption_context: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     customer_managed_key: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     display_name: typing.Optional[builtins.str] = None,
@@ -6995,7 +6995,7 @@ def _typecheckingstub__239c61bc87a1a693f01a28198d2d3000f7ef790e9684279e807a890b0
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    additional_encryption_context: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     authentication_type: typing.Optional[builtins.str] = None,
     browser_settings_arn: typing.Optional[builtins.str] = None,
     customer_managed_key: typing.Optional[builtins.str] = None,
@@ -7040,7 +7040,7 @@ def _typecheckingstub__5081fb673d60a8535462986536cbc12cbdb7c5238378c64aaee6592cb
     pass
 
 def _typecheckingstub__e96df37d1cd0e854d8d279f26233ce4f30ad6bd4d9de076905b0443b8c425f03(
-    value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7137,7 +7137,7 @@ def _typecheckingstub__e3c9a5aba1f82c8cb8d06dba7c424aabe0b4a862dd045ea1515145403
 
 def _typecheckingstub__aa147912cdfb0d9ea5356fccc59e7ae5b02c822d1e3f5ae2e4826ae39e89f283(
     *,
-    additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    additional_encryption_context: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     authentication_type: typing.Optional[builtins.str] = None,
     browser_settings_arn: typing.Optional[builtins.str] = None,
     customer_managed_key: typing.Optional[builtins.str] = None,
@@ -7163,7 +7163,7 @@ def _typecheckingstub__5ecda6b775e0aad6e840315c150daa1cae407a534f747e34d2336449d
     *,
     event_filter: typing.Union[_IResolvable_da3f097b, typing.Union[CfnSessionLogger.EventFilterProperty, typing.Dict[builtins.str, typing.Any]]],
     log_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnSessionLogger.LogConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-    additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    additional_encryption_context: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     customer_managed_key: typing.Optional[builtins.str] = None,
     display_name: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -7208,7 +7208,7 @@ def _typecheckingstub__e28c4c53e5ee42bd3a2b3077ae66818ce670fc07686e11ffa703be889
     pass
 
 def _typecheckingstub__537d3e1f1f27dd421a4b648f2d1cfd2cafc17c6a94f1210fd5389a3d16c72bf0(
-    value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7261,7 +7261,7 @@ def _typecheckingstub__042e70be11dd83b286871d0bfa14e8054acd3b7c9dfd43fc0e770ee8a
     *,
     event_filter: typing.Union[_IResolvable_da3f097b, typing.Union[CfnSessionLogger.EventFilterProperty, typing.Dict[builtins.str, typing.Any]]],
     log_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnSessionLogger.LogConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-    additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    additional_encryption_context: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     customer_managed_key: typing.Optional[builtins.str] = None,
     display_name: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -7386,7 +7386,7 @@ def _typecheckingstub__75a973eee52af75d8440f76e110a255d358bfa0d721a06403da3f4b3d
     paste_allowed: builtins.str,
     print_allowed: builtins.str,
     upload_allowed: builtins.str,
-    additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    additional_encryption_context: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     branding_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserSettings.BrandingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     cookie_synchronization_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserSettings.CookieSynchronizationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     customer_managed_key: typing.Optional[builtins.str] = None,
@@ -7455,7 +7455,7 @@ def _typecheckingstub__ab95c6b32fc019924a90410af98fcff3bd60af47435e3704bf57b3854
     pass
 
 def _typecheckingstub__fca2cad6e9c549a52ed27d6e7203a4dde55fdf1eed387d37637b922c0743a318(
-    value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7586,7 +7586,7 @@ def _typecheckingstub__f5fdddc739ee6575c152d4edd4b1958f0aed7897d0804077cf3ed5b58
     paste_allowed: builtins.str,
     print_allowed: builtins.str,
     upload_allowed: builtins.str,
-    additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    additional_encryption_context: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     branding_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserSettings.BrandingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     cookie_synchronization_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserSettings.CookieSynchronizationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     customer_managed_key: typing.Optional[builtins.str] = None,

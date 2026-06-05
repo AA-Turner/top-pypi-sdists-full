@@ -30,6 +30,8 @@ class MeetingTypedDict(TypedDict):
     title: str
     meeting_title: Nullable[str]
     r"""Calendar event title."""
+    meeting_type: Nullable[str]
+    r"""The name of the meeting type assigned to this meeting, or `null` if none is assigned."""
     recording_id: int
     r"""The ID of the meeting recording."""
     url: str
@@ -58,6 +60,9 @@ class Meeting(BaseModel):
 
     meeting_title: Nullable[str]
     r"""Calendar event title."""
+
+    meeting_type: Nullable[str]
+    r"""The name of the meeting type assigned to this meeting, or `null` if none is assigned."""
 
     recording_id: int
     r"""The ID of the meeting recording."""
@@ -106,6 +111,7 @@ class Meeting(BaseModel):
         ]
         nullable_fields = [
             "meeting_title",
+            "meeting_type",
             "transcript",
             "default_summary",
             "action_items",

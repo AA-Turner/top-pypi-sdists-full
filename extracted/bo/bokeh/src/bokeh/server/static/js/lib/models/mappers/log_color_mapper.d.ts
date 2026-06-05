@@ -5,6 +5,7 @@ export type LogScanData = {
     min: number;
     max: number;
     scale: number;
+    is_reversed: boolean;
 };
 export declare namespace LogColorMapper {
     type Attrs = p.AttrsOf<Props>;

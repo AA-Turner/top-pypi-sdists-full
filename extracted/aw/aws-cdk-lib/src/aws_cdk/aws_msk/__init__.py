@@ -1536,7 +1536,7 @@ class CfnCluster(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_msk as msk
                 
-                e_bSStorage_info_property = msk.CfnCluster.EBSStorageInfoProperty(
+                e_bs_storage_info_property = msk.CfnCluster.EBSStorageInfoProperty(
                     provisioned_throughput=msk.CfnCluster.ProvisionedThroughputProperty(
                         enabled=False,
                         volume_throughput=123

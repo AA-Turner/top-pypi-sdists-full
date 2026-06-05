@@ -92,13 +92,13 @@ def lexicographic_sort_schema(schema: GraphQLSchema) -> GraphQLSchema:
     ) -> Dict[str, GraphQLInputField]:
         return {
             name: GraphQLInputField(
-                cast(
-                    GraphQLInputType, replace_type(cast(GraphQLNamedType, field.type))
-                ),
-                description=field.description,
-                default_value=field.default_value,
-                extensions=field.extensions,
-                ast_node=field.ast_node,
+                **merge_kwargs(
+                    field.to_kwargs(),
+                    type_=cast(
+                        GraphQLInputType,
+                        replace_type(cast(GraphQLNamedType, field.type)),
+                    ),
+                )
             )
             for name, field in sorted(fields_map.items())
         }
@@ -169,20 +169,24 @@ def lexicographic_sort_schema(schema: GraphQLSchema) -> GraphQLSchema:
     }
 
     return GraphQLSchema(
-        types=type_map.values(),
-        directives=[
-            sort_directive(directive)
-            for directive in sorted(schema.directives, key=sort_by_name_key)
-        ],
-        query=cast(Optional[GraphQLObjectType], replace_maybe_type(schema.query_type)),
-        mutation=cast(
-            Optional[GraphQLObjectType], replace_maybe_type(schema.mutation_type)
-        ),
-        subscription=cast(
-            Optional[GraphQLObjectType], replace_maybe_type(schema.subscription_type)
-        ),
-        extensions=schema.extensions,
-        ast_node=schema.ast_node,
+        **merge_kwargs(
+            schema.to_kwargs(),
+            types=type_map.values(),
+            directives=[
+                sort_directive(directive)
+                for directive in sorted(schema.directives, key=sort_by_name_key)
+            ],
+            query=cast(
+                Optional[GraphQLObjectType], replace_maybe_type(schema.query_type)
+            ),
+            mutation=cast(
+                Optional[GraphQLObjectType], replace_maybe_type(schema.mutation_type)
+            ),
+            subscription=cast(
+                Optional[GraphQLObjectType],
+                replace_maybe_type(schema.subscription_type),
+            ),
+        )
     )
 
 

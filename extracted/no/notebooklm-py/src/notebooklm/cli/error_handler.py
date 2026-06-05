@@ -19,6 +19,7 @@ from ..exceptions import (
     NetworkError,
     NotebookLimitError,
     NotebookLMError,
+    NotFoundError,
     RateLimitError,
     RPCError,
     ValidationError,
@@ -27,36 +28,12 @@ from ._encoding import safe_echo
 
 logger = logging.getLogger(__name__)
 
-# Sites where direct Click exceptions remain appropriate because they are
-# input-validation boundaries before command output is committed. The lint in
-# ``tests/_lint/test_error_handler_allowlist.py`` keeps this list exact.
-ALLOWED_CLICK_EXCEPTION_SITES: list[tuple[str, int, str]] = [
-    ("src/notebooklm/cli/input.py", 31, "stdin must decode as UTF-8 before command body runs"),
-    ("src/notebooklm/cli/input.py", 80, "prompt-file path validation"),
-    ("src/notebooklm/cli/input.py", 84, "prompt-file read validation"),
-    ("src/notebooklm/cli/input.py", 86, "prompt-file UTF-8 validation"),
-    ("src/notebooklm/cli/profile_cmd.py", 52, "profile name validation translation"),
-    ("src/notebooklm/cli/profile_cmd.py", 53, "profile name validation translation"),
-    ("src/notebooklm/cli/profile_cmd.py", 176, "profile path/name validation"),
-    ("src/notebooklm/cli/profile_cmd.py", 178, "profile create duplicate validation"),
-    ("src/notebooklm/cli/profile_cmd.py", 198, "profile path/name validation"),
-    ("src/notebooklm/cli/profile_cmd.py", 202, "profile switch target validation"),
-    ("src/notebooklm/cli/profile_cmd.py", 216, "profile config write validation"),
-    ("src/notebooklm/cli/profile_cmd.py", 237, "profile path/name validation"),
-    ("src/notebooklm/cli/profile_cmd.py", 243, "profile delete active/default validation"),
-    ("src/notebooklm/cli/profile_cmd.py", 249, "profile delete target validation"),
-    ("src/notebooklm/cli/profile_cmd.py", 276, "profile path/name validation"),
-    ("src/notebooklm/cli/profile_cmd.py", 279, "profile rename source validation"),
-    ("src/notebooklm/cli/profile_cmd.py", 281, "profile rename destination validation"),
-    ("src/notebooklm/cli/resolve.py", 58, "entity ID argument validation"),
-    ("src/notebooklm/cli/session_cmd.py", 161, "login profile-name validation translation"),
-    ("src/notebooklm/cli/session_cmd.py", 162, "login profile-name validation translation"),
-]
-
-# Raw ``raise SystemExit`` should live in this module. If a future path truly
-# cannot route through ``exit_with_code``/``_output_error``, it must be listed
-# here with a reason.
-ALLOWED_RAW_SYSEXIT_SITES: list[tuple[str, int, str]] = []
+# NOTE: ``click.ClickException`` / raw ``raise SystemExit`` sites outside this
+# module are governed by inline marker comments
+# (``# cli-input-validation: <reason>`` / ``# cli-raw-exit: <reason>``), checked
+# by ``tests/_guardrails/test_error_handler_allowlist.py``. The previous
+# ``ALLOWED_*_SITES`` line-number allowlists were removed in issue #1298 because
+# any edit above a site shifted its line and failed CI with no behavior change.
 
 
 def current_json_output(default: bool = False) -> bool:
@@ -82,6 +59,41 @@ def exit_with_code(exit_code: int = 1) -> NoReturn:
     raise SystemExit(exit_code)
 
 
+# Per-``*NotFoundError`` resource-id attribute names, in MRO order. Each
+# concrete subclass stores its missing-id under exactly one of these (e.g.
+# ``SourceNotFoundError.source_id``, ``NotebookNotFoundError.notebook_id``),
+# so the central handler can surface the id in the ``NOT_FOUND`` JSON envelope
+# the same way the per-command sites do — without importing every subclass.
+_NOT_FOUND_ID_ATTRS = (
+    "notebook_id",
+    "source_id",
+    "artifact_id",
+    "note_id",
+    "mind_map_id",
+)
+
+
+def _not_found_extra(error: NotFoundError) -> dict[str, Any]:
+    """Build the JSON ``extra`` block for a ``*NotFoundError`` envelope.
+
+    Surfaces whichever resource-id attribute the concrete subclass carries
+    (``source_id`` / ``artifact_id`` / ``note_id`` / ``mind_map_id`` /
+    ``notebook_id``) under both its native key and a generic ``id`` key, so
+    automation can read the id without knowing the exact not-found subtype —
+    mirroring the per-command ``source``/``artifact``/``note get`` payloads.
+    Returns an empty dict when no known id attribute is present (e.g. a future
+    ``*NotFoundError`` subclass); the caller drops an empty ``extra``.
+    """
+    extra: dict[str, Any] = {}
+    for attr in _NOT_FOUND_ID_ATTRS:
+        value = getattr(error, attr, None)
+        if value is not None:
+            extra[attr] = value
+            extra["id"] = value
+            break
+    return extra
+
+
 def _generation_status_extra(status: Any) -> dict[str, Any]:
     """Serialize a GenerationStatus-like object for JSON error payloads."""
     return {
@@ -101,7 +113,7 @@ def _output_error(
     exit_code: int,
     extra: dict[str, Any] | None = None,
     hint: str | None = None,
-) -> None:
+) -> NoReturn:
     """Output error message in text or JSON format and exit.
 
     Args:
@@ -280,6 +292,28 @@ def handle_errors(verbose: bool = False, json_output: bool = False) -> Generator
             1,
             extra=extra_data,
         )
+    except NotFoundError as e:
+        # The ``NotFoundError`` umbrella catches every concrete
+        # ``*NotFoundError`` (notebook / source / artifact / note / mind map),
+        # which all derive ``(NotFoundError, RPCError, <Domain>Error)``. Placed
+        # AFTER the more-specific branches (none of which are ancestors of a
+        # ``*NotFoundError`` — verified by the handler's exception MRO) and
+        # BEFORE the generic ``NotebookLMError`` catch-all so a missing resource
+        # emits the typed ``NOT_FOUND`` envelope (matching the per-command
+        # ``source``/``artifact``/``note get`` convention) instead of the
+        # generic ``NOTEBOOKLM_ERROR``. This makes the central handler faithful
+        # to the v0.8.0 raise-sites previewed by ``NOTEBOOKLM_FUTURE_ERRORS``
+        # (e.g. ``get()`` -> raise, ``rename``/``update`` on a missing target).
+        nf_extra = _not_found_extra(e)
+        if verbose and isinstance(e, RPCError) and e.method_id:
+            nf_extra["method_id"] = e.method_id
+        _output_error(
+            f"Error: {e}",
+            "NOT_FOUND",
+            json_output,
+            1,
+            extra=nf_extra or None,
+        )
     except NotebookLMError as e:
         extra_info: dict[str, Any] | None = None
         if verbose and isinstance(e, RPCError) and e.method_id:
@@ -289,14 +323,14 @@ def handle_errors(verbose: bool = False, json_output: bool = False) -> Generator
         # Let Click handle its own exceptions (--help, bad args, etc.)
         raise
     except Exception as e:
-        # P1-18: emit only the exception's primary message (``args[0]``) to
+        # Emit only the exception's primary message (``args[0]``) to
         # the user. ``str(e)`` would walk Python's default representation,
         # which for some third-party exceptions includes repr of every arg
         # — surfacing whatever the raise site put in (potentially full
         # subprocess output, response bodies, etc.). Pinning to ``args[0]``
         # keeps the contract: raise sites are responsible for producing a
         # safe message; the handler does not re-render.
-        # Claude bot review feedback: third-party exceptions can put non-string
+        # Third-party exceptions can put non-string
         # objects in ``args[0]`` (e.g. ``ValueError(42)``, ``SomeErr({"code":
         # 404})``). The f-string below would call ``str()`` implicitly anyway,
         # but the explicit cast makes the contract obvious and avoids surprises

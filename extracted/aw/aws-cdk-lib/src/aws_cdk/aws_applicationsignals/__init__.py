@@ -656,6 +656,19 @@ class CfnServiceLevelObjective(
             ),
             request_based_sli=applicationsignals.CfnServiceLevelObjective.RequestBasedSliProperty(
                 request_based_sli_metric=applicationsignals.CfnServiceLevelObjective.RequestBasedSliMetricProperty(
+                    composite_sli_config=applicationsignals.CfnServiceLevelObjective.CompositeSliConfigProperty(
+                        selection_config=applicationsignals.CfnServiceLevelObjective.SelectionConfigProperty(
+                            type="type",
+        
+                            # the properties below are optional
+                            pattern="pattern"
+                        ),
+        
+                        # the properties below are optional
+                        composite_sli_components=[applicationsignals.CfnServiceLevelObjective.CompositeSliComponentProperty(
+                            operation_name="operationName"
+                        )]
+                    ),
                     dependency_config=applicationsignals.CfnServiceLevelObjective.DependencyConfigProperty(
                         dependency_key_attributes={
                             "dependency_key_attributes_key": "dependencyKeyAttributes"
@@ -665,6 +678,17 @@ class CfnServiceLevelObjective(
                     key_attributes={
                         "key_attributes_key": "keyAttributes"
                     },
+                    metric_name="metricName",
+                    metric_source=applicationsignals.CfnServiceLevelObjective.MetricSourceProperty(
+                        metric_source_key_attributes={
+                            "metric_source_key_attributes_key": "metricSourceKeyAttributes"
+                        },
+        
+                        # the properties below are optional
+                        metric_source_attributes={
+                            "metric_source_attributes_key": "metricSourceAttributes"
+                        }
+                    ),
                     metric_type="metricType",
                     monitored_request_count_metric=applicationsignals.CfnServiceLevelObjective.MonitoredRequestCountMetricProperty(
                         bad_count_metric=[applicationsignals.CfnServiceLevelObjective.MetricDataQueryProperty(
@@ -748,6 +772,19 @@ class CfnServiceLevelObjective(
                 comparison_operator="comparisonOperator",
                 metric_threshold=123,
                 sli_metric=applicationsignals.CfnServiceLevelObjective.SliMetricProperty(
+                    composite_sli_config=applicationsignals.CfnServiceLevelObjective.CompositeSliConfigProperty(
+                        selection_config=applicationsignals.CfnServiceLevelObjective.SelectionConfigProperty(
+                            type="type",
+        
+                            # the properties below are optional
+                            pattern="pattern"
+                        ),
+        
+                        # the properties below are optional
+                        composite_sli_components=[applicationsignals.CfnServiceLevelObjective.CompositeSliComponentProperty(
+                            operation_name="operationName"
+                        )]
+                    ),
                     dependency_config=applicationsignals.CfnServiceLevelObjective.DependencyConfigProperty(
                         dependency_key_attributes={
                             "dependency_key_attributes_key": "dependencyKeyAttributes"
@@ -780,6 +817,17 @@ class CfnServiceLevelObjective(
                         ),
                         return_data=False
                     )],
+                    metric_name="metricName",
+                    metric_source=applicationsignals.CfnServiceLevelObjective.MetricSourceProperty(
+                        metric_source_key_attributes={
+                            "metric_source_key_attributes_key": "metricSourceKeyAttributes"
+                        },
+        
+                        # the properties below are optional
+                        metric_source_attributes={
+                            "metric_source_attributes_key": "metricSourceAttributes"
+                        }
+                    ),
                     metric_type="metricType",
                     operation_name="operationName",
                     period_seconds=123,
@@ -1239,6 +1287,140 @@ class CfnServiceLevelObjective(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_applicationsignals.CfnServiceLevelObjective.CompositeSliComponentProperty",
+        jsii_struct_bases=[],
+        name_mapping={"operation_name": "operationName"},
+    )
+    class CompositeSliComponentProperty:
+        def __init__(self, *, operation_name: builtins.str) -> None:
+            '''
+            :param operation_name: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-servicelevelobjective-compositeslicomponent.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_applicationsignals as applicationsignals
+                
+                composite_sli_component_property = applicationsignals.CfnServiceLevelObjective.CompositeSliComponentProperty(
+                    operation_name="operationName"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__6cbbe131565e0a6fbbbdb80ec284ef94ceea8af44cba7908a46efe65116a92ef)
+                check_type(argname="argument operation_name", value=operation_name, expected_type=type_hints["operation_name"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "operation_name": operation_name,
+            }
+
+        @builtins.property
+        def operation_name(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-servicelevelobjective-compositeslicomponent.html#cfn-applicationsignals-servicelevelobjective-compositeslicomponent-operationname
+            '''
+            result = self._values.get("operation_name")
+            assert result is not None, "Required property 'operation_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CompositeSliComponentProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_applicationsignals.CfnServiceLevelObjective.CompositeSliConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "selection_config": "selectionConfig",
+            "composite_sli_components": "compositeSliComponents",
+        },
+    )
+    class CompositeSliConfigProperty:
+        def __init__(
+            self,
+            *,
+            selection_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnServiceLevelObjective.SelectionConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+            composite_sli_components: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnServiceLevelObjective.CompositeSliComponentProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        ) -> None:
+            '''
+            :param selection_config: 
+            :param composite_sli_components: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-servicelevelobjective-compositesliconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_applicationsignals as applicationsignals
+                
+                composite_sli_config_property = applicationsignals.CfnServiceLevelObjective.CompositeSliConfigProperty(
+                    selection_config=applicationsignals.CfnServiceLevelObjective.SelectionConfigProperty(
+                        type="type",
+                
+                        # the properties below are optional
+                        pattern="pattern"
+                    ),
+                
+                    # the properties below are optional
+                    composite_sli_components=[applicationsignals.CfnServiceLevelObjective.CompositeSliComponentProperty(
+                        operation_name="operationName"
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__d01291cb4a8f53e672d552c3c4677fcf54d725993377589d02699e4b90490c7c)
+                check_type(argname="argument selection_config", value=selection_config, expected_type=type_hints["selection_config"])
+                check_type(argname="argument composite_sli_components", value=composite_sli_components, expected_type=type_hints["composite_sli_components"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "selection_config": selection_config,
+            }
+            if composite_sli_components is not None:
+                self._values["composite_sli_components"] = composite_sli_components
+
+        @builtins.property
+        def selection_config(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.SelectionConfigProperty"]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-servicelevelobjective-compositesliconfig.html#cfn-applicationsignals-servicelevelobjective-compositesliconfig-selectionconfig
+            '''
+            result = self._values.get("selection_config")
+            assert result is not None, "Required property 'selection_config' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.SelectionConfigProperty"], result)
+
+        @builtins.property
+        def composite_sli_components(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.CompositeSliComponentProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-servicelevelobjective-compositesliconfig.html#cfn-applicationsignals-servicelevelobjective-compositesliconfig-compositeslicomponents
+            '''
+            result = self._values.get("composite_sli_components")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.CompositeSliComponentProperty"]]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CompositeSliConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_applicationsignals.CfnServiceLevelObjective.DependencyConfigProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -1250,7 +1432,7 @@ class CfnServiceLevelObjective(
         def __init__(
             self,
             *,
-            dependency_key_attributes: typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"],
+            dependency_key_attributes: typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]],
             dependency_operation_name: builtins.str,
         ) -> None:
             '''Identifies the dependency using the ``DependencyKeyAttributes`` and ``DependencyOperationName`` .
@@ -1286,7 +1468,7 @@ class CfnServiceLevelObjective(
         @builtins.property
         def dependency_key_attributes(
             self,
-        ) -> typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]:
             '''If this SLO is related to a metric collected by Application Signals, you must use this field to specify which dependency the SLO metric is related to.
 
             - ``Type`` designates the type of object this is.
@@ -1299,7 +1481,7 @@ class CfnServiceLevelObjective(
             '''
             result = self._values.get("dependency_key_attributes")
             assert result is not None, "Required property 'dependency_key_attributes' is missing"
-            return typing.cast(typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]], result)
 
         @builtins.property
         def dependency_operation_name(self) -> builtins.str:
@@ -1975,6 +2157,90 @@ class CfnServiceLevelObjective(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_applicationsignals.CfnServiceLevelObjective.MetricSourceProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "metric_source_key_attributes": "metricSourceKeyAttributes",
+            "metric_source_attributes": "metricSourceAttributes",
+        },
+    )
+    class MetricSourceProperty:
+        def __init__(
+            self,
+            *,
+            metric_source_key_attributes: typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]],
+            metric_source_attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
+        ) -> None:
+            '''Configuration for identifying the source of metrics for non-Application Signals services.
+
+            :param metric_source_key_attributes: Required attributes that identify the metric source.
+            :param metric_source_attributes: Optional additional attributes for the metric source.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-servicelevelobjective-metricsource.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_applicationsignals as applicationsignals
+                
+                metric_source_property = applicationsignals.CfnServiceLevelObjective.MetricSourceProperty(
+                    metric_source_key_attributes={
+                        "metric_source_key_attributes_key": "metricSourceKeyAttributes"
+                    },
+                
+                    # the properties below are optional
+                    metric_source_attributes={
+                        "metric_source_attributes_key": "metricSourceAttributes"
+                    }
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__07485a5251b8d32cfa23934b2d6957e585c5dafc7af8830e303147c48cfab3fd)
+                check_type(argname="argument metric_source_key_attributes", value=metric_source_key_attributes, expected_type=type_hints["metric_source_key_attributes"])
+                check_type(argname="argument metric_source_attributes", value=metric_source_attributes, expected_type=type_hints["metric_source_attributes"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "metric_source_key_attributes": metric_source_key_attributes,
+            }
+            if metric_source_attributes is not None:
+                self._values["metric_source_attributes"] = metric_source_attributes
+
+        @builtins.property
+        def metric_source_key_attributes(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]:
+            '''Required attributes that identify the metric source.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-servicelevelobjective-metricsource.html#cfn-applicationsignals-servicelevelobjective-metricsource-metricsourcekeyattributes
+            '''
+            result = self._values.get("metric_source_key_attributes")
+            assert result is not None, "Required property 'metric_source_key_attributes' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]], result)
+
+        @builtins.property
+        def metric_source_attributes(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+            '''Optional additional attributes for the metric source.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-servicelevelobjective-metricsource.html#cfn-applicationsignals-servicelevelobjective-metricsource-metricsourceattributes
+            '''
+            result = self._values.get("metric_source_attributes")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MetricSourceProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_applicationsignals.CfnServiceLevelObjective.MetricStatProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -2279,8 +2545,11 @@ class CfnServiceLevelObjective(
         jsii_type="aws-cdk-lib.aws_applicationsignals.CfnServiceLevelObjective.RequestBasedSliMetricProperty",
         jsii_struct_bases=[],
         name_mapping={
+            "composite_sli_config": "compositeSliConfig",
             "dependency_config": "dependencyConfig",
             "key_attributes": "keyAttributes",
+            "metric_name": "metricName",
+            "metric_source": "metricSource",
             "metric_type": "metricType",
             "monitored_request_count_metric": "monitoredRequestCountMetric",
             "operation_name": "operationName",
@@ -2291,8 +2560,11 @@ class CfnServiceLevelObjective(
         def __init__(
             self,
             *,
+            composite_sli_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnServiceLevelObjective.CompositeSliConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             dependency_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnServiceLevelObjective.DependencyConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            key_attributes: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            key_attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
+            metric_name: typing.Optional[builtins.str] = None,
+            metric_source: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnServiceLevelObjective.MetricSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             metric_type: typing.Optional[builtins.str] = None,
             monitored_request_count_metric: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnServiceLevelObjective.MonitoredRequestCountMetricProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             operation_name: typing.Optional[builtins.str] = None,
@@ -2300,8 +2572,11 @@ class CfnServiceLevelObjective(
         ) -> None:
             '''This structure contains the information about the metric that is used for a request-based SLO.
 
+            :param composite_sli_config: 
             :param dependency_config: Identifies the dependency using the ``DependencyKeyAttributes`` and ``DependencyOperationName`` .
             :param key_attributes: This is a string-to-string map that contains information about the type of object that this SLO is related to. It can include the following fields. - ``Type`` designates the type of object that this SLO is related to. - ``ResourceType`` specifies the type of the resource. This field is used only when the value of the ``Type`` field is ``Resource`` or ``AWS::Resource`` . - ``Name`` specifies the name of the object. This is used only if the value of the ``Type`` field is ``Service`` , ``RemoteService`` , or ``AWS::Service`` . - ``Identifier`` identifies the resource objects of this resource. This is used only if the value of the ``Type`` field is ``Resource`` or ``AWS::Resource`` . - ``Environment`` specifies the location where this object is hosted, or what it belongs to. - ``AwsAccountId`` allows you to create an SLO for an object that exists in another account.
+            :param metric_name: The name of the metric for non-Application Signals services.
+            :param metric_source: Configuration for identifying the source of metrics for non-Application Signals services.
             :param metric_type: If the SLO monitors either the ``LATENCY`` or ``AVAILABILITY`` metric that Application Signals collects, this field displays which of those metrics is used.
             :param monitored_request_count_metric: Use this structure to define the metric that you want to use as the "good request" or "bad request" value for a request-based SLO. This value observed for the metric defined in ``TotalRequestCountMetric`` will be divided by the number found for ``MonitoredRequestCountMetric`` to determine the percentage of successful requests that this SLO tracks.
             :param operation_name: If the SLO monitors a specific operation of the service, this field displays that operation name.
@@ -2317,6 +2592,19 @@ class CfnServiceLevelObjective(
                 from aws_cdk import aws_applicationsignals as applicationsignals
                 
                 request_based_sli_metric_property = applicationsignals.CfnServiceLevelObjective.RequestBasedSliMetricProperty(
+                    composite_sli_config=applicationsignals.CfnServiceLevelObjective.CompositeSliConfigProperty(
+                        selection_config=applicationsignals.CfnServiceLevelObjective.SelectionConfigProperty(
+                            type="type",
+                
+                            # the properties below are optional
+                            pattern="pattern"
+                        ),
+                
+                        # the properties below are optional
+                        composite_sli_components=[applicationsignals.CfnServiceLevelObjective.CompositeSliComponentProperty(
+                            operation_name="operationName"
+                        )]
+                    ),
                     dependency_config=applicationsignals.CfnServiceLevelObjective.DependencyConfigProperty(
                         dependency_key_attributes={
                             "dependency_key_attributes_key": "dependencyKeyAttributes"
@@ -2326,6 +2614,17 @@ class CfnServiceLevelObjective(
                     key_attributes={
                         "key_attributes_key": "keyAttributes"
                     },
+                    metric_name="metricName",
+                    metric_source=applicationsignals.CfnServiceLevelObjective.MetricSourceProperty(
+                        metric_source_key_attributes={
+                            "metric_source_key_attributes_key": "metricSourceKeyAttributes"
+                        },
+                
+                        # the properties below are optional
+                        metric_source_attributes={
+                            "metric_source_attributes_key": "metricSourceAttributes"
+                        }
+                    ),
                     metric_type="metricType",
                     monitored_request_count_metric=applicationsignals.CfnServiceLevelObjective.MonitoredRequestCountMetricProperty(
                         bad_count_metric=[applicationsignals.CfnServiceLevelObjective.MetricDataQueryProperty(
@@ -2403,17 +2702,26 @@ class CfnServiceLevelObjective(
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__2e0bf3c4e354ab94132efc9fd8fa57b0d903b7020ec1b6c4d1c1388698e31a7d)
+                check_type(argname="argument composite_sli_config", value=composite_sli_config, expected_type=type_hints["composite_sli_config"])
                 check_type(argname="argument dependency_config", value=dependency_config, expected_type=type_hints["dependency_config"])
                 check_type(argname="argument key_attributes", value=key_attributes, expected_type=type_hints["key_attributes"])
+                check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
+                check_type(argname="argument metric_source", value=metric_source, expected_type=type_hints["metric_source"])
                 check_type(argname="argument metric_type", value=metric_type, expected_type=type_hints["metric_type"])
                 check_type(argname="argument monitored_request_count_metric", value=monitored_request_count_metric, expected_type=type_hints["monitored_request_count_metric"])
                 check_type(argname="argument operation_name", value=operation_name, expected_type=type_hints["operation_name"])
                 check_type(argname="argument total_request_count_metric", value=total_request_count_metric, expected_type=type_hints["total_request_count_metric"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if composite_sli_config is not None:
+                self._values["composite_sli_config"] = composite_sli_config
             if dependency_config is not None:
                 self._values["dependency_config"] = dependency_config
             if key_attributes is not None:
                 self._values["key_attributes"] = key_attributes
+            if metric_name is not None:
+                self._values["metric_name"] = metric_name
+            if metric_source is not None:
+                self._values["metric_source"] = metric_source
             if metric_type is not None:
                 self._values["metric_type"] = metric_type
             if monitored_request_count_metric is not None:
@@ -2422,6 +2730,16 @@ class CfnServiceLevelObjective(
                 self._values["operation_name"] = operation_name
             if total_request_count_metric is not None:
                 self._values["total_request_count_metric"] = total_request_count_metric
+
+        @builtins.property
+        def composite_sli_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.CompositeSliConfigProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-servicelevelobjective-requestbasedslimetric.html#cfn-applicationsignals-servicelevelobjective-requestbasedslimetric-compositesliconfig
+            '''
+            result = self._values.get("composite_sli_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.CompositeSliConfigProperty"]], result)
 
         @builtins.property
         def dependency_config(
@@ -2437,7 +2755,7 @@ class CfnServiceLevelObjective(
         @builtins.property
         def key_attributes(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''This is a string-to-string map that contains information about the type of object that this SLO is related to.
 
             It can include the following fields.
@@ -2452,7 +2770,27 @@ class CfnServiceLevelObjective(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-servicelevelobjective-requestbasedslimetric.html#cfn-applicationsignals-servicelevelobjective-requestbasedslimetric-keyattributes
             '''
             result = self._values.get("key_attributes")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
+
+        @builtins.property
+        def metric_name(self) -> typing.Optional[builtins.str]:
+            '''The name of the metric for non-Application Signals services.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-servicelevelobjective-requestbasedslimetric.html#cfn-applicationsignals-servicelevelobjective-requestbasedslimetric-metricname
+            '''
+            result = self._values.get("metric_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def metric_source(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.MetricSourceProperty"]]:
+            '''Configuration for identifying the source of metrics for non-Application Signals services.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-servicelevelobjective-requestbasedslimetric.html#cfn-applicationsignals-servicelevelobjective-requestbasedslimetric-metricsource
+            '''
+            result = self._values.get("metric_source")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.MetricSourceProperty"]], result)
 
         @builtins.property
         def metric_type(self) -> typing.Optional[builtins.str]:
@@ -2543,6 +2881,19 @@ class CfnServiceLevelObjective(
                 
                 request_based_sli_property = applicationsignals.CfnServiceLevelObjective.RequestBasedSliProperty(
                     request_based_sli_metric=applicationsignals.CfnServiceLevelObjective.RequestBasedSliMetricProperty(
+                        composite_sli_config=applicationsignals.CfnServiceLevelObjective.CompositeSliConfigProperty(
+                            selection_config=applicationsignals.CfnServiceLevelObjective.SelectionConfigProperty(
+                                type="type",
+                
+                                # the properties below are optional
+                                pattern="pattern"
+                            ),
+                
+                            # the properties below are optional
+                            composite_sli_components=[applicationsignals.CfnServiceLevelObjective.CompositeSliComponentProperty(
+                                operation_name="operationName"
+                            )]
+                        ),
                         dependency_config=applicationsignals.CfnServiceLevelObjective.DependencyConfigProperty(
                             dependency_key_attributes={
                                 "dependency_key_attributes_key": "dependencyKeyAttributes"
@@ -2552,6 +2903,17 @@ class CfnServiceLevelObjective(
                         key_attributes={
                             "key_attributes_key": "keyAttributes"
                         },
+                        metric_name="metricName",
+                        metric_source=applicationsignals.CfnServiceLevelObjective.MetricSourceProperty(
+                            metric_source_key_attributes={
+                                "metric_source_key_attributes_key": "metricSourceKeyAttributes"
+                            },
+                
+                            # the properties below are optional
+                            metric_source_attributes={
+                                "metric_source_attributes_key": "metricSourceAttributes"
+                            }
+                        ),
                         metric_type="metricType",
                         monitored_request_count_metric=applicationsignals.CfnServiceLevelObjective.MonitoredRequestCountMetricProperty(
                             bad_count_metric=[applicationsignals.CfnServiceLevelObjective.MetricDataQueryProperty(
@@ -2760,12 +3122,85 @@ class CfnServiceLevelObjective(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_applicationsignals.CfnServiceLevelObjective.SelectionConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"type": "type", "pattern": "pattern"},
+    )
+    class SelectionConfigProperty:
+        def __init__(
+            self,
+            *,
+            type: builtins.str,
+            pattern: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param type: 
+            :param pattern: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-servicelevelobjective-selectionconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_applicationsignals as applicationsignals
+                
+                selection_config_property = applicationsignals.CfnServiceLevelObjective.SelectionConfigProperty(
+                    type="type",
+                
+                    # the properties below are optional
+                    pattern="pattern"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__7e9dfea115d8c9b32f0cc9733ef8db6e6e4a9fc312f334acc0bde4b32f88e136)
+                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+                check_type(argname="argument pattern", value=pattern, expected_type=type_hints["pattern"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "type": type,
+            }
+            if pattern is not None:
+                self._values["pattern"] = pattern
+
+        @builtins.property
+        def type(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-servicelevelobjective-selectionconfig.html#cfn-applicationsignals-servicelevelobjective-selectionconfig-type
+            '''
+            result = self._values.get("type")
+            assert result is not None, "Required property 'type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def pattern(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-servicelevelobjective-selectionconfig.html#cfn-applicationsignals-servicelevelobjective-selectionconfig-pattern
+            '''
+            result = self._values.get("pattern")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SelectionConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_applicationsignals.CfnServiceLevelObjective.SliMetricProperty",
         jsii_struct_bases=[],
         name_mapping={
+            "composite_sli_config": "compositeSliConfig",
             "dependency_config": "dependencyConfig",
             "key_attributes": "keyAttributes",
             "metric_data_queries": "metricDataQueries",
+            "metric_name": "metricName",
+            "metric_source": "metricSource",
             "metric_type": "metricType",
             "operation_name": "operationName",
             "period_seconds": "periodSeconds",
@@ -2776,9 +3211,12 @@ class CfnServiceLevelObjective(
         def __init__(
             self,
             *,
+            composite_sli_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnServiceLevelObjective.CompositeSliConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             dependency_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnServiceLevelObjective.DependencyConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            key_attributes: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            key_attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             metric_data_queries: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnServiceLevelObjective.MetricDataQueryProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            metric_name: typing.Optional[builtins.str] = None,
+            metric_source: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnServiceLevelObjective.MetricSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             metric_type: typing.Optional[builtins.str] = None,
             operation_name: typing.Optional[builtins.str] = None,
             period_seconds: typing.Optional[jsii.Number] = None,
@@ -2786,9 +3224,12 @@ class CfnServiceLevelObjective(
         ) -> None:
             '''Use this structure to specify the metric to be used for the SLO.
 
+            :param composite_sli_config: 
             :param dependency_config: Identifies the dependency using the ``DependencyKeyAttributes`` and ``DependencyOperationName`` .
             :param key_attributes: If this SLO is related to a metric collected by Application Signals, you must use this field to specify which service the SLO metric is related to. To do so, you must specify at least the ``Type`` , ``Name`` , and ``Environment`` attributes. This is a string-to-string map. It can include the following fields. - ``Type`` designates the type of object this is. - ``ResourceType`` specifies the type of the resource. This field is used only when the value of the ``Type`` field is ``Resource`` or ``AWS::Resource`` . - ``Name`` specifies the name of the object. This is used only if the value of the ``Type`` field is ``Service`` , ``RemoteService`` , or ``AWS::Service`` . - ``Identifier`` identifies the resource objects of this resource. This is used only if the value of the ``Type`` field is ``Resource`` or ``AWS::Resource`` . - ``Environment`` specifies the location where this object is hosted, or what it belongs to.
             :param metric_data_queries: If this SLO monitors a CloudWatch metric or the result of a CloudWatch metric math expression, use this structure to specify that metric or expression.
+            :param metric_name: The name of the metric for non-Application Signals services.
+            :param metric_source: Configuration for identifying the source of metrics for non-Application Signals services.
             :param metric_type: If the SLO is to monitor either the ``LATENCY`` or ``AVAILABILITY`` metric that Application Signals collects, use this field to specify which of those metrics is used.
             :param operation_name: If the SLO is to monitor a specific operation of the service, use this field to specify the name of that operation.
             :param period_seconds: The number of seconds to use as the period for SLO evaluation. Your application's performance is compared to the SLI during each period. For each period, the application is determined to have either achieved or not achieved the necessary performance.
@@ -2804,6 +3245,19 @@ class CfnServiceLevelObjective(
                 from aws_cdk import aws_applicationsignals as applicationsignals
                 
                 sli_metric_property = applicationsignals.CfnServiceLevelObjective.SliMetricProperty(
+                    composite_sli_config=applicationsignals.CfnServiceLevelObjective.CompositeSliConfigProperty(
+                        selection_config=applicationsignals.CfnServiceLevelObjective.SelectionConfigProperty(
+                            type="type",
+                
+                            # the properties below are optional
+                            pattern="pattern"
+                        ),
+                
+                        # the properties below are optional
+                        composite_sli_components=[applicationsignals.CfnServiceLevelObjective.CompositeSliComponentProperty(
+                            operation_name="operationName"
+                        )]
+                    ),
                     dependency_config=applicationsignals.CfnServiceLevelObjective.DependencyConfigProperty(
                         dependency_key_attributes={
                             "dependency_key_attributes_key": "dependencyKeyAttributes"
@@ -2836,6 +3290,17 @@ class CfnServiceLevelObjective(
                         ),
                         return_data=False
                     )],
+                    metric_name="metricName",
+                    metric_source=applicationsignals.CfnServiceLevelObjective.MetricSourceProperty(
+                        metric_source_key_attributes={
+                            "metric_source_key_attributes_key": "metricSourceKeyAttributes"
+                        },
+                
+                        # the properties below are optional
+                        metric_source_attributes={
+                            "metric_source_attributes_key": "metricSourceAttributes"
+                        }
+                    ),
                     metric_type="metricType",
                     operation_name="operationName",
                     period_seconds=123,
@@ -2844,20 +3309,29 @@ class CfnServiceLevelObjective(
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__86b5c7cbf1916d1f3e415fc49b371acf007c9210e4158ca70f0735fb4ce3ca36)
+                check_type(argname="argument composite_sli_config", value=composite_sli_config, expected_type=type_hints["composite_sli_config"])
                 check_type(argname="argument dependency_config", value=dependency_config, expected_type=type_hints["dependency_config"])
                 check_type(argname="argument key_attributes", value=key_attributes, expected_type=type_hints["key_attributes"])
                 check_type(argname="argument metric_data_queries", value=metric_data_queries, expected_type=type_hints["metric_data_queries"])
+                check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
+                check_type(argname="argument metric_source", value=metric_source, expected_type=type_hints["metric_source"])
                 check_type(argname="argument metric_type", value=metric_type, expected_type=type_hints["metric_type"])
                 check_type(argname="argument operation_name", value=operation_name, expected_type=type_hints["operation_name"])
                 check_type(argname="argument period_seconds", value=period_seconds, expected_type=type_hints["period_seconds"])
                 check_type(argname="argument statistic", value=statistic, expected_type=type_hints["statistic"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if composite_sli_config is not None:
+                self._values["composite_sli_config"] = composite_sli_config
             if dependency_config is not None:
                 self._values["dependency_config"] = dependency_config
             if key_attributes is not None:
                 self._values["key_attributes"] = key_attributes
             if metric_data_queries is not None:
                 self._values["metric_data_queries"] = metric_data_queries
+            if metric_name is not None:
+                self._values["metric_name"] = metric_name
+            if metric_source is not None:
+                self._values["metric_source"] = metric_source
             if metric_type is not None:
                 self._values["metric_type"] = metric_type
             if operation_name is not None:
@@ -2866,6 +3340,16 @@ class CfnServiceLevelObjective(
                 self._values["period_seconds"] = period_seconds
             if statistic is not None:
                 self._values["statistic"] = statistic
+
+        @builtins.property
+        def composite_sli_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.CompositeSliConfigProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-servicelevelobjective-slimetric.html#cfn-applicationsignals-servicelevelobjective-slimetric-compositesliconfig
+            '''
+            result = self._values.get("composite_sli_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.CompositeSliConfigProperty"]], result)
 
         @builtins.property
         def dependency_config(
@@ -2881,7 +3365,7 @@ class CfnServiceLevelObjective(
         @builtins.property
         def key_attributes(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''If this SLO is related to a metric collected by Application Signals, you must use this field to specify which service the SLO metric is related to.
 
             To do so, you must specify at least the ``Type`` , ``Name`` , and ``Environment`` attributes.
@@ -2897,7 +3381,7 @@ class CfnServiceLevelObjective(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-servicelevelobjective-slimetric.html#cfn-applicationsignals-servicelevelobjective-slimetric-keyattributes
             '''
             result = self._values.get("key_attributes")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def metric_data_queries(
@@ -2909,6 +3393,26 @@ class CfnServiceLevelObjective(
             '''
             result = self._values.get("metric_data_queries")
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.MetricDataQueryProperty"]]]], result)
+
+        @builtins.property
+        def metric_name(self) -> typing.Optional[builtins.str]:
+            '''The name of the metric for non-Application Signals services.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-servicelevelobjective-slimetric.html#cfn-applicationsignals-servicelevelobjective-slimetric-metricname
+            '''
+            result = self._values.get("metric_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def metric_source(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.MetricSourceProperty"]]:
+            '''Configuration for identifying the source of metrics for non-Application Signals services.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-servicelevelobjective-slimetric.html#cfn-applicationsignals-servicelevelobjective-slimetric-metricsource
+            '''
+            result = self._values.get("metric_source")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.MetricSourceProperty"]], result)
 
         @builtins.property
         def metric_type(self) -> typing.Optional[builtins.str]:
@@ -2997,6 +3501,19 @@ class CfnServiceLevelObjective(
                     comparison_operator="comparisonOperator",
                     metric_threshold=123,
                     sli_metric=applicationsignals.CfnServiceLevelObjective.SliMetricProperty(
+                        composite_sli_config=applicationsignals.CfnServiceLevelObjective.CompositeSliConfigProperty(
+                            selection_config=applicationsignals.CfnServiceLevelObjective.SelectionConfigProperty(
+                                type="type",
+                
+                                # the properties below are optional
+                                pattern="pattern"
+                            ),
+                
+                            # the properties below are optional
+                            composite_sli_components=[applicationsignals.CfnServiceLevelObjective.CompositeSliComponentProperty(
+                                operation_name="operationName"
+                            )]
+                        ),
                         dependency_config=applicationsignals.CfnServiceLevelObjective.DependencyConfigProperty(
                             dependency_key_attributes={
                                 "dependency_key_attributes_key": "dependencyKeyAttributes"
@@ -3029,6 +3546,17 @@ class CfnServiceLevelObjective(
                             ),
                             return_data=False
                         )],
+                        metric_name="metricName",
+                        metric_source=applicationsignals.CfnServiceLevelObjective.MetricSourceProperty(
+                            metric_source_key_attributes={
+                                "metric_source_key_attributes_key": "metricSourceKeyAttributes"
+                            },
+                
+                            # the properties below are optional
+                            metric_source_attributes={
+                                "metric_source_attributes_key": "metricSourceAttributes"
+                            }
+                        ),
                         metric_type="metricType",
                         operation_name="operationName",
                         period_seconds=123,
@@ -3248,6 +3776,19 @@ class CfnServiceLevelObjectiveProps:
                 ),
                 request_based_sli=applicationsignals.CfnServiceLevelObjective.RequestBasedSliProperty(
                     request_based_sli_metric=applicationsignals.CfnServiceLevelObjective.RequestBasedSliMetricProperty(
+                        composite_sli_config=applicationsignals.CfnServiceLevelObjective.CompositeSliConfigProperty(
+                            selection_config=applicationsignals.CfnServiceLevelObjective.SelectionConfigProperty(
+                                type="type",
+            
+                                # the properties below are optional
+                                pattern="pattern"
+                            ),
+            
+                            # the properties below are optional
+                            composite_sli_components=[applicationsignals.CfnServiceLevelObjective.CompositeSliComponentProperty(
+                                operation_name="operationName"
+                            )]
+                        ),
                         dependency_config=applicationsignals.CfnServiceLevelObjective.DependencyConfigProperty(
                             dependency_key_attributes={
                                 "dependency_key_attributes_key": "dependencyKeyAttributes"
@@ -3257,6 +3798,17 @@ class CfnServiceLevelObjectiveProps:
                         key_attributes={
                             "key_attributes_key": "keyAttributes"
                         },
+                        metric_name="metricName",
+                        metric_source=applicationsignals.CfnServiceLevelObjective.MetricSourceProperty(
+                            metric_source_key_attributes={
+                                "metric_source_key_attributes_key": "metricSourceKeyAttributes"
+                            },
+            
+                            # the properties below are optional
+                            metric_source_attributes={
+                                "metric_source_attributes_key": "metricSourceAttributes"
+                            }
+                        ),
                         metric_type="metricType",
                         monitored_request_count_metric=applicationsignals.CfnServiceLevelObjective.MonitoredRequestCountMetricProperty(
                             bad_count_metric=[applicationsignals.CfnServiceLevelObjective.MetricDataQueryProperty(
@@ -3340,6 +3892,19 @@ class CfnServiceLevelObjectiveProps:
                     comparison_operator="comparisonOperator",
                     metric_threshold=123,
                     sli_metric=applicationsignals.CfnServiceLevelObjective.SliMetricProperty(
+                        composite_sli_config=applicationsignals.CfnServiceLevelObjective.CompositeSliConfigProperty(
+                            selection_config=applicationsignals.CfnServiceLevelObjective.SelectionConfigProperty(
+                                type="type",
+            
+                                # the properties below are optional
+                                pattern="pattern"
+                            ),
+            
+                            # the properties below are optional
+                            composite_sli_components=[applicationsignals.CfnServiceLevelObjective.CompositeSliComponentProperty(
+                                operation_name="operationName"
+                            )]
+                        ),
                         dependency_config=applicationsignals.CfnServiceLevelObjective.DependencyConfigProperty(
                             dependency_key_attributes={
                                 "dependency_key_attributes_key": "dependencyKeyAttributes"
@@ -3372,6 +3937,17 @@ class CfnServiceLevelObjectiveProps:
                             ),
                             return_data=False
                         )],
+                        metric_name="metricName",
+                        metric_source=applicationsignals.CfnServiceLevelObjective.MetricSourceProperty(
+                            metric_source_key_attributes={
+                                "metric_source_key_attributes_key": "metricSourceKeyAttributes"
+                            },
+            
+                            # the properties below are optional
+                            metric_source_attributes={
+                                "metric_source_attributes_key": "metricSourceAttributes"
+                            }
+                        ),
                         metric_type="metricType",
                         operation_name="operationName",
                         period_seconds=123,
@@ -3706,9 +4282,24 @@ def _typecheckingstub__bb256cb6878f107649da0ff6e94d5a653ad8e2c683a434ba458525e12
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__6cbbe131565e0a6fbbbdb80ec284ef94ceea8af44cba7908a46efe65116a92ef(
+    *,
+    operation_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d01291cb4a8f53e672d552c3c4677fcf54d725993377589d02699e4b90490c7c(
+    *,
+    selection_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnServiceLevelObjective.SelectionConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    composite_sli_components: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServiceLevelObjective.CompositeSliComponentProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__05a6abeac0a72f5c57c47767d3431f868e43bda859b6f5468a53d09c807465a2(
     *,
-    dependency_key_attributes: typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b],
+    dependency_key_attributes: typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]],
     dependency_operation_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -3769,6 +4360,14 @@ def _typecheckingstub__94c3dac51fe1c8fc13cb0f314cd26fbce563c808cc2f39fe4ee2a01d0
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__07485a5251b8d32cfa23934b2d6957e585c5dafc7af8830e303147c48cfab3fd(
+    *,
+    metric_source_key_attributes: typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]],
+    metric_source_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__9112cc9d5e83260e285e14202026cd0c682ccbbd611252cb22444f31adb6fc6c(
     *,
     metric: typing.Union[_IResolvable_da3f097b, typing.Union[CfnServiceLevelObjective.MetricProperty, typing.Dict[builtins.str, typing.Any]]],
@@ -3796,8 +4395,11 @@ def _typecheckingstub__72802c93952329c50a04d38e97421844a870c20c3cf6b7347a281a130
 
 def _typecheckingstub__2e0bf3c4e354ab94132efc9fd8fa57b0d903b7020ec1b6c4d1c1388698e31a7d(
     *,
+    composite_sli_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServiceLevelObjective.CompositeSliConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     dependency_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServiceLevelObjective.DependencyConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    key_attributes: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    key_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
+    metric_name: typing.Optional[builtins.str] = None,
+    metric_source: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServiceLevelObjective.MetricSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     metric_type: typing.Optional[builtins.str] = None,
     monitored_request_count_metric: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServiceLevelObjective.MonitoredRequestCountMetricProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     operation_name: typing.Optional[builtins.str] = None,
@@ -3823,11 +4425,22 @@ def _typecheckingstub__3ea5efcc7f9d7eb11cc8de5d96525adb6a7e2bfc30446b0fcdb3c7cd6
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__7e9dfea115d8c9b32f0cc9733ef8db6e6e4a9fc312f334acc0bde4b32f88e136(
+    *,
+    type: builtins.str,
+    pattern: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__86b5c7cbf1916d1f3e415fc49b371acf007c9210e4158ca70f0735fb4ce3ca36(
     *,
+    composite_sli_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServiceLevelObjective.CompositeSliConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     dependency_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServiceLevelObjective.DependencyConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    key_attributes: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    key_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     metric_data_queries: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServiceLevelObjective.MetricDataQueryProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    metric_name: typing.Optional[builtins.str] = None,
+    metric_source: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServiceLevelObjective.MetricSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     metric_type: typing.Optional[builtins.str] = None,
     operation_name: typing.Optional[builtins.str] = None,
     period_seconds: typing.Optional[jsii.Number] = None,

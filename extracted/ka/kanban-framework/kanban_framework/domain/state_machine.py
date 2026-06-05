@@ -16,6 +16,7 @@ from kanban_framework.types import Task, Phase, ControlMode
 from kanban_framework.infra.config import Config
 from kanban_framework.infra.filesystem import Filesystem
 from kanban_framework.infra.scheduler import Scheduler
+from kanban_framework.infra.consts import Consts
 
 # Re-export from extracted modules for backward compatibility
 from kanban_framework.domain.steps import (  # noqa: F401
@@ -97,10 +98,9 @@ class NextStepResult:
 
 def next_step(fs: Filesystem, config: Config, task: Task) -> NextStepResult:
     """Determine the exact next action for a task."""
-    mode = task.mode if task.mode not in Scheduler.BUILTIN_MODE_NAMES else ("quick" if task.mode == "quick" else "lightweight")
+    mode = task.mode or Consts.DEFAULT_MODE
     ext = _load_extension(config)
-    base_order = _get_phase_order(task.lightweight, quick=(task.mode == "quick"),
-                                    mode=task.mode, kanban_dir=config._fs.kanban_dir)
+    base_order = _get_phase_order(mode=task.mode, kanban_dir=config._fs.kanban_dir)
     custom_order = ext.build_phase_order([p.value if isinstance(p, Phase) else str(p) for p in base_order], mode=mode) if ext else None
     base_steps = _get_steps(mode)
     custom_steps = ext.build_step_map(base_steps, mode=mode) if ext else None
@@ -135,7 +135,7 @@ def next_step(fs: Filesystem, config: Config, task: Task) -> NextStepResult:
     phase_steps = steps_map.get(phase_value, [])
     if not phase_steps:
         # Phase not in current mode's step map — try redirect to nearest valid phase
-        return _build_phase_transition(task, phase_value, [], task.lightweight, custom_order,
+        return _build_phase_transition(task, phase_value, [], custom_order,
                                        kanban_dir=config._fs.kanban_dir)
 
     for i, step in enumerate(phase_steps):
@@ -151,7 +151,7 @@ def next_step(fs: Filesystem, config: Config, task: Task) -> NextStepResult:
 
             return _build_step_result(fs, config, task, step, i, phase_steps, phase_value)
 
-    return _build_phase_transition(task, phase_value, phase_steps, task.lightweight, custom_order,
+    return _build_phase_transition(task, phase_value, phase_steps, custom_order,
                                    kanban_dir=config._fs.kanban_dir)
 
 
@@ -159,8 +159,7 @@ def _handle_manual_mode(fs, task, completed_steps, progress,
                         custom_order=None, custom_steps=None):
     from kanban_framework.domain.step_registry import build_step_dag, get_available_steps
     skipped = {k for k, v in progress.get("steps", {}).items() if v.get("status") == "skipped"}
-    dag = build_step_dag(lightweight=task.lightweight, quick=(task.mode == "quick"),
-                         custom_order=custom_order, custom_steps=custom_steps,
+    dag = build_step_dag(custom_order=custom_order, custom_steps=custom_steps,
                          mode=task.mode, kanban_dir=fs.kanban_dir)
     available = get_available_steps(dag, completed_steps, skipped)
     if not available:
@@ -274,9 +273,8 @@ def _build_step_result(fs, config, task, step, i, phase_steps, phase_value):
     )
 
 
-def _build_phase_transition(task, phase_value, phase_steps, lightweight, custom_order=None, kanban_dir=None):
-    phase_order = _get_phase_order(lightweight, quick=(task.mode == "quick"),
-                                   custom_order=custom_order,
+def _build_phase_transition(task, phase_value, phase_steps, custom_order=None, kanban_dir=None):
+    phase_order = _get_phase_order(custom_order=custom_order,
                                    mode=task.mode, kanban_dir=kanban_dir)
     str_order = [p.value if isinstance(p, Phase) else str(p) for p in phase_order]
     current_idx = None

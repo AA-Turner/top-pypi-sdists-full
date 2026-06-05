@@ -29,10 +29,11 @@ from keeper_secrets_manager_core.utils import bytes_to_base64, base64_to_bytes, 
 
 from .base import Command, GroupCommand, dump_report_data, RecordMixin
 from .tunnel.port_forward.TunnelGraph import TunnelDAG
-from .tunnel.port_forward.tunnel_helpers import find_open_port, get_config_uid, get_keeper_tokens, \
+from .tunnel.port_forward.tunnel_helpers import find_open_port, get_config_uid, get_config_uid_via_pam_link, \
+    get_keeper_tokens, \
     get_or_create_tube_registry, get_gateway_uid_from_record, resolve_record, resolve_pam_config, resolve_folder, \
     remove_field, start_rust_tunnel, get_tunnel_session, unregister_tunnel_session, CloseConnectionReasons, \
-    wait_for_tunnel_connection, create_rust_webrtc_settings, escalate_close, \
+    wait_for_tunnel_connection, create_rust_webrtc_settings, \
     print_above_keeper_prompt
 from .pam.router_helper import get_dag_leafs
 from .tunnel_registry import (
@@ -62,6 +63,28 @@ _LEASE_EXPIRY_TIMERS_BY_RECORD: Dict[str, threading.Timer] = {}
 # read by the lease-expiry callback. Default interactive mode does NOT register
 # (it has no blocking wait to interrupt; user SSH session continues naturally).
 _LEASE_SHUTDOWN_EVENTS_BY_RECORD: Dict[str, threading.Event] = {}
+
+
+def _coerce_settings_subdicts(entry, *keys):
+    """Coerce the named sub-fields of a pamSettings / pamRemoteBrowserSettings
+    entry to dicts, in place.
+
+    Discovery and the Web Vault may publish ``connection`` / ``portForward`` as an
+    empty string (``""``) or omit them entirely (e.g. ``{"portForward": ""}`` with
+    no ``connection``). Code that then indexes ``entry["connection"][...]`` /
+    ``entry["portForward"][...]`` raises ``KeyError`` (missing) or ``TypeError``
+    (string). Call this first so those writes always land on a real dict.
+
+    Returns True if anything was coerced (callers may use it to flag the record dirty).
+    """
+    changed = False
+    if not isinstance(entry, dict):
+        return changed
+    for key in keys:
+        if not isinstance(entry.get(key), dict):
+            entry[key] = {}
+            changed = True
+    return changed
 
 
 # Group Commands
@@ -417,6 +440,8 @@ class PAMTunnelEditCommand(Command):
             dirty = False
 
             existing_config_uid = get_config_uid(params, encrypted_session_token, encrypted_transmission_key, record_uid)
+            if not config_uid:
+                config_uid = existing_config_uid
 
             tmp_dag = TunnelDAG(params, encrypted_session_token, encrypted_transmission_key, config_uid,
                                 transmission_key=transmission_key)
@@ -463,6 +488,12 @@ class PAMTunnelEditCommand(Command):
                     tmp_dag.link_resource_to_config(record_uid)
                 if not pam_settings.value:
                     pam_settings.value.append({"connection": {}, "portForward": {}})
+                # Discovery may publish value[0] with portForward as "" (empty
+                # string) or absent; coerce to a dict before indexing, else the
+                # writes below raise TypeError (string) / KeyError (missing).
+                if not isinstance(pam_settings.value[0], dict):
+                    pam_settings.value[0] = {"connection": {}, "portForward": {}}
+                _coerce_settings_subdicts(pam_settings.value[0], "connection", "portForward")
                 if _tunneling and tunneling_override_port:
                     pam_settings.value[0]['portForward']['port'] = tunneling_override_port
                     dirty = True
@@ -1014,13 +1045,9 @@ class PAMTunnelStartCommand(Command):
                 self._print_keeperdb_proxy_banner(host, port, db_type_for_banner)
             # Workflow lease expiry handling.
             #
-            # At expiresOn we soft-close the tube (stops new channels, sends
-            # CloseConnection control frames) and, after a short delay, escalate
-            # to force_close_tube which drops the local TCP listener and severs
-            # any active forwarded streams (SSH, MySQL, etc.). The escalation
-            # only fires when both the local Rust crate and the remote peer
-            # advertise FORCE_CLOSE_MIN_VERSION; older peers get the soft close
-            # only and the in-flight session lingers until natural disconnect.
+            # At expiresOn we close the tube (stops new channels, sends
+            # CloseConnection control frames); the connection-closed cleanup
+            # path then stops the websocket and unregisters the tunnel session.
             if workflow_expires_on_ms and workflow_expires_on_ms > 0:
                 seconds_until_expiry = (workflow_expires_on_ms / 1000.0) - time.time()
                 tube_id = result.get('tube_id')
@@ -1045,15 +1072,15 @@ class PAMTunnelStartCommand(Command):
                                 f"forwarded connections will be terminated."
                                 f"{bcolors.ENDC}"
                             )
-                            sess = get_tunnel_session(_tube_id)
-                            remote_ver = getattr(sess, 'remote_webrtc_version', None) if sess else None
-                            escalate_close(
-                                tube_registry,
-                                _tube_id,
-                                remote_webrtc_version=remote_ver,
-                                reason=CloseConnectionReasons.AdminClosed,
-                                log_prefix=f"[lease-expiry tunnel record={_record_uid}] ",
-                            )
+                            try:
+                                tube_registry.close_tube(
+                                    _tube_id, reason=CloseConnectionReasons.AdminClosed,
+                                )
+                            except Exception as e:
+                                logging.debug(
+                                    f"[lease-expiry tunnel record={_record_uid}] "
+                                    f"close_tube failed: {e}"
+                                )
                             # Wake any --foreground / --run blocking wait so the
                             # process self-terminates. Default interactive mode
                             # does not register an event here.
@@ -2624,6 +2651,10 @@ class PAMConnectionEditCommand(Command):
                         'the port from the record will be used.')
     parser.add_argument('--key-events', '-k', dest='key_events', choices=choices,
                         help='Toggle Key Events settings')
+    parser.add_argument('--scrollback', '-sb', required=False, dest='scrollback', action='store',
+                        help='Maximum Scrollback Size (terminal history). Integer to set, '
+                             'empty string to remove. Supported only for pamDatabase (any DB protocol) and '
+                             'pamMachine/pamDirectory (ssh/telnet/kubernetes).')
     parser.add_argument('--rotate-on-termination', required=False, dest='rotate_on_termination',
                         choices=['on', 'off'],
                         help='Rotate launch credentials when the PAM session ends (DAG resource meta)')
@@ -2672,6 +2703,51 @@ class PAMConnectionEditCommand(Command):
                                    f"pamRemoteBrowser, pamNetworkConfiguration pamAwsConfiguration, and "
                                    f"pamAzureConfiguration records{bcolors.ENDC}")
 
+        # --scrollback: validate record type + effective protocol before any mutation
+        scrollback_arg = kwargs.get('scrollback', None)
+        scrollback_clear = False
+        scrollback_value = None  # parsed int, or None to skip apply
+        if scrollback_arg is not None:
+            db_scrollback_protocols = {'mysql', 'postgresql', 'sql-server', 'mariadb', 'oracle',
+                                       'mongodb', 'redis', 'elasticsearch', 'clickhouse', 'dynamodb'}
+            terminal_scrollback_protocols = {'ssh', 'telnet', 'kubernetes'}
+            if record_type == 'pamDatabase':
+                allowed_protocols = db_scrollback_protocols
+            elif record_type in ('pamMachine', 'pamDirectory'):
+                allowed_protocols = terminal_scrollback_protocols
+            else:
+                raise CommandError('pam connection edit',
+                    f'{bcolors.FAIL}--scrollback is only supported for pamDatabase, pamMachine, and pamDirectory '
+                    f'records. Record "{record_uid}" is of type "{record_type}".{bcolors.ENDC}')
+
+            existing_ps = record.get_typed_field('pamSettings')
+            existing_protocol = ''
+            if existing_ps and existing_ps.value and isinstance(existing_ps.value[0], dict):
+                existing_protocol = existing_ps.value[0].get('connection', {}).get('protocol') or ''
+            new_protocol_arg = kwargs.get('protocol', None)
+            if kwargs.get('connections') == 'on' and new_protocol_arg is not None:
+                effective_protocol = new_protocol_arg  # may be '' to clear
+            else:
+                effective_protocol = existing_protocol
+            if effective_protocol not in allowed_protocols:
+                raise CommandError('pam connection edit',
+                    f'{bcolors.FAIL}--scrollback is not supported for protocol "{effective_protocol or "(unset)"}" '
+                    f'on {record_type} records. Allowed protocols: {", ".join(sorted(allowed_protocols))}.{bcolors.ENDC}')
+
+            if scrollback_arg == '':
+                scrollback_clear = True
+            else:
+                try:
+                    scrollback_value = int(scrollback_arg)
+                except (ValueError, TypeError):
+                    raise CommandError('pam connection edit',
+                        f'{bcolors.FAIL}--scrollback must be a non-negative integer or empty string. '
+                        f'Got: "{scrollback_arg}".{bcolors.ENDC}')
+                if scrollback_value < 0:
+                    raise CommandError('pam connection edit',
+                        f'{bcolors.FAIL}--scrollback must be a non-negative integer or empty string. '
+                        f'Got: "{scrollback_arg}".{bcolors.ENDC}')
+
         encrypted_session_token, encrypted_transmission_key, transmission_key = get_keeper_tokens(params)
         if record_type in "pamNetworkConfiguration pamAwsConfiguration pamAzureConfiguration".split():
             tdag = TunnelDAG(params, encrypted_session_token, encrypted_transmission_key, record_uid, is_config=True,
@@ -2715,8 +2791,14 @@ class PAMConnectionEditCommand(Command):
             else:
                 if not pam_settings.value:
                     pam_settings.value.append({"connection": {}, "portForward": {}})
-                if not pam_settings.value[0]:
+                if not isinstance(pam_settings.value[0], dict):
                     pam_settings.value[0] = {"connection": {}, "portForward": {}}
+                # An existing pamSettings may carry only one of the two sub-dicts,
+                # or publish them as "" (empty string) instead of a dict — e.g.
+                # discovery publishes {"portForward": ""} with no usable "connection".
+                # Coerce both to dicts before indexing, otherwise -cn on -p rdp -cop
+                # raises KeyError (missing key) or TypeError (string) below.
+                _coerce_settings_subdicts(pam_settings.value[0], "connection", "portForward")
                 if _connections:
                     if connection_override_port:
                         pam_settings.value[0]["connection"]["port"] = connection_override_port
@@ -2758,6 +2840,24 @@ class PAMConnectionEditCommand(Command):
                 else:
                     logging.debug(f'Unexpected value for --key-events {key_events} (ignored)')
 
+            # --scrollback: apply (validated above; record_type + effective protocol already checked)
+            if scrollback_clear or scrollback_value is not None:
+                psv = pam_settings.value[0] if pam_settings and pam_settings.value else {}
+                vcon = psv.get('connection', {}) if isinstance(psv, dict) else {}
+                current_sb = vcon.get('scrollback') if isinstance(vcon, dict) else None
+                if scrollback_clear:
+                    if current_sb is not None:
+                        pam_settings.value[0]["connection"].pop('scrollback', None)
+                        dirty = True
+                    else:
+                        logging.debug(f'scrollback is already unset on record={record_uid}')
+                else:
+                    if current_sb != scrollback_value:
+                        pam_settings.value[0]["connection"]["scrollback"] = scrollback_value
+                        dirty = True
+                    else:
+                        logging.debug(f'scrollback is already {scrollback_value} on record={record_uid}')
+
             if dirty:
                 record_management.update_record(params, record)
                 api.sync_down(params)
@@ -2768,7 +2868,35 @@ class PAMConnectionEditCommand(Command):
                                        f"Please make sure you have edit rights to record {record_uid} {bcolors.ENDC}")
             dirty = False
 
+            # If only record-level args were passed (e.g. --scrollback, --key-events, --protocol
+            # alone), the record update above is complete — skip the DAG/config lookup, which
+            # would otherwise raise a misleading "No PAM Configuration UID set" error when the
+            # resource isn't linked to a config yet. Mirrors the PAMRbiEditCommand pattern.
+            dag_affecting = (kwargs.get('config') or kwargs.get('admin') or kwargs.get('launch_user')
+                             or kwargs.get('clear_launch_user') or kwargs.get('connections')
+                             or kwargs.get('recording') or kwargs.get('typescriptrecording')
+                             or kwargs.get('rotate_on_termination'))
+            if not dag_affecting:
+                return
+
             existing_config_uid = get_config_uid(params, encrypted_session_token, encrypted_transmission_key, record_uid)
+
+            # When the user did not pass --configuration, fall back to
+            # first the legacy /api/user/get_leafs if that also returned nothing,
+            # then the new /api/user/graph-sync/pam/get_leafs (PAM_LINK stream) 
+            # Without this, `tdag` would be built with config_uid=None, has_graph=False,
+            # and the misleading "No PAM Configuration UID set" error would fire
+            # even though the link is resolvable.
+            if not config_uid:
+                if existing_config_uid:
+                    config_uid = existing_config_uid
+                    logging.debug('pam connection edit: using DAG-resolved config_uid: %s', config_uid)
+                else:
+                    found = get_config_uid_via_pam_link(params, record_uid)
+                    if found:
+                        logging.debug('pam connection edit: resolved config_uid via graph-sync/pam fallback: %s', found)
+                        existing_config_uid = found
+                        config_uid = found
 
             tdag = TunnelDAG(params, encrypted_session_token, encrypted_transmission_key, config_uid,
                              transmission_key=transmission_key)
@@ -2840,13 +2968,18 @@ class PAMConnectionEditCommand(Command):
                                           typescript_recording=kwargs.get('typescriptrecording', None),
                                           rotate_on_termination=rot_bool)
 
-            # admin parameter is optional yet if not set connections may fail
+            # admin (-a) and launch (-lu / --clear-launch-user) credentials are
+            # applied together in a SINGLE configure_resource round-trip. krouter
+            # only flips is_admin on an already-existing ACL edge when adminUid is
+            # sent alongside connectUsers (UserRest.kt:295-318); a standalone
+            # adminUid call no-ops on an existing edge. So fold admin into the
+            # launch call instead of issuing two separate requests.
             admin_name = kwargs.get('admin')
             adm_rec = RecordMixin.resolve_single_record(params, admin_name)
             admin_uid = adm_rec.record_uid if adm_rec else None
-            if admin_uid and record_type in launch_credential_record_types:
-                tdag.link_user_to_resource(admin_uid, record_uid, is_admin=True, belongs_to=True)
-                # tdag.link_user_to_config(admin_uid)  # is_iam_user=True
+            # admin credential is only meaningful on launch-capable resources
+            if admin_uid and record_type not in launch_credential_record_types:
+                admin_uid = None
 
             # launch-user parameter sets the launch credential; --clear-launch-user removes it
             clear_launch_user = bool(kwargs.get('clear_launch_user'))
@@ -2855,14 +2988,16 @@ class PAMConnectionEditCommand(Command):
             if clear_launch_user and launch_user_name:
                 raise CommandError('pam connection edit',
                     f'{bcolors.FAIL}Use either --clear-launch-user or --launch-user, not both.{bcolors.ENDC}')
+
+            launch_uid = None
+            apply_launch = False
             if clear_launch_user:
                 if record_type not in launch_credential_record_types:
                     raise CommandError('pam connection edit',
                         f'{bcolors.FAIL}--clear-launch-user is only supported for pamMachine, pamDatabase, and '
                         f'pamDirectory records. Record "{record_uid}" is of type "{record_type}" and does not '
                         f'support launch credentials.{bcolors.ENDC}')
-                tdag.clear_launch_credential_for_resource(record_uid)
-                tdag.upgrade_resource_meta_to_v1(record_uid)
+                apply_launch = True  # launch_uid stays None -> clears the launch credential
             elif launch_user_name:
                 launch_rec = RecordMixin.resolve_single_record(params, launch_user_name)
                 if not launch_rec:
@@ -2871,11 +3006,21 @@ class PAMConnectionEditCommand(Command):
                 if not isinstance(launch_rec, vault.TypedRecord) or launch_rec.record_type != 'pamUser':
                     raise CommandError('',
                         f'{bcolors.FAIL}Launch user record must be a pamUser record type.{bcolors.ENDC}')
-                launch_uid = launch_rec.record_uid
                 if record_type in launch_credential_record_types:
-                    tdag.clear_launch_credential_for_resource(record_uid, exclude_user_uid=launch_uid)
-                    tdag.link_user_to_resource(launch_uid, record_uid, is_launch_credential=True, belongs_to=True)
-                    tdag.upgrade_resource_meta_to_v1(record_uid)
+                    apply_launch = True
+                    launch_uid = launch_rec.record_uid
+
+            if apply_launch:
+                # set/clear launch credential and (optionally) the admin in one call
+                tdag.set_launch_credentials(record_uid, launch_uid=launch_uid, admin_uid=admin_uid)
+            elif admin_uid:
+                # admin-only: preserve the current launch credential in the same
+                # request so krouter sets is_admin on the (possibly pre-existing)
+                # edge without clearing an existing launch credential.
+                current_launch = tdag.check_if_resource_has_launch_credential(record_uid)
+                tdag.set_launch_credentials(record_uid,
+                                            launch_uid=(current_launch or None),
+                                            admin_uid=admin_uid)
 
             # Print out PAM Settings
             if not kwargs.get("silent", False): tdag.print_tunneling_config(record_uid, record.get_typed_field('pamSettings'), config_uid)
@@ -3149,6 +3294,10 @@ class PAMRbiEditCommand(Command):
                         help='Allow navigation via direct URL manipulation (on/off/default)')
     parser.add_argument('--ignore-server-cert', '-isc', dest='ignore_server_cert', choices=choices,
                         help='Ignore server certificate errors (on/off/default)')
+    parser.add_argument('--allow-file-uploads', '-fu', dest='allow_file_uploads', choices=choices,
+                        help='Allow file uploads in RBI sessions (on/off/default)')
+    parser.add_argument('--allow-file-downloads', '-fd', dest='allow_file_downloads', choices=choices,
+                        help='Allow file downloads in RBI sessions (on/off/default)')
 
     # URL Filtering
     parser.add_argument('--allowed-urls', '-au', dest='allowed_urls', action='append',
@@ -3197,6 +3346,8 @@ class PAMRbiEditCommand(Command):
         # New RBI settings (Phase 1 - KC-1034)
         allow_url_navigation = kwargs.get('allow_url_navigation')  # on/off/default/None
         ignore_server_cert = kwargs.get('ignore_server_cert')  # on/off/default/None
+        allow_file_uploads = kwargs.get('allow_file_uploads')  # on/off/default/None
+        allow_file_downloads = kwargs.get('allow_file_downloads')  # on/off/default/None
         allowed_urls = kwargs.get('allowed_urls')  # list or None
         allowed_resource_urls = kwargs.get('allowed_resource_urls')  # list or None
         autofill_targets = kwargs.get('autofill_targets')  # list or None
@@ -3214,6 +3365,8 @@ class PAMRbiEditCommand(Command):
         has_new_settings = any([
             allow_url_navigation is not None,
             ignore_server_cert is not None,
+            allow_file_uploads is not None,
+            allow_file_downloads is not None,
             allowed_urls is not None,
             allowed_resource_urls is not None,
             autofill_targets is not None,
@@ -3264,6 +3417,14 @@ class PAMRbiEditCommand(Command):
         elif not rbs_fld.value:
             rbs_fld.value.append({'connection': {'protocol': 'http'}}) # type: ignore
             dirty = True
+
+        # A pre-existing pamRemoteBrowserSettings may lack a usable "connection"
+        # dict (absent, or published as ""); coerce it once so the writes below
+        # (rbs_fld.value[0]["connection"][...]) don't KeyError/TypeError.
+        if (isinstance(rbs_fld, vault.TypedField) and rbs_fld.value
+                and isinstance(rbs_fld.value[0], dict)):
+            if _coerce_settings_subdicts(rbs_fld.value[0], 'connection'):
+                dirty = True
 
         if autofill:
             af_rec = RecordMixin.resolve_single_record(params, autofill)
@@ -3388,6 +3549,14 @@ class PAMRbiEditCommand(Command):
         # Browser Settings - ignoreInitialSslCert (on/off/default)
         if ignore_server_cert:
             update_connection_toggle('ignoreInitialSslCert', ignore_server_cert)
+
+        # Browser Settings - allowFileUploads (on/off/default)
+        if allow_file_uploads:
+            update_connection_toggle('allowFileUploads', allow_file_uploads)
+
+        # Browser Settings - allowFileDownloads (on/off/default)
+        if allow_file_downloads:
+            update_connection_toggle('allowFileDownloads', allow_file_downloads)
 
         # URL Filtering - allowedUrlPatterns (multi-value, joined with newlines)
         if allowed_urls is not None:

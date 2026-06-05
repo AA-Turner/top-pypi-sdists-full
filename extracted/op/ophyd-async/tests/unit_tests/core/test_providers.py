@@ -20,20 +20,38 @@ from ophyd_async.core import (
 )
 
 
+def test_path_info_invalid_directory_path():
+    with pytest.raises(ValueError, match="directory_path must be an absolute path"):
+        PathInfo(directory_path=Path("relative/path"), filename="file.txt")
+
+
+def test_path_info_invalid_directory_uri(tmp_path: Path):
+    err_msg = "Directory URI must include a scheme, netlocation, and path."
+    with pytest.raises(ValueError, match=err_msg):
+        PathInfo(
+            directory_path=tmp_path,
+            filename="file.txt",
+            directory_uri="not_a_valid_uri",
+        )
+
+
 def test_auto_increment_filename_provider(static_path_provider_factory):
-    auto_inc_fp = AutoIncrementFilenameProvider(inc_delimeter="")
+    auto_inc_fp = AutoIncrementFilenameProvider(inc_delimeter="", max_digits=3)
     dp = static_path_provider_factory(auto_inc_fp)
 
-    # Our filenames should go from 00000 to 99999.
+    # Our filenames should go from 000 to 999.
     # We increment by one each time, so just check if casting filename to
     # int gets us i.
-    for i in range(100000):
+    for i in range(1000):
         info = dp()
         assert int(info.filename) == i
 
-    # Since default max digits is 5, incrementing one more time to 100000
+    # Since default max digits is 3, incrementing one more time to 1000
     # will go over the limit and raise a value error
-    with pytest.raises(ValueError):
+    with pytest.raises(
+        ValueError,
+        match="Auto incrementing filename counter exceeded maximum of 3 digits!",
+    ):
         dp()
 
 
@@ -142,7 +160,7 @@ def test_ymd_path_provider(static_filename_provider, tmp_path):
     info_a = ymd_path_provider()
     assert info_a.directory_path == tmp_path / date_path
 
-    info_b = ymd_path_provider(device_name="test_device")
+    info_b = ymd_path_provider(datakey_name="test_device")
     assert info_b.directory_path == tmp_path / "test_device" / date_path
 
 

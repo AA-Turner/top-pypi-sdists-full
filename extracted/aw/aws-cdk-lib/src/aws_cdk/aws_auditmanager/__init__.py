@@ -519,7 +519,7 @@ class CfnAssessment(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_auditmanager as auditmanager
                 
-                a_wSAccount_property = auditmanager.CfnAssessment.AWSAccountProperty(
+                a_ws_account_property = auditmanager.CfnAssessment.AWSAccountProperty(
                     email_address="emailAddress",
                     id="id",
                     name="name"
@@ -600,7 +600,7 @@ class CfnAssessment(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_auditmanager as auditmanager
                 
-                a_wSService_property = auditmanager.CfnAssessment.AWSServiceProperty(
+                a_ws_service_property = auditmanager.CfnAssessment.AWSServiceProperty(
                     service_name="serviceName"
                 )
             '''

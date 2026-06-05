@@ -3,6 +3,7 @@ from chalk._gen.chalk.expression.v1 import expression_pb2 as _expression_pb2
 from chalk._gen.chalk.graph.v1 import graph_pb2 as _graph_pb2
 from chalk._gen.chalk.planner.v1 import feature_types_pb2 as _feature_types_pb2
 from chalk._gen.chalk.planner.v1 import symbolic_value_pb2 as _symbolic_value_pb2
+from chalk._gen.chalk.symbolic_value.v1 import symbolic_value_pb2 as _symbolic_value_pb2_1
 from google.protobuf import duration_pb2 as _duration_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
@@ -170,21 +171,24 @@ OPERATOR_TYPE_UNLOADED_RESOLVER_SCAN: OperatorType
 OPERATOR_TYPE_VALUES_PERSISTER: OperatorType
 
 class BatchPlan(_message.Message):
-    __slots__ = ("operators", "symbolic_values", "feature_ref_info", "auxiliary_info")
+    __slots__ = ("operators", "symbolic_values", "feature_ref_info", "auxiliary_info", "symbolic_values_v2")
     OPERATORS_FIELD_NUMBER: _ClassVar[int]
     SYMBOLIC_VALUES_FIELD_NUMBER: _ClassVar[int]
     FEATURE_REF_INFO_FIELD_NUMBER: _ClassVar[int]
     AUXILIARY_INFO_FIELD_NUMBER: _ClassVar[int]
+    SYMBOLIC_VALUES_V2_FIELD_NUMBER: _ClassVar[int]
     operators: _containers.RepeatedCompositeFieldContainer[BatchOperator]
     symbolic_values: _containers.RepeatedCompositeFieldContainer[_symbolic_value_pb2.SymbolicValue]
     feature_ref_info: FeatureReferenceInfo
     auxiliary_info: _feature_types_pb2.AuxiliaryInfo
+    symbolic_values_v2: _containers.RepeatedCompositeFieldContainer[_symbolic_value_pb2_1.SymbolicValue]
     def __init__(
         self,
         operators: _Optional[_Iterable[_Union[BatchOperator, _Mapping]]] = ...,
         symbolic_values: _Optional[_Iterable[_Union[_symbolic_value_pb2.SymbolicValue, _Mapping]]] = ...,
         feature_ref_info: _Optional[_Union[FeatureReferenceInfo, _Mapping]] = ...,
         auxiliary_info: _Optional[_Union[_feature_types_pb2.AuxiliaryInfo, _Mapping]] = ...,
+        symbolic_values_v2: _Optional[_Iterable[_Union[_symbolic_value_pb2_1.SymbolicValue, _Mapping]]] = ...,
     ) -> None: ...
 
 class BatchOperator(_message.Message):
@@ -259,6 +263,7 @@ class Argument(_message.Message):
         "feature_ref_id_v2",
         "underscore_parsed",
         "ipc_arrow_table",
+        "symbolic_value_v2",
     )
     NONE_FIELD_NUMBER: _ClassVar[int]
     BOOL_VALUE_FIELD_NUMBER: _ClassVar[int]
@@ -286,6 +291,7 @@ class Argument(_message.Message):
     FEATURE_REF_ID_V2_FIELD_NUMBER: _ClassVar[int]
     UNDERSCORE_PARSED_FIELD_NUMBER: _ClassVar[int]
     IPC_ARROW_TABLE_FIELD_NUMBER: _ClassVar[int]
+    SYMBOLIC_VALUE_V2_FIELD_NUMBER: _ClassVar[int]
     none: Void
     bool_value: bool
     double_value: float
@@ -312,6 +318,7 @@ class Argument(_message.Message):
     feature_ref_id_v2: _feature_types_pb2.FeatureReferenceIdV2
     underscore_parsed: _feature_types_pb2.UnderscoreParsedId
     ipc_arrow_table: bytes
+    symbolic_value_v2: _symbolic_value_pb2_1.SymbolicValue
     def __init__(
         self,
         none: _Optional[_Union[Void, _Mapping]] = ...,
@@ -340,6 +347,7 @@ class Argument(_message.Message):
         feature_ref_id_v2: _Optional[_Union[_feature_types_pb2.FeatureReferenceIdV2, _Mapping]] = ...,
         underscore_parsed: _Optional[_Union[_feature_types_pb2.UnderscoreParsedId, _Mapping]] = ...,
         ipc_arrow_table: _Optional[bytes] = ...,
+        symbolic_value_v2: _Optional[_Union[_symbolic_value_pb2_1.SymbolicValue, _Mapping]] = ...,
     ) -> None: ...
 
 class ArgumentMapElement(_message.Message):

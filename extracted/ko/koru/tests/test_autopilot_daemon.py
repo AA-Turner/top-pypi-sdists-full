@@ -33,8 +33,7 @@ from koru.autopilot import ide as ide_mod
 from koru.autopilot.client import AutopilotClient
 from koru.autopilot.daemon import AutopilotDaemon
 from koru.autopilot.ide import RunningIDE
-from koru.autopilot.injector import InjectionResult, InjectorError
-from koru.autopilot.os_injector import OsInjectorProfile
+from gillm.injection import InjectionResult, InjectorError, OsInjectorProfile
 from koru.autopilot.protocol import Message, decode, hello
 from koru.observability_writer import observability_event_store_path
 from koruide import daemon as koruide_daemon_mod
@@ -48,19 +47,20 @@ from koruide.plugin_version import EXPECTED_VSCODE_PLUGIN_VERSION
 
 def _patch_no_running_ides(monkeypatch: pytest.MonkeyPatch) -> None:
     """Isolate daemon tests from the host IDE / OS-injector profile."""
-    from koruide import os_injector as oi_mod
+    import gillm.injection.os_injector as oi_mod
 
     monkeypatch.setattr(ide_mod, "detect_running_ides", lambda **_: [])
     monkeypatch.setattr(ide_mod, "detect_running_ides_cached", lambda **_: [])
     monkeypatch.setattr(ide_mod, "detect_focused_ide_id", lambda **_k: None)
     monkeypatch.setattr(koruide_daemon_mod, "detect_running_ides", lambda **_: [])
     monkeypatch.setattr(oi_mod, "try_load_profile", lambda _tool_id, project=None: None)
+    monkeypatch.setattr(oi_mod, "try_drive_with_profile", lambda *a, **k: None)
     # Also patch detect_terminal_host_ide_id to avoid terminal host detection
     monkeypatch.setattr(ide_mod, "detect_terminal_host_ide_id", lambda **_k: None)
 
 
 class _StubInjector:
-    """Replaces :class:`koru.autopilot.injector.Injector` for tests."""
+    """Replaces :class:`gillm.injection.injector.Injector` for tests (koru/koruide shims)."""
 
     def __init__(self, *, fail: bool = False) -> None:
         self.fail = fail
@@ -197,7 +197,11 @@ class _DaemonHarness:
         self._thread = threading.Thread(target=self.daemon.serve_forever, daemon=True)
         self._thread.start()
         # Give the selector loop a tick to pick up the registered server.
-        time.sleep(0.05)
+        # Use short sleep with retry loop for faster startup.
+        for _ in range(10):
+            if self.daemon._server is not None:
+                break
+            time.sleep(0.01)
 
     def stop(self) -> None:
         self.daemon.stop()
@@ -355,9 +359,9 @@ def test_drive_uses_os_injector_when_profile_available(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from koruide import os_injector as koruide_oi
+    from gillm.injection import os_injector as oi_mod
 
-    # Daemon imports koruide.os_injector at request time; isolate from host IDE env.
+    # handlers_drive: from gillm.injection import os_injector (canonical; koruide re-exports)
     monkeypatch.setenv("XDG_SESSION_TYPE", "x11")
     monkeypatch.delenv("KORU_OS_INJECTOR", raising=False)
     monkeypatch.delenv("CURSOR_AGENT", raising=False)
@@ -379,32 +383,32 @@ def test_drive_uses_os_injector_when_profile_available(
     monkeypatch.setattr(ide_mod, "detect_focused_ide_id", lambda **_k: None)
     monkeypatch.setattr(ide_mod, "detect_terminal_host_ide_id", lambda **_k: None)
     monkeypatch.setattr(
-        koruide_oi.shutil,
+        oi_mod.shutil,
         "which",
         lambda name: "/bin/xdotool" if name == "xdotool" else None,
     )
 
-    prof = OsInjectorProfile(tool_id="cursor", chat_x=2, chat_y=3)
-
-    def fake_try_load(tool_id: str, project=None):
-        assert tool_id == "cursor"
-        assert project == repo
-        return prof
-
     calls: list[dict[str, Any]] = []
 
-    def fake_inject(*, profile, text, submit, dry_run, _log=None):
-        calls.append({"text": text, "submit": submit, "dry_run": dry_run})
+    def fake_try_drive(*, tool_id: str, text: str, submit: bool, project, **_kw):
+        assert tool_id == "cursor"
+        assert project == repo
+        calls.append({"text": text, "submit": submit, "dry_run": _kw.get("cli_dry_run", False)})
         return {
             "ok": True,
             "backend": "os_injector",
-            "tool_id": profile.tool_id,
+            "tool_id": tool_id,
             "submitted": submit,
-            "dry_run": dry_run,
+            "dry_run": False,
+            "chat_x": 2,
+            "chat_y": 3,
+            "input_method": "type",
         }
 
-    monkeypatch.setattr(koruide_oi, "try_load_profile", fake_try_load)
-    monkeypatch.setattr(koruide_oi, "inject_with_profile", fake_inject)
+    monkeypatch.setattr(
+        "gillm.injection.os_injector.try_drive_with_profile",
+        fake_try_drive,
+    )
 
     with _daemon(tmp_path, monkeypatch, project=repo, patch_ides=False) as h:
         reply = h.client().drive("hello", submit=False, ide="auto")
@@ -420,7 +424,7 @@ def test_drive_os_injector_skipped_when_env_disabled(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from koru.autopilot import os_injector as oi_mod
+    import gillm.injection.os_injector as oi_mod
 
     monkeypatch.setenv("KORU_OS_INJECTOR", "0")
     fake = RunningIDE(id="cursor", label="Cursor", pid=1, exe="/opt/Cursor")
@@ -448,7 +452,7 @@ def test_drive_os_injector_forced_without_profile_falls_back_to_keyboard(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from koru.autopilot import os_injector as oi_mod
+    import gillm.injection.os_injector as oi_mod
 
     monkeypatch.setenv("KORU_OS_INJECTOR", "1")
     fake = RunningIDE(id="cursor", label="Cursor", pid=1, exe="/opt/Cursor")
@@ -469,7 +473,7 @@ def test_drive_os_injector_failure_falls_back_to_keyboard(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from koru.autopilot import os_injector as oi_mod
+    import gillm.injection.os_injector as oi_mod
 
     monkeypatch.delenv("KORU_AUTOPILOT_INSTANCE", raising=False)
     monkeypatch.delenv("KORU_AUTOPILOT_IDE", raising=False)
@@ -637,7 +641,11 @@ def test_accept_rejects_foreign_peer_uid(
         finally:
             sock.close()
 
-        time.sleep(0.05)
+        # Poll with short sleeps instead of fixed 50ms wait
+        for _ in range(20):
+            if harness.daemon._clients == {}:
+                break
+            time.sleep(0.01)
         assert harness.daemon._clients == {}
     finally:
         harness.stop()

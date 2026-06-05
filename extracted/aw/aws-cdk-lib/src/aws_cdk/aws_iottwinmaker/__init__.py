@@ -1273,7 +1273,7 @@ class CfnComponentType(
         def __init__(
             self,
             *,
-            configurations: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             data_type: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponentType.DataTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             default_value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponentType.DataValueProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             is_external_id: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
@@ -1379,13 +1379,13 @@ class CfnComponentType(
         @builtins.property
         def configurations(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''A mapping that specifies configuration information about the property.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iottwinmaker-componenttype-propertydefinition.html#cfn-iottwinmaker-componenttype-propertydefinition-configurations
             '''
             result = self._values.get("configurations")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def data_type(
@@ -3223,7 +3223,7 @@ class CfnEntity(
         def __init__(
             self,
             *,
-            configuration: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             data_type: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEntity.DataTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             default_value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEntity.DataValueProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             is_external_id: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
@@ -3345,13 +3345,13 @@ class CfnEntity(
         @builtins.property
         def configuration(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''The configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iottwinmaker-entity-definition.html#cfn-iottwinmaker-entity-definition-configuration
             '''
             result = self._values.get("configuration")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def data_type(
@@ -4217,7 +4217,7 @@ class CfnScene(
         workspace_id: builtins.str,
         capabilities: typing.Optional[typing.Sequence[builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
-        scene_metadata: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        scene_metadata: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''Create a new ``AWS::IoTTwinMaker::Scene``.
@@ -4428,14 +4428,14 @@ class CfnScene(
     @jsii.member(jsii_name="sceneMetadata")
     def scene_metadata(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''The scene metadata.'''
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], jsii.get(self, "sceneMetadata"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "sceneMetadata"))
 
     @scene_metadata.setter
     def scene_metadata(
         self,
-        value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fa25c12f7674749ea653aa0c11493d07c4498263f37af0f06244591382f5bba6)
@@ -4481,7 +4481,7 @@ class CfnSceneProps:
         workspace_id: builtins.str,
         capabilities: typing.Optional[typing.Sequence[builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
-        scene_metadata: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        scene_metadata: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''Properties for defining a ``CfnScene``.
@@ -4593,13 +4593,13 @@ class CfnSceneProps:
     @builtins.property
     def scene_metadata(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''The scene metadata.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-scene.html#cfn-iottwinmaker-scene-scenemetadata
         '''
         result = self._values.get("scene_metadata")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
@@ -5558,7 +5558,7 @@ def _typecheckingstub__011f4caacaac8a9678c7e6f682b14051c4e3f54b1af2a1a5fbc3725d3
 
 def _typecheckingstub__9f6468ee4b88bb9dcef8da418cc59d1b3fceed119d2e1ade2c3b9f57b529a31a(
     *,
-    configurations: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     data_type: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponentType.DataTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     default_value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponentType.DataValueProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     is_external_id: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
@@ -5759,7 +5759,7 @@ def _typecheckingstub__bee2e6498d955df8493500bf9e927820daa7a2e32fb446fcd06dfea58
 
 def _typecheckingstub__347d62ba072131593e5021b7610bb93a0bbad5f67a110b1404655f0235ef81eb(
     *,
-    configuration: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     data_type: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEntity.DataTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     default_value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEntity.DataValueProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     is_external_id: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
@@ -5844,7 +5844,7 @@ def _typecheckingstub__80e723b8d84cf2c976c8c38d181a6082d3d8068ee103592ec3b3ba4c1
     workspace_id: builtins.str,
     capabilities: typing.Optional[typing.Sequence[builtins.str]] = None,
     description: typing.Optional[builtins.str] = None,
-    scene_metadata: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    scene_metadata: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -5905,7 +5905,7 @@ def _typecheckingstub__27ba1e36c6c22d532bb08da27fcb8c31ccfa0d64c1ea755831c3a22be
     pass
 
 def _typecheckingstub__fa25c12f7674749ea653aa0c11493d07c4498263f37af0f06244591382f5bba6(
-    value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5923,7 +5923,7 @@ def _typecheckingstub__82a36415e841f5ed3140cd3e0387f54673b74205e417aba4df516fe5c
     workspace_id: builtins.str,
     capabilities: typing.Optional[typing.Sequence[builtins.str]] = None,
     description: typing.Optional[builtins.str] = None,
-    scene_metadata: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    scene_metadata: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""

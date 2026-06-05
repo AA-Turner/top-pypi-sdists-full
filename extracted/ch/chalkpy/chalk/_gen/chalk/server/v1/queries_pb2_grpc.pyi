@@ -52,6 +52,8 @@ from chalk._gen.chalk.server.v1.queries_pb2 import (
     ListQueryErrorsResponse,
     ListQueryPlansRequest,
     ListQueryPlansResponse,
+    ListStreamingResolverDeploymentsRequest,
+    ListStreamingResolverDeploymentsResponse,
     UnarchiveMetaQueryRequest,
     UnarchiveMetaQueryResponse,
 )
@@ -131,6 +133,10 @@ class QueriesServiceStub:
     GetQueryRun: UnaryUnaryMultiCallable[
         GetQueryRunRequest,
         GetQueryRunResponse,
+    ]
+    ListStreamingResolverDeployments: UnaryUnaryMultiCallable[
+        ListStreamingResolverDeploymentsRequest,
+        ListStreamingResolverDeploymentsResponse,
     ]
     GetStreamingResolverMappingPlan: UnaryUnaryMultiCallable[
         GetStreamingResolverMappingPlanRequest,
@@ -260,6 +266,12 @@ class QueriesServiceServicer(metaclass=ABCMeta):
         request: GetQueryRunRequest,
         context: ServicerContext,
     ) -> GetQueryRunResponse: ...
+    @abstractmethod
+    def ListStreamingResolverDeployments(
+        self,
+        request: ListStreamingResolverDeploymentsRequest,
+        context: ServicerContext,
+    ) -> ListStreamingResolverDeploymentsResponse: ...
     @abstractmethod
     def GetStreamingResolverMappingPlan(
         self,

@@ -40,11 +40,14 @@ class CompletionConfig(TypedDict):
     - `signature_hint_on_typing`: if `False`, signature hint won't be shown when typing
     - `copilot`: one of `"github"`, `"codeium"`, or `"custom"`
     - `codeium_api_key`: the Codeium API key
+    - `auto_close_pairs`: if `False`, typing an opening bracket, parenthesis,
+    or quote will not automatically insert the closing character
     """
 
     activate_on_typing: bool
     signature_hint_on_typing: bool
     copilot: bool | Literal["github", "codeium", "custom"]
+    auto_close_pairs: NotRequired[bool]
 
     # Codeium
     codeium_api_key: NotRequired[str | None]
@@ -295,6 +298,7 @@ class AiConfig(TypedDict, total=False):
 
     **Keys.**
 
+    - `enabled`: if `False`, hide AI actions and panels in the marimo UI
     - `rules`: custom rules to include in all AI completion prompts
     - `max_tokens`: the maximum number of tokens to use in AI completions
     - `mode`: the mode to use for AI completions. Can be one of: `"ask"` or `"manual"`
@@ -314,6 +318,7 @@ class AiConfig(TypedDict, total=False):
     - `open_ai_compatible`: the OpenAI-compatible config (deprecated, use custom_providers)
     """
 
+    enabled: NotRequired[bool]
     rules: NotRequired[str]
     max_tokens: NotRequired[int]
     mode: NotRequired[CopilotMode]
@@ -565,10 +570,12 @@ class SharingConfig(TypedDict):
 
     - `html`: if `False`, HTML sharing options will be hidden from the UI
     - `wasm`: if `False`, WebAssembly sharing options will be hidden from the UI
+    - `molab`: if `False`, molab sharing options will be hidden from the UI
     """
 
     html: NotRequired[bool]
     wasm: NotRequired[bool]
+    molab: NotRequired[bool]
 
 
 @dataclass
@@ -701,6 +708,7 @@ DEFAULT_CONFIG: MarimoConfig = {
         "activate_on_typing": True,
         "signature_hint_on_typing": False,
         "copilot": False,
+        "auto_close_pairs": True,
     },
     "display": {
         "theme": "light",
@@ -754,6 +762,7 @@ DEFAULT_CONFIG: MarimoConfig = {
         }
     },
     "ai": {
+        "enabled": True,
         "models": {
             "displayed_models": [],
             "custom_models": [],
@@ -782,7 +791,8 @@ def merge_default_config(
 
 
 def merge_config(
-    config: MarimoConfig, new_config: PartialMarimoConfig | MarimoConfig
+    config: MarimoConfig,
+    new_config: PartialMarimoConfig | MarimoConfig,
 ) -> MarimoConfig:
     """Merge a user configuration with a new configuration. The new config
     will take precedence over the default config.

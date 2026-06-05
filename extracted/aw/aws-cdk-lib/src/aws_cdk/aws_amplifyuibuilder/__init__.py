@@ -3007,7 +3007,7 @@ class CfnComponent(
             self,
             *,
             overrides: typing.Any = None,
-            variant_values: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            variant_values: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         ) -> None:
             '''The ``ComponentVariant`` property specifies the style configuration of a unique variation of a main component.
 
@@ -3056,13 +3056,13 @@ class CfnComponent(
         @builtins.property
         def variant_values(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''The combination of variants that comprise this variant.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-component-componentvariant.html#cfn-amplifyuibuilder-component-componentvariant-variantvalues
             '''
             result = self._values.get("variant_values")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5302,7 +5302,7 @@ class CfnForm(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_amplifyuibuilder as amplifyuibuilder
                 
-                form_cTAProperty = amplifyuibuilder.CfnForm.FormCTAProperty(
+                form_cta_property = amplifyuibuilder.CfnForm.FormCTAProperty(
                     cancel=amplifyuibuilder.CfnForm.FormButtonProperty(
                         children="children",
                         excluded=False,
@@ -7539,7 +7539,7 @@ def _typecheckingstub__9cf7d407c19a13b1e358d52a06851a4288f7e5e365289ff8c22d9b2d6
 def _typecheckingstub__295e4045520d86ca93a4865404c10aafdb49dd91806c9cae31545fdd54e9bee9(
     *,
     overrides: typing.Any = None,
-    variant_values: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    variant_values: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

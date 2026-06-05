@@ -36,6 +36,11 @@ def test_mcp_profile_is_tools_only() -> None:
 def test_backend_aliases_normalize_to_profiles() -> None:
     assert normalize_agent_backend_id("plugin_socket") == "vscode_family_plugin_socket"
     assert get_agent_backend_profile("mcp_tool") is get_agent_backend_profile("mcp_stdio_server")
+    assert normalize_agent_backend_id("sllm_shell") == "vendor_agent_cli"
+    assert normalize_agent_backend_id("cursor_cli") == "vendor_agent_cli"
+    profile = get_agent_backend_profile("vendor_cli")
+    assert profile is not None
+    assert profile.primary_code == "/home/tom/github/semcod/sllm"
 
 
 def test_load_agent_integration_config_from_koru_yaml(tmp_path) -> None:

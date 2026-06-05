@@ -6,6 +6,8 @@ legacy format migration for auto_mode and control_mode fields.
 
 from __future__ import annotations
 
+from kanban_framework.infra.consts import Consts
+
 from pathlib import Path
 
 from kanban_framework.types import Task, TaskStatus, Phase, AutoMode, ControlMode
@@ -38,8 +40,7 @@ def read_task_file(fs, path: Path) -> Task:
         status=TaskStatus(data.get("status", "pending")),
         phase=Phase(data["phase"]) if data.get("phase") else Phase.PLAN,
         iteration=data.get("iteration", 1),
-        lightweight=data.get("lightweight", False),
-        mode=data.get("mode", "lightweight"),
+        mode=data.get("mode", Consts.DEFAULT_MODE),
         control_mode=control_mode,
         custom_fsm=data.get("custom_fsm"),
         history=data.get("history", []),
@@ -63,7 +64,6 @@ def write_task_file(fs, task: Task) -> None:
         "status": task.status.value,
         "phase": task.phase.value,
         "iteration": task.iteration,
-        "lightweight": task.lightweight,
         "mode": task.mode,
         "control_mode": task.control_mode.value,
         "custom_fsm": task.custom_fsm,

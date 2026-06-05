@@ -1,4 +1,4 @@
-"""Generate content CLI commands — thin Click handlers (P3.T1 ADR-008).
+"""Generate content CLI commands — thin Click handlers (ADR-0008).
 
 All validation, enum mapping, retry/wait orchestration, and output
 dispatch live in ``cli/services/generate.py``. Tests patch
@@ -16,6 +16,7 @@ import click
 from click.core import ParameterSource
 
 from ..client import NotebookLMClient
+from ..types import MindMap, MindMapResult
 from .auth_runtime import with_client
 from .error_handler import current_json_output, output_error
 from .input import resolve_prompt
@@ -60,7 +61,7 @@ def resolve_language(language: str | None) -> str:
     > "en" default. Uses explicit None checks to avoid treating empty
     string as falsy. Validates each candidate against the supported list.
 
-    Invalid codes route through :func:`output_error` per ADR-015: under
+    Invalid codes route through :func:`output_error` per ADR-0015: under
     ``--json`` the typed JSON envelope is emitted on stdout
     (``code: "VALIDATION_ERROR"``, exit 1); in text mode the same message
     is written to stderr (exit 1, no Click usage footer). The active
@@ -121,19 +122,41 @@ def _output_mind_map_result(result: Any, json_output: bool) -> None:
             console.print("[yellow]No result[/yellow]")
         return
 
+    # Converge both kinds onto one shape (issue #1256): note-backed returns a
+    # ``MindMapResult`` ({mind_map, note_id}); interactive returns a ``MindMap``
+    # ({id, kind, tree}). Normalize to (id, tree, kind) so the JSON stays a
+    # backward-compatible superset of the historical {mind_map, note_id} payload
+    # — only the additive ``kind`` key is new — and the text is kind-agnostic.
+    if isinstance(result, MindMap):
+        mind_map_id: Any = result.id
+        mind_map = result.tree
+        kind = result.kind.value
+    elif isinstance(result, MindMapResult):
+        mind_map_id = result.note_id
+        mind_map = result.mind_map
+        kind = "note_backed"
+    elif isinstance(result, dict):
+        # Legacy/test path: a plain dict still patched in by older callers.
+        mind_map_id = result.get("note_id")
+        mind_map = result.get("mind_map", {})
+        kind = result.get("kind", "note_backed")
+    else:
+        mind_map_id = None
+        mind_map = result
+        kind = "note_backed"
+
     if json_output:
-        json_output_response(result)
+        json_output_response({"mind_map": mind_map, "note_id": mind_map_id, "kind": kind})
         return
 
     console.print("[green]Mind map generated:[/green]")
-    if isinstance(result, dict):
-        console.print(f"  Note ID: {result.get('note_id', '-')}")
-        mind_map = result.get("mind_map", {})
-        if isinstance(mind_map, dict):
-            console.print(f"  Root: {mind_map.get('name', '-')}")
-            console.print(f"  Children: {len(mind_map.get('children', []))} nodes")
-    else:
-        console.print(result)
+    console.print(f"  ID: {mind_map_id if mind_map_id is not None else '-'}")
+    console.print(f"  Kind: {kind}")
+    if isinstance(mind_map, dict):
+        console.print(f"  Root: {mind_map.get('name', '-')}")
+        console.print(f"  Children: {len(mind_map.get('children', []))} nodes")
+    elif mind_map is not None and not isinstance(result, (MindMap, MindMapResult, dict)):
+        console.print(mind_map)
 
 
 def _output_generation_outcome(outcome: GenerationOutcome, json_output: bool) -> None:
@@ -221,6 +244,11 @@ def _run_generate(*, kind: str, **handler_locals: Any) -> Any:
         output_error(exc.message, exc.code, raw_args["json_output"], 1)
         raise AssertionError("unreachable") from exc  # pragma: no cover
 
+    # Behavioral warnings (an input was actually dropped) surface even under
+    # --json — stdout stays pure JSON, but stderr must tell the caller. Purely
+    # informational notices (deprecations, format hints) are human-mode only.
+    for line in plan.stderr_warnings:
+        click.echo(line, err=True)
     if not plan.json_output:
         for line in plan.warnings:
             click.echo(line, err=True)
@@ -299,12 +327,14 @@ def generate():
     "audio_format",
     type=click.Choice(["deep-dive", "brief", "critique", "debate"]),
     default="deep-dive",
+    help="Conversation style (default: deep-dive)",
 )
 @click.option(
     "--length",
     "audio_length",
     type=click.Choice(["short", "default", "long"]),
     default="default",
+    help="Audio length: short, default, or long",
 )
 @language_option
 @multi_source_option
@@ -353,6 +383,7 @@ def generate_audio(
     "video_format",
     type=click.Choice(["explainer", "brief", "cinematic"]),
     default="explainer",
+    help="Video format; 'cinematic' uses Veo 3 footage (default: explainer)",
 )
 @click.option(
     "--style",
@@ -371,6 +402,7 @@ def generate_audio(
         ]
     ),
     default="auto",
+    help="Visual style (default: auto). Use 'custom' with --style-prompt.",
 )
 @click.option("--style-prompt", default=None, help="Custom visual style prompt")
 @language_option
@@ -454,12 +486,14 @@ alias_command(
     "deck_format",
     type=click.Choice(["detailed", "presenter"]),
     default="detailed",
+    help="Slide deck format (default: detailed)",
 )
 @click.option(
     "--length",
     "deck_length",
     type=click.Choice(["default", "short"]),
     default="default",
+    help="Slide deck length: default or short",
 )
 @language_option
 @multi_source_option
@@ -554,8 +588,18 @@ def generate_revise_slide(
 @click.argument("description", default="", required=False)
 @prompt_file_option
 @notebook_option
-@click.option("--quantity", type=click.Choice(["fewer", "standard", "more"]), default="standard")
-@click.option("--difficulty", type=click.Choice(["easy", "medium", "hard"]), default="medium")
+@click.option(
+    "--quantity",
+    type=click.Choice(["fewer", "standard", "more"]),
+    default="standard",
+    help="Number of questions (default: standard)",
+)
+@click.option(
+    "--difficulty",
+    type=click.Choice(["easy", "medium", "hard"]),
+    default="medium",
+    help="Question difficulty (default: medium)",
+)
 @multi_source_option
 @wait_option
 @wait_polling_options(default_timeout=300, default_interval=2)
@@ -595,8 +639,18 @@ def generate_quiz(
 @click.argument("description", default="", required=False)
 @prompt_file_option
 @notebook_option
-@click.option("--quantity", type=click.Choice(["fewer", "standard", "more"]), default="standard")
-@click.option("--difficulty", type=click.Choice(["easy", "medium", "hard"]), default="medium")
+@click.option(
+    "--quantity",
+    type=click.Choice(["fewer", "standard", "more"]),
+    default="standard",
+    help="Number of flashcards (default: standard)",
+)
+@click.option(
+    "--difficulty",
+    type=click.Choice(["easy", "medium", "hard"]),
+    default="medium",
+    help="Flashcard difficulty (default: medium)",
+)
 @multi_source_option
 @wait_option
 @wait_polling_options(default_timeout=300, default_interval=2)
@@ -640,16 +694,19 @@ def generate_flashcards(
     "--orientation",
     type=click.Choice(["landscape", "portrait", "square"]),
     default="landscape",
+    help="Infographic orientation (default: landscape)",
 )
 @click.option(
     "--detail",
     type=click.Choice(["concise", "standard", "detailed"]),
     default="standard",
+    help="Level of detail (default: standard)",
 )
 @click.option(
     "--style",
     type=click.Choice(list(_INFOGRAPHIC_STYLE_MAP)),
     default="auto",
+    help="Visual style (default: auto)",
 )
 @language_option
 @multi_source_option
@@ -732,13 +789,38 @@ def generate_data_table(
 @notebook_option
 @multi_source_option
 @language_option
-@click.option("--instructions", default=None, help="Custom instructions for the mind map")
+@click.option(
+    "--instructions", default=None, help="Custom instructions for the mind map (note-backed only)"
+)
+@click.option(
+    "--kind",
+    "map_kind",
+    type=click.Choice(["interactive", "note-backed"]),
+    default="note-backed",
+    show_default=True,
+    help=(
+        "Which mind map to generate: 'interactive' (studio artifact, polled to "
+        "completion) or 'note-backed' (JSON tree, synchronous). The default "
+        "becomes 'interactive' in v0.8.0."
+    ),
+)
 @json_option
 @with_client
 def generate_mind_map(
-    ctx, notebook_id, source_ids, language, instructions, json_output, client_auth
+    ctx, notebook_id, source_ids, language, instructions, map_kind, json_output, client_auth
 ):
     """Generate mind map.
+
+    \b
+    Two kinds (issue #1256):
+      --kind note-backed   JSON tree, synchronous (default)
+      --kind interactive   interactive studio artifact, polled to completion
+    Both export the same JSON node tree via 'download mind-map'.
+
+    \b
+    Heads up: the default --kind will switch to 'interactive' in v0.8.0
+    (NotebookLM's web app already creates interactive maps). Pass --kind
+    explicitly to pin your choice. --instructions applies to note-backed only.
 
     \b
     Use --json for machine-readable output.

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ag-ui-langgraph
-Version: 0.0.37
+Version: 0.0.38
 Summary: Implementation of the AG-UI protocol for LangGraph.
 Author-email: Ran Shem Tov <ran@copilotkit.ai>
 Requires-Python: <3.15,>=3.10

@@ -14,12 +14,14 @@ on:
       - 'mkdocs.yml'
       - '.github/workflows/docs-deploy.yml'
       - 'pyproject.toml'
+      - 'install.sh'
   push:
     branches: [main]
     paths:
       - 'docs/**'
       - 'mkdocs.yml'
       - '.github/workflows/docs-deploy.yml'
+      - 'install.sh'
   # Manual trigger — used at public-flip time. A visibility change is
   # a settings event, not a push, so without workflow_dispatch the
   # first post-flip deploy would require a no-op commit. See the
@@ -51,6 +53,12 @@ jobs:
         # --strict turns broken links into build failures, which is what
         # we want as a PR gate.
         run: uv run mkdocs build --strict --site-dir _site
+      - name: Stage the install bootstrap at the site root
+        # Serves the repo-root install.sh at https://docs.efterlev.org/install.sh
+        # so the one-liner `curl -LsSf https://docs.efterlev.org/install.sh | sh`
+        # works. Canonical source stays at the repo root; copied into the Pages
+        # artifact at build time (single source of truth, no drift).
+        run: cp install.sh _site/install.sh
       - name: Upload artifact
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/upload-pages-artifact@v5

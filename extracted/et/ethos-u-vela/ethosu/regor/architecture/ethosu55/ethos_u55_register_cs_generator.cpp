@@ -27,7 +27,6 @@
 #include "compiler/op_type.hpp"
 #include "compiler/operation_util.hpp"
 #include "ethos_u55.hpp"
-#include "ethos_u55_scaling.hpp"
 #define NPU_DISASSEMBLE
 #define NPU_NAMESPACE ethosu55
 // Note: Ethos-U55 and Ethos-U65 share interface definitions
@@ -255,20 +254,22 @@ void EthosU55RCSGenerator::Emit(uint64_t instr)
     _emit.Emit(instr);
 }
 
-int EthosU55RCSGenerator::GetDoubleBufferOffset(HLCWeights *weights, int rangeIndex)
+namespace
 {
-    int doubleBufferOffset = 0;
+
+unsigned GetDoubleBufferIndex(HLCWeights *weights, int rangeIndex)
+{
     if ( weights->buffering == Buffering::Double )
     {
         assert(weights->subStreams > 0);
-        int depthIndex = rangeIndex / weights->subStreams;
-        if ( depthIndex % 2 == 1 )
-        {
-            doubleBufferOffset = weights->doubleBufferOffset;
-        }
+        assert(rangeIndex >= 0);
+        unsigned depthIndex = unsigned(rangeIndex / weights->subStreams);
+        return depthIndex % 2;
     }
-    return doubleBufferOffset;
+    return 0;
 }
+
+}  // namespace
 
 void EthosU55RCSGenerator::CheckAddressRange(ArchitectureMemory *memory, Address address, int size)
 {
@@ -543,30 +544,38 @@ int EthosU55RCSGenerator::Disassemble(const uint32_t *in, std::string &op, std::
 //----------------------------------------------------------------------
 
 // Generates OFM_SCALE register for pooling operations
-void EthosU55RCSGenerator::GenerateOFMScalingForPooling(HLCOperation *poolOp, bool useGlobalScale)
+void EthosU55RCSGenerator::GenerateOFMScalingForPooling(HLCOperation *poolOp, bool useGlobalScale, int padSum)
 {
     QuantizedScale ofmScale(1, 0);
     bool isNoOp = _arch->UseAvgPoolNop(poolOp->type);
-    auto mode = GetPoolingMode(poolOp->type);
-    ethosU55Scaling::RescalePooling(poolOp, isNoOp);
-    if ( useGlobalScale && !poolOp->ofm.quantization.scales.empty() )
+    if ( useGlobalScale )
     {
-        ofmScale = poolOp->ofm.quantization.scales[0];
+        ofmScale = poolOp->ofm.quantization.Scale();
     }
-    // For the case of a TOSA average-pool
-    // OFM Quantization should always be unit, as we don't support fusing rescales on avgPool.
-    // OFM-scale compensation for the average-pool sum still needs to happen.
-    // TODO: MLBEDSW-11322 Refactor QuantizePoolingScale out of RescalePooling
-    if ( mode == pooling_mode::AVERAGE && QuantizedScale::ReduceScale(ofmScale) == QuantizedScale(1, 0) )
+    if ( poolOp->type == OpType::AvgPool )
     {
-        uint32_t scale;
-        int shift;
-        QuantizePoolingScale(poolOp->kernel.ElementsWH(), 1.0, 0, scale, shift, 32);
-        ofmScale = QuantizedScale(int32_t(scale), shift);
+        uint32_t multiplier = 1;
+        int shift = 0;
+        if ( padSum > 0 )
+        {
+            // padded average-pools use HW-scaling
+            assert(QuantizedScale::ReduceScale(ofmScale) == QuantizedScale::Unit() && "HW-scaled averagePool with non-unit rescale");
+        }
+        else if ( QuantizedScale::ReduceScale(ofmScale) != QuantizedScale::Unit() )
+        {
+            // average-pooling with fused scale
+            // compute OFM-scaling both based on ofmScale and kernel-sum
+            QuantizePoolingScaleMaxPrecision(poolOp->kernel.ElementsWH(), ofmScale.Dequantize(), multiplier, shift, 32);
+        }
+        else
+        {
+            // average-pooling needs to compensate the kernel-sum with the OFM-scale register.
+            QuantizePoolingScale(poolOp->kernel.ElementsWH(), 1.0, 0, multiplier, shift, 32);
+        }
+        ofmScale = {int32_t(multiplier), shift};
     }
     assert(unsigned(ofmScale.shift) < 64);
-
-    Emit(isa::npu_set_ofm_scale_t(uint32_t(ofmScale.shift), ofmScale.scale));
+    Emit(isa::npu_set_ofm_scale_t(ofmScale.shift, uint32_t(ofmScale.scale)));
 }
 
 // Generates OFM/OPA/OPB_SCALE registers for elementwise operators.
@@ -577,18 +586,11 @@ RCSIfmScaleMode EthosU55RCSGenerator::GenerateScalingForElementwise(HLCOperation
     auto opType = op->type;
 
     QuantizedScale ofmScale(1, 0);
-    ethosU55Scaling::RescaleElementwise(op);
     int ifmCnt = int(op->ifm.size());
-    bool allHaveScale =
-        !op->ofm.quantization.scales.empty() && !op->ifm[0].quantization.scales.empty() && ifmCnt == 2 &&
-        !op->ifm[1].quantization.scales.empty();
 
     if ( opType == OpType::Mul || opType == OpType::Abs )
     {
-        if ( !op->ofm.quantization.scales.empty() )
-        {
-            ofmScale = op->ofm.quantization.scales[0];
-        }
+        ofmScale = op->ofm.quantization.Scale();
     }
     else if ( opType == OpType::LeakyRelu )
     {
@@ -601,41 +603,37 @@ RCSIfmScaleMode EthosU55RCSGenerator::GenerateScalingForElementwise(HLCOperation
         uint32_t opaScale = 1;
         uint32_t opbScale = 1;
         uint32_t opaShift = 0;
-        if ( allHaveScale )
+        ofmScale = op->ofm.quantization.Scale();
+        QuantizedScale ifm1Scale = op->ifm[ifm0Index].quantization.Scale();
+        QuantizedScale ifm2Scale = op->ifm[1 - ifm0Index].quantization.Scale();
+        int bitDepth = DataTypeSizeBits(op->ifm[0].dataType);
+        int dbl_rnd_shift = op->parameters.double_round.shift;
+        assert(dbl_rnd_shift == 0 || (dbl_rnd_shift == 20 && bitDepth == 8) || (dbl_rnd_shift == 15 && bitDepth != 8));
+        if ( ifm1Scale == ifm2Scale &&
+             ((bitDepth != 8 || (ofmScale.scale & 0xFFF) == 0) || dbl_rnd_shift == 0 || ifm1Scale == QuantizedScale::Unit()) )
         {
-            ofmScale = op->ofm.quantization.scales[0];
-            QuantizedScale ifm1Scale = op->ifm[ifm0Index].quantization.scales[0];
-            QuantizedScale ifm2Scale = op->ifm[1 - ifm0Index].quantization.scales[0];
+            // Input scales are equal and we can guarantee correct double-rounding behaviour using only scales.
+            // Remove the shift by right-shifting the scale
+            assert(ifm1Scale.shift >= 0 && ifm1Scale.shift < 64);
+            assert(ifm2Scale.shift >= 0 && ifm2Scale.shift < 64);
+            opToScale = RCSIfmScaleMode::OPA_OPB_16;
+            opaScale = ifm1Scale.scale >> ifm1Scale.shift;
+            opbScale = ifm2Scale.scale >> ifm2Scale.shift;
+        }
+        else if ( ifm2Scale < ifm1Scale )
+        {
+            opToScale = ifm0Index == 0 ? RCSIfmScaleMode::OPB_32 : RCSIfmScaleMode::OPA_32;
+            opaScale = ifm2Scale.scale;
+            opaShift = ifm2Scale.shift;
+            opbScale = ifm1Scale.scale;
+        }
+        else
+        {
+            assert(ifm1Scale <= ifm2Scale);
+            opToScale = ifm0Index == 0 ? RCSIfmScaleMode::OPA_32 : RCSIfmScaleMode::OPB_32;
             opaScale = ifm1Scale.scale;
             opaShift = ifm1Scale.shift;
             opbScale = ifm2Scale.scale;
-
-            if ( ifm1Scale.scale == 0 || ifm2Scale.scale == 0 )
-            {
-                opbScale = 0;
-                if ( ifm1Scale.scale == 0 )
-                {
-                    opToScale = RCSIfmScaleMode::OPB_32;
-                    opaScale = ifm2Scale.scale;
-                    opaShift = ifm2Scale.shift;
-                }
-                else
-                {
-                    opToScale = RCSIfmScaleMode::OPA_32;
-                }
-            }
-            if ( ifm0Index == 1 )
-            {
-                // Reversed operands
-                if ( opToScale == RCSIfmScaleMode::OPA_32 )
-                {
-                    opToScale = RCSIfmScaleMode::OPB_32;
-                }
-                else if ( opToScale == RCSIfmScaleMode::OPB_32 )
-                {
-                    opToScale = RCSIfmScaleMode::OPA_32;
-                }
-            }
         }
         assert(opaShift < 64);
         Emit(isa::npu_set_opa_scale_t(opaShift, opaScale));
@@ -1104,8 +1102,8 @@ void EthosU55RCSGenerator::GenerateWeights(const HLCStripe *stripe, MemoryAccess
     auto item0 = weights->encodedRanges.find(WeightKey(0, depth));
     assert(item0 != weights->encodedRanges.end());
     auto &range0 = item0->second;
-    int doubleBufferOffset = GetDoubleBufferOffset(weights, range0.index);
-    Address address = weights->address + range0.weightOffset + doubleBufferOffset;
+    unsigned int doubleBufferIndex = GetDoubleBufferIndex(weights, range0.index);
+    Address address = weights->address[doubleBufferIndex] + range0.weightOffset;
     int length = RoundAway(range0.weightBytes, 16);
     CheckAddressRange(weights->memArea.memory, address, length);
     Emit(isa::npu_set_weight_base_t(address));
@@ -1117,7 +1115,7 @@ void EthosU55RCSGenerator::GenerateWeights(const HLCStripe *stripe, MemoryAccess
     if ( item1 != weights->encodedRanges.end() )
     {
         auto &range1 = item1->second;
-        Address address1 = weights->address + RoundAway(range0.TotalBytes(), 16) + range1.weightOffset + doubleBufferOffset;
+        Address address1 = weights->address[doubleBufferIndex] + RoundAway(range0.TotalBytes(), 16) + range1.weightOffset;
         int length1 = RoundAway(range1.weightBytes, 16);
         CheckAddressRange(weights->memArea.memory, address1, length1);
         Emit(isa::npu_set_weight1_base_t(address1));
@@ -1146,17 +1144,18 @@ void EthosU55RCSGenerator::GenerateScales(const HLCStripe *stripe, MemoryAccesse
     auto item0 = scales->encodedRanges.find(WeightKey(0, depth));
     assert(item0 != scales->encodedRanges.end());
     auto &range0 = item0->second;
-    Address address = scales->address;
+    Address address;
     if ( scales->buffering == Buffering::None )
     {
         // For unbuffered scales, address points to the buffer that contains the encoded weights for all slices
-        address += range0.offset;
+        address = scales->address[0] + range0.offset;
     }
     else
     {
         // For buffered scales, address points to the buffer in fast storage that contains the encoded weights of one
         // (if single buffered) or two (if double buffered) slices
-        address += GetDoubleBufferOffset(scales, range0.index);
+        unsigned int doubleBufferIndex = GetDoubleBufferIndex(scales, range0.index);
+        address = scales->address[doubleBufferIndex];
     }
     int length = RoundAway(range0.scaleBytes, 16);
     CheckAddressRange(scales->memArea.memory, address, length);
@@ -1273,66 +1272,6 @@ void EthosU55RCSGenerator::InsertLUTDMACommand(const HLCStripe *stripe, Temporar
     }
 }
 
-// Inserts DMA commands to handle TILE operations
-void EthosU55RCSGenerator::InsertTileDMACommand(const HLCStripe *stripe, Temporaries &temps, std::vector<const HighLevelCommand *> &emitted)
-{
-    // reshape to 3D-tensor where the width-axis is being tiled
-    static auto reshapeFunc = [](Shape &shape, int tiledAxis)
-    {
-        int height = 1;
-        int channel = 1;
-        // all axes before tiledAxis are reshaped to height
-        for ( int i = 0; i < tiledAxis; i++ )
-        {
-            height *= shape[i];
-        }
-        // all axes after tiledAxis are reshaped to channel
-        for ( int i = tiledAxis + 1; i < shape.Size(); i++ )
-        {
-            channel *= shape[i];
-        }
-
-        shape = {1, height, shape[tiledAxis], channel};
-    };
-
-    auto op = stripe->operation;
-    assert(op->type == OpType::Tile);
-
-    auto &ifm = op->ifm[0];
-    auto &ofm = op->ofm;
-
-    assert(ifm.format == TensorFormat::NHWC);
-    assert(ofm.format == TensorFormat::NHWC);
-
-    const auto &tileParams = op->parameters.tile;
-
-    reshapeFunc(ifm.shape, tileParams.axis);
-    reshapeFunc(ofm.shape, tileParams.axis);
-
-    int srcOffset = 0;
-    int dstOffset = 0;
-    int elemSize = DataTypeSizeBits(ifm.dataType) / 8;
-    int rowBytes = ifm.shape[2] * ifm.shape[3] * elemSize;
-    // each row in the IFM is copied separately
-    // and duplicated based on the multiplier attribute.
-    for ( int h = 0; h < ifm.shape.Height(); h++ )
-    {
-        for ( int i = 0; i < tileParams.multiplier; i++ )
-        {
-            auto dma = std::make_unique<HLCDMA>();
-            dma->srcMemArea = ifm.memArea;
-            dma->srcAddress = ifm.address + srcOffset;
-            dma->length = rowBytes;
-            dma->destMemArea = ofm.memArea;
-            dma->destAddress = ofm.address + dstOffset;
-            emitted.push_back(dma.get());
-            temps.cmds.push_back(std::move(dma));
-            dstOffset += rowBytes;
-        }
-        srcOffset += rowBytes;
-    }
-}
-
 static inline int FirstSwapped(unsigned transpose, int &from)
 {
     unsigned mask = unsigned(transpose) ^ unsigned(TransposeType::None);
@@ -1381,7 +1320,9 @@ void EthosU55RCSGenerator::InsertTransposeCommand(const HLCStripe *stripe, Tempo
         {
             elements = (elements / ofm.shape.Depth()) * RoundAway(ofm.shape.Depth(), 16);
         }
-        dma->length = DataTypeStorageSizeBytes(ofm.dataType, elements);
+        dma->length = RoundAway(DataTypeStorageSizeBytes(ofm.dataType, elements), 16);
+        assert(dma->length <= ifm.AllocationSizeBytes() && "Copy length exceeds IFM");
+        assert(dma->length <= ofm.AllocationSizeBytes() && "Copy length exceeds OFM");
         dma->destMemArea = ofm.memArea;
         dma->destAddress = ofm.address;
         emitted.push_back(dma.get());
@@ -1627,23 +1568,9 @@ void EthosU55RCSGenerator::InsertMatMulCommand(const HLCStripe *stripe, Temporar
     // Final output tensor slice sizes
     Shape ofmShape = Shape(1, batches, MatMul::Rows(ifm0Shape), 1);
     EthosU55OpConfig *reduceConfig = static_cast<EthosU55OpConfig *>(stripe->operation->config);
+    assert(reduceConfig);
     EthosU55OpConfig *mulConfig = reduceConfig->PrevConfig();
-    assert(reduceConfig && mulConfig);
-
-    // Push quantisation on to the last operation for TFLite (create ethosU55Scaling::RescaleMatmul)
-    if ( inFM0.quantization.type == QuantizationType::TFLITE )
-    {
-        QuantizedScale qs0 = inFM0.quantization.scales.empty() ? QuantizedScale::Unit() : inFM0.quantization.scales[0];
-        QuantizedScale qs1 = inFM1.quantization.scales.empty() ? QuantizedScale::Unit() : inFM1.quantization.scales[0];
-        QuantizedScale qOfm = outFM.quantization.scales.empty() ? QuantizedScale::Unit() : outFM.quantization.scales[0];
-        inFM0.quantization.scales.clear();
-        inFM1.quantization.scales.clear();
-        outFM.quantization.scales.clear();
-
-        double scaling = (qs0.Dequantize() * qs1.Dequantize()) / qOfm.Dequantize();
-        outFM.quantization.type = QuantizationType::EXPLICIT;
-        outFM.quantization.scales.push_back(QuantizedScale(scaling));
-    }
+    assert(mulConfig);
 
     Shape ifm0Start(0, inFM0.slice.offset ? inFM0.slice.offset.Height() : 0, 0, 0);
 
@@ -1832,7 +1759,7 @@ void EthosU55RCSGenerator::GeneratePoolingOp(const HLCStripe *stripe, MemoryAcce
         }
     }
     GenerateCommon(stripe, useGlobalScale, RCSIfmScaleMode::OPA_OPB_16, memoryAccesses);
-    GenerateOFMScalingForPooling(op, useGlobalScale);
+    GenerateOFMScalingForPooling(op, useGlobalScale, padSum);
 }
 
 // Elementwise operations
@@ -1962,11 +1889,7 @@ void EthosU55RCSGenerator::PrepareCommand(int index, HighLevelCommand *cmd, Temp
     HLCStripe *stripe = static_cast<HLCStripe *>(cmd);
     auto op = stripe->operation;
     temps.timestamp = index;
-    if ( op->type == OpType::Tile )
-    {
-        InsertTileDMACommand(stripe, temps, emitted);
-    }
-    else if ( op->type == OpType::Transpose )
+    if ( op->type == OpType::Transpose )
     {
         InsertTransposeCommand(stripe, temps, emitted);
     }

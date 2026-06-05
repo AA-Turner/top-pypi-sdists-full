@@ -827,6 +827,11 @@ class TestDuckDB(Validator):
             "SELECT * FROM produce PIVOT(SUM(sales) FOR quarter IN ('Q1', 'Q2'))",
             read={
                 "duckdb": "SELECT * FROM produce PIVOT(SUM(sales) FOR quarter IN ('Q1', 'Q2'))",
+            },
+        )
+        self.validate_all(
+            "SELECT * FROM produce PIVOT(SUM(sales) FOR quarter IN ('Q1' AS \"'Q1'\", 'Q2' AS \"'Q2'\"))",
+            read={
                 "snowflake": "SELECT * FROM produce PIVOT(SUM(produce.sales) FOR produce.quarter IN ('Q1', 'Q2'))",
             },
         )
@@ -1825,6 +1830,14 @@ class TestDuckDB(Validator):
             read={"bigquery": "SELECT DATE(PARSE_DATE('%m/%d/%Y', '05/06/2020'))"},
         )
         self.validate_all(
+            "SELECT CAST(STRPTIME('14:30', '%H:%M') AS TIME)",
+            read={"bigquery": "SELECT PARSE_TIME('%H:%M', '14:30')"},
+        )
+        self.validate_all(
+            "SELECT CAST(STRPTIME('15:30:00.123456', '%H:%M:%S.%f') AS TIME)",
+            read={"bigquery": "SELECT PARSE_TIME('%H:%M:%E6S', '15:30:00.123456')"},
+        )
+        self.validate_all(
             "SELECT CAST('2020-01-01' AS DATE) + INTERVAL '-1' DAY",
             read={"mysql": "SELECT DATE '2020-01-01' + INTERVAL -1 DAY"},
         )
@@ -2599,6 +2612,29 @@ class TestDuckDB(Validator):
                 "duckdb": "CREATE OR REPLACE FUNCTION func(a INT, b REAL) AS TABLE SELECT a",
             },
         )
+
+        overloaded = self.validate_identity(
+            "CREATE MACRO add_x (a, b) AS a + b, (a, b, c) AS a + b + c"
+        )
+        overloads = overloaded.expression
+        self.assertIsInstance(overloads, exp.MacroOverloads)
+        self.assertEqual(len(overloads.expressions), 2)
+        self.assertIsNone(overloaded.this.args.get("expressions"))
+
+        self.validate_identity(
+            "CREATE OR REPLACE MACRO foo (a) AS a, (a, b) AS a + b, (a, b, c) AS a + b + c"
+        )
+        self.validate_identity("CREATE MACRO foo (a TINYINT) AS a + 1, (a INT) AS a + 2")
+        self.validate_identity("CREATE MACRO foo(a TINYINT) AS a = 127")
+        self.validate_identity(
+            "CREATE MACRO is_maximal (a TINYINT) AS a = 127, (a INT) AS a = 2147483647"
+        )
+        table_overloaded = self.validate_identity(
+            "CREATE MACRO tbl (a) AS TABLE (SELECT a AS x), (a, b) AS TABLE (SELECT a AS x, b AS y)"
+        )
+        table_overloads = table_overloaded.expression
+        self.assertIsInstance(table_overloads, exp.MacroOverloads)
+        self.assertTrue(all(o.args.get("is_table") for o in table_overloads.expressions))
 
     def test_bitwise_agg(self):
         self.validate_all(

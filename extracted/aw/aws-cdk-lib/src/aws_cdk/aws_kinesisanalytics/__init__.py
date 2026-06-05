@@ -355,7 +355,7 @@ class CfnApplication(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_kinesisanalytics as kinesisanalytics
                 
-                c_sVMapping_parameters_property = kinesisanalytics.CfnApplication.CSVMappingParametersProperty(
+                c_sv_mapping_parameters_property = kinesisanalytics.CfnApplication.CSVMappingParametersProperty(
                     record_column_delimiter="recordColumnDelimiter",
                     record_row_delimiter="recordRowDelimiter"
                 )
@@ -937,7 +937,7 @@ class CfnApplication(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_kinesisanalytics as kinesisanalytics
                 
-                j_sONMapping_parameters_property = kinesisanalytics.CfnApplication.JSONMappingParametersProperty(
+                j_son_mapping_parameters_property = kinesisanalytics.CfnApplication.JSONMappingParametersProperty(
                     record_row_path="recordRowPath"
                 )
             '''
@@ -3468,7 +3468,7 @@ class CfnApplicationReferenceDataSource(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_kinesisanalytics as kinesisanalytics
                 
-                c_sVMapping_parameters_property = kinesisanalytics.CfnApplicationReferenceDataSource.CSVMappingParametersProperty(
+                c_sv_mapping_parameters_property = kinesisanalytics.CfnApplicationReferenceDataSource.CSVMappingParametersProperty(
                     record_column_delimiter="recordColumnDelimiter",
                     record_row_delimiter="recordRowDelimiter"
                 )
@@ -3537,7 +3537,7 @@ class CfnApplicationReferenceDataSource(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_kinesisanalytics as kinesisanalytics
                 
-                j_sONMapping_parameters_property = kinesisanalytics.CfnApplicationReferenceDataSource.JSONMappingParametersProperty(
+                j_son_mapping_parameters_property = kinesisanalytics.CfnApplicationReferenceDataSource.JSONMappingParametersProperty(
                     record_row_path="recordRowPath"
                 )
             '''
@@ -4537,7 +4537,7 @@ class CfnApplicationReferenceDataSourceV2(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_kinesisanalytics as kinesisanalytics
                 
-                c_sVMapping_parameters_property = kinesisanalytics.CfnApplicationReferenceDataSourceV2.CSVMappingParametersProperty(
+                c_sv_mapping_parameters_property = kinesisanalytics.CfnApplicationReferenceDataSourceV2.CSVMappingParametersProperty(
                     record_column_delimiter="recordColumnDelimiter",
                     record_row_delimiter="recordRowDelimiter"
                 )
@@ -4606,7 +4606,7 @@ class CfnApplicationReferenceDataSourceV2(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_kinesisanalytics as kinesisanalytics
                 
-                j_sONMapping_parameters_property = kinesisanalytics.CfnApplicationReferenceDataSourceV2.JSONMappingParametersProperty(
+                j_son_mapping_parameters_property = kinesisanalytics.CfnApplicationReferenceDataSourceV2.JSONMappingParametersProperty(
                     record_row_path="recordRowPath"
                 )
             '''
@@ -6640,7 +6640,7 @@ class CfnApplicationV2(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_kinesisanalytics as kinesisanalytics
                 
-                c_sVMapping_parameters_property = kinesisanalytics.CfnApplicationV2.CSVMappingParametersProperty(
+                c_sv_mapping_parameters_property = kinesisanalytics.CfnApplicationV2.CSVMappingParametersProperty(
                     record_column_delimiter="recordColumnDelimiter",
                     record_row_delimiter="recordRowDelimiter"
                 )
@@ -7946,7 +7946,7 @@ class CfnApplicationV2(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_kinesisanalytics as kinesisanalytics
                 
-                j_sONMapping_parameters_property = kinesisanalytics.CfnApplicationV2.JSONMappingParametersProperty(
+                j_son_mapping_parameters_property = kinesisanalytics.CfnApplicationV2.JSONMappingParametersProperty(
                     record_row_path="recordRowPath"
                 )
             '''
@@ -8489,7 +8489,7 @@ class CfnApplicationV2(
             self,
             *,
             property_group_id: typing.Optional[builtins.str] = None,
-            property_map: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            property_map: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         ) -> None:
             '''Property key-value pairs passed into an application.
 
@@ -8534,13 +8534,13 @@ class CfnApplicationV2(
         @builtins.property
         def property_map(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''Describes the value of an application execution property key-value pair.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-application-propertygroup.html#cfn-kinesisanalyticsv2-application-propertygroup-propertymap
             '''
             result = self._values.get("property_map")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -10716,7 +10716,7 @@ def _typecheckingstub__8ae4c75fdf50e37b0f37ec8f32f3d794ef2977ee8d3e19a501897d6a1
 def _typecheckingstub__787a26d708f42d32ce10e316ab111f404547d22194f404382b1518c053088d5c(
     *,
     property_group_id: typing.Optional[builtins.str] = None,
-    property_map: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    property_map: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

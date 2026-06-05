@@ -1581,7 +1581,7 @@ class UserPoolUICustomizationAttachmentReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_cognito as interfaces_cognito
             
-            user_pool_uICustomization_attachment_reference = interfaces_cognito.UserPoolUICustomizationAttachmentReference(
+            user_pool_ui_customization_attachment_reference = interfaces_cognito.UserPoolUICustomizationAttachmentReference(
                 client_id="clientId",
                 user_pool_id="userPoolId"
             )

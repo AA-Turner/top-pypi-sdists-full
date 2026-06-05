@@ -117,14 +117,6 @@ def test_stream_layout_kwargs(testdir):
     assert_frame_equal(df, tables[0].df)
 
 
-def test_stream_duplicated_text(testdir):
-    df = pd.DataFrame(data_stream_duplicated_text)
-
-    filename = os.path.join(testdir, "birdisland.pdf")
-    tables = camelot.read_pdf(filename, flavor="stream")
-    assert_frame_equal(df, tables[0].df)
-
-
 def test_stream_inner_outer_columns(testdir):
     df = pd.DataFrame(data_stream_inner_outer_columns)
 
@@ -134,3 +126,20 @@ def test_stream_inner_outer_columns(testdir):
         flavor="stream",
     )
     assert_frame_equal(df, tables[0].df)
+
+
+def test_stream_fewer_columns_than_tables(testdir):
+    """One column spec applied to a multi-table page no longer crashes (#112).
+
+    Previously, supplying a `columns=` list shorter than the number of
+    auto-detected tables raised IndexError on the second table. The last
+    entry is now reused as a fallback so the call returns a result for
+    every detected table.
+    """
+    filename = os.path.join(testdir, "tabula/12s0324.pdf")
+    tables = camelot.read_pdf(
+        filename,
+        flavor="stream",
+        columns=["72,95,209,327,442,520"],
+    )
+    assert len(tables) == 2

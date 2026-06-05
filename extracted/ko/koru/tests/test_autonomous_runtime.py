@@ -72,6 +72,7 @@ def test_project_venv_reexec_argv_when_running_from_other_venv(
     local_bin.mkdir(parents=True)
     local_koru = local_bin / "koru"
     local_koru.write_text("#!/bin/sh\n", encoding="utf-8")
+    local_koru.chmod(0o755)
 
     other_python = tmp_path / "other" / ".venv" / "bin" / "python"
     other_python.parent.mkdir(parents=True)
@@ -89,6 +90,27 @@ def test_project_venv_reexec_argv_when_running_from_other_venv(
     ]
 
 
+def test_project_venv_reexec_env_aligns_virtual_env_and_path(
+    tmp_path: Path,
+) -> None:
+    local_bin = tmp_path / ".venv" / "bin"
+    local_bin.mkdir(parents=True)
+    other_bin = tmp_path / "venv" / "bin"
+    other_bin.mkdir(parents=True)
+
+    env = autonomous_runtime.project_venv_reexec_env(
+        tmp_path,
+        base_env={
+            "PATH": f"/usr/bin{os.pathsep}{other_bin}",
+            "VIRTUAL_ENV": str(tmp_path / "venv"),
+        },
+    )
+
+    assert env["VIRTUAL_ENV"] == str((tmp_path / ".venv").resolve())
+    assert env["PATH"].split(os.pathsep)[0] == str(local_bin.resolve())
+    assert str(other_bin) in env["PATH"].split(os.pathsep)
+
+
 def test_project_venv_reexec_argv_uses_current_project_when_no_project_arg(
     tmp_path: Path,
     monkeypatch,
@@ -97,6 +119,7 @@ def test_project_venv_reexec_argv_uses_current_project_when_no_project_arg(
     local_bin.mkdir(parents=True)
     local_koru = local_bin / "koru"
     local_koru.write_text("#!/bin/sh\n", encoding="utf-8")
+    local_koru.chmod(0o755)
     other_python = tmp_path / "other" / ".venv" / "bin" / "python"
     other_python.parent.mkdir(parents=True)
     other_python.write_text("", encoding="utf-8")
@@ -223,6 +246,8 @@ def test_build_and_log_startup_probe_reconciles_stale_koruenv_socket(
     assert os.environ["KORU_AUTOPILOT_INSTANCE"] == "cursor"
     assert os.environ["KORU_AUTOPILOT_IDE"] == "cursor"
     assert os.environ["KORU_AUTOPILOT_SOCKET"] == "/run/user/1000/koru-autopilot-cursor.sock"
+    for key in ("KORU_AUTOPILOT_IDE", "KORU_AUTOPILOT_INSTANCE", "KORU_AUTOPILOT_SOCKET"):
+        os.environ.pop(key, None)
 
 
 def test_setup_autopilot_daemon_sets_instance_before_default_socket(

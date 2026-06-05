@@ -337,7 +337,9 @@ pub fn build_termspec(
                         name: name.clone(),
                         feature_col: col,
                         feature_cols: vec![col],
-                        double_penalty: true,
+                        // Parametric linear terms are unpenalized by default
+                        // (MLE, matching mgcv/glm); see #749.
+                        double_penalty: false,
                         coefficient_geometry: LinearCoefficientGeometry::Unconstrained,
                         coefficient_min: *coefficient_min,
                         coefficient_max: *coefficient_max,
@@ -349,7 +351,8 @@ pub fn build_termspec(
                                 name: name.clone(),
                                 feature_col: col,
                                 feature_cols: vec![col],
-                                double_penalty: true,
+                                // Unpenalized parametric effect by default (#749).
+                                double_penalty: false,
                                 coefficient_geometry: LinearCoefficientGeometry::Unconstrained,
                                 coefficient_min: *coefficient_min,
                                 coefficient_max: *coefficient_max,
@@ -486,6 +489,25 @@ pub fn build_termspec(
                 if is_sz {
                     inner_options.remove("bs");
                     inner_options.remove("type");
+                    // mgcv's `bs="sz"` is a SINGLE-penalty smooth: the marginal
+                    // wiggliness penalty is replicated across levels and the
+                    // marginal's polynomial null space (the per-level linear
+                    // trend, once centred) is left UNPENALISED, exactly as the
+                    // default thin-plate marginal leaves its null space free.
+                    // gam's 1-D smooth otherwise defaults to a double penalty
+                    // (an added null-space shrinkage ridge, mgcv `select=TRUE`
+                    // semantics). Replicated across the sz deviation blocks that
+                    // extra ridge shrinks every level's linear-trend deviation
+                    // toward zero — signal that the truth carries (e.g. the
+                    // linear projection of sin(2*pi*x) is non-zero) — so REML
+                    // over-shrinks the per-level deviations and truth recovery
+                    // degrades relative to mgcv's free null space. Force the
+                    // inner marginal to a single penalty so the per-level null
+                    // space stays free, matching mgcv's sz construction. An
+                    // explicit user `double_penalty=` still wins.
+                    inner_options
+                        .entry("double_penalty".to_string())
+                        .or_insert_with(|| "false".to_string());
                 }
                 // Pop the shape constraint before `build_smooth_basis` runs so
                 // it never reaches the per-kind `validate_known_options`
@@ -633,7 +655,9 @@ pub fn build_termspec(
                     name: label,
                     feature_col: cols[0],
                     feature_cols: cols,
-                    double_penalty: true,
+                    // Parametric `:` interaction column is unpenalized by
+                    // default, same as any other linear term (#749).
+                    double_penalty: false,
                     coefficient_geometry: LinearCoefficientGeometry::Unconstrained,
                     coefficient_min: None,
                     coefficient_max: None,
@@ -1356,7 +1380,40 @@ pub fn build_smooth_basis(
         } else {
             option_usize(options, "degree").unwrap_or(3)
         };
-        let default_internal = heuristic_knots_for_column(ds.values.column(c));
+        // For a factor smooth every group's curve is fit from THAT group's rows
+        // alone, so the marginal's flexibility must respect the least-resolved
+        // group, not the pooled column. The pooled heuristic can hand the marginal
+        // a basis that saturates (or exceeds) a small group's sample — e.g. the
+        // sleepstudy panel has 8 training days per subject, and a default cubic
+        // basis of 8 functions interpolates each subject's 8 points, leaving no
+        // room for the wiggliness penalty to collapse the curve toward the
+        // per-subject line. The factor smooth then fits within-group noise and
+        // extrapolates badly (held-out forecast worse than the population mean).
+        //
+        // Cap the marginal basis below the minimum per-group covariate resolution
+        // so the penalty always retains residual degrees of freedom to shrink each
+        // group's curvature toward its linear null space (the random-slope
+        // estimand). Groups with ample data (e.g. 40 points each) keep the full
+        // pooled flexibility; only small-sample groups are protected. The cap is
+        // skipped for the explicit `re` random-effect form, whose degree-1 marginal
+        // carries no curvature to over-fit.
+        let pooled_internal = heuristic_knots_for_column(ds.values.column(c));
+        let default_internal = if type_opt == "re" {
+            pooled_internal
+        } else {
+            let min_group_resolution =
+                min_per_group_unique_count(ds.values.column(c), ds.values.column(cols[group_idx]));
+            // Per-group basis dim = degree + 1 + internal. Hold it well below the
+            // smallest group's resolution (leave at least two residual points per
+            // group) so the smooth cannot interpolate that group and the
+            // wiggliness penalty retains the room to collapse each curve toward
+            // its linear null space. Never drop below `degree + 2`, which keeps
+            // exactly the linear span plus a single curvature direction — the
+            // minimal smoother that can still bend if the data demand it.
+            let basis_cap = min_group_resolution.saturating_sub(2).max(degree + 2);
+            let internal_cap = basis_cap.saturating_sub(degree + 1);
+            pooled_internal.min(internal_cap.max(1))
+        };
         let (n_knots, _) = parse_ps_internal_knots(options, degree, default_internal)?;
         let marginal = BSplineBasisSpec {
             degree,
@@ -1634,7 +1691,14 @@ pub fn build_smooth_basis(
                 spec: ThinPlateBasisSpec {
                     center_strategy,
                     periodic: parse_periodic_axes_option(options, cols.len())?,
-                    length_scale: option_f64(options, "length_scale").unwrap_or(1.0),
+                    // Sentinel: leave at 0.0 when the user didn't pass an
+                    // explicit length_scale so `auto_init_length_scale_in_place`
+                    // can replace it with a data-derived initialization. The
+                    // old hard-coded 1.0 was the documented basin (see
+                    // smooth.rs `auto_init_length_scale_in_place`) that the
+                    // spatial optimizer could not escape, leaving TPS terms
+                    // initialized off the data scale.
+                    length_scale: option_f64(options, "length_scale").unwrap_or(0.0),
                     double_penalty: smooth_double_penalty,
                     identifiability: parse_spatial_identifiability(options)
                         .map_err(|e| e.to_string())?,
@@ -1914,7 +1978,41 @@ pub fn build_smooth_basis(
                     // `power=0` is handled above and is honored as the s=0 Duchon
                     // kernel (r²·log r ≡ the thin-plate kernel in even d) — the magic
                     // default lives here, not in the basis builder.
-                    crate::basis::duchon_cubic_default(cols.len())
+                    match length_scale {
+                        None => crate::basis::duchon_cubic_default(cols.len()),
+                        Some(_) => {
+                            // The hybrid Matérn-blended kernel (`length_scale=Some`)
+                            // requires an INTEGER spectral power `s` (the partial-
+                            // fraction split `1/(ρ^{2p}(κ²+ρ²)^s)` is only defined for
+                            // integer `s`). The fractional cubic default `s=(d-1)/2` is
+                            // a half-integer for even `d`, and the basis builder's
+                            // `power_as_usize` maps a NON-integer to `0` (not its
+                            // floor) — so for even `d ≥ 4` the realized kernel has
+                            // `2(p+s) = 2p = 4 ≤ d`, which is non-finite at the origin
+                            // and crashes the fit (historically a non-finite
+                            // eigendecomposition; now a fit-time validation error).
+                            //
+                            // Rather than emit the fractional cubic and let it truncate
+                            // into an inadmissible kernel, resolve the SMALLEST
+                            // admissible integer `(nullspace, s)` at the requested
+                            // nullspace order, honoring the collocation order of the
+                            // default operator penalties (mass + tension ⇒ D1). This
+                            // recovers the canonical thin-plate smoothness order
+                            // `m = p + s = ⌊d/2⌋ + 1` for the hybrid kernel and agrees
+                            // with the fractional cubic default for odd `d` (where the
+                            // collocation floor already forces `s = (d-1)/2`).
+                            let max_op = crate::basis::duchon_max_active_operator_derivative_order(
+                                &DuchonOperatorPenaltySpec::default(),
+                            );
+                            let (ns, s) = crate::basis::resolve_duchon_orders(
+                                cols.len(),
+                                requested_nullspace_order,
+                                max_op,
+                                length_scale,
+                            );
+                            (ns, s as f64)
+                        }
+                    }
                 }
             };
             let plan = plan_spatial_basis(
@@ -2297,6 +2395,34 @@ pub fn unique_count_column(col: ArrayView1<'_, f64>) -> usize {
         set.insert(norm.to_bits());
     }
     set.len().max(1)
+}
+
+/// Smallest number of distinct covariate values seen within any single group
+/// of `group_col`. For a factor smooth this is the resolution that bounds the
+/// marginal basis: a group with `m` distinct covariate values can only inform
+/// `m` basis coefficients, so a marginal richer than that interpolates the
+/// group instead of estimating a penalized trend. Bits are compared exactly so
+/// integer-valued covariates (days, dose levels) collapse to their true count.
+fn min_per_group_unique_count(
+    feature_col: ArrayView1<'_, f64>,
+    group_col: ArrayView1<'_, f64>,
+) -> usize {
+    use std::collections::{HashMap, HashSet};
+    let mut per_group: HashMap<u64, HashSet<u64>> = HashMap::new();
+    for (xi, gi) in feature_col.iter().zip(group_col.iter()) {
+        let xnorm = if *xi == 0.0 { 0.0 } else { *xi };
+        let gnorm = if *gi == 0.0 { 0.0 } else { *gi };
+        per_group
+            .entry(gnorm.to_bits())
+            .or_default()
+            .insert(xnorm.to_bits());
+    }
+    per_group
+        .values()
+        .map(|s| s.len())
+        .min()
+        .unwrap_or(1)
+        .max(1)
 }
 
 /// Per-column knot count from the unique-value count, with the same n^(1/3)
@@ -3445,7 +3571,7 @@ mod tests {
         };
         assert!(matches!(
             spec.center_strategy,
-            CenterStrategy::EqualMass { num_centers: 3 }
+            CenterStrategy::FarthestPoint { num_centers: 3 }
         ));
     }
 

@@ -53,7 +53,7 @@ class ADMChannelReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_pinpoint as interfaces_pinpoint
             
-            a_dMChannel_reference = interfaces_pinpoint.ADMChannelReference(
+            a_dm_channel_reference = interfaces_pinpoint.ADMChannelReference(
                 adm_channel_id="admChannelId"
             )
         '''
@@ -102,7 +102,7 @@ class APNSChannelReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_pinpoint as interfaces_pinpoint
             
-            a_pNSChannel_reference = interfaces_pinpoint.APNSChannelReference(
+            a_pns_channel_reference = interfaces_pinpoint.APNSChannelReference(
                 apns_channel_id="apnsChannelId"
             )
         '''
@@ -151,7 +151,7 @@ class APNSSandboxChannelReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_pinpoint as interfaces_pinpoint
             
-            a_pNSSandbox_channel_reference = interfaces_pinpoint.APNSSandboxChannelReference(
+            a_pns_sandbox_channel_reference = interfaces_pinpoint.APNSSandboxChannelReference(
                 apns_sandbox_channel_id="apnsSandboxChannelId"
             )
         '''
@@ -200,7 +200,7 @@ class APNSVoipChannelReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_pinpoint as interfaces_pinpoint
             
-            a_pNSVoip_channel_reference = interfaces_pinpoint.APNSVoipChannelReference(
+            a_pns_voip_channel_reference = interfaces_pinpoint.APNSVoipChannelReference(
                 apns_voip_channel_id="apnsVoipChannelId"
             )
         '''
@@ -249,7 +249,7 @@ class APNSVoipSandboxChannelReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_pinpoint as interfaces_pinpoint
             
-            a_pNSVoip_sandbox_channel_reference = interfaces_pinpoint.APNSVoipSandboxChannelReference(
+            a_pns_voip_sandbox_channel_reference = interfaces_pinpoint.APNSVoipSandboxChannelReference(
                 apns_voip_sandbox_channel_id="apnsVoipSandboxChannelId"
             )
         '''
@@ -687,7 +687,7 @@ class GCMChannelReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_pinpoint as interfaces_pinpoint
             
-            g_cMChannel_reference = interfaces_pinpoint.GCMChannelReference(
+            g_cm_channel_reference = interfaces_pinpoint.GCMChannelReference(
                 gcm_channel_id="gcmChannelId"
             )
         '''
@@ -1731,7 +1731,7 @@ class SMSChannelReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_pinpoint as interfaces_pinpoint
             
-            s_mSChannel_reference = interfaces_pinpoint.SMSChannelReference(
+            s_ms_channel_reference = interfaces_pinpoint.SMSChannelReference(
                 sms_channel_id="smsChannelId"
             )
         '''

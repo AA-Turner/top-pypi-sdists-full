@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ophyd-async
-Version: 0.16
+Version: 0.18
 Summary: Asynchronous Bluesky hardware abstraction code, compatible with control systems like EPICS and Tango
 Author-email: Tom Cobb <tom.cobb@diamond.ac.uk>
 License: BSD 3-Clause License
@@ -58,7 +58,7 @@ Requires-Dist: aioca>=2.0a4; extra == "ca"
 Provides-Extra: pva
 Requires-Dist: p4p>=4.2.0; extra == "pva"
 Provides-Extra: tango
-Requires-Dist: pytango==10.0.3; extra == "tango"
+Requires-Dist: pytango>=10.1.3; extra == "tango"
 Provides-Extra: demo
 Requires-Dist: ipython; extra == "demo"
 Requires-Dist: matplotlib; extra == "demo"
@@ -72,15 +72,14 @@ Dynamic: license-file
 
 # ![ophyd-async](https://raw.githubusercontent.com/bluesky/ophyd-async/main/docs/images/ophyd-async-logo.svg)
 
-Asynchronous Bluesky hardware abstraction code, compatible with control systems like EPICS and Tango.
-
-|    Source     |     <https://github.com/bluesky/ophyd-async>      |
-| :-----------: | :-----------------------------------------------: |
-|     PyPI      |             `pip install ophyd-async`             |
-| Documentation |      <https://bluesky.github.io/ophyd-async>      |
-|   Releases    | <https://github.com/bluesky/ophyd-async/releases> |
-
 Ophyd-async is a Python library for asynchronously interfacing with hardware, intended to be used as an abstraction layer that enables experiment orchestration and data acquisition code to operate above the specifics of particular devices and control systems.
+
+What            | Where
+:---:           | :---:
+Source          | <https://github.com/bluesky/ophyd-async>
+PyPI            | `pip install ophyd-async`
+Documentation   | <https://bluesky.github.io/ophyd-async>
+Releases        | <https://github.com/bluesky/ophyd-async/releases>
 
 Both ophyd sync and ophyd-async are typically used with the [Bluesky Run Engine][] for experiment orchestration and data acquisition.
 

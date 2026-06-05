@@ -9052,7 +9052,7 @@ class CfnTransformer(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_logs as logs
                 
-                parse_jSONProperty = logs.CfnTransformer.ParseJSONProperty(
+                parse_json_property = logs.CfnTransformer.ParseJSONProperty(
                     destination="destination",
                     source="source"
                 )
@@ -9420,7 +9420,7 @@ class CfnTransformer(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_logs as logs
                 
-                parse_to_oCSFProperty = logs.CfnTransformer.ParseToOCSFProperty(
+                parse_to_ocsf_property = logs.CfnTransformer.ParseToOCSFProperty(
                     event_source="eventSource",
                     ocsf_version="ocsfVersion",
                 
@@ -9522,7 +9522,7 @@ class CfnTransformer(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_logs as logs
                 
-                parse_vPCProperty = logs.CfnTransformer.ParseVPCProperty(
+                parse_vpc_property = logs.CfnTransformer.ParseVPCProperty(
                     source="source"
                 )
             '''
@@ -9582,7 +9582,7 @@ class CfnTransformer(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_logs as logs
                 
-                parse_wAFProperty = logs.CfnTransformer.ParseWAFProperty(
+                parse_waf_property = logs.CfnTransformer.ParseWAFProperty(
                     source="source"
                 )
             '''
@@ -15972,18 +15972,21 @@ class MetricFilter(
 ):
     '''A filter that extracts information from CloudWatch Logs and emits to CloudWatch Metrics.
 
-    :exampleMetadata: lit=aws-logs/test/integ.metricfilter.lit.ts infused
+    :exampleMetadata: fixture=default infused
 
     Example::
 
-        MetricFilter(self, "MetricFilter",
-            log_group=log_group,
+        repository = ecr.Repository(self, "TestRepository")
+        
+        runtime = agentcore.Runtime(self, "Runtime",
+            agent_runtime_artifact=agentcore.AgentRuntimeArtifact.from_ecr_repository(repository, "v1.0.0")
+        )
+        
+        logs.MetricFilter(self, "ToolErrors",
+            log_group=runtime.application_log_group,
+            filter_pattern=logs.FilterPattern.string_value("$.tool_status", "=", "error"),
             metric_namespace="MyApp",
-            metric_name="Latency",
-            filter_pattern=FilterPattern.all(
-                FilterPattern.exists("$.latency"),
-                FilterPattern.regex_value("$.message", "=", "bind: address already in use")),
-            metric_value="$.latency"
+            metric_name="ToolExecutionErrors"
         )
     '''
 
@@ -16341,18 +16344,21 @@ class MetricFilterProps(MetricFilterOptions):
         :param unit: The unit to assign to the metric. Default: - No unit attached to metrics.
         :param log_group: The log group to create the filter on.
 
-        :exampleMetadata: lit=aws-logs/test/integ.metricfilter.lit.ts infused
+        :exampleMetadata: fixture=default infused
 
         Example::
 
-            MetricFilter(self, "MetricFilter",
-                log_group=log_group,
+            repository = ecr.Repository(self, "TestRepository")
+            
+            runtime = agentcore.Runtime(self, "Runtime",
+                agent_runtime_artifact=agentcore.AgentRuntimeArtifact.from_ecr_repository(repository, "v1.0.0")
+            )
+            
+            logs.MetricFilter(self, "ToolErrors",
+                log_group=runtime.application_log_group,
+                filter_pattern=logs.FilterPattern.string_value("$.tool_status", "=", "error"),
                 metric_namespace="MyApp",
-                metric_name="Latency",
-                filter_pattern=FilterPattern.all(
-                    FilterPattern.exists("$.latency"),
-                    FilterPattern.regex_value("$.message", "=", "bind: address already in use")),
-                metric_value="$.latency"
+                metric_name="ToolExecutionErrors"
             )
         '''
         if __debug__:
@@ -16705,7 +16711,7 @@ class ParseJSONProperty:
             # The values are placeholders you should change.
             from aws_cdk import aws_logs as logs
             
-            parse_jSONProperty = logs.ParseJSONProperty(
+            parse_json_property = logs.ParseJSONProperty(
                 destination="destination",
                 source="source"
             )
@@ -16940,7 +16946,7 @@ class ParseToOCSFProperty:
             # The values are placeholders you should change.
             from aws_cdk import aws_logs as logs
             
-            parse_to_oCSFProperty = logs.ParseToOCSFProperty(
+            parse_to_ocsf_property = logs.ParseToOCSFProperty(
                 event_source=logs.OCSFSourceType.CLOUD_TRAIL,
                 ocsf_version=logs.OCSFVersion.V1_1,
             

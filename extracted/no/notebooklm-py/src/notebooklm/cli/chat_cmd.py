@@ -20,6 +20,7 @@ from .error_handler import _output_error, exit_with_code
 from .input import resolve_prompt
 from .options import _complete_sources, json_option, notebook_option, prompt_file_option
 from .rendering import (
+    cli_print,
     console,
     emit_status,
     json_output_response,
@@ -48,7 +49,7 @@ def _determine_conversation_id(
     cached_notebook = get_current_notebook()
     if explicit_notebook_id and cached_notebook and resolved_notebook_id != cached_notebook:
         if not json_output:
-            console.print("[dim]Different notebook specified, starting new conversation...[/dim]")
+            cli_print("[dim]Different notebook specified, starting new conversation...[/dim]")
         return None
 
     return get_current_conversation()
@@ -61,11 +62,12 @@ async def _get_latest_conversation_from_server(
 
     Returns None if unavailable or empty.
     """
+    history_unavailable = False
     try:
         conv_id = await client.chat.get_conversation_id(notebook_id)
         if conv_id:
             if not json_output:
-                console.print(f"[dim]Continuing conversation {conv_id[:8]}...[/dim]")
+                cli_print(f"[dim]Continuing conversation {conv_id[:8]}...[/dim]")
             return conv_id
     except Exception as e:
         logger.debug(
@@ -73,8 +75,13 @@ async def _get_latest_conversation_from_server(
             type(e).__name__,
             e,
         )
-        if not json_output:
-            console.print("[dim]Starting new conversation (history unavailable)[/dim]")
+        history_unavailable = True
+    # Emit the fallback status *outside* the ``except`` handler: it is a
+    # status line (so it must honor root ``--quiet`` via ``cli_print``), not
+    # an error diagnostic, and emitting it inside the handler would trip the
+    # error-path heuristic in ``tests/unit/cli/test_quiet_enforcement.py``.
+    if history_unavailable and not json_output:
+        cli_print("[dim]Starting new conversation (history unavailable)[/dim]")
     return None
 
 
@@ -148,14 +155,27 @@ def register_chat_commands(cli):
             "back to a plain-text note."
         ),
     )
-    @click.option("--note-title", default=None, help="Note title (use with --save-as-note)")
+    # ``-t`` consistently means "note title" across `note create`, `chat history`,
+    # and here, so the short flag carries the same meaning everywhere it appears.
     @click.option(
+        "-t",
+        "--note-title",
+        "note_title",
+        default=None,
+        help="Note title (use with --save-as-note)",
+    )
+    # ``--request-timeout`` is the self-documenting canonical name: this is the
+    # per-request HTTP socket timeout, NOT the poll/wait budget that other
+    # commands spell ``--timeout``. ``--timeout`` stays as a back-compat alias.
+    @click.option(
+        "--request-timeout",
         "--timeout",
+        "timeout",
         default=None,
         type=click.IntRange(min=1),
         help=(
             "HTTP request timeout in seconds (default: 30, from the library). "
-            "Increase for long or complex prompts."
+            "Increase for long or complex prompts. (--timeout is a back-compat alias.)"
         ),
     )
     @with_client
@@ -190,7 +210,7 @@ def register_chat_commands(cli):
           notebooklm ask "explain X" --save-as-note     # Save response as a note
         """
         if new_conversation and conversation_id:
-            # Per ADR-015 §2: under --json this mutual-exclusion conflict
+            # Per ADR-0015 §2: under --json this mutual-exclusion conflict
             # must emit the typed JSON envelope and exit 1 (VALIDATION_ERROR),
             # not ride Click's parse-time UsageError path (exit 2, usage
             # text on stderr, no JSON on stdout). Under text mode we
@@ -207,7 +227,9 @@ def register_chat_commands(cli):
                     json_output,
                     1,
                 )
-            raise click.UsageError(mutual_exclusion_message)
+            raise click.UsageError(  # cli-input-validation: --new and --conversation-id are mutually exclusive
+                mutual_exclusion_message
+            )
         question = resolve_prompt(question, prompt_file, "question", required=True)
         nb_id = require_notebook(notebook_id)
 
@@ -281,7 +303,7 @@ def register_chat_commands(cli):
                     set_current_conversation(result.conversation_id)
 
                 # Text-mode: original interactive layout (Answer first,
-                # save-as-note status after). JSON-mode (P1.T1 contract):
+                # save-as-note status after). In JSON mode:
                 # save-as-note runs first into a stderr-routed status path
                 # and its outcome is merged into the JSON envelope, which
                 # is emitted LAST as the terminal stdout output.
@@ -319,8 +341,7 @@ def register_chat_commands(cli):
                                 # Citation-rich path: server stores [N] markers
                                 # as hover-anchored references (issue #660).
                                 # ``client.chat.save_answer_as_note`` is the
-                                # current home for this; ``notes.create_from_chat``
-                                # is a deprecated forwarder.
+                                # canonical home for this primitive.
                                 note = await client.chat.save_answer_as_note(
                                     nb_id_resolved, result, title=title
                                 )
@@ -341,7 +362,12 @@ def register_chat_commands(cli):
                             )
                         except Exception as e:
                             note_save_error = str(e)
-                            emit_status(
+                            # Note-save is a secondary `--save-as-note` action;
+                            # emit_status keeps the warning non-fatal so the chat
+                            # response payload still prints. output_error would
+                            # SystemExit(1) and abort that payload. Revisit when
+                            # save-as-note gains a structured non-fatal error channel.
+                            emit_status(  # quiet-ok: non-fatal warning for a secondary --save-as-note action
                                 f"[yellow]Warning: Failed to save note: {e}[/yellow]",
                                 json_output=json_output,
                             )
@@ -529,7 +555,7 @@ def register_chat_commands(cli):
                     pre_clear_count = client.chat.cache_size()
                     cleared = client.chat.clear_cache()
                     if json_output:
-                        # P1.T1 contract: stdout must be a single JSON
+                        # In JSON mode, stdout must be a single JSON
                         # document; no Rich/text output.
                         json_output_response(
                             {
@@ -563,7 +589,7 @@ def register_chat_commands(cli):
                     title = note_title or "Chat History"
                     note = await client.notes.create(nb_id_resolved, title, content)
                     if json_output:
-                        # P1.T1 contract: emit a single JSON envelope that
+                        # In JSON mode, emit a single JSON envelope that
                         # carries both the history payload and the
                         # note-save outcome. Status text routes to stderr.
                         emit_status(

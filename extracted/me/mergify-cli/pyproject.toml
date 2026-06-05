@@ -8,7 +8,7 @@ name = "mergify_cli"
 # (`2026.4.23.1`); `mergify --version` from the Rust binary will
 # report the placeholder until Phase 6, when versioning becomes
 # Rust-native end-to-end.
-version = "2026.6.3.1"
+version = "2026.6.5.1"
 description = "Mergify CLI is a tool that automates the creation and management of stacked pull requests on GitHub and handles CI results upload"
 authors = [{ name = "Mergify Team", email = "hello@mergify.com" }]
 requires-python = ">=3.13"
@@ -50,7 +50,7 @@ Changelog = "https://github.com/Mergifyio/mergify-cli/releases"
 dev = [
     "mypy==2.1.0",
     "mypy-extensions==1.1.0",
-    "ruff==0.15.14",
+    "ruff==0.15.15",
     "pytest==9.0.3",
     "poethepoet==0.46.0",
     "pytest-asyncio==1.4.0",

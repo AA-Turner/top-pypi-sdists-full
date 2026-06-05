@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: aws-cdk.aws-bedrock-alpha
-Version: 2.257.0a0
+Version: 2.258.0a0
 Summary: The CDK Construct Library for Amazon Bedrock
 Home-page: https://github.com/aws/aws-cdk
 Author: Amazon Web Services
@@ -10,21 +10,23 @@ Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: JavaScript
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
 Classifier: Development Status :: 4 - Beta
 Classifier: License :: OSI Approved
 Classifier: Framework :: AWS CDK
 Classifier: Framework :: AWS CDK :: 2
-Requires-Python: ~=3.10
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
-Requires-Dist: aws-cdk-lib<3.0.0,>=2.257.0
+Requires-Dist: aws-cdk-lib<3.0.0,>=2.258.0
 Requires-Dist: constructs<11.0.0,>=10.5.0
-Requires-Dist: jsii<2.0.0,>=1.130.0
+Requires-Dist: jsii<2.0.0,>=1.133.0
 Requires-Dist: publication>=0.0.3
 Requires-Dist: typeguard==2.13.3
 
@@ -382,7 +384,7 @@ If you chose to load your schema file from S3, the construct will provide the ne
 ```python
 # create a bucket containing the input schema
 schema_bucket = s3.Bucket(self, "SchemaBucket",
-    enforce_sSL=True,
+    enforce_ssl=True,
     versioned=True,
     public_read_access=False,
     block_public_access=s3.BlockPublicAccess.BLOCK_ALL,
@@ -923,7 +925,7 @@ guardrail = bedrock.Guardrail(self, "bedrockGuardrails",
 )
 
 # Add PII filter for addresses with input/output actions
-guardrail.add_pIIFilter(
+guardrail.add_pii_filter(
     type=bedrock.GeneralPIIType.ADDRESS,
     action=bedrock.GuardrailAction.BLOCK,
     # below props are optional
@@ -934,7 +936,7 @@ guardrail.add_pIIFilter(
 )
 
 # Add PII filter for credit card numbers with input/output actions
-guardrail.add_pIIFilter(
+guardrail.add_pii_filter(
     type=bedrock.FinancePIIType.CREDIT_DEBIT_CARD_NUMBER,
     action=bedrock.GuardrailAction.BLOCK,
     # below props are optional
@@ -945,19 +947,19 @@ guardrail.add_pIIFilter(
 )
 
 # Add PII filter for email addresses
-guardrail.add_pIIFilter(
+guardrail.add_pii_filter(
     type=bedrock.GeneralPIIType.EMAIL,
     action=bedrock.GuardrailAction.ANONYMIZE
 )
 
 # Add PII filter for US Social Security Numbers
-guardrail.add_pIIFilter(
+guardrail.add_pii_filter(
     type=bedrock.USASpecificPIIType.US_SOCIAL_SECURITY_NUMBER,
     action=bedrock.GuardrailAction.BLOCK
 )
 
 # Add PII filter for IP addresses
-guardrail.add_pIIFilter(
+guardrail.add_pii_filter(
     type=bedrock.InformationTechnologyPIIType.IP_ADDRESS,
     action=bedrock.GuardrailAction.ANONYMIZE
 )

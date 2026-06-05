@@ -12,12 +12,8 @@ from mergify_cli import console_error
 from mergify_cli import utils
 from mergify_cli.dym import DYMGroup
 from mergify_cli.stack import checkout as stack_checkout_mod
-from mergify_cli.stack import drop as stack_drop_mod
-from mergify_cli.stack import edit as stack_edit_mod
 from mergify_cli.stack import list as stack_list_mod
 from mergify_cli.stack import move as stack_move_mod
-from mergify_cli.stack import new as stack_new_mod
-from mergify_cli.stack import note as stack_note_mod
 from mergify_cli.stack import open as stack_open_mod
 from mergify_cli.stack import push as stack_push_mod
 from mergify_cli.stack import reorder as stack_reorder_mod
@@ -203,53 +199,6 @@ async def setup(*, force: bool, check: bool) -> None:
         await stack_setup_mod.stack_setup(force=force)
 
 
-@stack.command(help="Edit the stack history")
-@click.argument("commit", required=False, default=None)
-@utils.run_with_asyncio
-async def edit(*, commit: str | None) -> None:
-    await stack_edit_mod.stack_edit(commit_prefix=commit)
-
-
-@stack.command(help="Attach a 'why was this commit amended' note to a commit")
-@click.argument("commit", required=False, default=None)
-@click.option(
-    "-m",
-    "--message",
-    "message",
-    default=None,
-    help="Note message. If omitted, opens $GIT_EDITOR.",
-)
-@click.option(
-    "--append",
-    "do_append",
-    is_flag=True,
-    help="Append to an existing note instead of replacing",
-)
-@click.option(
-    "--remove",
-    "do_remove",
-    is_flag=True,
-    help="Remove the note on the target commit",
-)
-@utils.run_with_asyncio
-async def note(
-    *,
-    commit: str | None,
-    message: str | None,
-    do_append: bool,
-    do_remove: bool,
-) -> None:
-    if do_remove and (message is not None or do_append):
-        msg = "--remove cannot be combined with --message or --append"
-        raise click.UsageError(msg)
-    await stack_note_mod.stack_note(
-        commit=commit,
-        message=message,
-        append=do_append,
-        remove=do_remove,
-    )
-
-
 @stack.command(help="Reorder the stack's commits")
 @click.argument("commits", nargs=-1, required=True)
 @click.option(
@@ -288,36 +237,6 @@ async def move(
         position=position,
         target_prefix=target,
         dry_run=dry_run,
-    )
-
-
-@stack.command(help="Create a new stack branch")
-@click.argument("name")
-@click.option(
-    "--base",
-    "-b",
-    type=click.UNPROCESSED,
-    metavar="REMOTE/BRANCH",
-    default=None,
-    callback=trunk_type,
-    help="Base branch to create from (default: current trunk)",
-)
-@click.option(
-    "--checkout/--no-checkout",
-    default=True,
-    help="Whether to checkout the new branch after creation (default: checkout)",
-)
-@utils.run_with_asyncio
-async def new(
-    *,
-    name: str,
-    base: tuple[str, str] | None,
-    checkout: bool,
-) -> None:
-    await stack_new_mod.stack_new(
-        name=name,
-        base=base,
-        checkout=checkout,
     )
 
 
@@ -671,20 +590,6 @@ async def reword(*, commit: str, message: str | None, dry_run: bool) -> None:
         message=message,
         dry_run=dry_run,
     )
-
-
-@stack.command(help="Drop commits from the stack")
-@click.argument("commits", nargs=-1, required=True)
-@click.option(
-    "--dry-run",
-    "-n",
-    is_flag=True,
-    default=False,
-    help="Show the plan without dropping",
-)
-@utils.run_with_asyncio
-async def drop(*, commits: tuple[str, ...], dry_run: bool) -> None:
-    await stack_drop_mod.stack_drop(list(commits), dry_run=dry_run)
 
 
 @stack.command(help="Squash commits into a target commit")

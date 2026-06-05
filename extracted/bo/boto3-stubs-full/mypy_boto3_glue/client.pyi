@@ -239,6 +239,8 @@ from .type_defs import (
     GetCrawlersResponseTypeDef,
     GetCustomEntityTypeRequestTypeDef,
     GetCustomEntityTypeResponseTypeDef,
+    GetDashboardUrlRequestTypeDef,
+    GetDashboardUrlResponseTypeDef,
     GetDatabaseRequestTypeDef,
     GetDatabaseResponseTypeDef,
     GetDatabasesRequestTypeDef,
@@ -318,6 +320,8 @@ from .type_defs import (
     GetSecurityConfigurationResponseTypeDef,
     GetSecurityConfigurationsRequestTypeDef,
     GetSecurityConfigurationsResponseTypeDef,
+    GetSessionEndpointRequestTypeDef,
+    GetSessionEndpointResponseTypeDef,
     GetSessionRequestTypeDef,
     GetSessionResponseTypeDef,
     GetStatementRequestTypeDef,
@@ -575,6 +579,7 @@ class Exceptions(BaseClientExceptions):
     SchedulerNotRunningException: type[BotocoreClientError]
     SchedulerRunningException: type[BotocoreClientError]
     SchedulerTransitioningException: type[BotocoreClientError]
+    SessionBusyException: type[BotocoreClientError]
     TargetResourceNotFound: type[BotocoreClientError]
     ThrottlingException: type[BotocoreClientError]
     ValidationException: type[BotocoreClientError]
@@ -1683,6 +1688,16 @@ class GlueClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#get_custom_entity_type)
         """
 
+    def get_dashboard_url(
+        self, **kwargs: Unpack[GetDashboardUrlRequestTypeDef]
+    ) -> GetDashboardUrlResponseTypeDef:
+        """
+        Retrieves the URL for the Spark monitoring dashboard for a Glue resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/get_dashboard_url.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#get_dashboard_url)
+        """
+
     def get_data_catalog_encryption_settings(
         self, **kwargs: Unpack[GetDataCatalogEncryptionSettingsRequestTypeDef]
     ) -> GetDataCatalogEncryptionSettingsResponseTypeDef:
@@ -2082,6 +2097,17 @@ class GlueClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/get_session.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#get_session)
+        """
+
+    def get_session_endpoint(
+        self, **kwargs: Unpack[GetSessionEndpointRequestTypeDef]
+    ) -> GetSessionEndpointResponseTypeDef:
+        """
+        Returns the Spark Connect endpoint URL and authentication token for an
+        interactive session.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/get_session_endpoint.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#get_session_endpoint)
         """
 
     def get_statement(

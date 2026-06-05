@@ -820,7 +820,7 @@ class CfnTable(
             iceberg_schema: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTable.IcebergSchemaProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             iceberg_schema_v2: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTable.IcebergSchemaV2Property", typing.Dict[builtins.str, typing.Any]]]] = None,
             iceberg_sort_order: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTable.IcebergSortOrderProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            table_properties: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            table_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         ) -> None:
             '''Contains details about the metadata for an Iceberg table.
 
@@ -965,13 +965,13 @@ class CfnTable(
         @builtins.property
         def table_properties(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''Iceberg table properties (e.g., format-version, write.parquet.compression-codec).
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-table-icebergmetadata.html#cfn-s3tables-table-icebergmetadata-tableproperties
             '''
             result = self._values.get("table_properties")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3846,7 +3846,7 @@ def _typecheckingstub__1e5dc7085346ad722ba37251e910871affc6e3d90d9251cc9d4394197
     iceberg_schema: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.IcebergSchemaProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     iceberg_schema_v2: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.IcebergSchemaV2Property, typing.Dict[builtins.str, typing.Any]]]] = None,
     iceberg_sort_order: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.IcebergSortOrderProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    table_properties: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    table_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

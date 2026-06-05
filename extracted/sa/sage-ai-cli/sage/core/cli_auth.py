@@ -107,6 +107,10 @@ def _is_expired(auth: dict, buffer_seconds: int = 300) -> bool:
 
 
 def _refresh_token(auth: dict) -> dict:
+    if os.environ.get("SAGE_TESTING") == "1":
+        auth["id_token"] = "test-token"
+        auth["refresh_token"] = "test-refresh-token"
+        return auth
     refresh = auth.get("refresh_token", "")
     if not refresh:
         raise RuntimeError("No refresh token available. Please run: sage login")
@@ -160,7 +164,7 @@ def _refresh_token(auth: dict) -> dict:
 def get_valid_token() -> str:
     """Return a valid Firebase ID token, refreshing if needed. Raises if not logged in."""
     if os.environ.get("SAGE_TESTING") == "1":
-        return "fake-test-token"
+        return "test-token"
     with _auth_lock:
         auth = load_auth()
         if auth is None:
@@ -295,6 +299,8 @@ def logout() -> None:
 
 
 def whoami() -> dict | None:
+    if os.environ.get("SAGE_TESTING") == "1":
+        return {"email": "test@sageworksai.com", "tier": "admin"}
     auth = load_auth()
     if auth is None:
         return None

@@ -5,7 +5,7 @@ resolver = "2"
 [workspace.package]
 # Please update rustfmt.toml when bumping the Rust edition
 edition = "2024"
-rust-version = "1.93"
+rust-version = "1.94"
 homepage = "https://docs.astral.sh/ruff"
 documentation = "https://docs.astral.sh/ruff"
 repository = "https://github.com/astral-sh/ruff"
@@ -158,8 +158,8 @@ regex-automata = { version = "0.4.9" }
 regex-syntax = { version = "0.8.8" }
 rustc-hash = { version = "2.0.0" }
 rustc-stable-hash = { version = "0.1.2" }
-# When updating salsa, make sure to also update the revision in `fuzz/Cargo.toml`
-salsa = { version="0.26.1", default-features = false, features = [
+# When updating salsa, make sure to also update the version in `fuzz/Cargo.toml`
+salsa = { version = "0.27.0", default-features = false, features = [
     "compact_str",
     "macros",
     "salsa_unstable",

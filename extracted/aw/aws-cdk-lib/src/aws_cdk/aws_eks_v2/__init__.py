@@ -429,7 +429,7 @@ To deploy the controller on your EKS cluster, configure the `albController` prop
 eks.Cluster(self, "HelloEKS",
     version=eks.KubernetesVersion.V1_34,
     alb_controller=eks.AlbControllerOptions(
-        version=eks.AlbControllerVersion.V2_8_2
+        version=eks.AlbControllerVersion.V3_2_2
     )
 )
 ```
@@ -443,7 +443,7 @@ from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
 eks.Cluster(self, "HelloEKS",
     version=eks.KubernetesVersion.V1_34,
     alb_controller=eks.AlbControllerOptions(
-        version=eks.AlbControllerVersion.V2_8_2,
+        version=eks.AlbControllerVersion.V3_2_2,
         additional_helm_chart_values={
             "enable_wafv2": False
         }
@@ -457,7 +457,7 @@ To overwrite an existing ALB controller service account, use the `overwriteServi
 eks.Cluster(self, "HelloEKS",
     version=eks.KubernetesVersion.V1_34,
     alb_controller=eks.AlbControllerOptions(
-        version=eks.AlbControllerVersion.V2_8_2,
+        version=eks.AlbControllerVersion.V3_2_2,
         overwrite_service_account=True
     )
 )
@@ -1237,7 +1237,7 @@ cluster.add_helm_chart("ExternalSecretsOperator",
     repository="https://charts.external-secrets.io",
     namespace="external-secrets",
     values={
-        "install_cRDs": True,
+        "install_cr_ds": True,
         "webhook": {
             "port": 9443
         }
@@ -2601,7 +2601,7 @@ class AlbControllerOptions:
             eks.Cluster(self, "HelloEKS",
                 version=eks.KubernetesVersion.V1_34,
                 alb_controller=eks.AlbControllerOptions(
-                    version=eks.AlbControllerVersion.V2_8_2,
+                    version=eks.AlbControllerVersion.V3_2_2,
                     overwrite_service_account=True
                 )
             )
@@ -2915,7 +2915,7 @@ class AlbControllerVersion(
         eks.Cluster(self, "HelloEKS",
             version=eks.KubernetesVersion.V1_34,
             alb_controller=eks.AlbControllerOptions(
-                version=eks.AlbControllerVersion.V2_8_2,
+                version=eks.AlbControllerVersion.V3_2_2,
                 overwrite_service_account=True
             )
         )
@@ -2980,6 +2980,96 @@ class AlbControllerVersion(
     def V2_1_3(cls) -> "AlbControllerVersion":
         '''v2.1.3.'''
         return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_1_3"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="V2_10_0")
+    def V2_10_0(cls) -> "AlbControllerVersion":
+        '''v2.10.0.'''
+        return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_10_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="V2_10_1")
+    def V2_10_1(cls) -> "AlbControllerVersion":
+        '''v2.10.1.'''
+        return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_10_1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="V2_11_0")
+    def V2_11_0(cls) -> "AlbControllerVersion":
+        '''v2.11.0.'''
+        return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_11_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="V2_12_0")
+    def V2_12_0(cls) -> "AlbControllerVersion":
+        '''v2.12.0.'''
+        return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_12_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="V2_13_0")
+    def V2_13_0(cls) -> "AlbControllerVersion":
+        '''v2.13.0.'''
+        return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_13_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="V2_13_1")
+    def V2_13_1(cls) -> "AlbControllerVersion":
+        '''v2.13.1.'''
+        return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_13_1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="V2_13_2")
+    def V2_13_2(cls) -> "AlbControllerVersion":
+        '''v2.13.2.'''
+        return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_13_2"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="V2_13_3")
+    def V2_13_3(cls) -> "AlbControllerVersion":
+        '''v2.13.3.'''
+        return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_13_3"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="V2_13_4")
+    def V2_13_4(cls) -> "AlbControllerVersion":
+        '''v2.13.4.'''
+        return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_13_4"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="V2_14_0")
+    def V2_14_0(cls) -> "AlbControllerVersion":
+        '''v2.14.0.'''
+        return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_14_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="V2_14_1")
+    def V2_14_1(cls) -> "AlbControllerVersion":
+        '''v2.14.1.'''
+        return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_14_1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="V2_15_0")
+    def V2_15_0(cls) -> "AlbControllerVersion":
+        '''v2.15.0.'''
+        return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_15_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="V2_16_0")
+    def V2_16_0(cls) -> "AlbControllerVersion":
+        '''v2.16.0.'''
+        return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_16_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="V2_17_0")
+    def V2_17_0(cls) -> "AlbControllerVersion":
+        '''v2.17.0.'''
+        return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_17_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="V2_17_1")
+    def V2_17_1(cls) -> "AlbControllerVersion":
+        '''v2.17.1.'''
+        return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_17_1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V2_2_0")
@@ -3148,6 +3238,60 @@ class AlbControllerVersion(
     def V2_8_2(cls) -> "AlbControllerVersion":
         '''v2.8.2.'''
         return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_8_2"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="V2_8_3")
+    def V2_8_3(cls) -> "AlbControllerVersion":
+        '''v2.8.3.'''
+        return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_8_3"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="V2_9_0")
+    def V2_9_0(cls) -> "AlbControllerVersion":
+        '''v2.9.0.'''
+        return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_9_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="V2_9_1")
+    def V2_9_1(cls) -> "AlbControllerVersion":
+        '''v2.9.1.'''
+        return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_9_1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="V2_9_2")
+    def V2_9_2(cls) -> "AlbControllerVersion":
+        '''v2.9.2.'''
+        return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_9_2"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="V3_0_0")
+    def V3_0_0(cls) -> "AlbControllerVersion":
+        '''v3.0.0.'''
+        return typing.cast("AlbControllerVersion", jsii.sget(cls, "V3_0_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="V3_1_0")
+    def V3_1_0(cls) -> "AlbControllerVersion":
+        '''v3.1.0.'''
+        return typing.cast("AlbControllerVersion", jsii.sget(cls, "V3_1_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="V3_2_0")
+    def V3_2_0(cls) -> "AlbControllerVersion":
+        '''v3.2.0.'''
+        return typing.cast("AlbControllerVersion", jsii.sget(cls, "V3_2_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="V3_2_1")
+    def V3_2_1(cls) -> "AlbControllerVersion":
+        '''v3.2.1.'''
+        return typing.cast("AlbControllerVersion", jsii.sget(cls, "V3_2_1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="V3_2_2")
+    def V3_2_2(cls) -> "AlbControllerVersion":
+        '''v3.2.2.'''
+        return typing.cast("AlbControllerVersion", jsii.sget(cls, "V3_2_2"))
 
     @builtins.property
     @jsii.member(jsii_name="custom")

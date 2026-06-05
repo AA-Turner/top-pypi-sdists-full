@@ -461,7 +461,7 @@ class GraphQLApiReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_appsync as interfaces_appsync
             
-            graph_qLApi_reference = interfaces_appsync.GraphQLApiReference(
+            graph_ql_api_reference = interfaces_appsync.GraphQLApiReference(
                 graph_ql_api_arn="graphQlApiArn"
             )
         '''
@@ -510,7 +510,7 @@ class GraphQLSchemaReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_appsync as interfaces_appsync
             
-            graph_qLSchema_reference = interfaces_appsync.GraphQLSchemaReference(
+            graph_ql_schema_reference = interfaces_appsync.GraphQLSchemaReference(
                 graph_ql_schema_id="graphQlSchemaId"
             )
         '''

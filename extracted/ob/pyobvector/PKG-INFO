@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyobvector
-Version: 0.2.26
+Version: 0.2.28
 Summary: A python SDK for OceanBase Vector Store, based on SQLAlchemy, compatible with Milvus API.
 Project-URL: Homepage, https://github.com/oceanbase/pyobvector
 Project-URL: Repository, https://github.com/oceanbase/pyobvector.git
@@ -36,7 +36,7 @@ uv sync
 - install with pip:
 
 ```shell
-pip install pyobvector==0.2.26
+pip install pyobvector==0.2.28
 ```
 
 - for **embedded SeekDB** support (local SeekDB without server):

@@ -570,7 +570,7 @@ class VPCEConfigurationReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_devicefarm as interfaces_devicefarm
             
-            v_pCEConfiguration_reference = interfaces_devicefarm.VPCEConfigurationReference(
+            v_pce_configuration_reference = interfaces_devicefarm.VPCEConfigurationReference(
                 vpce_configuration_arn="vpceConfigurationArn"
             )
         '''

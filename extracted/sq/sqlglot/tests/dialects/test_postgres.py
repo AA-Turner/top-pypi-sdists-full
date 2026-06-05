@@ -69,6 +69,12 @@ class TestPostgres(Validator):
         self.validate_identity("SELECT CASE WHEN SUBSTRING('abcdefg') IN ('ab') THEN 1 ELSE 0 END")
         self.validate_identity("COMMENT ON TABLE mytable IS 'this'")
         self.validate_identity("COMMENT ON MATERIALIZED VIEW my_view IS 'this'")
+        self.validate_identity("COMMENT ON TYPE mood IS 'x'")
+        self.validate_identity("COMMENT ON TYPE foo.mood IS 'x'")
+        self.validate_identity("COMMENT ON VIEW foo.bat IS 'x'")
+        self.validate_identity("COMMENT ON MATERIALIZED VIEW foo.my_view IS 'x'")
+        self.validate_identity("COMMENT ON SEQUENCE public.seq IS 'x'")
+        self.validate_identity("COMMENT ON INDEX public.idx IS 'x'")
         self.validate_identity("SELECT e'\\xDEADBEEF'")
         self.validate_identity("SELECT CAST(e'\\176' AS BYTEA)")
         self.validate_identity("SELECT * FROM x WHERE SUBSTRING('Thomas' FROM '...$') IN ('mas')")
@@ -453,6 +459,35 @@ FROM json_data, field_ids""",
             },
         )
         self.validate_all(
+            "SELECT E'a\\tb'",
+            write={
+                "postgres": "SELECT e'a\\tb'",
+                "mysql": "SELECT 'a\\tb'",
+                "sqlite": UnsupportedError,
+            },
+        )
+        self.validate_all(
+            "SELECT CAST('2025-02-01 00:00:00' AS TIMESTAMP) - MAKE_INTERVAL(years => 1)",
+            write={
+                "mysql": "SELECT CAST('2025-02-01 00:00:00' AS DATETIME) - INTERVAL 1 YEAR",
+                "postgres": "SELECT CAST('2025-02-01 00:00:00' AS TIMESTAMP) - MAKE_INTERVAL(years => 1)",
+            },
+        )
+        self.validate_all(
+            "SELECT NOW() + MAKE_INTERVAL(years => 1, months => 2, days => 3)",
+            write={
+                "mysql": "SELECT CURRENT_TIMESTAMP() + INTERVAL 1 YEAR + INTERVAL 2 MONTH + INTERVAL 3 DAY",
+                "postgres": "SELECT CURRENT_TIMESTAMP + MAKE_INTERVAL(years => 1, months => 2, days => 3)",
+            },
+        )
+        self.validate_all(
+            "SELECT NOW() - MAKE_INTERVAL(years => 1, months => 2, days => 3)",
+            write={
+                "mysql": "SELECT CURRENT_TIMESTAMP() - INTERVAL 1 YEAR - INTERVAL 2 MONTH - INTERVAL 3 DAY",
+                "postgres": "SELECT CURRENT_TIMESTAMP - MAKE_INTERVAL(years => 1, months => 2, days => 3)",
+            },
+        )
+        self.validate_all(
             "SELECT CURRENT_TIMESTAMP + INTERVAL '-3 MONTH'",
             read={
                 "mysql": "SELECT DATE_ADD(CURRENT_TIMESTAMP, INTERVAL -1 QUARTER)",
@@ -621,7 +656,9 @@ FROM json_data, field_ids""",
         self.validate_all(
             "e'x'",
             write={
-                "mysql": "x",
+                "postgres": "e'x'",
+                "mysql": "'x'",
+                "sqlite": UnsupportedError,
             },
         )
         self.validate_all(
@@ -1906,3 +1943,6 @@ CROSS JOIN JSON_ARRAY_ELEMENTS(CAST(JSON_EXTRACT_PATH(tbox, 'boxes') AS JSON)) A
         self.validate_identity(
             'CREATE TRIGGER "MyTrigger" BEFORE INSERT ON "MyTable" FOR EACH ROW EXECUTE FUNCTION MYFUNCTION()'
         )
+
+    def test_postgis_distance_3d(self):
+        self.validate_identity("SELECT a <<->> b")

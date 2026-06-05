@@ -4069,7 +4069,7 @@ class CfnDeploymentGroup(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_codedeploy as codedeploy
                 
-                e_cSService_property = codedeploy.CfnDeploymentGroup.ECSServiceProperty(
+                e_cs_service_property = codedeploy.CfnDeploymentGroup.ECSServiceProperty(
                     cluster_name="clusterName",
                     service_name="serviceName"
                 )
@@ -4138,7 +4138,7 @@ class CfnDeploymentGroup(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_codedeploy as codedeploy
                 
-                e_lBInfo_property = codedeploy.CfnDeploymentGroup.ELBInfoProperty(
+                e_lb_info_property = codedeploy.CfnDeploymentGroup.ELBInfoProperty(
                     name="name"
                 )
             '''

@@ -232,6 +232,13 @@ class ErrorResponse(BaseResponse):
     message: str | None = None
 
 
+class KernelStatusResponse(msgspec.Struct, rename="camel"):
+    # `running`: at least one cell is queued or running.
+    # `idle`: the kernel is alive but not executing.
+    # `stopped`: the kernel process is not running (dead or not started).
+    state: Literal["running", "idle", "stopped"]
+
+
 class FormatCellsRequest(msgspec.Struct, rename="camel"):
     codes: dict[CellId_t, str]
     line_length: int
@@ -320,7 +327,8 @@ class SaveAppConfigurationRequest(msgspec.Struct, rename="camel"):
 
 
 class SaveUserConfigurationRequest(msgspec.Struct, rename="camel"):
-    # deep partial user configuration
+    # deep partial user configuration; keys with value `None` are removed
+    # from the on-disk merged config (None-as-delete)
     config: dict[str, Any]
 
 

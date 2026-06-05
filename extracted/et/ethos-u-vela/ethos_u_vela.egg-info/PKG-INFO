@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ethos-u-vela
-Version: 5.0.0
+Version: 5.1.0
 Summary: Neural network model compiler for Arm Ethos-U NPUs
 Author-email: Arm Ltd <mlg-vela@arm.com>
 License-Expression: Apache-2.0
@@ -16,10 +16,10 @@ Classifier: Programming Language :: C++
 Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Software Development :: Compilers
-Requires-Python: ~=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
-Requires-Dist: flatbuffers==24.3.25
+Requires-Dist: flatbuffers
 Requires-Dist: numpy>=1.23.0
 Provides-Extra: dev
 Requires-Dist: pytest; extra == "dev"
@@ -97,7 +97,7 @@ this it requires the following:
 ### Manually Building
 
 The source code is available from [Arm's GitLab Instance](https://gitlab.arm.com/artificial-intelligence/ethos-u/ethos-u-vela),
-see [Building From Source](https://gitlab.arm.com/artificial-intelligence/ethos-u/ethos-u-vela/-/blob/5.0.0/BUILD.md) for more details.
+see [Building From Source](https://gitlab.arm.com/artificial-intelligence/ethos-u/ethos-u-vela/-/blob/5.1.0/BUILD.md) for more details.
 
 ### Development builds
 
@@ -160,7 +160,7 @@ provided as part of the installation.
 The optimisation strategy indicates whether the compiler should minimise
 inference time or runtime memory usage.
 
-See [CLI Options](https://gitlab.arm.com/artificial-intelligence/ethos-u/ethos-u-vela/-/blob/5.0.0/OPTIONS.md) for more information.
+See [CLI Options](https://gitlab.arm.com/artificial-intelligence/ethos-u/ethos-u-vela/-/blob/5.1.0/OPTIONS.md) for more information.
 
 Example of how to set the system configuration and memory mode:
 ```bash
@@ -194,7 +194,7 @@ that cannot be accelerated are left unchanged.
 
 Raw output contains the command stream and weight data required to run Ethos-U
 parts of the optimised network.  This is stored in [`.npz`](https://numpy.org/doc/stable/reference/generated/numpy.lib.format.html#module-numpy.lib.format)
-format.  See the Output format [CLI Option](https://gitlab.arm.com/artificial-intelligence/ethos-u/ethos-u-vela/-/blob/5.0.0/OPTIONS.md) for more information.
+format.  See the Output format [CLI Option](https://gitlab.arm.com/artificial-intelligence/ethos-u/ethos-u-vela/-/blob/5.1.0/OPTIONS.md) for more information.
 This does not contain CPU parts of the network and so cannot be used for
 converting TFLite to TOSA.
 
@@ -218,17 +218,17 @@ For approximate performance numbers the network can be run on a Fixed
 Virtual Platform (FVP) Model.
 
 ## Additional Vela Information
-* [External APIs (Deprecated)](https://gitlab.arm.com/artificial-intelligence/ethos-u/ethos-u-vela/-/blob/5.0.0/API.md)
-* [Bug Reporting](https://gitlab.arm.com/artificial-intelligence/ethos-u/ethos-u-vela/-/blob/5.0.0/BUGS.md)
-* [Building From Source](https://gitlab.arm.com/artificial-intelligence/ethos-u/ethos-u-vela/-/blob/5.0.0/BUILD.md)
-* [Contributing](https://gitlab.arm.com/artificial-intelligence/ethos-u/ethos-u-vela/-/blob/5.0.0/CONTRIBUTING.md)
-* [CLI Options](https://gitlab.arm.com/artificial-intelligence/ethos-u/ethos-u-vela/-/blob/5.0.0/OPTIONS.md)
-* [Debug Database](https://gitlab.arm.com/artificial-intelligence/ethos-u/ethos-u-vela/-/blob/5.0.0/DEBUG_DB.md)
-* [Performance Estimations](https://gitlab.arm.com/artificial-intelligence/ethos-u/ethos-u-vela/-/blob/5.0.0/PERFORMANCE.md)
-* [Operator Support](https://gitlab.arm.com/artificial-intelligence/ethos-u/ethos-u-vela/-/blob/5.0.0/SUPPORTED_OPS.md)
-* [Changelog](https://gitlab.arm.com/artificial-intelligence/ethos-u/ethos-u-vela/-/blob/5.0.0/CHANGELOG.md)
-* [Security Vulnerabilities](https://gitlab.arm.com/artificial-intelligence/ethos-u/ethos-u-vela/-/blob/5.0.0/SECURITY.md)
-* [Testing](https://gitlab.arm.com/artificial-intelligence/ethos-u/ethos-u-vela/-/blob/5.0.0/TESTING.md)
+* [External APIs (Deprecated)](https://gitlab.arm.com/artificial-intelligence/ethos-u/ethos-u-vela/-/blob/5.1.0/API.md)
+* [Bug Reporting](https://gitlab.arm.com/artificial-intelligence/ethos-u/ethos-u-vela/-/blob/5.1.0/BUGS.md)
+* [Building From Source](https://gitlab.arm.com/artificial-intelligence/ethos-u/ethos-u-vela/-/blob/5.1.0/BUILD.md)
+* [Contributing](https://gitlab.arm.com/artificial-intelligence/ethos-u/ethos-u-vela/-/blob/5.1.0/CONTRIBUTING.md)
+* [CLI Options](https://gitlab.arm.com/artificial-intelligence/ethos-u/ethos-u-vela/-/blob/5.1.0/OPTIONS.md)
+* [Debug Database](https://gitlab.arm.com/artificial-intelligence/ethos-u/ethos-u-vela/-/blob/5.1.0/DEBUG_DB.md)
+* [Performance Estimations](https://gitlab.arm.com/artificial-intelligence/ethos-u/ethos-u-vela/-/blob/5.1.0/PERFORMANCE.md)
+* [Operator Support](https://gitlab.arm.com/artificial-intelligence/ethos-u/ethos-u-vela/-/blob/5.1.0/SUPPORTED_OPS.md)
+* [Changelog](https://gitlab.arm.com/artificial-intelligence/ethos-u/ethos-u-vela/-/blob/5.1.0/CHANGELOG.md)
+* [Security Vulnerabilities](https://gitlab.arm.com/artificial-intelligence/ethos-u/ethos-u-vela/-/blob/5.1.0/SECURITY.md)
+* [Testing](https://gitlab.arm.com/artificial-intelligence/ethos-u/ethos-u-vela/-/blob/5.1.0/TESTING.md)
 
 ## Inclusive language commitment
 
@@ -238,4 +238,4 @@ that concerns you then email [terms@arm.com](mailto:terms@arm.com).
 
 ## License
 
-Vela is licensed under [Apache License 2.0](https://gitlab.arm.com/artificial-intelligence/ethos-u/ethos-u-vela/-/blob/5.0.0/LICENSE.txt).
+Vela is licensed under [Apache License 2.0](https://gitlab.arm.com/artificial-intelligence/ethos-u/ethos-u-vela/-/blob/5.1.0/LICENSE.txt).

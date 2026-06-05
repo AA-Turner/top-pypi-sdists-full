@@ -4,7 +4,6 @@ from pandas import DataFrame
 from pydantic import BaseModel
 
 from graphdatascience.arrow_client.authenticated_flight_client import AuthenticatedArrowClient
-from graphdatascience.arrow_client.v2.remote_write_back_client import RemoteWriteBackClient
 from graphdatascience.graph.v2.graph_api import GraphV2
 from graphdatascience.procedure_surface.api.catalog.scaler_config import ScalerConfig
 from graphdatascience.procedure_surface.api.centrality.eigenvector_endpoints import (
@@ -15,19 +14,56 @@ from graphdatascience.procedure_surface.api.centrality.eigenvector_endpoints imp
 )
 from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, ALL_TYPES
 from graphdatascience.procedure_surface.api.estimation_result import EstimationResult
+from graphdatascience.procedure_surface.api.job_handle import JobHandle
 from graphdatascience.procedure_surface.arrow.node_property_endpoints import NodePropertyEndpointsHelper
+from graphdatascience.query_runner.protocol.write_protocols import WriteProtocol
 
 
 class EigenvectorArrowEndpoints(EigenvectorEndpoints):
     def __init__(
         self,
         arrow_client: AuthenticatedArrowClient,
-        write_back_client: RemoteWriteBackClient | None = None,
+        write_protocol: WriteProtocol | None = None,
         show_progress: bool = True,
     ):
         self._node_property_endpoints = NodePropertyEndpointsHelper(
-            arrow_client, write_back_client, show_progress=show_progress
+            arrow_client, write_protocol, show_progress=show_progress
         )
+
+    def compute(
+        self,
+        G: GraphV2,
+        *,
+        max_iterations: int = 20,
+        tolerance: float = 1.0e-7,
+        source_nodes: int | list[int] | None = None,
+        scaler: str | dict[str, str | int | float] | ScalerConfig = "NONE",
+        relationship_weight_property: str | None = None,
+        relationship_types: list[str] = ALL_TYPES,
+        node_labels: list[str] = ALL_LABELS,
+        sudo: bool = False,
+        log_progress: bool = True,
+        username: str | None = None,
+        concurrency: int | None = None,
+        job_id: str | None = None,
+    ) -> JobHandle:
+        scaler_value = scaler.model_dump() if isinstance(scaler, BaseModel) else scaler
+        config = self._node_property_endpoints.create_base_config(
+            G,
+            concurrency=concurrency,
+            job_id=job_id,
+            log_progress=log_progress,
+            max_iterations=max_iterations,
+            node_labels=node_labels,
+            relationship_types=relationship_types,
+            relationship_weight_property=relationship_weight_property,
+            scaler=scaler_value,
+            source_nodes=source_nodes,
+            sudo=sudo,
+            tolerance=tolerance,
+            username=username,
+        )
+        return self._node_property_endpoints.run_job(G, "v2/centrality.eigenvector", config)
 
     def mutate(
         self,

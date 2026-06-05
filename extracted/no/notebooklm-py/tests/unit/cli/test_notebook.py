@@ -13,7 +13,7 @@ from notebooklm.notebooklm_cli import cli
 from notebooklm.rpc import RPCMethod
 from notebooklm.types import AskResult, Notebook
 
-from .conftest import create_mock_client, patch_main_cli_client
+from .conftest import create_mock_client, patch_main_cli_client, research_start, research_task
 
 
 @pytest.fixture
@@ -216,7 +216,7 @@ class TestNotebookList:
             assert result.output.count("X") >= 200
             assert "…" not in result.output
 
-    def test_notebook_list_default_truncates_long_title(self, runner, mock_auth):
+    def test_notebook_list_default_truncates_long_title(self, runner, mock_auth, narrow_console):
         """Default rendering inserts an ellipsis for over-wide titles.
 
         Pins the existing default behavior so --no-truncate doesn't change
@@ -574,6 +574,9 @@ class TestNotebookDelete:
             assert "Cleared current notebook context" in result.output
 
     def test_notebook_delete_failure(self, runner, mock_auth):
+        """A real delete failure now raises (v0.7.0): delete() returns None and
+        propagates RPC/transport errors instead of signalling failure via a
+        falsy return (issue #1211)."""
         with patch_main_cli_client() as mock_client_cls:
             mock_client = create_mock_client()
             # Mock list for partial ID resolution
@@ -587,7 +590,7 @@ class TestNotebookDelete:
                     ),
                 ]
             )
-            mock_client.notebooks.delete = AsyncMock(return_value=False)
+            mock_client.notebooks.delete = AsyncMock(side_effect=RPCError("delete blew up"))
             mock_client_cls.return_value = mock_client
 
             with patch(
@@ -596,8 +599,7 @@ class TestNotebookDelete:
                 mock_fetch.return_value = ("csrf", "session")
                 result = runner.invoke(cli, ["delete", "-n", "nb_123", "-y"])
 
-            assert result.exit_code == 0
-            assert "Delete may have failed" in result.output
+            assert result.exit_code == 1
 
     def test_notebook_delete_json(self, runner, mock_auth):
         """--json with --yes emits a parseable success envelope (issue #1167)."""
@@ -736,6 +738,37 @@ class TestNotebookRename:
             assert "Renamed notebook" in result.output
             mock_client.notebooks.rename.assert_called_once_with("nb_123", "New Title")
 
+    def test_notebook_rename_json(self, runner, mock_auth):
+        with patch_main_cli_client() as mock_client_cls:
+            mock_client = create_mock_client()
+            mock_client.notebooks.list = AsyncMock(
+                return_value=[
+                    Notebook(
+                        id="nb_123",
+                        title="Test Notebook",
+                        created_at=datetime(2024, 1, 1),
+                        is_owner=True,
+                    ),
+                ]
+            )
+            mock_client.notebooks.rename = AsyncMock(return_value=None)
+            mock_client_cls.return_value = mock_client
+
+            with patch(
+                "notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock
+            ) as mock_fetch:
+                mock_fetch.return_value = ("csrf", "session")
+                result = runner.invoke(cli, ["rename", "New Title", "-n", "nb_123", "--json"])
+
+            assert result.exit_code == 0
+            payload = json.loads(result.output)
+            assert payload == {
+                "notebook_id": "nb_123",
+                "title": "New Title",
+                "success": True,
+            }
+            mock_client.notebooks.rename.assert_called_once_with("nb_123", "New Title")
+
 
 # =============================================================================
 # NOTEBOOK SHARE TESTS (moved to share command group)
@@ -812,6 +845,75 @@ class TestNotebookSummary:
             assert result.exit_code == 0
             assert "Suggested Topics" in result.output
             assert "machine learning" in result.output
+
+    def test_notebook_summary_json(self, runner, mock_auth):
+        with patch_main_cli_client() as mock_client_cls:
+            mock_client = create_mock_client()
+            mock_client.notebooks.list = AsyncMock(
+                return_value=[
+                    Notebook(
+                        id="nb_123",
+                        title="Test Notebook",
+                        created_at=datetime(2024, 1, 1),
+                        is_owner=True,
+                    ),
+                ]
+            )
+            mock_desc = MagicMock()
+            mock_desc.summary = "This is a summary."
+            mock_topic = MagicMock()
+            mock_topic.question = "What is machine learning?"
+            mock_desc.suggested_topics = [mock_topic]
+            mock_client.notebooks.get_description = AsyncMock(return_value=mock_desc)
+            mock_client_cls.return_value = mock_client
+
+            with patch(
+                "notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock
+            ) as mock_fetch:
+                mock_fetch.return_value = ("csrf", "session")
+                result = runner.invoke(cli, ["summary", "-n", "nb_123", "--topics", "--json"])
+
+            assert result.exit_code == 0
+            payload = json.loads(result.output)
+            assert payload == {
+                "notebook_id": "nb_123",
+                "summary": "This is a summary.",
+                "suggested_topics": ["What is machine learning?"],
+            }
+
+    def test_notebook_summary_json_without_topics(self, runner, mock_auth):
+        with patch_main_cli_client() as mock_client_cls:
+            mock_client = create_mock_client()
+            mock_client.notebooks.list = AsyncMock(
+                return_value=[
+                    Notebook(
+                        id="nb_123",
+                        title="Test Notebook",
+                        created_at=datetime(2024, 1, 1),
+                        is_owner=True,
+                    ),
+                ]
+            )
+            mock_desc = MagicMock()
+            mock_desc.summary = "This is a summary."
+            mock_topic = MagicMock()
+            mock_topic.question = "What is machine learning?"
+            mock_desc.suggested_topics = [mock_topic]
+            mock_client.notebooks.get_description = AsyncMock(return_value=mock_desc)
+            mock_client_cls.return_value = mock_client
+
+            with patch(
+                "notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock
+            ) as mock_fetch:
+                mock_fetch.return_value = ("csrf", "session")
+                result = runner.invoke(cli, ["summary", "-n", "nb_123", "--json"])
+
+            assert result.exit_code == 0
+            payload = json.loads(result.output)
+            # Without --topics the envelope stays lean: the key is omitted entirely
+            # (not an empty list) so callers branch on its presence.
+            assert payload == {"notebook_id": "nb_123", "summary": "This is a summary."}
+            assert "suggested_topics" not in payload
 
     def test_notebook_summary_not_available(self, runner, mock_auth):
         with patch_main_cli_client() as mock_client_cls:
@@ -1024,9 +1126,13 @@ class TestSourceAddResearch:
     def test_source_add_research_success(self, runner, mock_auth):
         with patch("notebooklm.cli.source_cmd.NotebookLMClient") as mock_client_cls:
             mock_client = create_mock_client()
-            mock_client.research.start = AsyncMock(return_value={"task_id": "task_123"})
+            mock_client.research.start = AsyncMock(
+                return_value=research_start({"task_id": "task_123"})
+            )
             mock_client.research.poll = AsyncMock(
-                return_value={"status": "completed", "sources": [{"title": "Source 1"}]}
+                return_value=research_task(
+                    {"status": "completed", "sources": [{"title": "Source 1"}]}
+                )
             )
             mock_client_cls.return_value = mock_client
 
@@ -1061,9 +1167,11 @@ class TestSourceAddResearch:
     def test_source_add_research_with_import(self, runner, mock_auth):
         with patch("notebooklm.cli.source_cmd.NotebookLMClient") as mock_client_cls:
             mock_client = create_mock_client()
-            mock_client.research.start = AsyncMock(return_value={"task_id": "task_123"})
+            mock_client.research.start = AsyncMock(
+                return_value=research_start({"task_id": "task_123"})
+            )
             mock_client.research.poll = AsyncMock(
-                return_value={"status": "completed", "sources": [{"id": "src_1"}]}
+                return_value=research_task({"status": "completed", "sources": [{"id": "src_1"}]})
             )
             # CLI's import_with_retry now delegates to the library's
             # import_sources_with_verification method (#315).

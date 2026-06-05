@@ -1,6 +1,6 @@
 [project]
 name = "geocif"
-version = "0.4.716"
+version = "0.4.724"
 
 description = "Models to visualize and forecast crop conditions and yields"
 readme = "README.md"
@@ -69,8 +69,6 @@ dependencies = [
     "crepes>=0.6",            # conformal prediction wrappers
     "cubist>=1.0",            # Cubist regression (1.0+ — 0.0.x is a separate pre-1.0 line)
     "mapie>=0.8",             # prediction intervals
-    "desReg>=0.1",            # Distributional Ensemble Synthetic Regression (geocif/ml/trainers.py)
-    "geospaNN>=0.1",          # spatially-aware neural networks (geocif/ml/trainers.py)
     "merf>=1.0",              # mixed-effects random forests
     "ngboost>=0.5",           # probabilistic gradient boosting
     "tabpfn-extensions>=0.4",  # TabPFN extras (0.4+ — stable line; 0.0.x was placeholder releases)
@@ -79,10 +77,8 @@ dependencies = [
     # ML feature selection (geocif/ml/feature_selection.py):
     "BorutaShap>=1.0",        # Boruta with SHAP-based importance
     "arfs>=2.0",              # All Relevant Feature Selection
-    "fasttreeshap>=0.1",      # fast SHAP for tree models
     "feature-engine>=1.6",    # categorical / numerical transformers
     "mrmr-selection>=0.2",    # mRMR feature selection
-    "powershap>=0.0.10",      # SHAP-based feature selection
     "sklearn-genetic-opt>=0.10",  # genetic hyperparameter / feature opt
     "stabl>=0.0.1",           # stability selection (only release on PyPI is 0.0.1; >=1.0 would fail to install)
     # Transitive deps of pygeoutil (which has broken setup.py and is git-installed by the installer):
@@ -117,6 +113,51 @@ narrative = [
     "pdfplumber>=0.10",      # geocif/narrative.py
     "reportlab>=4.0",        # geocif/report.py
     "anthropic>=0.30",       # geocif/narrative.py (LLM-based report generation)
+]
+shap_fast = [
+    # Used by ml/feature_selection.py only when [ML] feature_selection = "SHAP".
+    # Cannot ship as a core dep because fasttreeshap pins slicer==0.0.7, which
+    # conflicts with shap>=0.48.0 (pins slicer==0.0.8). Users who pick the
+    # SHAP selector install this extras group explicitly:
+    #     pip install geocif[shap_fast]
+    # (This will downgrade shap to <0.48 in their env — accepted tradeoff
+    # for that selector.)
+    "fasttreeshap>=0.1",
+]
+powershap = [
+    # Used by ml/feature_selection.py only when
+    # [ML] feature_selection = "PowerShap". Cannot ship as a core dep
+    # because powershap>=0.0.10 pins shap>=0.45,<0.46 AND
+    # statsmodels>=0.13.2,<0.14.0 — both upper bounds conflict with
+    # geocif's core requirements (shap>=0.48, statsmodels>=0.14.6).
+    # Users who pick the PowerShap selector install this group explicitly:
+    #     pip install geocif[powershap]
+    # (This will downgrade shap to <0.46 AND statsmodels to <0.14 —
+    # bigger env tradeoff than shap_fast, hence its own group.)
+    "powershap>=0.0.10",
+]
+geospann = [
+    # Used by ml/trainers.py only when [DEFAULT] models contains
+    # "geospaNN". Cannot ship as a core dep because geospaNN>=0.1
+    # transitively depends on torch-scatter>=2.1.2, which has a
+    # broken build system (imports torch in setup.py without declaring
+    # it as a build-system requirement, so PEP-517 isolated builds
+    # fail with `ModuleNotFoundError: No module named 'torch'`).
+    # Users who want the geospaNN model install this group explicitly:
+    #     pip install torch                # install torch first
+    #     pip install geocif[geospann] --no-build-isolation
+    # (The --no-build-isolation lets torch-scatter find the just-
+    # installed torch at build time.)
+    "geospaNN>=0.1",
+]
+desreg = [
+    # Used by ml/trainers.py only when [DEFAULT] models contains
+    # "desreg". Held in its own group because desReg is an obscure
+    # package on PyPI (DESRegression / Distributional Ensemble
+    # Synthetic Regression) with only one published version and
+    # historically install quirks on some Python combos.
+    #     pip install geocif[desreg]
+    "desReg>=0.1",
 ]
 
 [project.urls]

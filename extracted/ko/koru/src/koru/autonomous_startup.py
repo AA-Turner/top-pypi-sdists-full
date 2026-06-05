@@ -12,7 +12,10 @@ from koru.autopilot import default_socket_path
 from koru.ide_router import is_headless_environment, resolve_ide_route
 from koruide.ide import (
     RunningIDE,
+    canonical_autopilot_ide_id,
+    detect_focused_ide_id,
     detect_running_ides,
+    detect_terminal_host_context,
     detect_terminal_host_ide_id,
     normalize_ide_id,
     pick_target,
@@ -41,7 +44,7 @@ def koru_distribution_version() -> str:
 
 
 def _session_label() -> str:
-    from koruos import resolve_active_os_strategy
+    from gillm.focus import resolve_active_os_strategy
 
     strategy = resolve_active_os_strategy()
     if strategy.id == "linux-wayland":
@@ -62,6 +65,14 @@ def _terminal_agent_lane_from_env() -> str | None:
     explicit = normalize_ide_id(os.environ.get("KORU_AUTOPILOT_IDE"))
     if explicit and explicit != "auto":
         return explicit
+    return None
+
+
+def _focused_agent_lane_from_desktop() -> str | None:
+    """Return focused IDE lane after desktop click/focus, when detectable."""
+    focused = normalize_ide_id(detect_focused_ide_id())
+    if focused and focused != "auto":
+        return focused
     return None
 
 
@@ -92,6 +103,13 @@ def _pick_plugin_capable_running(
     return pick_target(candidates)
 
 
+def _explicit_lane_matches_terminal(explicit: str, terminal: str) -> bool:
+    """True when ``explicit`` is the same lane or a suffixed variant (``cursor-main``)."""
+    if explicit == terminal:
+        return True
+    return explicit.startswith(f"{terminal}-")
+
+
 def _resolve_lane_from_explicit(
     explicit: str | None,
     explicit_source: str,
@@ -104,7 +122,7 @@ def _resolve_lane_from_explicit(
     if (
         terminal
         and supports_autopilot_plugin_ide(terminal)
-        and terminal != explicit
+        and not _explicit_lane_matches_terminal(explicit, terminal)
         and terminal != "vscode"
     ):
         return terminal, f"terminal:over-{explicit_source}"
@@ -170,6 +188,76 @@ def _project_lane(project: Path, lane: str | None, resolve_project_lane) -> str 
     return resolve_project_lane(project, lane)
 
 
+def _resolve_project_lane_result(
+    project: Path,
+    result: tuple[str | None, str] | None,
+    resolve_project_lane,
+) -> tuple[str | None, str] | None:
+    if not result:
+        return None
+    lane, source = result
+    return _project_lane(project, lane, resolve_project_lane), source
+
+
+def _runtime_lane_hints() -> tuple[str | None, str | None, str | None, str, Sequence[RunningIDE]]:
+    focused = _focused_agent_lane_from_desktop()
+    terminal = _terminal_agent_lane_from_env()
+    explicit, explicit_source = _explicit_agent_lane_from_env()
+    running = detect_running_ides()
+    return focused, terminal, explicit, explicit_source, running
+
+
+def _resolve_lane_from_runtime_hints(
+    project: Path,
+    *,
+    focused: str | None,
+    terminal: str | None,
+    explicit: str | None,
+    explicit_source: str,
+    running: Sequence[RunningIDE],
+    resolve_project_lane,
+) -> tuple[str | None, str] | None:
+    # In external-terminal workflows the user can pick target IDE by focusing
+    # its window before running `koru auto`; treat desktop focus as the strongest
+    # runtime signal for auto lane routing only when that IDE is also observed
+    # in the running-IDE list. This prevents stale host desktop focus from
+    # overriding isolated tests or project markers when no matching IDE process
+    # was detected.
+    focused_is_running = bool(focused and any(ide.id == focused for ide in running))
+    if (
+        focused
+        and focused in _PLUGIN_IDE_LANES
+        and focused_is_running
+        and (
+            not explicit
+            or (not terminal and not _explicit_lane_matches_terminal(explicit, focused))
+        )
+    ):
+        return _project_lane(project, focused, resolve_project_lane), "focused"
+
+    for result in (
+        _resolve_lane_from_explicit(explicit, explicit_source, terminal, running),
+        _resolve_lane_from_vscode_terminal(running, terminal),
+        _resolve_lane_from_terminal(terminal, running),
+    ):
+        resolved = _resolve_project_lane_result(project, result, resolve_project_lane)
+        if resolved:
+            return resolved
+    return None
+
+
+def _resolve_lane_from_running_or_project(
+    project: Path,
+    running: Sequence[RunningIDE],
+    *,
+    resolve_project_lane,
+) -> tuple[str | None, str]:
+    running_result = _resolve_lane_from_running(running)
+    if running_result:
+        return running_result
+    return resolve_project_lane(project, "auto"), "project-markers"
+
+
 
 def resolve_agent_lane_id(
     project: Path,
@@ -180,37 +268,32 @@ def resolve_agent_lane_id(
     """Resolve ``--agent-lane``; return ``(lane_id, source_label)``."""
     raw = normalize_ide_id(agent_lane_cli) or "auto"
 
-    cli_result = _resolve_lane_from_cli(raw)
-    if cli_result:
-        lane, source = cli_result
-        return _project_lane(project, lane, resolve_project_lane), source
-
-    terminal = _terminal_agent_lane_from_env()
-    explicit, explicit_source = _explicit_agent_lane_from_env()
-    running = detect_running_ides()
-
-    explicit_result = _resolve_lane_from_explicit(
-        explicit,
-        explicit_source,
-        terminal,
-        running,
+    cli_result = _resolve_project_lane_result(
+        project,
+        _resolve_lane_from_cli(raw),
+        resolve_project_lane,
     )
-    if explicit_result:
-        lane, source = explicit_result
-        return _project_lane(project, lane, resolve_project_lane), source
-    for result in (
-        _resolve_lane_from_vscode_terminal(running, terminal),
-        _resolve_lane_from_terminal(terminal, running),
-    ):
-        if result:
-            lane, source = result
-            return _project_lane(project, lane, resolve_project_lane), source
+    if cli_result:
+        return cli_result
 
-    running_result = _resolve_lane_from_running(running)
-    if running_result:
-        return running_result
+    focused, terminal, explicit, explicit_source, running = _runtime_lane_hints()
+    runtime_result = _resolve_lane_from_runtime_hints(
+        project,
+        focused=focused,
+        terminal=terminal,
+        explicit=explicit,
+        explicit_source=explicit_source,
+        running=running,
+        resolve_project_lane=resolve_project_lane,
+    )
+    if runtime_result:
+        return runtime_result
 
-    return resolve_project_lane(project, "auto"), "project-markers"
+    return _resolve_lane_from_running_or_project(
+        project,
+        running,
+        resolve_project_lane=resolve_project_lane,
+    )
 
 
 
@@ -229,13 +312,25 @@ def resolve_agent_lane(
     terminal = normalize_ide_id(terminal_hint) if terminal_hint is not None else None
     if terminal is None:
         terminal = _terminal_agent_lane_from_env()
-
+    running = list(running_ides) if running_ides is not None else detect_running_ides()
+    focused = _focused_agent_lane_from_desktop()
     explicit, explicit_source = _explicit_agent_lane_from_env()
+
+    if (
+        focused
+        and focused in _PLUGIN_IDE_LANES
+        and any(ide.id == focused for ide in running)
+        and (
+            not explicit
+            or (not terminal and not _explicit_lane_matches_terminal(explicit, focused))
+        )
+    ):
+        return focused, "focused"
+
     explicit_result = _resolve_lane_from_explicit(explicit, explicit_source, terminal)
     if explicit_result:
         return explicit_result
 
-    running = list(running_ides) if running_ides is not None else detect_running_ides()
     for result in (
         _resolve_lane_from_vscode_terminal(running, terminal),
         _resolve_lane_from_terminal(terminal, running),
@@ -245,24 +340,6 @@ def resolve_agent_lane(
             return result
 
     return "auto", "project-markers"
-
-
-def canonical_autopilot_ide_id(raw: str) -> str:
-    """Map lane/instance slugs (e.g. ``windsurf-main``) to canonical IDE ids."""
-    normalized = normalize_ide_id(raw) or raw
-    valid = supported_autopilot_ide_ids()
-    if normalized in valid and normalized != "auto":
-        return normalized
-    env_ide = normalize_ide_id(os.environ.get("KORU_AUTOPILOT_IDE"))
-    if env_ide and env_ide in valid and env_ide != "auto":
-        return env_ide
-    for ide_id in _AUTOPILOT_PLUGIN_LANES:
-        if normalized == ide_id or normalized.startswith(f"{ide_id}-"):
-            return ide_id
-    for ide_id in valid:
-        if ide_id != "auto" and normalized.startswith(f"{ide_id}-"):
-            return ide_id
-    return normalized
 
 
 def resolve_autopilot_ide_for_autonomous(
@@ -298,11 +375,13 @@ class AutonomousStartupProbe:
     autopilot_ide_source: str
     running_ides: tuple[str, ...]
     terminal_lane: str | None
-    socket_path: str
-    session: str
-    term_program: str
-    headless: bool
-    xdg_runtime_dir: str
+    terminal_host_source: str = "none"
+    terminal_host_kind: str = "system"
+    socket_path: str = ""
+    session: str = "headless"
+    term_program: str = "-"
+    headless: bool = False
+    xdg_runtime_dir: str = "-"
 
 
 @dataclass(frozen=True)
@@ -317,6 +396,8 @@ class _StartupProbeResolution:
 class _StartupProbeRuntimeFields:
     running_ides: tuple[str, ...]
     terminal_lane: str | None
+    terminal_host_source: str
+    terminal_host_kind: str
     socket_path: str
     session: str
     term_program: str
@@ -388,9 +469,12 @@ def _resolve_startup_probe_resolution(
 
 
 def _startup_probe_runtime_fields(ide_id: str) -> _StartupProbeRuntimeFields:
+    terminal_ctx = detect_terminal_host_context()
     return _StartupProbeRuntimeFields(
         running_ides=_running_ide_labels(),
-        terminal_lane=_terminal_agent_lane_from_env(),
+        terminal_lane=terminal_ctx.ide,
+        terminal_host_source=terminal_ctx.source,
+        terminal_host_kind=terminal_ctx.kind,
         socket_path=_autopilot_socket_path_for_probe(ide_id),
         session=_session_label(),
         term_program=_term_program_label(),
@@ -420,6 +504,8 @@ def _build_startup_probe_from_resolution(
         autopilot_ide_source=resolution.autopilot_ide_source,
         running_ides=runtime.running_ides,
         terminal_lane=runtime.terminal_lane,
+        terminal_host_source=runtime.terminal_host_source,
+        terminal_host_kind=runtime.terminal_host_kind,
         socket_path=runtime.socket_path,
         session=runtime.session,
         term_program=runtime.term_program,
@@ -463,7 +549,21 @@ def format_startup_banner(probe: AutonomousStartupProbe) -> list[str]:
     else:
         lines.append("koru autonomous: running IDEs: (none detected)")
     if probe.terminal_lane:
-        lines.append(f"koru autonomous: terminal hint → {probe.terminal_lane}")
+        lines.append(
+            "koru autonomous: terminal hint → "
+            f"{probe.terminal_lane} "
+            f"(kind={probe.terminal_host_kind}, source={probe.terminal_host_source})"
+        )
+        if probe.terminal_host_kind == "ide_adjacent":
+            lines.append(
+                "koru autonomous: terminal note → external/system shell with IDE ancestor; "
+                "prefer the target IDE integrated terminal for reliable lane alignment"
+            )
+    else:
+        lines.append(
+            "koru autonomous: terminal hint → none "
+            f"(kind={probe.terminal_host_kind}, source={probe.terminal_host_source})"
+        )
     lines.append(
         f"koru autonomous: lane={probe.resolved_lane or 'none'} "
         f"(from {probe.lane_source}, cli --agent-lane={probe.agent_lane_cli})",
@@ -588,8 +688,11 @@ def _format_plugin_setup_steps(
     sock: str,
     settings_hint: str,
     project: Path,
+    *,
+    lane: str | None = None,
 ) -> list[str]:
     """Format setup steps for plugin-based IDEs."""
+    instance = (lane or ide).strip()
     return [
         f"koru autonomous: 1) Otwórz {ide} z root = {project}",
         "koru autonomous: 2) MCP: włącz serwer „koru” "
@@ -601,12 +704,16 @@ def _format_plugin_setup_steps(
         f"koru autonomous: 4) Socket wtyczki = {sock} "
         f"({settings_hint}: koruAutopilot.socketPath)",
         "koru autonomous: 5) Ten sam socket w shellu: export "
-        f"KORU_AUTOPILOT_INSTANCE={ide}",
+        f"KORU_AUTOPILOT_INSTANCE={instance}",
         f"koru autonomous: 6) Diagnostyka mostu: koru ide doctor --ide {ide} --fix",
-        f"koru autonomous: 7) Test: koru autopilot status --ide {ide} --explain → plugins niepuste; "
+        f"koru autonomous: 7) Test: koru autopilot status --ide {ide} --explain "
+        "→ plugins niepuste; "
         f"potem koru autopilot drive --ide {ide} --require-plugin 'probe test'",
+        f"koru autonomous: 7a) Przed drive: kliknij w pole czatu {ide} "
+        "(mrugający kursor w input, nie w edytorze pliku)",
         "koru autonomous: 8) (opcjonalnie) Command Palette → "
-        "„koru: Calibrate chat probe ladder”",
+        "„koru: Calibrate chat probe ladder” "
+        "(po ustawieniu fokusu w polu czatu; submit na Wayland)",
         "koru autonomous: 9) Dashboard: task koru:server → http://localhost:8765/",
         "koru autonomous: --- docs: <project>/docs/autonomy-ide-cursor.md "
         "(sekcja „Po starcie”) ---",
@@ -675,7 +782,15 @@ def format_post_startup_operator_hints(
     lines.extend(mismatch_warnings)
 
     if plugin_supported:
-        lines.extend(_format_plugin_setup_steps(ide, sock, settings_hint, probe.project))
+        lines.extend(
+            _format_plugin_setup_steps(
+                ide,
+                sock,
+                settings_hint,
+                probe.project,
+                lane=probe.resolved_lane,
+            )
+        )
     else:
         lines.extend(_format_keyboard_setup_steps(ide, sock, probe.project))
 

@@ -77,6 +77,7 @@ class Failure(list[Failed]):
             self._name = f"{self._func.parent.name}.{self._name}"
 
         if self._func.error is not None:
+            self._retcode.append(2)
             self._sig9xx_error()
         else:
             self._sig0xx_config()
@@ -364,6 +365,7 @@ def report(
     :return: Exit code (non-zero if any check failed).
     """
     retcodes = [0]
+    output = []
     for failure in failures:
         retcodes.append(failure.retcode)
         path_prefix = f"{file}:" if file is not None else ""
@@ -371,7 +373,7 @@ def report(
         if not config.no_ansi and _sys.stdout.isatty():
             header = f"\033[35m{header}\033[0m"
 
-        print(header)
+        output.append(header)
         for item in failure:
             extra = None
             if item.hint:
@@ -381,15 +383,16 @@ def report(
                 extra = "warning: please remember to fix this or disable it"
                 _warn(_NEW.format(ref=item.ref), FutureWarning, stacklevel=3)
 
-            print(
-                "    "
-                + _TEMPLATE.format(
-                    ref=item.ref,
-                    description=item.description,
-                    symbolic=item.symbolic,
-                ),
+            msg = _TEMPLATE.format(
+                ref=item.ref,
+                description=item.description,
+                symbolic=item.symbolic,
             )
+            output.append(f"    {msg}")
             if extra is not None:
-                print(f"    {extra}")
+                output.append(f"    {extra}")
+
+    if output:
+        print("\n".join(output))
 
     return max(retcodes)

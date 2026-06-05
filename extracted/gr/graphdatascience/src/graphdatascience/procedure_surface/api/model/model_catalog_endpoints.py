@@ -45,7 +45,7 @@ class ModelCatalogEndpoints(ABC):
         Parameters
         ----------
         model_name: str
-            The name of the model to check.
+            Name of the model.
 
         Returns
         -------
@@ -60,7 +60,7 @@ class ModelCatalogEndpoints(ABC):
         Parameters
         ----------
         model_name: str
-            The model name to resolve.
+            Name of the model.
 
         Returns
         -------
@@ -69,13 +69,13 @@ class ModelCatalogEndpoints(ABC):
         """
 
     @abstractmethod
-    def drop(self, model_name: str, *, fail_if_missing: bool = False) -> ModelDetails | None:
+    def drop(self, model_name: str, *, fail_if_missing: bool = True) -> ModelDetails | None:
         """Drop a model from the in-memory catalog.
 
         Parameters
         ----------
         model_name: str
-            The model to drop.
+            Name of the model.
         fail_if_missing: bool
             If True, a missing model will cause an error. If False, returns None when missing.
 
@@ -92,7 +92,7 @@ class ModelCatalogEndpoints(ABC):
         Parameters
         ----------
         model_name: str
-            The model to delete.
+            Name of the model.
         fail_if_missing: bool
             If True, a missing model will cause an error. If False, returns None when missing.
 
@@ -109,7 +109,7 @@ class ModelCatalogEndpoints(ABC):
         Parameters
         ----------
         model_name: str
-            The model to load.
+            Name of the model.
 
         Returns
         -------
@@ -124,7 +124,7 @@ class ModelCatalogEndpoints(ABC):
         Parameters
         ----------
         model_name: str
-            The model to store.
+            Name of the model.
         fail_if_unsupported: bool
             If True, unsupported models cause an error.
 
@@ -132,4 +132,19 @@ class ModelCatalogEndpoints(ABC):
         -------
         ModelStoreResult
             The store result.
+        """
+
+    @abstractmethod
+    def publish(self, model_name: str) -> ModelDetails:
+        """Publish a model so it becomes accessible to other users.
+
+        Parameters
+        ----------
+        model_name: str
+            Name of the model.
+
+        Returns
+        -------
+        ModelDetails
+            The details of the published model.
         """

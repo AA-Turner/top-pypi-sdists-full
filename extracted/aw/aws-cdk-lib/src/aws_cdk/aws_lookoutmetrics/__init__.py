@@ -477,7 +477,7 @@ class CfnAlert(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_lookoutmetrics as lookoutmetrics
                 
-                s_nSConfiguration_property = lookoutmetrics.CfnAlert.SNSConfigurationProperty(
+                s_ns_configuration_property = lookoutmetrics.CfnAlert.SNSConfigurationProperty(
                     role_arn="roleArn",
                     sns_topic_arn="snsTopicArn"
                 )
@@ -2013,7 +2013,7 @@ class CfnAnomalyDetector(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_lookoutmetrics as lookoutmetrics
                 
-                r_dSSource_config_property = lookoutmetrics.CfnAnomalyDetector.RDSSourceConfigProperty(
+                r_ds_source_config_property = lookoutmetrics.CfnAnomalyDetector.RDSSourceConfigProperty(
                     database_host="databaseHost",
                     database_name="databaseName",
                     database_port=123,

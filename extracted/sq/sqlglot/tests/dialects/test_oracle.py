@@ -56,6 +56,13 @@ class TestOracle(Validator):
         self.validate_identity("SELECT * FROM V$SESSION")
         self.validate_identity("SELECT TO_DATE('January 15, 1989, 11:00 A.M.')")
         self.validate_identity("SELECT INSTR(haystack, needle)")
+        self.validate_all(
+            "SELECT fred FROM barney WHERE dino ^= 'wilma'",
+            write={
+                "oracle": "SELECT fred FROM barney WHERE dino <> 'wilma'",
+                "postgres": "SELECT fred FROM barney WHERE dino <> 'wilma'",
+            },
+        )
         self.validate_identity(
             "SELECT (TIMESTAMP '2025-12-30 20:00:00' - TIMESTAMP '2025-12-29 14:30:00') DAY TO SECOND",
             "SELECT (TO_TIMESTAMP('2025-12-30 20:00:00', 'YYYY-MM-DD HH24:MI:SS.FF6') - TO_TIMESTAMP('2025-12-29 14:30:00', 'YYYY-MM-DD HH24:MI:SS.FF6')) DAY TO SECOND",
@@ -247,6 +254,12 @@ class TestOracle(Validator):
                 "redshift": "TO_NUMBER(x, fmt)",
                 "teradata": "TO_NUMBER(x, fmt)",
             },
+        )
+        # https://docs.oracle.com/en/database/oracle/oracle-database/19/sqlrf/TO_NUMBER.html
+        self.validate_identity("TO_NUMBER('dino' DEFAULT 0 ON CONVERSION ERROR)")
+        self.validate_identity("TO_NUMBER('dino' DEFAULT 0 ON CONVERSION ERROR, '9999')")
+        self.validate_identity(
+            "TO_NUMBER('dino' DEFAULT 0 ON CONVERSION ERROR, '9999', 'NLS_NUMERIC_CHARACTERS = ''.,''')"
         )
         self.validate_all(
             "SELECT CAST(NULL AS VARCHAR2(2328 CHAR)) AS COL1",

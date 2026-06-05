@@ -16,7 +16,8 @@ import sys
 import time
 from typing import Any
 
-from koru.autopilot.injector import Injector, InjectorError
+from gillm.injection.errors import InjectorError
+from gillm.injection.injector import Injector
 from koru.control_commands import desktop_gui_command
 
 
@@ -132,7 +133,7 @@ def _try_profile_direct_drive(
     corr: str,
     emit_payload: bool,
 ) -> tuple[bool, int, dict[str, Any] | None]:
-    from koru.autopilot import os_injector as oi
+    import gillm.injection.os_injector as oi
 
     if float(args.delay_seconds) > 0:
         _print_drive_delay_message(float(args.delay_seconds))
@@ -159,6 +160,12 @@ def _try_profile_direct_drive(
     return True, 0, os_res
 
 
+def _selected_keyboard_backend(injector: Injector) -> str:
+    select_backend = getattr(injector, "select_backend", None)
+    selected = select_backend() if callable(select_backend) else getattr(injector, "session", "")
+    return str(selected or "keyboard")
+
+
 def _type_text_direct_drive(
     args: argparse.Namespace,
     text: str,
@@ -168,13 +175,11 @@ def _type_text_direct_drive(
     injector: Injector,
     emit_payload: bool,
 ) -> tuple[int, dict[str, Any] | None]:
-    select_backend = getattr(injector, "select_backend", None)
-    backend = select_backend() if callable(select_backend) else getattr(injector, "session", "")
     _emit_desktop_drive_command(
         args,
         corr=corr,
         operation="injector.type_text",
-        backend=str(backend or "keyboard"),
+        backend=_selected_keyboard_backend(injector),
         target=target_id,
         text=text,
         ide=target_id,
@@ -217,7 +222,7 @@ def _run_direct_drive(
     # ``cli_command.Injector`` / ``cli_command.resolve_drive_target``
     # keep affecting this code path after the R5 extraction.
     from koru.autopilot import cli_command
-    from koru.autopilot import os_injector as oi
+    import gillm.injection.os_injector as oi
 
     injector = cli_command.Injector()
     target_id, profile_id, selection = cli_command.resolve_drive_target(

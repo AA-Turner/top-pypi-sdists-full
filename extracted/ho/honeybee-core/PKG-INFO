@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: honeybee-core
-Version: 1.64.43
+Version: 1.64.44
 Summary: A library to create 3D building geometry for various types of environmental simulation.
 Home-page: https://github.com/ladybug-tools/honeybee-core
 Author: Ladybug Tools

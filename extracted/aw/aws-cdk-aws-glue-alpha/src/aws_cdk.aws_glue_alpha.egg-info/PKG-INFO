@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: aws-cdk.aws-glue-alpha
-Version: 2.257.0a0
+Version: 2.258.0a0
 Summary: The CDK Construct Library for AWS::Glue
 Home-page: https://github.com/aws/aws-cdk
 Author: Amazon Web Services
@@ -10,21 +10,23 @@ Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: JavaScript
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
 Classifier: Development Status :: 4 - Beta
 Classifier: License :: OSI Approved
 Classifier: Framework :: AWS CDK
 Classifier: Framework :: AWS CDK :: 2
-Requires-Python: ~=3.10
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
-Requires-Dist: aws-cdk-lib<3.0.0,>=2.257.0
+Requires-Dist: aws-cdk-lib<3.0.0,>=2.258.0
 Requires-Dist: constructs<11.0.0,>=10.5.0
-Requires-Dist: jsii<2.0.0,>=1.130.0
+Requires-Dist: jsii<2.0.0,>=1.133.0
 Requires-Dist: publication>=0.0.3
 Requires-Dist: typeguard==2.13.3
 
@@ -71,7 +73,7 @@ and deploy new resources.
 
 A Job encapsulates a script that connects to data sources, processes
 them, and then writes output to a data target. There are four types of Glue
-Jobs: Spark (ETL and Streaming), Python Shell, Ray, and Flex Jobs. Most
+Jobs: Spark (ETL and Streaming), Python Shell, and Flex Jobs. Most
 of the required parameters for these jobs are common across all types,
 but there are a few differences depending on the languages supported
 and features provided by each type. For all job types, the L2 defaults
@@ -335,54 +337,10 @@ glue.PythonShellJob(stack, "PythonShellJob",
 
 ### Ray Jobs
 
-Glue Ray jobs use worker type Z.2X and Glue version 4.0. These are not
-overrideable since these are the only configuration that Glue Ray jobs
-currently support. The runtime defaults to Ray2.4 and min workers defaults to 3.
+> **⚠️ DEPRECATED:** AWS Glue for Ray is closed to new customers as of April 30, 2026 and is in maintenance mode.
+> Migrate to [Amazon EKS with KubeRay Operator](https://docs.aws.amazon.com/glue/latest/dg/awsglue-ray-jobs-availability-change.html).
 
-Reference the ray-job.test.ts unit tests for examples of required-only and
-optional job parameters when creating these types of jobs.
-
-Example with only required parameters:
-
-```python
-import aws_cdk as cdk
-import aws_cdk.aws_iam as iam
-# stack: cdk.Stack
-# role: iam.IRole
-# script: glue.Code
-
-glue.RayJob(stack, "ImportedJob", role=role, script=script)
-```
-
-Example with optional override parameters:
-
-```python
-import aws_cdk as cdk
-import aws_cdk.aws_iam as iam
-# stack: cdk.Stack
-# role: iam.IRole
-# script: glue.Code
-
-glue.RayJob(stack, "ImportedJob",
-    role=role,
-    script=script,
-    job_name="RayCustomJobName",
-    description="This is a description",
-    worker_type=glue.WorkerType.Z_2X,
-    number_of_workers=5,
-    runtime=glue.Runtime.RAY_TWO_FOUR,
-    max_retries=3,
-    max_concurrent_runs=100,
-    timeout=cdk.Duration.hours(2),
-    connections=[glue.Connection.from_connection_name(stack, "Connection", "connectionName")],
-    security_configuration=glue.SecurityConfiguration.from_security_configuration_name(stack, "SecurityConfig", "securityConfigName"),
-    tags={
-        "FirstTagName": "FirstTagValue",
-        "SecondTagName": "SecondTagValue",
-        "XTagName": "XTagValue"
-    }
-)
-```
+The `RayJob` construct, `Runtime.RAY_TWO_FOUR`, and `JobType.RAY` are deprecated and will be removed in a future release.
 
 ### Metrics Control
 
@@ -412,7 +370,7 @@ glue.PySparkEtlJob(stack, "SelectiveJob",
 )
 ```
 
-This feature is available for all Spark job types (ETL, Streaming, Flex) and Ray jobs.
+This feature is available for all Spark job types (ETL, Streaming, Flex).
 
 ### Enable Job Run Queuing
 

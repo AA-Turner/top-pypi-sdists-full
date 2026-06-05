@@ -119,7 +119,7 @@ class CfnIPSet(
         # The values are placeholders you should change.
         from aws_cdk import aws_wafv2 as wafv2
         
-        cfn_iPSet = wafv2.CfnIPSet(self, "MyCfnIPSet",
+        cfn_ip_set = wafv2.CfnIPSet(self, "MyCfnIPSet",
             addresses=["addresses"],
             ip_address_version="ipAddressVersion",
             scope="scope",
@@ -386,7 +386,7 @@ class CfnIPSetProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_wafv2 as wafv2
             
-            cfn_iPSet_props = wafv2.CfnIPSetProps(
+            cfn_ip_set_props = wafv2.CfnIPSetProps(
                 addresses=["addresses"],
                 ip_address_version="ipAddressVersion",
                 scope="scope",
@@ -3946,7 +3946,7 @@ class CfnRuleGroup(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_wafv2 as wafv2
                 
-                custom_hTTPHeader_property = wafv2.CfnRuleGroup.CustomHTTPHeaderProperty(
+                custom_http_header_property = wafv2.CfnRuleGroup.CustomHTTPHeaderProperty(
                     name="name",
                     value="value"
                 )
@@ -4690,7 +4690,7 @@ class CfnRuleGroup(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_wafv2 as wafv2
                 
-                forwarded_iPConfiguration_property = wafv2.CfnRuleGroup.ForwardedIPConfigurationProperty(
+                forwarded_ip_configuration_property = wafv2.CfnRuleGroup.ForwardedIPConfigurationProperty(
                     fallback_behavior="fallbackBehavior",
                     header_name="headerName"
                 )
@@ -5155,7 +5155,7 @@ class CfnRuleGroup(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_wafv2 as wafv2
                 
-                i_pSet_forwarded_iPConfiguration_property = {
+                i_p_set_forwarded_ip_configuration_property = {
                     "fallback_behavior": "fallbackBehavior",
                     "header_name": "headerName",
                     "position": "position"
@@ -5268,7 +5268,7 @@ class CfnRuleGroup(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_wafv2 as wafv2
                 
-                i_pSet_reference_statement_property = {
+                i_p_set_reference_statement_property = {
                     "arn": "arn",
                 
                     # the properties below are optional
@@ -8202,7 +8202,7 @@ class CfnRuleGroup(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_wafv2 as wafv2
                 
-                rate_limit_jA3_fingerprint_property = wafv2.CfnRuleGroup.RateLimitJA3FingerprintProperty(
+                rate_limit_ja3_fingerprint_property = wafv2.CfnRuleGroup.RateLimitJA3FingerprintProperty(
                     fallback_behavior="fallbackBehavior"
                 )
             '''
@@ -8261,7 +8261,7 @@ class CfnRuleGroup(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_wafv2 as wafv2
                 
-                rate_limit_jA4_fingerprint_property = wafv2.CfnRuleGroup.RateLimitJA4FingerprintProperty(
+                rate_limit_ja4_fingerprint_property = wafv2.CfnRuleGroup.RateLimitJA4FingerprintProperty(
                     fallback_behavior="fallbackBehavior"
                 )
             '''
@@ -11655,7 +11655,7 @@ class CfnWebACL(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_wafv2 as wafv2
                 
-                a_wSManaged_rules_aCFPRule_set_property = wafv2.CfnWebACL.AWSManagedRulesACFPRuleSetProperty(
+                a_ws_managed_rules_acfp_rule_set_property = wafv2.CfnWebACL.AWSManagedRulesACFPRuleSetProperty(
                     creation_path="creationPath",
                     registration_page_path="registrationPagePath",
                     request_inspection=wafv2.CfnWebACL.RequestInspectionACFPProperty(
@@ -11841,7 +11841,7 @@ class CfnWebACL(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_wafv2 as wafv2
                 
-                a_wSManaged_rules_aTPRule_set_property = wafv2.CfnWebACL.AWSManagedRulesATPRuleSetProperty(
+                a_ws_managed_rules_atp_rule_set_property = wafv2.CfnWebACL.AWSManagedRulesATPRuleSetProperty(
                     login_path="loginPath",
                 
                     # the properties below are optional
@@ -11990,7 +11990,7 @@ class CfnWebACL(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_wafv2 as wafv2
                 
-                a_wSManaged_rules_anti_dDo_sRule_set_property = wafv2.CfnWebACL.AWSManagedRulesAntiDDoSRuleSetProperty(
+                a_ws_managed_rules_anti_d_do_s_rule_set_property = wafv2.CfnWebACL.AWSManagedRulesAntiDDoSRuleSetProperty(
                     client_side_action_config=wafv2.CfnWebACL.ClientSideActionConfigProperty(
                         challenge=wafv2.CfnWebACL.ClientSideActionProperty(
                             usage_of_action="usageOfAction",
@@ -12092,7 +12092,7 @@ class CfnWebACL(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_wafv2 as wafv2
                 
-                a_wSManaged_rules_bot_control_rule_set_property = wafv2.CfnWebACL.AWSManagedRulesBotControlRuleSetProperty(
+                a_ws_managed_rules_bot_control_rule_set_property = wafv2.CfnWebACL.AWSManagedRulesBotControlRuleSetProperty(
                     inspection_level="inspectionLevel",
                 
                     # the properties below are optional
@@ -13732,7 +13732,7 @@ class CfnWebACL(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_wafv2 as wafv2
                 
-                custom_hTTPHeader_property = wafv2.CfnWebACL.CustomHTTPHeaderProperty(
+                custom_http_header_property = wafv2.CfnWebACL.CustomHTTPHeaderProperty(
                     name="name",
                     value="value"
                 )
@@ -14956,7 +14956,7 @@ class CfnWebACL(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_wafv2 as wafv2
                 
-                forwarded_iPConfiguration_property = wafv2.CfnWebACL.ForwardedIPConfigurationProperty(
+                forwarded_ip_configuration_property = wafv2.CfnWebACL.ForwardedIPConfigurationProperty(
                     fallback_behavior="fallbackBehavior",
                     header_name="headerName"
                 )
@@ -15421,7 +15421,7 @@ class CfnWebACL(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_wafv2 as wafv2
                 
-                i_pSet_forwarded_iPConfiguration_property = {
+                i_p_set_forwarded_ip_configuration_property = {
                     "fallback_behavior": "fallbackBehavior",
                     "header_name": "headerName",
                     "position": "position"
@@ -15534,7 +15534,7 @@ class CfnWebACL(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_wafv2 as wafv2
                 
-                i_pSet_reference_statement_property = {
+                i_p_set_reference_statement_property = {
                     "arn": "arn",
                 
                     # the properties below are optional
@@ -16247,7 +16247,7 @@ class CfnWebACL(
                             )
                         )
                     ),
-                    aws_managed_rules_anti_dDo_sRule_set=wafv2.CfnWebACL.AWSManagedRulesAntiDDoSRuleSetProperty(
+                    aws_managed_rules_anti_d_do_s_rule_set=wafv2.CfnWebACL.AWSManagedRulesAntiDDoSRuleSetProperty(
                         client_side_action_config=wafv2.CfnWebACL.ClientSideActionConfigProperty(
                             challenge=wafv2.CfnWebACL.ClientSideActionProperty(
                                 usage_of_action="usageOfAction",
@@ -16720,7 +16720,7 @@ class CfnWebACL(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_wafv2 as wafv2
                 
-                on_source_dDo_sProtection_config_property = wafv2.CfnWebACL.OnSourceDDoSProtectionConfigProperty(
+                on_source_d_do_s_protection_config_property = wafv2.CfnWebACL.OnSourceDDoSProtectionConfigProperty(
                     alb_low_reputation_mode="albLowReputationMode"
                 )
             '''
@@ -17622,7 +17622,7 @@ class CfnWebACL(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_wafv2 as wafv2
                 
-                rate_limit_jA3_fingerprint_property = wafv2.CfnWebACL.RateLimitJA3FingerprintProperty(
+                rate_limit_ja3_fingerprint_property = wafv2.CfnWebACL.RateLimitJA3FingerprintProperty(
                     fallback_behavior="fallbackBehavior"
                 )
             '''
@@ -17681,7 +17681,7 @@ class CfnWebACL(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_wafv2 as wafv2
                 
-                rate_limit_jA4_fingerprint_property = wafv2.CfnWebACL.RateLimitJA4FingerprintProperty(
+                rate_limit_ja4_fingerprint_property = wafv2.CfnWebACL.RateLimitJA4FingerprintProperty(
                     fallback_behavior="fallbackBehavior"
                 )
             '''
@@ -18475,7 +18475,7 @@ class CfnWebACL(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_wafv2 as wafv2
                 
-                request_inspection_aCFPProperty = wafv2.CfnWebACL.RequestInspectionACFPProperty(
+                request_inspection_acfp_property = wafv2.CfnWebACL.RequestInspectionACFPProperty(
                     payload_type="payloadType",
                 
                     # the properties below are optional

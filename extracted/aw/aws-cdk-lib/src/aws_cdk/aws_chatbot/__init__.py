@@ -509,7 +509,7 @@ class CfnCustomAction(
             button_text: typing.Optional[builtins.str] = None,
             criteria: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCustomAction.CustomActionAttachmentCriteriaProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             notification_type: typing.Optional[builtins.str] = None,
-            variables: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            variables: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         ) -> None:
             '''.. epigraph::
 
@@ -594,13 +594,13 @@ class CfnCustomAction(
         @builtins.property
         def variables(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''The variables to extract from the notification.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chatbot-customaction-customactionattachment.html#cfn-chatbot-customaction-customactionattachment-variables
             '''
             result = self._values.get("variables")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2815,7 +2815,7 @@ def _typecheckingstub__bdfcc4d3117af4232f6317084ca1888fc93a1fa63045afd0834da2fec
     button_text: typing.Optional[builtins.str] = None,
     criteria: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCustomAction.CustomActionAttachmentCriteriaProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     notification_type: typing.Optional[builtins.str] = None,
-    variables: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    variables: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

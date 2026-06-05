@@ -1,5 +1,6 @@
 pub(crate) mod active_set;
 pub mod arrow_schur;
+pub mod robust_identification;
 pub mod arrow_schur_beta_graph;
 pub mod arrow_schur_convergence_check;
 pub mod estimate;
@@ -13,6 +14,7 @@ pub mod inner_status;
 pub(crate) mod latent_cache;
 pub mod latent_inner;
 pub mod mixture_link;
+pub mod orthogonal_reparam;
 pub mod outer_strategy;
 pub(crate) mod persistent_warm_start;
 pub mod pirls;

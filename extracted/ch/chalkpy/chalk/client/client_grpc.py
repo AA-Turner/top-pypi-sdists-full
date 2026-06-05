@@ -101,6 +101,10 @@ from chalk._gen.chalk.server.v1.model_registry_pb2 import (
     CreateModelVersionFromArtifactResponse,
     CreateModelVersionRequest,
     CreateModelVersionResponse,
+    DeleteModelRequest,
+    DeleteModelResponse,
+    DeleteModelVersionRequest,
+    DeleteModelVersionResponse,
     DownloadModelArtifactRequest,
     DownloadModelArtifactResponse,
     GetModelArtifactUploadUrlsRequest,
@@ -2896,6 +2900,126 @@ class ChalkGRPCClient:
             )
         except grpc.RpcError as e:
             raise RuntimeError(f"Could not register model. {e.details()}")
+
+    def delete_model_namespace(
+        self,
+        name: str,
+    ) -> GetRegisteredModelResponse:
+        """
+        Delete a model namespace (and all of its versions) from the Chalk model registry.
+
+        The underlying model artifact data for those versions is permanently
+        deleted from storage (any artifact not still referenced by another
+        version).
+
+        Parameters
+        ----------
+        name : str
+            Name of the model namespace to delete
+
+        Returns
+        -------
+        GetRegisteredModelResponse
+            The archived model
+
+        Examples
+        --------
+        >>> from chalk.client import ChalkClient
+        >>> client = ChalkClient()
+        >>> client.delete_model_namespace(name="RiskModel")
+        """
+
+        try:
+            resp: DeleteModelResponse = self._stub_refresher.call_model_stub(
+                lambda x: x.DeleteModel(
+                    DeleteModelRequest(
+                        model_name=name,
+                    )
+                )
+            )
+            return GetRegisteredModelResponse(
+                model_id=resp.model.id,
+                model_name=resp.model.model_name,
+                description=resp.model.description,
+                metadata=ModelSerializer.convert_metadata_from_protobuf(resp.model.metadata),
+                created_by=resp.model.created_by,
+                created_at=resp.model.created_at.ToDatetime(),
+                updated_at=resp.model.updated_at.ToDatetime(),
+                archived_at=resp.model.archived_at.ToDatetime(),
+                latest_model_version=resp.model.latest_model_version,
+            )
+        except grpc.RpcError as e:
+            raise RuntimeError(f"Could not delete model. {e.details()}")
+
+    def delete_model_version(
+        self,
+        name: str,
+        version: int,
+    ) -> GetRegisteredModelVersionResponse:
+        """
+        Delete a single model version from the Chalk model registry.
+
+        The underlying model artifact data is permanently deleted from storage
+        (unless the artifact is still referenced by another version).
+
+        Parameters
+        ----------
+        name : str
+            Name of the model the version belongs to
+        version : int
+            Version number to delete
+
+        Returns
+        -------
+        GetRegisteredModelVersionResponse
+            The archived model version
+
+        Examples
+        --------
+        >>> from chalk.client import ChalkClient
+        >>> client = ChalkClient()
+        >>> client.delete_model_version(name="RiskModel", version=1)
+        """
+
+        try:
+            resp: DeleteModelVersionResponse = self._stub_refresher.call_model_stub(
+                lambda x: x.DeleteModelVersion(
+                    DeleteModelVersionRequest(
+                        model_version_key=ModelVersionKey(
+                            model_name=name,
+                            version=version,
+                        )
+                    )
+                )
+            )
+
+            model_artifact = ModelArtifactSpec(
+                model_type=model_type_from_proto(resp.model_version.model_artifact.spec.model_type),
+                model_class=model_class_from_proto(resp.model_version.model_artifact.spec.model_class),
+                model_encoding=model_encoding_from_proto(resp.model_version.model_artifact.spec.model_encoding),
+                model_files=[file.name for file in resp.model_version.model_artifact.spec.model_files],
+                additional_files=[file.name for file in resp.model_version.model_artifact.spec.additional_files],
+                input_schema=ModelSerializer.convert_schema_from_protobuf(
+                    resp.model_version.model_artifact.spec.model_signature.inputs
+                ),
+                output_schema=ModelSerializer.convert_schema_from_protobuf(
+                    resp.model_version.model_artifact.spec.model_signature.outputs
+                ),
+                metadata=ModelSerializer.convert_metadata_from_protobuf(resp.model_version.model_artifact.metadata),
+                input_features=list(resp.model_version.model_artifact.spec.input_features),
+                output_features=list(resp.model_version.model_artifact.spec.output_features),
+                dependencies=list(resp.model_version.model_artifact.spec.python_dependencies),
+            )
+
+            return GetRegisteredModelVersionResponse(
+                model_id=resp.model_version.id,
+                model_name=resp.model_version.model_name,
+                created_by=resp.model_version.created_by,
+                created_at=resp.model_version.created_at.ToDatetime(),
+                model_artifact=model_artifact,
+            )
+        except grpc.RpcError as e:
+            raise RuntimeError(f"Could not delete model version. {e.details()}")
 
     def _get_model_artifact_presigned(self, model_paths: List[str]) -> ModelUploadUrlResponse:
         try:

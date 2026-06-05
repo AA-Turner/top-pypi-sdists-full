@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: blacksheep
-Version: 2.6.2
+Version: 2.6.3
 Summary: Fast web framework for Python asyncio
 Author-email: Roberto Prevato <roberto.prevato@gmail.com>
 License-Expression: MIT
@@ -42,7 +42,7 @@ Provides-Extra: xml
 Requires-Dist: defusedxml>=0.7.1; extra == "xml"
 Provides-Extra: full
 Requires-Dist: cryptography<47.0.0,>=45.0.2; extra == "full"
-Requires-Dist: PyJWT~=2.10.1; extra == "full"
+Requires-Dist: PyJWT<2.13.0,>=2.10.1; extra == "full"
 Requires-Dist: websockets~=15.0.1; extra == "full"
 Requires-Dist: Jinja2~=3.1.6; extra == "full"
 Requires-Dist: defusedxml>=0.7.1; extra == "full"

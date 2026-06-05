@@ -180,7 +180,18 @@ def select_features(
     if method == "SHAP":
         import pandas as pd
         from catboost import CatBoostRegressor
-        from fasttreeshap import TreeExplainer as FastTreeExplainer
+        try:
+            from fasttreeshap import TreeExplainer as FastTreeExplainer
+        except ImportError as exc:
+            raise ImportError(
+                "feature_selection = 'SHAP' requires fasttreeshap, which is "
+                "an OPTIONAL geocif extra because it pins slicer==0.0.7 (vs "
+                "shap>=0.48 pinning slicer==0.0.8). Install with:\n"
+                "    pip install geocif[shap_fast]\n"
+                "Note: this will downgrade shap to <0.48 in your env. If "
+                "you need shap>=0.48, pick a different feature_selection "
+                "method (gOMP_medium, BorutaShap, BorutaPy, mrmr, etc.)."
+            ) from exc
         from sklearn.model_selection import cross_val_score
 
         model = CatBoostRegressor(n_estimators=500, verbose=0, use_best_model=False)
@@ -369,7 +380,21 @@ def select_features(
         sel.fit(X_clean, y)
         selected = sel.get_feature_names_out()
     elif method == "PowerShap":
-        from powershap import PowerShap
+        try:
+            from powershap import PowerShap
+        except ImportError as exc:
+            raise ImportError(
+                "feature_selection = 'PowerShap' requires powershap, which "
+                "is an OPTIONAL geocif extra because powershap>=0.0.10 pins "
+                "shap>=0.45,<0.46 AND statsmodels>=0.13.2,<0.14.0 — both "
+                "conflict with geocif's core (shap>=0.48, statsmodels>=0.14.6). "
+                "Install with:\n"
+                "    pip install geocif[powershap]\n"
+                "Note: this will downgrade BOTH shap and statsmodels in your "
+                "env. If you need the modern versions, pick a different "
+                "feature_selection method (gOMP_medium, BorutaShap, BorutaPy, "
+                "mrmr, etc.)."
+            ) from exc
         from catboost import CatBoostRegressor
         sel = PowerShap(
             model=CatBoostRegressor(n_estimators=500, verbose=0),

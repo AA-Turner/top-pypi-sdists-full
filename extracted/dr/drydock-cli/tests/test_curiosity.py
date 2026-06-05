@@ -112,6 +112,40 @@ class TestGapDetector:
         for noise in ("Consider", "Suppose", "Consider the"):
             assert noise not in gaps, f"detected noise: {noise!r} in {gaps}"
 
+    def test_drops_sentence_boundary_dotted_idents(self):
+        """Numbered-step prompts produce 'scratch.Step', 'fail.Step', etc.
+        when the gap-detector sees period+uppercase-word at a sentence
+        boundary.  These must not be queued as unknown terms (2026-06-04
+        curiosity queue filled with 9988 junk entries from one session)."""
+        text = (
+            "DO NOT scaffold from scratch.Step 1: cd here and run pytest -q."
+            " You'll see 24 tests pass and 3 fail.Step 2: Read the output."
+        )
+        gaps = detect_gaps(text)
+        for noise in ("scratch.Step", "fail.Step", "green.Stop"):
+            assert noise not in gaps, f"detected noise: {noise!r} in {gaps}"
+        # Real dotted identifiers (module.attr) must still be detected.
+        real = detect_gaps("Use sklearn.metrics.f1_score here.")
+        assert any("sklearn" in g for g in real), real
+
+    def test_drops_to_x_converter_names(self):
+        """to_int, to_roman, to_snake_case etc. are project-defined converters,
+        not external library gaps. The to_ prefix alone is sufficient."""
+        for term in ("to_int", "to_roman", "to_str", "to_bool", "to_snake_case"):
+            gaps = detect_gaps(f"Implement `{term}` function.")
+            assert term not in gaps, f"to_X converter leaked into gaps: {term!r} in {gaps}"
+
+    def test_drops_lowercase_prose_phrases(self):
+        """Quoted lowercase multi-word phrases like 'buy milk' or 'sample logs'
+        are prose noise from task prompts, not retrievable identifiers."""
+        for phrase in ("buy milk", "sample logs", "backend disk"):
+            gaps = detect_gaps(f'Remember to "{phrase}" today.')
+            assert phrase not in gaps, f"prose phrase leaked into gaps: {phrase!r} in {gaps}"
+        # Real snake_case identifiers with spaces should still be detected
+        # via the snake_case pattern (no space version).
+        real = detect_gaps("Call backend_memory.flush() to clear.")
+        assert any("backend_memory" in g for g in real), real
+
     def test_keeps_real_terms_amid_hle_noise(self):
         """Validates the fix isn't over-broad: real entity names must
         survive alongside the boilerplate."""

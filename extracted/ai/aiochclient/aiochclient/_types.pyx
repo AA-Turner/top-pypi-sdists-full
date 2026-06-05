@@ -26,7 +26,17 @@ cdef datetime _datetime_parse(str string):
     return datetime.strptime(string, '%Y-%m-%d %H:%M:%S')
 
 cdef datetime _datetime_parse_f(str string):
-    return datetime.strptime(string, '%Y-%m-%d %H:%M:%S.%f')
+    # ClickHouse DateTime64 may carry up to 9 fractional digits (nanoseconds),
+    # but Python datetime only supports microseconds and strptime's "%f"
+    # rejects more than 6 digits. Truncate the fractional part to microseconds
+    # so DateTime64(7..9) parses — matching ciso8601 when it is installed.
+    cdef:
+        Py_ssize_t dot = string.find('.')
+        datetime parsed
+    if dot < 0:
+        return datetime.strptime(string, '%Y-%m-%d %H:%M:%S')
+    parsed = datetime.strptime(string[:dot], '%Y-%m-%d %H:%M:%S')
+    return parsed.replace(microsecond=int(string[dot + 1:dot + 7].ljust(6, '0')))
 
 cdef date _date_parse(str string):
     return datetime.strptime(string, '%Y-%m-%d')
@@ -52,6 +62,7 @@ __all__ = ["what_py_converter", "rows2ch", "json2ch", "py2ch"]
 
 DEF DQ = "'"
 DEF CM = ","
+DEF COLON = ':'
 DEF ESCAPE_OP = '\\'
 DEF TUP_OP = '('
 DEF TUP_CLS = ')'
@@ -128,39 +139,61 @@ cdef str decode(char* val):
 
 cdef list seq_parser(str raw):
     """
-    Function for parsing tuples and arrays
+    Parse the body of tuples, arrays and maps into the top-level,
+    comma-separated elements, keeping quoted strings and nested brackets
+    intact, so structural characters (``,``, ``(``, ``)``, ``[``, ``]``)
+    inside a quoted string are not treated as separators.
     """
     cdef:
         list res = [], cur = []
-        bint in_str = False, in_arr = False, in_tup = False, escape_char = False
+        Py_ssize_t depth = 0
+        bint in_str = False, escape_char = False
     if not raw:
         return res
     for sym in raw:
-        if not (in_str or in_arr or in_tup):
-            if sym == CM:
-                PyList_Append(res, PyUnicode_Join("", cur))
-                del cur[:]
-                continue
+        if in_str:
+            PyList_Append(cur, sym)
+            if escape_char:
+                escape_char = False
+            elif sym == ESCAPE_OP:
+                escape_char = True
             elif sym == DQ:
-                in_str = not in_str
-            elif sym == ARR_OP:
-                in_arr = True
-            elif sym == TUP_OP:
-                in_tup = True
-        elif in_str and sym == DQ:
-            if not escape_char:
-                in_str = not in_str
-        elif in_arr and sym == ARR_CLS:
-            in_arr = False
-        elif in_tup and sym == TUP_CLS:
-            in_tup = False
-        if in_str and sym == ESCAPE_OP:
-            escape_char = not escape_char
-        else:
-            escape_char = False
+                in_str = False
+            continue
+        if sym == DQ:
+            in_str = True
+        elif sym == ARR_OP or sym == TUP_OP:
+            depth += 1
+        elif sym == ARR_CLS or sym == TUP_CLS:
+            depth -= 1
+        elif sym == CM and depth == 0:
+            PyList_Append(res, PyUnicode_Join("", cur))
+            del cur[:]
+            continue
         PyList_Append(cur, sym)
     PyList_Append(res, PyUnicode_Join("", cur))
     return res
+
+
+cdef tuple _split_map_kv(str pair):
+    """Split a ``key:value`` map entry at its first top-level colon."""
+    cdef:
+        Py_ssize_t i = 0
+        bint in_str = False, escape_char = False
+    for sym in pair:
+        if in_str:
+            if escape_char:
+                escape_char = False
+            elif sym == ESCAPE_OP:
+                escape_char = True
+            elif sym == DQ:
+                in_str = False
+        elif sym == DQ:
+            in_str = True
+        elif sym == COLON:
+            return pair[:i], pair[i + 1:]
+        i += 1
+    return pair, ""
 
 
 cdef class StrType:
@@ -174,6 +207,7 @@ cdef class StrType:
         self.container = container
 
     cdef str _convert(self, str string):
+        string = decode(string.encode())
         if self.container:
             return remove_single_quotes(string)
         return string
@@ -182,7 +216,11 @@ cdef class StrType:
         return self._convert(string)
 
     cpdef str convert(self, bytes value):
-        return self._convert(decode(value))
+        # ``value`` is the raw, still backslash-escaped bytes from ClickHouse.
+        # ``_convert`` does the (single) escape-decoding, so we only utf-8 decode
+        # here — decoding twice would re-interpret escape sequences and, for
+        # example, turn a literal ``\t`` into a tab or drop a trailing backslash.
+        return self._convert(value.decode())
 
 
 cdef class BoolType:
@@ -524,7 +562,7 @@ cdef class TupleType:
 
     cdef tuple _convert(self, str string):
         return tuple(
-            tp(decode(val.encode()))
+            tp(val)
             for tp, val in zip(self.types, seq_parser(string[1:-1]))
         )
 
@@ -552,10 +590,13 @@ cdef class MapType:
         self.value_type = what_py_type(tps[comma_index + 1:], container=True)
 
     cdef dict _convert(self, str string):
-        key, value = string[1:-1].split(':', 1)
-        return {
-            self.key_type.p_type(decode(key.encode())): self.value_type.p_type(decode(value.encode()))
-        }
+        cdef:
+            dict result = {}
+            str pair, key, value
+        for pair in seq_parser(string[1:-1]):
+            key, value = _split_map_kv(pair)
+            result[self.key_type.p_type(key)] = self.value_type.p_type(value)
+        return result
 
     cpdef dict p_type(self, string):
         return self._convert(string)
@@ -579,7 +620,7 @@ cdef class ArrayType:
         )
 
     cdef list _convert(self, str string):
-        return [self.type.p_type(decode(val.encode())) for val in seq_parser(string[1:-1])]
+        return [self.type.p_type(val) for val in seq_parser(string[1:-1])]
 
     cpdef list p_type(self, str string):
         return self._convert(string)
@@ -611,7 +652,7 @@ cdef class NestedType:
         for val in seq_parser(string[1:-1]):
             temp = []
             for tp, elem in zip(self.types, seq_parser(val.strip("()"))):
-                temp.append(tp.p_type(decode(elem.encode())))
+                temp.append(tp.p_type(elem))
             result.append(tuple(temp))
         return result
     
@@ -816,7 +857,7 @@ cpdef what_py_converter(str name, bint container = False):
     return what_py_type(name, container).convert
 
 
-cdef bytes unconvert_str(str value):
+cdef bytes unconvert_str(object value):
     cdef:
         list res = ["'"]
         int i, sl = len(value)
@@ -853,17 +894,17 @@ cdef bytes unconvert_datetime(object value):
     return f"'{value}'".encode('latin-1')
 
 
-cdef bytes unconvert_tuple(tuple value):
+cdef bytes unconvert_tuple(object value):
     return b"(" + b",".join(py2ch(elem) for elem in value) + b")"
 
-cdef bytes unconvert_dict(dict value):
+cdef bytes unconvert_dict(object value):
     return (
         b"{" +
         b','.join(py2ch(key) + b':' + py2ch(val) for key, val in value.items()) +
         b"}"
     )
 
-cdef bytes unconvert_array(list value):
+cdef bytes unconvert_array(object value):
     return b"[" + b",".join(py2ch(elem) for elem in value) + b"]"
 
 
@@ -902,15 +943,24 @@ cdef dict PY_TYPES_MAPPING = {
 
 
 cpdef bytes py2ch(value):
-    try:
-        return PY_TYPES_MAPPING[type(value)](value)
-    except KeyError:
+    converter = PY_TYPES_MAPPING.get(type(value))
+    if converter is None:
+        # Fall back to the closest registered base type, walking the MRO so
+        # the most specific match wins (e.g. datetime before date). This lets
+        # subclasses of supported types — StrEnum/IntEnum, namedtuples, etc. —
+        # be inserted too.
+        for base in type(value).__mro__:
+            converter = PY_TYPES_MAPPING.get(base)
+            if converter is not None:
+                break
+    if converter is None:
         raise ChClientError(
             f"Unrecognized type: '{type(value)}'. "
-            f"The value type should be exactly one of "
-            f"int, float, str, dt.date, dt.datetime, dict, tuple, list, uuid.UUID (or None). "
-            f"No subclasses yet."
+            f"The value type should be one of "
+            f"int, float, str, dt.date, dt.datetime, dict, tuple, list, uuid.UUID "
+            f"(or a subclass of one of them, or None)."
         )
+    return converter(value)
 
 def rows2ch(*rows):
     return b",".join(unconvert_tuple(tuple(row)) for row in rows)

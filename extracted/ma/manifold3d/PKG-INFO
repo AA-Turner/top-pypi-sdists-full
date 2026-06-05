@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: manifold3d
-Version: 3.5.0
+Version: 3.5.1
 Summary: Library for geometric robustness
 Author-Email: Emmett Lalish <elalish@gmail.com>
 Classifier: Development Status :: 5 - Production/Stable

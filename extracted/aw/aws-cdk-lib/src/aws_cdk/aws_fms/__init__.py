@@ -856,7 +856,7 @@ class CfnPolicy(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_fms as fms
                 
-                i_eMap_property = {
+                i_e_map_property = {
                     "account": ["account"],
                     "orgunit": ["orgunit"]
                 }

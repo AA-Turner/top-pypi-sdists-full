@@ -451,6 +451,27 @@ class WriteFile(
         # triggers panic-retry loops (feedback_no_tool_errors_for_loop_detection).
         if not args.path.strip():
             cwd = Path.cwd()
+            # Track consecutive missing-path attempts so the advisory can
+            # escalate from gentle → concrete-suggestion → hard-block.
+            # 2026-06-04: operator reported 3+ identical missing-path
+            # attempts in TUI session — the soft advisory wasn't enough.
+            miss_state = self.state.__dict__.setdefault(
+                "_write_file_missing_path_streak", 0
+            )
+            miss_state += 1
+            self.state.__dict__["_write_file_missing_path_streak"] = miss_state
+
+            # Pull last-read paths from the read-file state for concrete
+            # suggestions on retry.
+            read_state = ctx.read_file_state if ctx else None
+            recent_reads: list[str] = []
+            if read_state:
+                try:
+                    # read_file_state is keyed by path; pull a stable list
+                    recent_reads = list(read_state.keys())[-3:]
+                except Exception:
+                    pass
+
             try:
                 pkg_dirs = [
                     d.name for d in sorted(cwd.iterdir())
@@ -459,29 +480,56 @@ class WriteFile(
                 hint = f"Package dirs in {cwd.name}/: {', '.join(pkg_dirs)}" if pkg_dirs else f"cwd: {cwd}"
             except OSError:
                 hint = f"cwd: {cwd}"
-            # 2026-05-31: do NOT echo a sample call shape in the error
-            # content. Gemma 4 copies whatever it sees from prior tool
-            # results as the next call's args — a literal call-syntax
-            # template in the error message gets re-emitted as the next
-            # call (operator session 2026-05-31 hit 5+ identical
-            # empty-path errors in a row). Keep the error terse and
-            # actionable; the tool schema in the system prompt is the
-            # canonical reference, not the error message. Same
-            # root-cause as the search_replace empty-call loop fixed
-            # via dedup-strip in commit dee310a.
-            yield WriteFileResult(
-                path="(missing)",
-                bytes_written=0,
-                file_existed=False,
-                content=(
+
+            if miss_state == 1:
+                # 2026-05-31: do NOT echo a sample call shape in the
+                # error content. Gemma 4 copies whatever it sees from
+                # prior tool results as the next call's args — a
+                # literal call-syntax template in the error message
+                # gets re-emitted as the next call. Keep terse.
+                msg = (
                     f"NO path supplied. Pick a concrete file path "
                     f"under the current project (e.g. one of the "
                     f"existing source files you just read), then "
                     f"re-emit the call with that path and the full "
                     f"file content. {hint}."
-                ),
+                )
+            elif miss_state == 2 and recent_reads:
+                # Escalate: name the actual recently-read files so the
+                # model has a concrete target. Removes ambiguity that
+                # caused the model to retry with the same empty args.
+                msg = (
+                    f"[REPEAT #{miss_state}] write_file STILL called with "
+                    f"NO path. Stop guessing — pick ONE of these files "
+                    f"you just read and pass its FULL absolute path as "
+                    f"`path`: {', '.join(recent_reads[:3])}. If none "
+                    f"of these is right, call read_file on the file "
+                    f"you intend to edit FIRST, then write_file with "
+                    f"that exact path."
+                )
+            else:
+                # 3rd+ miss with no recoverable suggestion. Block harder
+                # so the agent loop's "no progress" detector kicks in.
+                msg = (
+                    f"[HARD-BLOCK] write_file called with NO path "
+                    f"{miss_state} times in a row. STOP calling "
+                    f"write_file. Do one of: (1) call read_file on the "
+                    f"file you intend to edit so its path enters my "
+                    f"context, (2) call bash with `ls` or `find` to "
+                    f"locate the target file, (3) end your turn with a "
+                    f"text summary if you're stuck. Continuing to call "
+                    f"write_file without a path will produce this same "
+                    f"block — it is not progress."
+                )
+            yield WriteFileResult(
+                path="(missing)",
+                bytes_written=0,
+                file_existed=False,
+                content=msg,
             )
             return
+        # Reset the missing-path streak on a successful path arg.
+        self.state.__dict__["_write_file_missing_path_streak"] = 0
         file_path, file_existed, content_bytes = self._prepare_and_validate_path(args)
 
         # Read-before-Write enforcement (Claude Code tool contract).

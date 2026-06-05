@@ -487,7 +487,7 @@ class CfnTestCase(
             self,
             *,
             batch_job_name: builtins.str,
-            batch_job_parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            batch_job_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             export_data_set_names: typing.Optional[typing.Sequence[builtins.str]] = None,
         ) -> None:
             '''Defines a batch.
@@ -541,13 +541,13 @@ class CfnTestCase(
         @builtins.property
         def batch_job_parameters(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''The batch job parameters of the batch.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-apptest-testcase-batch.html#cfn-apptest-testcase-batch-batchjobparameters
             '''
             result = self._values.get("batch_job_parameters")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def export_data_set_names(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -898,7 +898,7 @@ class CfnTestCase(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_apptest as apptest
                 
-                database_cDCProperty = apptest.CfnTestCase.DatabaseCDCProperty(
+                database_cdc_property = apptest.CfnTestCase.DatabaseCDCProperty(
                     source_metadata=apptest.CfnTestCase.SourceDatabaseMetadataProperty(
                         capture_tool="captureTool",
                         type="type"
@@ -2960,7 +2960,7 @@ def _typecheckingstub__6e8acfd7d3d54fa56bbe1ab5b9bc79609eaccb189083fe4b8cc7217ad
 def _typecheckingstub__22fbc9e8380b6b0f7acb2ff9ce8665660f1341dbe513e19f269854edf36bf947(
     *,
     batch_job_name: builtins.str,
-    batch_job_parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    batch_job_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     export_data_set_names: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""

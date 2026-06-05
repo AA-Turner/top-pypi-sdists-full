@@ -34,6 +34,7 @@ from .paginator import (
     ListInstancesPaginator,
     ListNotebookExecutionsPaginator,
     ListSecurityConfigurationsPaginator,
+    ListSessionsPaginator,
     ListStepsPaginator,
     ListStudioSessionMappingsPaginator,
     ListStudiosPaginator,
@@ -86,6 +87,10 @@ from .type_defs import (
     GetOnClusterAppUIPresignedURLOutputTypeDef,
     GetPersistentAppUIPresignedURLInputTypeDef,
     GetPersistentAppUIPresignedURLOutputTypeDef,
+    GetSessionEndpointInputTypeDef,
+    GetSessionEndpointOutputTypeDef,
+    GetSessionInputTypeDef,
+    GetSessionOutputTypeDef,
     GetStudioSessionMappingInputTypeDef,
     GetStudioSessionMappingOutputTypeDef,
     ListBootstrapActionsInputTypeDef,
@@ -104,6 +109,8 @@ from .type_defs import (
     ListReleaseLabelsOutputTypeDef,
     ListSecurityConfigurationsInputTypeDef,
     ListSecurityConfigurationsOutputTypeDef,
+    ListSessionsInputTypeDef,
+    ListSessionsOutputTypeDef,
     ListStepsInputTypeDef,
     ListStepsOutputTypeDef,
     ListStudioSessionMappingsInputTypeDef,
@@ -133,8 +140,12 @@ from .type_defs import (
     SetVisibleToAllUsersInputTypeDef,
     StartNotebookExecutionInputTypeDef,
     StartNotebookExecutionOutputTypeDef,
+    StartSessionInputTypeDef,
+    StartSessionOutputTypeDef,
     StopNotebookExecutionInputTypeDef,
     TerminateJobFlowsInputTypeDef,
+    TerminateSessionInputTypeDef,
+    TerminateSessionOutputTypeDef,
     UpdateStudioInputTypeDef,
     UpdateStudioSessionMappingInputTypeDef,
 )
@@ -455,6 +466,25 @@ class EMRClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_emr/client/#get_persistent_app_ui_presigned_url)
         """
 
+    def get_session(self, **kwargs: Unpack[GetSessionInputTypeDef]) -> GetSessionOutputTypeDef:
+        """
+        Returns detailed information about a session.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/emr/client/get_session.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_emr/client/#get_session)
+        """
+
+    def get_session_endpoint(
+        self, **kwargs: Unpack[GetSessionEndpointInputTypeDef]
+    ) -> GetSessionEndpointOutputTypeDef:
+        """
+        Returns the Spark Connect endpoint URL and a time-limited authentication token
+        for the specified session.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/emr/client/get_session_endpoint.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_emr/client/#get_session_endpoint)
+        """
+
     def get_studio_session_mapping(
         self, **kwargs: Unpack[GetStudioSessionMappingInputTypeDef]
     ) -> GetStudioSessionMappingOutputTypeDef:
@@ -547,6 +577,16 @@ class EMRClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/emr/client/list_security_configurations.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_emr/client/#list_security_configurations)
+        """
+
+    def list_sessions(
+        self, **kwargs: Unpack[ListSessionsInputTypeDef]
+    ) -> ListSessionsOutputTypeDef:
+        """
+        Lists the sessions on a cluster.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/emr/client/list_sessions.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_emr/client/#list_sessions)
         """
 
     def list_steps(self, **kwargs: Unpack[ListStepsInputTypeDef]) -> ListStepsOutputTypeDef:
@@ -767,6 +807,16 @@ class EMRClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_emr/client/#start_notebook_execution)
         """
 
+    def start_session(
+        self, **kwargs: Unpack[StartSessionInputTypeDef]
+    ) -> StartSessionOutputTypeDef:
+        """
+        Creates and starts a new Spark Connect session on the specified cluster.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/emr/client/start_session.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_emr/client/#start_session)
+        """
+
     def stop_notebook_execution(
         self, **kwargs: Unpack[StopNotebookExecutionInputTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -785,6 +835,16 @@ class EMRClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/emr/client/terminate_job_flows.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_emr/client/#terminate_job_flows)
+        """
+
+    def terminate_session(
+        self, **kwargs: Unpack[TerminateSessionInputTypeDef]
+    ) -> TerminateSessionOutputTypeDef:
+        """
+        Terminates an active session.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/emr/client/terminate_session.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_emr/client/#terminate_session)
         """
 
     def update_studio(
@@ -879,6 +939,17 @@ class EMRClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_security_configurations"]
     ) -> ListSecurityConfigurationsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/emr/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_emr/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_sessions"]
+    ) -> ListSessionsPaginator:
         """
         Create a paginator for an operation.
 

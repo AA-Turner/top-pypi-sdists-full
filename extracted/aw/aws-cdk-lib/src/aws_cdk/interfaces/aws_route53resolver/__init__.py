@@ -903,7 +903,7 @@ class ResolverDNSSECConfigReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_route53resolver as interfaces_route53resolver
             
-            resolver_dNSSECConfig_reference = interfaces_route53resolver.ResolverDNSSECConfigReference(
+            resolver_dnssec_config_reference = interfaces_route53resolver.ResolverDNSSECConfigReference(
                 resolver_dnssec_config_id="resolverDnssecConfigId"
             )
         '''

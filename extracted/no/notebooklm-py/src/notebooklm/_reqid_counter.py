@@ -1,16 +1,16 @@
-"""Request-id counter helper for :class:`Session`.
+"""Request-id counter helper for the NotebookLM client runtime.
 
 Owns the monotonic ``_reqid`` value that Google's chat backend requires per
 request, plus the lazily-allocated ``asyncio.Lock`` that serialises the
-read-modify-write under concurrent ``ChatAPI.ask`` callers. Lifted out of
-``_core.py`` so the reqid surface has one home (this file) instead of being
-woven into ``Session.__init__`` alongside metrics, drain, and auth state.
+read-modify-write under concurrent ``ChatAPI.ask`` callers. The reqid
+surface has one home (this file) instead of being woven into the runtime
+composition root alongside metrics, drain, and auth state.
 
 Design constraints (load-bearing — see ``tests/unit/test_reqid_counter.py`` and
 ``tests/unit/test_reqid_counter_concurrent.py``):
 
 * ``__init__`` MUST be event-loop-agnostic — it must NOT instantiate
-  ``asyncio.Lock()`` eagerly. ``Session`` is routinely built outside a
+  ``asyncio.Lock()`` eagerly. ``NotebookLMClient`` is routinely built outside a
   running loop (sync-mode ``NotebookLMClient(...)`` before the caller's
   ``asyncio.run``), and ``asyncio.Lock()`` binds to the running loop on
   construction in some Python versions. The lock is therefore allocated
@@ -29,9 +29,9 @@ Design constraints (load-bearing — see ``tests/unit/test_reqid_counter.py`` an
 * Optional ``on_lock_wait`` callback receives the seconds spent blocked on
   :attr:`_lock`. Decouples the counter from
   :class:`notebooklm._client_metrics.ClientMetrics` so this class is unit-
-  testable in isolation; the Session-init helper wires it up to
+  testable in isolation; the runtime-init helper wires it up to
   ``ClientMetrics.record_lock_wait`` at construction (see
-  ``_session_init.build_collaborators``).
+  ``_runtime.init.build_collaborators``).
 """
 
 from __future__ import annotations
@@ -41,14 +41,14 @@ import time
 from collections.abc import Callable
 
 from ._loop_affinity import assert_bound_loop
+from ._loop_bound import LoopBoundPrimitive
 
 # Baseline counter value (matches the chat-API expectation of a large positive
 # integer). Module-level constant so tests / future callers can reference it
 # instead of hard-coding ``100000``.
 DEFAULT_BASELINE: int = 100000
 # Default step applied by :meth:`ReqidCounter.next_reqid`. Matches the
-# historical bump that ``ChatAPI.ask`` performed under the legacy
-# ``self._core._reqid_counter += 100000`` contract.
+# historical bump that ``ChatAPI.ask`` performed.
 DEFAULT_STEP: int = 100000
 
 
@@ -60,15 +60,12 @@ def _noop_record_lock_wait(_wait_seconds: float) -> None:
     """
 
 
-class ReqidCounter:
+class ReqidCounter(LoopBoundPrimitive):
     """Monotonic request-id counter with lazy ``asyncio.Lock`` serialisation.
 
-    The canonical accessor surface is ``self._reqid._value`` and
-    ``self._reqid._lock`` on ``Session``. The ``_reqid_counter_value`` /
-    ``_reqid_lock`` compat ``@property`` bridges on ``Session`` that
-    previously delegated here were dropped in D1-audit-full once their
-    callers migrated; the field names persist for direct access from
-    ``Session`` and from unit-test fixtures.
+    The accessor surface is ``self._reqid._value`` and
+    ``self._reqid._lock``; the field names are kept stable for direct
+    access from unit-test fixtures.
     """
 
     def __init__(
@@ -79,39 +76,27 @@ class ReqidCounter:
     ) -> None:
         # Plain int; mutated only inside :meth:`next_reqid` under ``_lock`` or
         # via direct ``self._reqid._value = …`` writethrough from test fixtures
-        # that want to seed the counter without paying the deprecation-warning
-        # tax on the public ``_reqid_counter`` setter on ``Session``.
+        # that want to seed the counter to a deterministic baseline.
         self._value: int = baseline
         # Lazily-created — ``asyncio.Lock()`` needs a running loop in some
-        # Python versions, and this object is constructed inside
-        # ``Session.__init__`` which may run outside a loop.
+        # Python versions, and this object is constructed at client
+        # composition time (``NotebookLMClient.__init__``), which may run
+        # outside a loop.
         self._lock: asyncio.Lock | None = None
         # No-op default keeps standalone construction (unit tests) free of a
-        # ``Session``-shaped dependency. ``Session`` injects its own
+        # client-shaped dependency. ``NotebookLMClient`` injects its own
         # metrics-aware recorder so lock-wait latency continues to be tracked
         # in the cumulative ``ClientMetricsSnapshot``.
         self._on_lock_wait: Callable[[float], None] = (
             on_lock_wait if on_lock_wait is not None else _noop_record_lock_wait
         )
-        # P0-2: loop-affinity guard. Captured at ``ClientLifecycle.open()``
-        # time via :meth:`set_bound_loop` and consulted by
-        # :meth:`next_reqid` so a cross-loop call raises an actionable
-        # ``RuntimeError`` rather than hanging on ``_lock`` (which is
-        # bound to the loop the lock was first acquired under). ``None``
-        # is a silent no-op — standalone fixtures and never-opened
-        # counters skip the check.
-        self._bound_loop: asyncio.AbstractEventLoop | None = None
-
-    def set_bound_loop(self, loop: asyncio.AbstractEventLoop | None) -> None:
-        """Capture or clear the event-loop binding for the affinity guard.
-
-        Called by :meth:`ClientLifecycle.open` after it captures the
-        running loop, so :meth:`next_reqid` can short-circuit cross-loop
-        misuse before touching :attr:`_lock`. Passing ``None`` clears the
-        binding (useful when a client is closed and the next ``open()``
-        will rebind to a fresh loop).
-        """
-        self._bound_loop = loop
+        # ``_bound_loop`` (the loop-affinity guard consulted by
+        # :meth:`next_reqid` before touching the lazy ``_lock``) and
+        # ``set_bound_loop`` are provided by the
+        # :class:`~notebooklm._loop_bound.LoopBoundPrimitive` base. This
+        # counter only stores the binding, so it uses the default no-op
+        # ``_on_loop_rebind`` (the lazy ``Lock`` is never held across
+        # ``open()`` and is rebuilt implicitly per ``open()``).
 
     @property
     def value(self) -> int:
@@ -120,8 +105,8 @@ class ReqidCounter:
         Returns a point-in-time read; the value can race with a concurrent
         :meth:`next_reqid` mutation. Callers that need an atomic post-
         increment value MUST use :meth:`next_reqid`, which serialises the
-        read-modify-write under :attr:`_lock`. This accessor exists so
-        ``Session._reqid_counter`` (read path) and test assertions
+        read-modify-write under :attr:`_lock`. This accessor exists so the
+        counter read path and test assertions
         (``assert core._reqid_counter == ...`` after a known sequence) stay
         lock-free.
         """
@@ -130,9 +115,8 @@ class ReqidCounter:
     def set_value(self, new_value: int) -> None:
         """Replace the counter value.
 
-        Used by the ``Session._reqid_counter`` setter (which emits a
-        ``DeprecationWarning`` before delegating here) and by test fixtures
-        that need to seed the counter to a deterministic baseline.
+        Used by test fixtures that seed the counter to a deterministic
+        baseline.
         """
         self._value = new_value
 
@@ -161,7 +145,7 @@ class ReqidCounter:
             raise TypeError(f"step must be int, got {type(step).__name__}")
         if step <= 0:
             raise ValueError(f"step must be positive, got {step!r}")
-        # P0-2 loop-affinity guard. Runs BEFORE the lazy ``Lock()`` allocation
+        # Loop-affinity guard. Runs BEFORE the lazy ``Lock()`` allocation
         # so a cross-loop call (counter created under loop A, awaited from
         # loop B) raises ``RuntimeError`` at the call site instead of binding
         # the lazy lock to the wrong loop. The check is a silent no-op when
@@ -175,7 +159,7 @@ class ReqidCounter:
             self._lock = asyncio.Lock()
         wait_start = time.perf_counter()
         await self._lock.acquire()
-        # P1-19: lock release MUST happen before the ``on_lock_wait``
+        # Lock release MUST happen before the ``on_lock_wait``
         # callback runs. A misbehaving callback (slow telemetry sink,
         # accidental re-entry, or one that itself awaits) must not widen
         # the critical section by holding ``_lock`` while it executes.

@@ -1,4 +1,4 @@
-"""Pure-logic download plan + executor (ADR-008 service extracted from
+"""Pure-logic download plan + executor (ADR-0008 service for
 ``cli/download_cmd.py``).
 
 This module hosts the behaviour the 9 leaf ``download <type>`` commands share:
@@ -8,7 +8,7 @@ preview, conflict resolution, and result-envelope construction. It contains
 :mod:`notebooklm.cli.download_cmd`, which builds each leaf from a
 :class:`~notebooklm.cli._download_specs.DownloadTypeSpec`.
 
-Public API (the three names ADR-008 / phase-3.md P3.T2 requires):
+Public API (the three names ADR-0008 requires):
 
 - :class:`DownloadPlan` — frozen dataclass capturing one validated invocation.
 - :func:`build_download_plan` — synchronous validation + plan assembly.
@@ -16,7 +16,7 @@ Public API (the three names ADR-008 / phase-3.md P3.T2 requires):
 
 The split is deliberate: ``build_download_plan`` rejects flag conflicts
 synchronously with :class:`DownloadPlanValidationError`, while
-``execute_download`` performs all I/O. The Click handler owns the ADR-015
+``execute_download`` performs all I/O. The Click handler owns the ADR-0015
 JSON envelope vs. text ``UsageError`` translation.
 """
 
@@ -257,7 +257,7 @@ def build_download_plan(
     Raises:
         DownloadPlanValidationError: when flag combinations conflict. The
             command layer translates this into Click usage text or the
-            ADR-015 JSON envelope.
+            ADR-0015 JSON envelope.
     """
     if args.get("force") and args.get("no_clobber"):
         raise DownloadPlanValidationError("Cannot specify both --force and --no-clobber")
@@ -508,7 +508,7 @@ async def _execute_download_all(
         "skipped_count": skipped_count,
         "artifacts": artifacts_results,
     }
-    # Per P1.T4 §1: ANY per-item failure surfaces a non-zero exit. The Click
+    # ANY per-item failure surfaces a non-zero exit. The Click
     # layer keys exit-code policy on the presence of the top-level "error"
     # field, so add it only when there are failures.
     if failed_count > 0:
@@ -574,7 +574,7 @@ async def _execute_download_single(
         # ``_skip_info`` carries the structured skip envelope used by the
         # ``--all`` path but the single-file caller's contract is the
         # plain-string error key, kept stable for scripts parsing ``--json``
-        # envelopes since pre-extraction.
+        # envelopes.
         return {
             "error": f"File exists: {final_path}",
             "artifact": selected,

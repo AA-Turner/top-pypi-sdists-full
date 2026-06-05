@@ -18,14 +18,6 @@ class ListMeetingsCalendarInviteesDomainsType(str, Enum):
     ONE_OR_MORE_EXTERNAL = "one_or_more_external"
 
 
-class MeetingType(str, Enum):
-    r"""Filter by meeting type."""
-
-    ALL = "all"
-    INTERNAL = "internal"
-    EXTERNAL = "external"
-
-
 class ListMeetingsRequestTypedDict(TypedDict):
     calendar_invitees_domains: NotRequired[List[str]]
     r"""Domains of the companies to filter by. Exact match.
@@ -52,8 +44,12 @@ class ListMeetingsRequestTypedDict(TypedDict):
     r"""Include the summary for each meeting. Unavailable for OAuth connected apps (use /recordings instead)."""
     include_transcript: NotRequired[bool]
     r"""Include the transcript for each meeting. Unavailable for OAuth connected apps (use /recordings instead)."""
-    meeting_type: NotRequired[MeetingType]
-    r"""Filter by meeting type."""
+    meeting_type: NotRequired[str]
+    r"""Filter by meeting type name.
+
+    Returns only meetings assigned the meeting type with this name. Use /meeting_types to discover valid values. An unknown or non-matching name returns an empty list.
+
+    """
     recorded_by: NotRequired[List[str]]
     r"""Email addresses of users who recorded meetings.
 
@@ -138,13 +134,14 @@ class ListMeetingsRequest(BaseModel):
     r"""Include the transcript for each meeting. Unavailable for OAuth connected apps (use /recordings instead)."""
 
     meeting_type: Annotated[
-        Optional[MeetingType],
-        pydantic.Field(
-            deprecated="warning: ** DEPRECATED ** - This will be removed in a future release, please migrate away from it as soon as possible."
-        ),
+        Optional[str],
         FieldMetadata(query=QueryParamMetadata(style="form", explode=True)),
     ] = None
-    r"""Filter by meeting type."""
+    r"""Filter by meeting type name.
+
+    Returns only meetings assigned the meeting type with this name. Use /meeting_types to discover valid values. An unknown or non-matching name returns an empty list.
+
+    """
 
     recorded_by: Annotated[
         Optional[List[str]],

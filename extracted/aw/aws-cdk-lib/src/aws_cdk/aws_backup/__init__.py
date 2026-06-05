@@ -2335,7 +2335,7 @@ class CfnBackupPlan(
             enable_continuous_backup: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             index_actions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBackupPlan.IndexActionsResourceTypeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             lifecycle: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBackupPlan.LifecycleResourceTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            recovery_point_tags: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            recovery_point_tags: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             scan_actions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBackupPlan.ScanActionResourceTypeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             schedule_expression: typing.Optional[builtins.str] = None,
             schedule_expression_timezone: typing.Optional[builtins.str] = None,
@@ -2532,13 +2532,13 @@ class CfnBackupPlan(
         @builtins.property
         def recovery_point_tags(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''The tags to assign to the resources.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-backupplan-backupruleresourcetype.html#cfn-backup-backupplan-backupruleresourcetype-recoverypointtags
             '''
             result = self._values.get("recovery_point_tags")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def scan_actions(
@@ -7067,7 +7067,7 @@ class CfnRestoreTestingSelection(
         restore_testing_selection_name: builtins.str,
         protected_resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
         protected_resource_conditions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRestoreTestingSelection.ProtectedResourceConditionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        restore_metadata_overrides: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        restore_metadata_overrides: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         validation_window_hours: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''Create a new ``AWS::Backup::RestoreTestingSelection``.
@@ -7250,14 +7250,14 @@ class CfnRestoreTestingSelection(
     @jsii.member(jsii_name="restoreMetadataOverrides")
     def restore_metadata_overrides(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''You can override certain restore metadata keys by including the parameter ``RestoreMetadataOverrides`` in the body of ``RestoreTestingSelection`` .'''
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], jsii.get(self, "restoreMetadataOverrides"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "restoreMetadataOverrides"))
 
     @restore_metadata_overrides.setter
     def restore_metadata_overrides(
         self,
-        value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9afb00368be90e46cf02ec2498547553cd056db449734f0be5d5877e388c4af5)
@@ -7457,7 +7457,7 @@ class CfnRestoreTestingSelectionProps:
         restore_testing_selection_name: builtins.str,
         protected_resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
         protected_resource_conditions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRestoreTestingSelection.ProtectedResourceConditionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        restore_metadata_overrides: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        restore_metadata_overrides: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         validation_window_hours: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''Properties for defining a ``CfnRestoreTestingSelection``.
@@ -7600,7 +7600,7 @@ class CfnRestoreTestingSelectionProps:
     @builtins.property
     def restore_metadata_overrides(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''You can override certain restore metadata keys by including the parameter ``RestoreMetadataOverrides`` in the body of ``RestoreTestingSelection`` .
 
         Key values are not case sensitive.
@@ -7610,7 +7610,7 @@ class CfnRestoreTestingSelectionProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-restoretestingselection.html#cfn-backup-restoretestingselection-restoremetadataoverrides
         '''
         result = self._values.get("restore_metadata_overrides")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
     @builtins.property
     def validation_window_hours(self) -> typing.Optional[jsii.Number]:
@@ -9110,7 +9110,7 @@ def _typecheckingstub__a15d5028e47f5757a8c2319a31ccf993bd398f0a4476991c75f1e1c3b
     enable_continuous_backup: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     index_actions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBackupPlan.IndexActionsResourceTypeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     lifecycle: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBackupPlan.LifecycleResourceTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    recovery_point_tags: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    recovery_point_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     scan_actions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBackupPlan.ScanActionResourceTypeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     schedule_expression: typing.Optional[builtins.str] = None,
     schedule_expression_timezone: typing.Optional[builtins.str] = None,
@@ -9794,7 +9794,7 @@ def _typecheckingstub__fcf5b783f910e19031573c45aeb82865ab4fa2145dd36242b383df442
     restore_testing_selection_name: builtins.str,
     protected_resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
     protected_resource_conditions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRestoreTestingSelection.ProtectedResourceConditionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    restore_metadata_overrides: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    restore_metadata_overrides: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     validation_window_hours: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -9855,7 +9855,7 @@ def _typecheckingstub__1bca09c3c518b6d44e5cb2086f38f9235f25ef7744e3c6cfba7d01b48
     pass
 
 def _typecheckingstub__9afb00368be90e46cf02ec2498547553cd056db449734f0be5d5877e388c4af5(
-    value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9890,7 +9890,7 @@ def _typecheckingstub__fd755bb9b5c3f12e065d4bb10b1805bc3571946724f1d8f52794cc549
     restore_testing_selection_name: builtins.str,
     protected_resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
     protected_resource_conditions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRestoreTestingSelection.ProtectedResourceConditionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    restore_metadata_overrides: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    restore_metadata_overrides: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     validation_window_hours: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""

@@ -1,5 +1,5 @@
 //
-// SPDX-FileCopyrightText: Copyright 2021-2025 Arm Limited and/or its affiliates <open-source-office@arm.com>
+// SPDX-FileCopyrightText: Copyright 2021-2026 Arm Limited and/or its affiliates <open-source-office@arm.com>
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -161,6 +161,9 @@ private:
     // Lower PadV2 to TOSA Pad
     Operation *ConvertPadV2(Graph *const graph, Operation *const operation);
 
+    // Converts a Less[Equal] operator to a Greater[Equal] operator with swapped inputs
+    Operation *ConvertLess(Graph *const graph, Operation *const operation);
+
     void MakeMemoryCopyForMirrorPad(const Operation *operation, TensorConnection *ifmConn, const Shape &readShape,
         const Shape &readOffset, TensorConnection *ofmConn, const Shape &writeShape, const Shape &writeOffset, ReverseType reverseAxis);
 
@@ -179,6 +182,9 @@ private:
 
     // Converts TFLite SAME/VALID padding to GraphIR format
     Operation *RewriteTransposeConvPadding(Graph *const graph, Operation *const operation);
+
+    // Converts Concat to a series of MemoryCopy operations
+    Operation *RewriteConcat(Graph *const graph, Operation *const operation);
 
 public:
     // The graph optimisation steps.
@@ -267,7 +273,9 @@ public:
                 &TFLiteGraphOptimiser::ConvertResize,
                 &TFLiteGraphOptimiser::ConvertMirrorPad,
                 &TFLiteGraphOptimiser::ConvertPadV2,
+                &TFLiteGraphOptimiser::ConvertLess,
                 &TFLiteGraphOptimiser::RewriteTransposeConvPadding,
+                &TFLiteGraphOptimiser::RewriteConcat,
             }
         },
         {

@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from notebooklm._notebooks import NotebooksAPI, build_create_notebook_params
-from notebooklm._source_listing import SourceLister
+from notebooklm._source.listing import SourceLister
 from notebooklm.auth import AuthTokens
 from notebooklm.client import NotebookLMClient
 from notebooklm.exceptions import (
@@ -24,7 +24,7 @@ from notebooklm.types import AccountLimits, Notebook, NotebookMetadata, Source, 
 def _make_core(rpc_call: AsyncMock | None = None):
     """Return a fake collaborator core with a pre-wired ``rpc_call``.
 
-    ADR-007 substrate: built via :func:`make_fake_core` so the resulting
+    ADR-0007 substrate: built via :func:`make_fake_core` so the resulting
     bag-of-attributes satisfies the capability Protocols without re-
     introducing the forbidden post-construction AsyncMock attribute-
     assignment pattern. Callers that need to control the dispatch

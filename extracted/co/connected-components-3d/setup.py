@@ -26,11 +26,11 @@ def requirements():
 extra_compile_args = []
 if sys.platform == 'win32':
   extra_compile_args += [
-    '/std:c++11', '/O2'
+    '/std:c++17', '/O2'
   ]
 else:
   extra_compile_args += [
-    '-std=c++11', '-O3'
+    '-std=c++17', '-O3'
   ]
 
 if sys.platform == 'darwin':
@@ -38,7 +38,7 @@ if sys.platform == 'darwin':
 
 setuptools.setup(
   name="connected-components-3d",
-  version="3.29.0",
+  version="4.0.0",
   setup_requires=['pbr', 'numpy', 'cython'],
   install_requires=['numpy'],
   python_requires=">=3.9,<4.0",

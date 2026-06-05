@@ -72,9 +72,11 @@ from ..interfaces.aws_ec2 import ISecurityGroupRef as _ISecurityGroupRef_efa4ff1
 from ..interfaces.aws_opensearchserverless import (
     AccessPolicyReference as _AccessPolicyReference_645132eb,
     CollectionGroupReference as _CollectionGroupReference_d971af95,
+    CollectionIndexReference as _CollectionIndexReference_34a274da,
     CollectionReference as _CollectionReference_355c1500,
     IAccessPolicyRef as _IAccessPolicyRef_b72e06bb,
     ICollectionGroupRef as _ICollectionGroupRef_f25bb5c3,
+    ICollectionIndexRef as _ICollectionIndexRef_9c346f91,
     ICollectionRef as _ICollectionRef_3c562476,
     IIndexRef as _IIndexRef_53f6bc35,
     ILifecyclePolicyRef as _ILifecyclePolicyRef_57cf5ace,
@@ -1468,6 +1470,251 @@ class CfnCollectionGroupProps:
 
     def __repr__(self) -> str:
         return "CfnCollectionGroupProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _ICollectionIndexRef_9c346f91)
+class CfnCollectionIndex(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_opensearchserverless.CfnCollectionIndex",
+):
+    '''Resource schema for AWS::OpenSearchServerless::CollectionIndex.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-collectionindex.html
+    :cloudformationResource: AWS::OpenSearchServerless::CollectionIndex
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_opensearchserverless as opensearchserverless
+        
+        cfn_collection_index = opensearchserverless.CfnCollectionIndex(self, "MyCfnCollectionIndex",
+            id="id",
+            index_name="indexName",
+        
+            # the properties below are optional
+            index_schema="indexSchema"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id_: builtins.str,
+        *,
+        id: builtins.str,
+        index_name: builtins.str,
+        index_schema: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Create a new ``AWS::OpenSearchServerless::CollectionIndex``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id_: Construct identifier for this resource (unique in its scope).
+        :param id: The identifier of the collection.
+        :param index_name: The name of the collection index.
+        :param index_schema: The Mappings for the collection index.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__27e988efb3987e7062e7981cf35154d0975d6da3aeb1eef35e6d169e30cd0991)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id_", value=id_, expected_type=type_hints["id_"])
+        props = CfnCollectionIndexProps(
+            id=id, index_name=index_name, index_schema=index_schema
+        )
+
+        jsii.create(self.__class__, self, [scope, id_, props])
+
+    @jsii.member(jsii_name="isCfnCollectionIndex")
+    @builtins.classmethod
+    def is_cfn_collection_index(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnCollectionIndex.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__80705d64efcfb3abbf51d57099f0a6d05aaecf4629635ec88cbbeb171c853d12)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnCollectionIndex", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fff37cb7ec98c531d135de630c07f3caff35dc27d5b872255c44cd55b5408996)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6d92b51274557b699f4c93632ed0e643286d29041ef8d82a5ec6bba7e798de48)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="collectionIndexRef")
+    def collection_index_ref(self) -> "_CollectionIndexReference_34a274da":
+        '''A reference to a CollectionIndex resource.'''
+        return typing.cast("_CollectionIndexReference_34a274da", jsii.get(self, "collectionIndexRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="id")
+    def id(self) -> builtins.str:
+        '''The identifier of the collection.'''
+        return typing.cast(builtins.str, jsii.get(self, "id"))
+
+    @id.setter
+    def id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fb700f13aeb7537462126c819a8a890b1a97e90b4c259b3bdbf63895d4c485d7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "id", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="indexName")
+    def index_name(self) -> builtins.str:
+        '''The name of the collection index.'''
+        return typing.cast(builtins.str, jsii.get(self, "indexName"))
+
+    @index_name.setter
+    def index_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c5e63d53e599e1c9ee50a42b0fe9094b6ed4ca4918bc06ba4965a07b85f132ea)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "indexName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="indexSchema")
+    def index_schema(self) -> typing.Optional[builtins.str]:
+        '''The Mappings for the collection index.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "indexSchema"))
+
+    @index_schema.setter
+    def index_schema(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fb08f8c3dda5b681d5da8aed64f44bacd6d3f6e10406cde223d066b6d8a55714)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "indexSchema", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_opensearchserverless.CfnCollectionIndexProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "id": "id",
+        "index_name": "indexName",
+        "index_schema": "indexSchema",
+    },
+)
+class CfnCollectionIndexProps:
+    def __init__(
+        self,
+        *,
+        id: builtins.str,
+        index_name: builtins.str,
+        index_schema: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnCollectionIndex``.
+
+        :param id: The identifier of the collection.
+        :param index_name: The name of the collection index.
+        :param index_schema: The Mappings for the collection index.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-collectionindex.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_opensearchserverless as opensearchserverless
+            
+            cfn_collection_index_props = opensearchserverless.CfnCollectionIndexProps(
+                id="id",
+                index_name="indexName",
+            
+                # the properties below are optional
+                index_schema="indexSchema"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__174d29b728eabcc8ac1b89f9a9b4ba9ddc0f67992f7c64f8fea71a1f33057e3a)
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument index_name", value=index_name, expected_type=type_hints["index_name"])
+            check_type(argname="argument index_schema", value=index_schema, expected_type=type_hints["index_schema"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "id": id,
+            "index_name": index_name,
+        }
+        if index_schema is not None:
+            self._values["index_schema"] = index_schema
+
+    @builtins.property
+    def id(self) -> builtins.str:
+        '''The identifier of the collection.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-collectionindex.html#cfn-opensearchserverless-collectionindex-id
+        '''
+        result = self._values.get("id")
+        assert result is not None, "Required property 'id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def index_name(self) -> builtins.str:
+        '''The name of the collection index.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-collectionindex.html#cfn-opensearchserverless-collectionindex-indexname
+        '''
+        result = self._values.get("index_name")
+        assert result is not None, "Required property 'index_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def index_schema(self) -> typing.Optional[builtins.str]:
+        '''The Mappings for the collection index.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-collectionindex.html#cfn-opensearchserverless-collectionindex-indexschema
+        '''
+        result = self._values.get("index_schema")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnCollectionIndexProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -4282,6 +4529,8 @@ __all__ = [
     "CfnCollection",
     "CfnCollectionGroup",
     "CfnCollectionGroupProps",
+    "CfnCollectionIndex",
+    "CfnCollectionIndexProps",
     "CfnCollectionProps",
     "CfnIndex",
     "CfnIndexProps",
@@ -4588,6 +4837,62 @@ def _typecheckingstub__05b5eaaa32a385be6264c079cdcc6ba7e9c9e965cb532827253f8222f
     capacity_limits: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCollectionGroup.CapacityLimitsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__27e988efb3987e7062e7981cf35154d0975d6da3aeb1eef35e6d169e30cd0991(
+    scope: _constructs_77d1e7e8.Construct,
+    id_: builtins.str,
+    *,
+    id: builtins.str,
+    index_name: builtins.str,
+    index_schema: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__80705d64efcfb3abbf51d57099f0a6d05aaecf4629635ec88cbbeb171c853d12(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fff37cb7ec98c531d135de630c07f3caff35dc27d5b872255c44cd55b5408996(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6d92b51274557b699f4c93632ed0e643286d29041ef8d82a5ec6bba7e798de48(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fb700f13aeb7537462126c819a8a890b1a97e90b4c259b3bdbf63895d4c485d7(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c5e63d53e599e1c9ee50a42b0fe9094b6ed4ca4918bc06ba4965a07b85f132ea(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fb08f8c3dda5b681d5da8aed64f44bacd6d3f6e10406cde223d066b6d8a55714(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__174d29b728eabcc8ac1b89f9a9b4ba9ddc0f67992f7c64f8fea71a1f33057e3a(
+    *,
+    id: builtins.str,
+    index_name: builtins.str,
+    index_schema: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

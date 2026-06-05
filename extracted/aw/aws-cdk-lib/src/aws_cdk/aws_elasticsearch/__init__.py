@@ -894,7 +894,7 @@ class CfnDomain(
         id: builtins.str,
         *,
         access_policies: typing.Any = None,
-        advanced_options: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        advanced_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         advanced_security_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.AdvancedSecurityOptionsInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         cognito_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.CognitoOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         domain_arn: typing.Optional[builtins.str] = None,
@@ -1118,14 +1118,14 @@ class CfnDomain(
     @jsii.member(jsii_name="advancedOptions")
     def advanced_options(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''Additional options to specify for the OpenSearch Service domain.'''
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], jsii.get(self, "advancedOptions"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "advancedOptions"))
 
     @advanced_options.setter
     def advanced_options(
         self,
-        value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__eccb4465105fe2d68c634cb9897defc7a979b09c5873770bdb861cc3cf9f6050)
@@ -1845,7 +1845,7 @@ class CfnDomain(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_elasticsearch as elasticsearch
                 
-                e_bSOptions_property = elasticsearch.CfnDomain.EBSOptionsProperty(
+                e_bs_options_property = elasticsearch.CfnDomain.EBSOptionsProperty(
                     ebs_enabled=False,
                     iops=123,
                     volume_size=123,
@@ -2591,7 +2591,7 @@ class CfnDomain(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_elasticsearch as elasticsearch
                 
-                v_pCOptions_property = elasticsearch.CfnDomain.VPCOptionsProperty(
+                v_pc_options_property = elasticsearch.CfnDomain.VPCOptionsProperty(
                     security_group_ids=["securityGroupIds"],
                     subnet_ids=["subnetIds"]
                 )
@@ -2730,7 +2730,7 @@ class CfnDomainProps:
         self,
         *,
         access_policies: typing.Any = None,
-        advanced_options: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        advanced_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         advanced_security_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.AdvancedSecurityOptionsInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         cognito_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.CognitoOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         domain_arn: typing.Optional[builtins.str] = None,
@@ -2923,7 +2923,7 @@ class CfnDomainProps:
     @builtins.property
     def advanced_options(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''Additional options to specify for the OpenSearch Service domain.
 
         For more information, see `Advanced cluster parameters <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/createupdatedomains.html#createdomain-configure-advanced-options>`_ in the *Amazon OpenSearch Service Developer Guide* .
@@ -2931,7 +2931,7 @@ class CfnDomainProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticsearch-domain.html#cfn-elasticsearch-domain-advancedoptions
         '''
         result = self._values.get("advanced_options")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
     @builtins.property
     def advanced_security_options(
@@ -8116,7 +8116,7 @@ def _typecheckingstub__63b7f3680a648547d6da1f542a01684f9c4d84033f4c9aee8eaecae81
     id: builtins.str,
     *,
     access_policies: typing.Any = None,
-    advanced_options: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    advanced_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     advanced_security_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.AdvancedSecurityOptionsInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     cognito_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.CognitoOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     domain_arn: typing.Optional[builtins.str] = None,
@@ -8182,7 +8182,7 @@ def _typecheckingstub__4e88303355599d25861730b061f1bc223b85a3768dad89b9fe895dcb0
     pass
 
 def _typecheckingstub__eccb4465105fe2d68c634cb9897defc7a979b09c5873770bdb861cc3cf9f6050(
-    value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8393,7 +8393,7 @@ def _typecheckingstub__1ee73d0667237b38d27f617dfe56f8c57182f358686fa721ebadbe9d9
 def _typecheckingstub__e9cf4a1cacc663baa0bc99c7e4784f1bb4a208a6851dceb6a846d215d5062938(
     *,
     access_policies: typing.Any = None,
-    advanced_options: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    advanced_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     advanced_security_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.AdvancedSecurityOptionsInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     cognito_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.CognitoOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     domain_arn: typing.Optional[builtins.str] = None,

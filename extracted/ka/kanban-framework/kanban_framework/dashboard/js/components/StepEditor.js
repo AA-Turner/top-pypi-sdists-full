@@ -79,35 +79,30 @@ export const StepEditor = {
           }
         }
       } else if (defs && typeof defs === 'object') {
-        // No phases configured — load built-in defs for builtin modes
-        const BUILTIN_MODES = new Set(['full', 'lightweight', 'quick']);
-        const isBuiltinMode = props.modeName && BUILTIN_MODES.has(props.modeName);
-        if (isBuiltinMode) {
-          // Builtin mode: show all built-in steps
-          for (const [key, val] of Object.entries(defs)) {
-            if (typeof val === 'object' && val !== null && !val.description) {
-              if (!modePhases.has(key)) continue;
-              for (const [stepId, info] of Object.entries(val)) {
-                if (!info || typeof info.description !== 'string') continue;
-                steps.push({
-                  phase: key, insert_after: '', source: 'builtin',
-                  step: { id: stepId, description: info.description || '',
-                          agent_type: info.agent_type || '' },
-                });
-              }
-            } else if (val && typeof val === 'object' && typeof val.description === 'string') {
-              const dotIdx = key.indexOf('.');
-              const phaseId = dotIdx > 0 ? key.substring(0, dotIdx) : '';
-              if (!phaseId || !modePhases.has(phaseId)) continue;
+        // No phases configured — load step defs for any mode
+        // All modes are treated equally: if defs exist, show them
+        for (const [key, val] of Object.entries(defs)) {
+          if (typeof val === 'object' && val !== null && !val.description) {
+            if (!modePhases.has(key)) continue;
+            for (const [stepId, info] of Object.entries(val)) {
+              if (!info || typeof info.description !== 'string') continue;
               steps.push({
-                phase: phaseId, insert_after: '', source: 'builtin',
-                step: { id: key, description: val.description || '',
-                        agent_type: val.agent_type || '' },
+                phase: key, insert_after: '', source: 'builtin',
+                step: { id: stepId, description: info.description || '',
+                        agent_type: info.agent_type || '' },
               });
             }
+          } else if (val && typeof val === 'object' && typeof val.description === 'string') {
+            const dotIdx = key.indexOf('.');
+            const phaseId = dotIdx > 0 ? key.substring(0, dotIdx) : '';
+            if (!phaseId || !modePhases.has(phaseId)) continue;
+            steps.push({
+              phase: phaseId, insert_after: '', source: 'builtin',
+              step: { id: key, description: val.description || '',
+                      agent_type: val.agent_type || '' },
+            });
           }
         }
-        // Custom mode: stay empty, user picks from builtin palette
       }
       // Load extension steps
       const raw = (ext && ext.add_steps) || [];

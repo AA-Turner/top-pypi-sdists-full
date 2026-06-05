@@ -34,7 +34,7 @@ class UnifiedMarket(BaseModel):
     description: StrictStr = Field(description="Long-form market description or resolution criteria.")
     slug: Optional[StrictStr] = Field(default=None, description="URL-friendly slug for the market.")
     outcomes: List[MarketOutcome] = Field(description="The possible outcomes for this market.")
-    resolution_date: datetime = Field(description="When the market is scheduled to resolve.", alias="resolutionDate")
+    resolution_date: Optional[datetime] = Field(default=None, description="When the market is scheduled to resolve. Optional because some venues do not publish a cutoff for every market (e.g. Opinion categorical children) — emit `undefined` rather than coercing to epoch.", alias="resolutionDate")
     volume24h: Union[StrictFloat, StrictInt] = Field(description="Trading volume over the past 24 hours (USD).")
     volume: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="Total / Lifetime volume")
     liquidity: Union[StrictFloat, StrictInt] = Field(description="Current market liquidity (USD).")

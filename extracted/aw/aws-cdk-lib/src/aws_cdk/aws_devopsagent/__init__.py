@@ -1279,7 +1279,7 @@ class CfnAssociation(
                 
                 # resource_metadata: Any
                 
-                a_wSConfiguration_property = devopsagent.CfnAssociation.AWSConfigurationProperty(
+                a_ws_configuration_property = devopsagent.CfnAssociation.AWSConfigurationProperty(
                     account_id="accountId",
                     account_type="accountType",
                     assumable_role_arn="assumableRoleArn",
@@ -1412,7 +1412,7 @@ class CfnAssociation(
                 
                 # resource_metadata: Any
                 
-                a_wSResource_property = devopsagent.CfnAssociation.AWSResourceProperty(
+                a_ws_resource_property = devopsagent.CfnAssociation.AWSResourceProperty(
                     resource_arn="resourceArn",
                 
                     # the properties below are optional
@@ -2007,7 +2007,7 @@ class CfnAssociation(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_devopsagent as devopsagent
                 
-                m_cPServer_configuration_property = devopsagent.CfnAssociation.MCPServerConfigurationProperty(
+                m_cp_server_configuration_property = devopsagent.CfnAssociation.MCPServerConfigurationProperty(
                     tools=["tools"],
                 
                     # the properties below are optional
@@ -2132,7 +2132,7 @@ class CfnAssociation(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_devopsagent as devopsagent
                 
-                m_cPServer_datadog_configuration_property = devopsagent.CfnAssociation.MCPServerDatadogConfigurationProperty(
+                m_cp_server_datadog_configuration_property = devopsagent.CfnAssociation.MCPServerDatadogConfigurationProperty(
                     description="description",
                     enable_webhook_updates=False,
                     endpoint="endpoint",
@@ -2236,7 +2236,7 @@ class CfnAssociation(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_devopsagent as devopsagent
                 
-                m_cPServer_grafana_configuration_property = devopsagent.CfnAssociation.MCPServerGrafanaConfigurationProperty(
+                m_cp_server_grafana_configuration_property = devopsagent.CfnAssociation.MCPServerGrafanaConfigurationProperty(
                     endpoint="endpoint",
                 
                     # the properties below are optional
@@ -2321,7 +2321,7 @@ class CfnAssociation(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_devopsagent as devopsagent
                 
-                m_cPServer_new_relic_configuration_property = devopsagent.CfnAssociation.MCPServerNewRelicConfigurationProperty(
+                m_cp_server_new_relic_configuration_property = devopsagent.CfnAssociation.MCPServerNewRelicConfigurationProperty(
                     account_id="accountId",
                     endpoint="endpoint"
                 )
@@ -2386,7 +2386,7 @@ class CfnAssociation(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_devopsagent as devopsagent
                 
-                m_cPServer_sig_v4_configuration_property = devopsagent.CfnAssociation.MCPServerSigV4ConfigurationProperty(
+                m_cp_server_sig_v4_configuration_property = devopsagent.CfnAssociation.MCPServerSigV4ConfigurationProperty(
                     tools=["tools"]
                 )
             '''
@@ -2455,7 +2455,7 @@ class CfnAssociation(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_devopsagent as devopsagent
                 
-                m_cPServer_splunk_configuration_property = devopsagent.CfnAssociation.MCPServerSplunkConfigurationProperty(
+                m_cp_server_splunk_configuration_property = devopsagent.CfnAssociation.MCPServerSplunkConfigurationProperty(
                     description="description",
                     enable_webhook_updates=False,
                     endpoint="endpoint",
@@ -4528,6 +4528,22 @@ class CfnService(
                     # the properties below are optional
                     description="description"
                 ),
+                mcp_server_grafana=devopsagent.CfnService.MCPServerGrafanaDetailsProperty(
+                    authorization_config=devopsagent.CfnService.MCPServerGrafanaAuthorizationConfigProperty(
+                        bearer_token=devopsagent.CfnService.BearerTokenDetailsProperty(
+                            token_name="tokenName",
+                            token_value="tokenValue",
+        
+                            # the properties below are optional
+                            authorization_header="authorizationHeader"
+                        )
+                    ),
+                    endpoint="endpoint",
+                    name="name",
+        
+                    # the properties below are optional
+                    description="description"
+                ),
                 mcp_server_new_relic=devopsagent.CfnService.NewRelicServiceDetailsProperty(
                     authorization_config=devopsagent.CfnService.NewRelicAuthorizationConfigProperty(
                         api_key=devopsagent.CfnService.NewRelicApiKeyConfigProperty(
@@ -4861,6 +4877,7 @@ class CfnService(
             "dynatrace": "dynatrace",
             "git_lab": "gitLab",
             "mcp_server": "mcpServer",
+            "mcp_server_grafana": "mcpServerGrafana",
             "mcp_server_new_relic": "mcpServerNewRelic",
             "mcp_server_sig_v4": "mcpServerSigV4",
             "mcp_server_splunk": "mcpServerSplunk",
@@ -4876,6 +4893,7 @@ class CfnService(
             dynatrace: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.RegisteredDynatraceDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             git_lab: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.RegisteredGitLabServiceDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             mcp_server: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.RegisteredMCPServerDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            mcp_server_grafana: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.RegisteredMCPServerGrafanaDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             mcp_server_new_relic: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.RegisteredNewRelicDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             mcp_server_sig_v4: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.RegisteredMCPServerSigV4DetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             mcp_server_splunk: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.RegisteredMCPServerDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -4887,6 +4905,7 @@ class CfnService(
             :param dynatrace: Dynatrace service details returned after registration.
             :param git_lab: GitLab service details returned after registration.
             :param mcp_server: MCP server details returned after registration.
+            :param mcp_server_grafana: Grafana MCP server details returned after registration.
             :param mcp_server_new_relic: New Relic service details returned after registration.
             :param mcp_server_sig_v4: SigV4-authenticated MCP server details returned after registration.
             :param mcp_server_splunk: MCP server details returned after registration.
@@ -4927,6 +4946,14 @@ class CfnService(
                         # the properties below are optional
                         api_key_header="apiKeyHeader",
                         description="description"
+                    ),
+                    mcp_server_grafana=devopsagent.CfnService.RegisteredMCPServerGrafanaDetailsProperty(
+                        authorization_method="authorizationMethod",
+                        endpoint="endpoint",
+                
+                        # the properties below are optional
+                        description="description",
+                        name="name"
                     ),
                     mcp_server_new_relic=devopsagent.CfnService.RegisteredNewRelicDetailsProperty(
                         account_id="accountId",
@@ -4971,6 +4998,7 @@ class CfnService(
                 check_type(argname="argument dynatrace", value=dynatrace, expected_type=type_hints["dynatrace"])
                 check_type(argname="argument git_lab", value=git_lab, expected_type=type_hints["git_lab"])
                 check_type(argname="argument mcp_server", value=mcp_server, expected_type=type_hints["mcp_server"])
+                check_type(argname="argument mcp_server_grafana", value=mcp_server_grafana, expected_type=type_hints["mcp_server_grafana"])
                 check_type(argname="argument mcp_server_new_relic", value=mcp_server_new_relic, expected_type=type_hints["mcp_server_new_relic"])
                 check_type(argname="argument mcp_server_sig_v4", value=mcp_server_sig_v4, expected_type=type_hints["mcp_server_sig_v4"])
                 check_type(argname="argument mcp_server_splunk", value=mcp_server_splunk, expected_type=type_hints["mcp_server_splunk"])
@@ -4985,6 +5013,8 @@ class CfnService(
                 self._values["git_lab"] = git_lab
             if mcp_server is not None:
                 self._values["mcp_server"] = mcp_server
+            if mcp_server_grafana is not None:
+                self._values["mcp_server_grafana"] = mcp_server_grafana
             if mcp_server_new_relic is not None:
                 self._values["mcp_server_new_relic"] = mcp_server_new_relic
             if mcp_server_sig_v4 is not None:
@@ -5039,6 +5069,17 @@ class CfnService(
             '''
             result = self._values.get("mcp_server")
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.RegisteredMCPServerDetailsProperty"]], result)
+
+        @builtins.property
+        def mcp_server_grafana(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.RegisteredMCPServerGrafanaDetailsProperty"]]:
+            '''Grafana MCP server details returned after registration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-additionalservicedetails.html#cfn-devopsagent-service-additionalservicedetails-mcpservergrafana
+            '''
+            result = self._values.get("mcp_server_grafana")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.RegisteredMCPServerGrafanaDetailsProperty"]], result)
 
         @builtins.property
         def mcp_server_new_relic(
@@ -5689,7 +5730,7 @@ class CfnService(
                 
                 # exchange_parameters: Any
                 
-                m_cPServer_authorization_config_property = devopsagent.CfnService.MCPServerAuthorizationConfigProperty(
+                m_cp_server_authorization_config_property = devopsagent.CfnService.MCPServerAuthorizationConfigProperty(
                     api_key=devopsagent.CfnService.ApiKeyDetailsProperty(
                         api_key_header="apiKeyHeader",
                         api_key_name="apiKeyName",
@@ -5787,7 +5828,7 @@ class CfnService(
                 
                 # exchange_parameters: Any
                 
-                m_cPServer_details_property = devopsagent.CfnService.MCPServerDetailsProperty(
+                m_cp_server_details_property = devopsagent.CfnService.MCPServerDetailsProperty(
                     authorization_config=devopsagent.CfnService.MCPServerAuthorizationConfigProperty(
                         api_key=devopsagent.CfnService.ApiKeyDetailsProperty(
                             api_key_header="apiKeyHeader",
@@ -5879,6 +5920,188 @@ class CfnService(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_devopsagent.CfnService.MCPServerGrafanaAuthorizationConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"bearer_token": "bearerToken"},
+    )
+    class MCPServerGrafanaAuthorizationConfigProperty:
+        def __init__(
+            self,
+            *,
+            bearer_token: typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.BearerTokenDetailsProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''Grafana MCP server authorization configuration.
+
+            :param bearer_token: Bearer token authentication details.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-mcpservergrafanaauthorizationconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_devopsagent as devopsagent
+                
+                m_cp_server_grafana_authorization_config_property = devopsagent.CfnService.MCPServerGrafanaAuthorizationConfigProperty(
+                    bearer_token=devopsagent.CfnService.BearerTokenDetailsProperty(
+                        token_name="tokenName",
+                        token_value="tokenValue",
+                
+                        # the properties below are optional
+                        authorization_header="authorizationHeader"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__c078195483d16ee93aa16caf8af9439917de842c6675e2f8ca7e495a3b0cb08e)
+                check_type(argname="argument bearer_token", value=bearer_token, expected_type=type_hints["bearer_token"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "bearer_token": bearer_token,
+            }
+
+        @builtins.property
+        def bearer_token(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnService.BearerTokenDetailsProperty"]:
+            '''Bearer token authentication details.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-mcpservergrafanaauthorizationconfig.html#cfn-devopsagent-service-mcpservergrafanaauthorizationconfig-bearertoken
+            '''
+            result = self._values.get("bearer_token")
+            assert result is not None, "Required property 'bearer_token' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnService.BearerTokenDetailsProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MCPServerGrafanaAuthorizationConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_devopsagent.CfnService.MCPServerGrafanaDetailsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "authorization_config": "authorizationConfig",
+            "endpoint": "endpoint",
+            "name": "name",
+            "description": "description",
+        },
+    )
+    class MCPServerGrafanaDetailsProperty:
+        def __init__(
+            self,
+            *,
+            authorization_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.MCPServerGrafanaAuthorizationConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+            endpoint: builtins.str,
+            name: builtins.str,
+            description: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Grafana MCP server configuration.
+
+            :param authorization_config: Grafana MCP server authorization configuration.
+            :param endpoint: MCP server endpoint URL.
+            :param name: MCP server name.
+            :param description: Optional description for the MCP server.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-mcpservergrafanadetails.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_devopsagent as devopsagent
+                
+                m_cp_server_grafana_details_property = devopsagent.CfnService.MCPServerGrafanaDetailsProperty(
+                    authorization_config=devopsagent.CfnService.MCPServerGrafanaAuthorizationConfigProperty(
+                        bearer_token=devopsagent.CfnService.BearerTokenDetailsProperty(
+                            token_name="tokenName",
+                            token_value="tokenValue",
+                
+                            # the properties below are optional
+                            authorization_header="authorizationHeader"
+                        )
+                    ),
+                    endpoint="endpoint",
+                    name="name",
+                
+                    # the properties below are optional
+                    description="description"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__ceb1f0ac503e9549fa3de75e9daba79e6bc79b59864b18ecab082dd1a2146353)
+                check_type(argname="argument authorization_config", value=authorization_config, expected_type=type_hints["authorization_config"])
+                check_type(argname="argument endpoint", value=endpoint, expected_type=type_hints["endpoint"])
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+                check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "authorization_config": authorization_config,
+                "endpoint": endpoint,
+                "name": name,
+            }
+            if description is not None:
+                self._values["description"] = description
+
+        @builtins.property
+        def authorization_config(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnService.MCPServerGrafanaAuthorizationConfigProperty"]:
+            '''Grafana MCP server authorization configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-mcpservergrafanadetails.html#cfn-devopsagent-service-mcpservergrafanadetails-authorizationconfig
+            '''
+            result = self._values.get("authorization_config")
+            assert result is not None, "Required property 'authorization_config' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnService.MCPServerGrafanaAuthorizationConfigProperty"], result)
+
+        @builtins.property
+        def endpoint(self) -> builtins.str:
+            '''MCP server endpoint URL.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-mcpservergrafanadetails.html#cfn-devopsagent-service-mcpservergrafanadetails-endpoint
+            '''
+            result = self._values.get("endpoint")
+            assert result is not None, "Required property 'endpoint' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def name(self) -> builtins.str:
+            '''MCP server name.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-mcpservergrafanadetails.html#cfn-devopsagent-service-mcpservergrafanadetails-name
+            '''
+            result = self._values.get("name")
+            assert result is not None, "Required property 'name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def description(self) -> typing.Optional[builtins.str]:
+            '''Optional description for the MCP server.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-mcpservergrafanadetails.html#cfn-devopsagent-service-mcpservergrafanadetails-description
+            '''
+            result = self._values.get("description")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MCPServerGrafanaDetailsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_devopsagent.CfnService.MCPServerOAuthClientCredentialsConfigProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -5921,7 +6144,7 @@ class CfnService(
                 
                 # exchange_parameters: Any
                 
-                m_cPServer_oAuth_client_credentials_config_property = devopsagent.CfnService.MCPServerOAuthClientCredentialsConfigProperty(
+                m_cp_server_o_auth_client_credentials_config_property = devopsagent.CfnService.MCPServerOAuthClientCredentialsConfigProperty(
                     client_id="clientId",
                     client_secret="clientSecret",
                     exchange_url="exchangeUrl",
@@ -6037,7 +6260,7 @@ class CfnService(
             region: builtins.str,
             role_arn: builtins.str,
             service: builtins.str,
-            custom_headers: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            custom_headers: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         ) -> None:
             '''SigV4 authorization configuration for MCP server.
 
@@ -6055,7 +6278,7 @@ class CfnService(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_devopsagent as devopsagent
                 
-                m_cPServer_sig_v4_authorization_config_property = devopsagent.CfnService.MCPServerSigV4AuthorizationConfigProperty(
+                m_cp_server_sig_v4_authorization_config_property = devopsagent.CfnService.MCPServerSigV4AuthorizationConfigProperty(
                     region="region",
                     role_arn="roleArn",
                     service="service",
@@ -6115,13 +6338,13 @@ class CfnService(
         @builtins.property
         def custom_headers(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''Custom headers for the SigV4 MCP server.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-mcpserversigv4authorizationconfig.html#cfn-devopsagent-service-mcpserversigv4authorizationconfig-customheaders
             '''
             result = self._values.get("custom_headers")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6169,7 +6392,7 @@ class CfnService(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_devopsagent as devopsagent
                 
-                m_cPServer_sig_v4_details_property = devopsagent.CfnService.MCPServerSigV4DetailsProperty(
+                m_cp_server_sig_v4_details_property = devopsagent.CfnService.MCPServerSigV4DetailsProperty(
                     authorization_config=devopsagent.CfnService.MCPServerSigV4AuthorizationConfigProperty(
                         region="region",
                         role_arn="roleArn",
@@ -6277,7 +6500,7 @@ class CfnService(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_devopsagent as devopsagent
                 
-                m_cPServer_splunk_authorization_config_property = devopsagent.CfnService.MCPServerSplunkAuthorizationConfigProperty(
+                m_cp_server_splunk_authorization_config_property = devopsagent.CfnService.MCPServerSplunkAuthorizationConfigProperty(
                     bearer_token=devopsagent.CfnService.BearerTokenDetailsProperty(
                         token_name="tokenName",
                         token_value="tokenValue",
@@ -6352,7 +6575,7 @@ class CfnService(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_devopsagent as devopsagent
                 
-                m_cPServer_splunk_details_property = devopsagent.CfnService.MCPServerSplunkDetailsProperty(
+                m_cp_server_splunk_details_property = devopsagent.CfnService.MCPServerSplunkDetailsProperty(
                     authorization_config=devopsagent.CfnService.MCPServerSplunkAuthorizationConfigProperty(
                         bearer_token=devopsagent.CfnService.BearerTokenDetailsProperty(
                             token_name="tokenName",
@@ -7262,7 +7485,7 @@ class CfnService(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_devopsagent as devopsagent
                 
-                registered_mCPServer_details_property = devopsagent.CfnService.RegisteredMCPServerDetailsProperty(
+                registered_mcp_server_details_property = devopsagent.CfnService.RegisteredMCPServerDetailsProperty(
                     authorization_method="authorizationMethod",
                     endpoint="endpoint",
                     name="name",
@@ -7349,6 +7572,114 @@ class CfnService(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_devopsagent.CfnService.RegisteredMCPServerGrafanaDetailsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "authorization_method": "authorizationMethod",
+            "endpoint": "endpoint",
+            "description": "description",
+            "name": "name",
+        },
+    )
+    class RegisteredMCPServerGrafanaDetailsProperty:
+        def __init__(
+            self,
+            *,
+            authorization_method: builtins.str,
+            endpoint: builtins.str,
+            description: typing.Optional[builtins.str] = None,
+            name: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Grafana MCP server details returned after registration.
+
+            :param authorization_method: MCP server authorization method.
+            :param endpoint: MCP server endpoint URL.
+            :param description: Optional description for the MCP server.
+            :param name: MCP server name.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-registeredmcpservergrafanadetails.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_devopsagent as devopsagent
+                
+                registered_mcp_server_grafana_details_property = devopsagent.CfnService.RegisteredMCPServerGrafanaDetailsProperty(
+                    authorization_method="authorizationMethod",
+                    endpoint="endpoint",
+                
+                    # the properties below are optional
+                    description="description",
+                    name="name"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__87107b6a95fbd903507709888e936ffad99498a4bbe5c244dcfa68ab1b2d981d)
+                check_type(argname="argument authorization_method", value=authorization_method, expected_type=type_hints["authorization_method"])
+                check_type(argname="argument endpoint", value=endpoint, expected_type=type_hints["endpoint"])
+                check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "authorization_method": authorization_method,
+                "endpoint": endpoint,
+            }
+            if description is not None:
+                self._values["description"] = description
+            if name is not None:
+                self._values["name"] = name
+
+        @builtins.property
+        def authorization_method(self) -> builtins.str:
+            '''MCP server authorization method.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-registeredmcpservergrafanadetails.html#cfn-devopsagent-service-registeredmcpservergrafanadetails-authorizationmethod
+            '''
+            result = self._values.get("authorization_method")
+            assert result is not None, "Required property 'authorization_method' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def endpoint(self) -> builtins.str:
+            '''MCP server endpoint URL.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-registeredmcpservergrafanadetails.html#cfn-devopsagent-service-registeredmcpservergrafanadetails-endpoint
+            '''
+            result = self._values.get("endpoint")
+            assert result is not None, "Required property 'endpoint' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def description(self) -> typing.Optional[builtins.str]:
+            '''Optional description for the MCP server.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-registeredmcpservergrafanadetails.html#cfn-devopsagent-service-registeredmcpservergrafanadetails-description
+            '''
+            result = self._values.get("description")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def name(self) -> typing.Optional[builtins.str]:
+            '''MCP server name.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-registeredmcpservergrafanadetails.html#cfn-devopsagent-service-registeredmcpservergrafanadetails-name
+            '''
+            result = self._values.get("name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RegisteredMCPServerGrafanaDetailsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_devopsagent.CfnService.RegisteredMCPServerSigV4DetailsProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -7370,7 +7701,7 @@ class CfnService(
             region: builtins.str,
             role_arn: builtins.str,
             service: builtins.str,
-            custom_headers: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            custom_headers: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             description: typing.Optional[builtins.str] = None,
         ) -> None:
             '''SigV4-authenticated MCP server details returned after registration.
@@ -7392,7 +7723,7 @@ class CfnService(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_devopsagent as devopsagent
                 
-                registered_mCPServer_sig_v4_details_property = devopsagent.CfnService.RegisteredMCPServerSigV4DetailsProperty(
+                registered_mcp_server_sig_v4_details_property = devopsagent.CfnService.RegisteredMCPServerSigV4DetailsProperty(
                     endpoint="endpoint",
                     name="name",
                     region="region",
@@ -7480,13 +7811,13 @@ class CfnService(
         @builtins.property
         def custom_headers(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''Custom headers for the SigV4 MCP server.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-registeredmcpserversigv4details.html#cfn-devopsagent-service-registeredmcpserversigv4details-customheaders
             '''
             result = self._values.get("custom_headers")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def description(self) -> typing.Optional[builtins.str]:
@@ -7712,6 +8043,7 @@ class CfnService(
             "dynatrace": "dynatrace",
             "git_lab": "gitLab",
             "mcp_server": "mcpServer",
+            "mcp_server_grafana": "mcpServerGrafana",
             "mcp_server_new_relic": "mcpServerNewRelic",
             "mcp_server_sig_v4": "mcpServerSigV4",
             "mcp_server_splunk": "mcpServerSplunk",
@@ -7727,6 +8059,7 @@ class CfnService(
             dynatrace: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.DynatraceServiceDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             git_lab: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.GitLabDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             mcp_server: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.MCPServerDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            mcp_server_grafana: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.MCPServerGrafanaDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             mcp_server_new_relic: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.NewRelicServiceDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             mcp_server_sig_v4: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.MCPServerSigV4DetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             mcp_server_splunk: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.MCPServerSplunkDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -7738,6 +8071,7 @@ class CfnService(
             :param dynatrace: Dynatrace service configuration.
             :param git_lab: GitLab service configuration.
             :param mcp_server: MCP server configuration.
+            :param mcp_server_grafana: Grafana MCP server configuration.
             :param mcp_server_new_relic: New Relic service configuration.
             :param mcp_server_sig_v4: SigV4-authenticated MCP server configuration.
             :param mcp_server_splunk: Splunk MCP server configuration.
@@ -7801,6 +8135,22 @@ class CfnService(
                                 client_name="clientName",
                                 exchange_parameters=exchange_parameters,
                                 scopes=["scopes"]
+                            )
+                        ),
+                        endpoint="endpoint",
+                        name="name",
+                
+                        # the properties below are optional
+                        description="description"
+                    ),
+                    mcp_server_grafana=devopsagent.CfnService.MCPServerGrafanaDetailsProperty(
+                        authorization_config=devopsagent.CfnService.MCPServerGrafanaAuthorizationConfigProperty(
+                            bearer_token=devopsagent.CfnService.BearerTokenDetailsProperty(
+                                token_name="tokenName",
+                                token_value="tokenValue",
+                
+                                # the properties below are optional
+                                authorization_header="authorizationHeader"
                             )
                         ),
                         endpoint="endpoint",
@@ -7892,6 +8242,7 @@ class CfnService(
                 check_type(argname="argument dynatrace", value=dynatrace, expected_type=type_hints["dynatrace"])
                 check_type(argname="argument git_lab", value=git_lab, expected_type=type_hints["git_lab"])
                 check_type(argname="argument mcp_server", value=mcp_server, expected_type=type_hints["mcp_server"])
+                check_type(argname="argument mcp_server_grafana", value=mcp_server_grafana, expected_type=type_hints["mcp_server_grafana"])
                 check_type(argname="argument mcp_server_new_relic", value=mcp_server_new_relic, expected_type=type_hints["mcp_server_new_relic"])
                 check_type(argname="argument mcp_server_sig_v4", value=mcp_server_sig_v4, expected_type=type_hints["mcp_server_sig_v4"])
                 check_type(argname="argument mcp_server_splunk", value=mcp_server_splunk, expected_type=type_hints["mcp_server_splunk"])
@@ -7906,6 +8257,8 @@ class CfnService(
                 self._values["git_lab"] = git_lab
             if mcp_server is not None:
                 self._values["mcp_server"] = mcp_server
+            if mcp_server_grafana is not None:
+                self._values["mcp_server_grafana"] = mcp_server_grafana
             if mcp_server_new_relic is not None:
                 self._values["mcp_server_new_relic"] = mcp_server_new_relic
             if mcp_server_sig_v4 is not None:
@@ -7960,6 +8313,17 @@ class CfnService(
             '''
             result = self._values.get("mcp_server")
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.MCPServerDetailsProperty"]], result)
+
+        @builtins.property
+        def mcp_server_grafana(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.MCPServerGrafanaDetailsProperty"]]:
+            '''Grafana MCP server configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-servicedetails.html#cfn-devopsagent-service-servicedetails-mcpservergrafana
+            '''
+            result = self._values.get("mcp_server_grafana")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.MCPServerGrafanaDetailsProperty"]], result)
 
         @builtins.property
         def mcp_server_new_relic(
@@ -8272,6 +8636,22 @@ class CfnServiceProps:
                                 client_name="clientName",
                                 exchange_parameters=exchange_parameters,
                                 scopes=["scopes"]
+                            )
+                        ),
+                        endpoint="endpoint",
+                        name="name",
+            
+                        # the properties below are optional
+                        description="description"
+                    ),
+                    mcp_server_grafana=devopsagent.CfnService.MCPServerGrafanaDetailsProperty(
+                        authorization_config=devopsagent.CfnService.MCPServerGrafanaAuthorizationConfigProperty(
+                            bearer_token=devopsagent.CfnService.BearerTokenDetailsProperty(
+                                token_name="tokenName",
+                                token_value="tokenValue",
+            
+                                # the properties below are optional
+                                authorization_header="authorizationHeader"
                             )
                         ),
                         endpoint="endpoint",
@@ -9016,6 +9396,7 @@ def _typecheckingstub__35d2aa127fac97efcf9f5ae815fbac6244f4de11a1b85beb8acc053b8
     dynatrace: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.RegisteredDynatraceDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     git_lab: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.RegisteredGitLabServiceDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     mcp_server: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.RegisteredMCPServerDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    mcp_server_grafana: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.RegisteredMCPServerGrafanaDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     mcp_server_new_relic: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.RegisteredNewRelicDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     mcp_server_sig_v4: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.RegisteredMCPServerSigV4DetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     mcp_server_splunk: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.RegisteredMCPServerDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -9096,6 +9477,23 @@ def _typecheckingstub__8254611fd4c93bda748b35259025cc559c3ff3316f16d3a4c6b874240
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__c078195483d16ee93aa16caf8af9439917de842c6675e2f8ca7e495a3b0cb08e(
+    *,
+    bearer_token: typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.BearerTokenDetailsProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ceb1f0ac503e9549fa3de75e9daba79e6bc79b59864b18ecab082dd1a2146353(
+    *,
+    authorization_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.MCPServerGrafanaAuthorizationConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    endpoint: builtins.str,
+    name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__198a110da941ce87aaecb0a0b1ba18fa10731b81d29b4a768fd8f795ff2b76f5(
     *,
     client_id: builtins.str,
@@ -9113,7 +9511,7 @@ def _typecheckingstub__dbe588b1e3456b646061af08c161d891f42e0088a6279e9d947f0af6e
     region: builtins.str,
     role_arn: builtins.str,
     service: builtins.str,
-    custom_headers: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    custom_headers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9233,6 +9631,16 @@ def _typecheckingstub__64842feca3ddfa950e85ba4c6de1af968036678a7ccca7400342a6c0f
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__87107b6a95fbd903507709888e936ffad99498a4bbe5c244dcfa68ab1b2d981d(
+    *,
+    authorization_method: builtins.str,
+    endpoint: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__3dfa7ec3a9a0d94659cfc778970e21b2e98b7be71f7c5ad9f0a44fcb7f6e81d7(
     *,
     endpoint: builtins.str,
@@ -9240,7 +9648,7 @@ def _typecheckingstub__3dfa7ec3a9a0d94659cfc778970e21b2e98b7be71f7c5ad9f0a44fcb7
     region: builtins.str,
     role_arn: builtins.str,
     service: builtins.str,
-    custom_headers: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    custom_headers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     description: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -9275,6 +9683,7 @@ def _typecheckingstub__2d3cc706658e74f84415c4cda29e3f1af191a52f1dbbf8701c25e0091
     dynatrace: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.DynatraceServiceDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     git_lab: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.GitLabDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     mcp_server: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.MCPServerDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    mcp_server_grafana: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.MCPServerGrafanaDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     mcp_server_new_relic: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.NewRelicServiceDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     mcp_server_sig_v4: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.MCPServerSigV4DetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     mcp_server_splunk: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.MCPServerSplunkDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,

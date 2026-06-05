@@ -28,7 +28,7 @@ use crate::slug;
 /// the commit body in the walker via `git log --notes=…` so the
 /// revision-history rendering doesn't need a per-commit subprocess
 /// round-trip.
-const STACK_NOTES_REF: &str = "refs/notes/mergify/stack";
+pub const STACK_NOTES_REF: &str = "refs/notes/mergify/stack";
 
 /// One commit in the local stack range, after parsing.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -372,7 +372,7 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let path = tmp.path();
         let git = |args: &[&str]| {
-            let out = Command::new("git")
+            let out = crate::test_env::isolated_git()
                 .arg("-C")
                 .arg(path)
                 .args(args)

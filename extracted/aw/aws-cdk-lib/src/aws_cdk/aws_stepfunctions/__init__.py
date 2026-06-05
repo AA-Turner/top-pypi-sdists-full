@@ -2711,7 +2711,7 @@ class CfnStateMachine(
         definition: typing.Any = None,
         definition_s3_location: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStateMachine.S3LocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         definition_string: typing.Optional[typing.Union[builtins.str, "_ITableRef_4478f0ad", "_ITaskDefinitionRef_8091fc1c", "_IFunctionRef_2601eb33", "_IVersionRef_4fdb94ad", "_ITopicRef_29aa9a88", "_IQueueRef_fa8b2198"]] = None,
-        definition_substitutions: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        definition_substitutions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         encryption_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStateMachine.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         logging_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStateMachine.LoggingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         state_machine_name: typing.Optional[builtins.str] = None,
@@ -2933,14 +2933,14 @@ class CfnStateMachine(
     @jsii.member(jsii_name="definitionSubstitutions")
     def definition_substitutions(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''A map (string to string) that specifies the mappings for placeholder variables in the state machine definition.'''
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], jsii.get(self, "definitionSubstitutions"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "definitionSubstitutions"))
 
     @definition_substitutions.setter
     def definition_substitutions(
         self,
-        value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e05fa36d2c9116cb2c90b1560cd6e7bc08699fa552a7e75ce5775a927ad53415)
@@ -4232,7 +4232,7 @@ class CfnStateMachineProps:
         definition: typing.Any = None,
         definition_s3_location: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStateMachine.S3LocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         definition_string: typing.Optional[typing.Union[builtins.str, "_ITableRef_4478f0ad", "_ITaskDefinitionRef_8091fc1c", "_IFunctionRef_2601eb33", "_IVersionRef_4fdb94ad", "_ITopicRef_29aa9a88", "_IQueueRef_fa8b2198"]] = None,
-        definition_substitutions: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        definition_substitutions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         encryption_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStateMachine.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         logging_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStateMachine.LoggingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         state_machine_name: typing.Optional[builtins.str] = None,
@@ -4395,7 +4395,7 @@ class CfnStateMachineProps:
     @builtins.property
     def definition_substitutions(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''A map (string to string) that specifies the mappings for placeholder variables in the state machine definition.
 
         This enables the customer to inject values obtained at runtime, for example from intrinsic functions, in the state machine definition. Variables can be template parameter names, resource logical IDs, resource attributes, or a variable in a key-value map.
@@ -4405,7 +4405,7 @@ class CfnStateMachineProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-stepfunctions-statemachine.html#cfn-stepfunctions-statemachine-definitionsubstitutions
         '''
         result = self._values.get("definition_substitutions")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
     @builtins.property
     def encryption_configuration(
@@ -10818,7 +10818,7 @@ class S3JsonLItemReader(
         
         # bucket: s3.Bucket
         
-        s3_json_lItem_reader = stepfunctions.S3JsonLItemReader(
+        s3_json_l_item_reader = stepfunctions.S3JsonLItemReader(
             key="key",
         
             # the properties below are optional
@@ -26970,7 +26970,7 @@ def _typecheckingstub__8b19fff9309f98c9776cf416019a5217333b4d6f0f81e27e2256a87f9
     definition: typing.Any = None,
     definition_s3_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStateMachine.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     definition_string: typing.Optional[typing.Union[builtins.str, _ITableRef_4478f0ad, _ITaskDefinitionRef_8091fc1c, _IFunctionRef_2601eb33, _IVersionRef_4fdb94ad, _ITopicRef_29aa9a88, _IQueueRef_fa8b2198]] = None,
-    definition_substitutions: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    definition_substitutions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStateMachine.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     logging_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStateMachine.LoggingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     state_machine_name: typing.Optional[builtins.str] = None,
@@ -27030,7 +27030,7 @@ def _typecheckingstub__c930aec966c75b589ce56dba8aee211d61eeb6c41d99c5c84ab2df4b7
     pass
 
 def _typecheckingstub__e05fa36d2c9116cb2c90b1560cd6e7bc08699fa552a7e75ce5775a927ad53415(
-    value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -27230,7 +27230,7 @@ def _typecheckingstub__bf4d4e83bd396b6667f5c30b66226d7e76f61626aea9c4ec1355f6e6a
     definition: typing.Any = None,
     definition_s3_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStateMachine.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     definition_string: typing.Optional[typing.Union[builtins.str, _ITableRef_4478f0ad, _ITaskDefinitionRef_8091fc1c, _IFunctionRef_2601eb33, _IVersionRef_4fdb94ad, _ITopicRef_29aa9a88, _IQueueRef_fa8b2198]] = None,
-    definition_substitutions: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    definition_substitutions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStateMachine.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     logging_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStateMachine.LoggingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     state_machine_name: typing.Optional[builtins.str] = None,

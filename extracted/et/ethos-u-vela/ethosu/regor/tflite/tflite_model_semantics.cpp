@@ -1,5 +1,5 @@
 //
-// SPDX-FileCopyrightText: Copyright 2023-2025 Arm Limited and/or its affiliates <open-source-office@arm.com>
+// SPDX-FileCopyrightText: Copyright 2023-2026 Arm Limited and/or its affiliates <open-source-office@arm.com>
 // SPDX-FileCopyrightText: Copyright 2025 Meta Platforms, Inc. and affiliates.
 //
 // SPDX-License-Identifier: Apache-2.0
@@ -33,7 +33,15 @@ namespace tflite
 {
 using BufferOffsetRef = const flatbuffers::Vector<flatbuffers::Offset<Buffer>> &;
 
-using OperatorFunction = void (*)(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, BufferOffsetRef buffers);
+struct BufferContext
+{
+    BufferOffsetRef buffers;
+    const uint8_t *input;
+    size_t size;
+};
+
+using OperatorFunction = void (*)(
+    const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, const BufferContext &context);
 using OpCheckVec = std::vector<OperatorFunction>;
 
 namespace
@@ -183,13 +191,25 @@ const std::array<BuiltinOperator, 3> reshapeOps = {BuiltinOperator::RESHAPE, Bui
 
 
 template<typename T>
-T DataFromBuffer(BufferOffsetRef buffers, uint32_t bufferIndex, size_t index)
+T DataFromBuffer(const BufferContext &context, uint32_t bufferIndex, size_t index)
 {
-    bufferIndex = BoundsCheckedIndex(bufferIndex, buffers);
-    auto buffer = CheckedPtr(buffers[bufferIndex]);
-    const void *p = CheckedPtr(buffer->data())->data();
-    if ( (uintptr_t(p) % alignof(T)) == 0 && index < CheckedPtr(buffer->data())->size() )
-        return static_cast<const T *>(p)[index];
+    bufferIndex = BoundsCheckedIndex(bufferIndex, context.buffers);
+    auto buffer = CheckedPtr(context.buffers[bufferIndex]);
+    const void *p = nullptr;
+    size_t size = 0;
+    if ( buffer->offset() > 1 )
+    {
+        if ( buffer->offset() + buffer->size() > context.size ) throw std::runtime_error("Invalid buffer\n");
+        p = context.input + buffer->offset();
+        size = buffer->size();
+    }
+    else
+    {
+        auto data = CheckedPtr(buffer->data());
+        p = data->data();
+        size = data->size();
+    }
+    if ( (uintptr_t(p) % alignof(T)) == 0 && index < (size / sizeof(T)) ) return static_cast<const T *>(p)[index];
     throw std::runtime_error("Out of bounds\n");
 }
 
@@ -243,42 +263,51 @@ bool IsDynamicShape(const Shape &shape)
 void ConstraintEmptyConstTensors(const Model &m_model)
 {
     std::unordered_set<int> writtenTensors;
-    auto &buffers = *CheckedPtr(m_model.buffers());
+    const auto &buffers = *CheckedPtr(m_model.buffers());
     for ( const auto subgraph : *m_model.subgraphs() )
     {
         auto &tensors = *CheckedPtr(subgraph->tensors());
-        if ( subgraph->inputs() && subgraph->operators() )
+        if ( subgraph->inputs() )
         {
             for ( auto input : *subgraph->inputs() )
             {
                 writtenTensors.insert(input);
             }
+        }
 
+        if ( subgraph->operators() )
+        {
             for ( auto op : *subgraph->operators() )
             {
-                for ( auto output : *op->outputs() )
+                if ( op->outputs() )
                 {
-                    writtenTensors.insert(output);
+                    for ( auto output : *op->outputs() )
+                    {
+                        writtenTensors.insert(output);
+                    }
                 }
             }
             for ( auto op : *subgraph->operators() )
             {
-                for ( auto input : *op->inputs() )
+                if ( op->inputs() )
                 {
-                    if ( input != -1 && !writtenTensors.count(input) )
+                    for ( auto input : *op->inputs() )
                     {
-                        auto tensor = tensors[BoundsCheckedIndex(input, tensors)];
-                        // Buffer 0 is a special buffer that is used for empty tensors.
-                        // Variable tensors are also empty but are not forced to use Buffer 0.
-                        if ( tensor->buffer() == 0 || tensor->is_variable() ) continue;
-
-                        auto buffer = buffers[BoundsCheckedIndex(tensor->buffer(), buffers)];
-
-                        if ( !((buffer->offset() > 1 && buffer->size() != 0) || (buffer->data() && buffer->data()->size() != 0)) )
+                        if ( input != -1 && !writtenTensors.count(input) )
                         {
-                            std::string constraint = "Constant tensors must not have empty buffers";
-                            std::string extra = "Found Constant Tensor with empty buffer";
-                            throw InvalidTfLiteException(constraint, extra, *tensor);
+                            auto tensor = tensors[BoundsCheckedIndex(input, tensors)];
+                            // Buffer 0 is a special buffer that is used for empty tensors.
+                            // Variable tensors are also empty but are not forced to use Buffer 0.
+                            if ( tensor->buffer() == 0 || tensor->is_variable() ) continue;
+
+                            auto buffer = buffers[BoundsCheckedIndex(tensor->buffer(), buffers)];
+
+                            if ( !((buffer->offset() > 1 && buffer->size() != 0) || (buffer->data() && buffer->data()->size() != 0)) )
+                            {
+                                std::string constraint = "Constant tensors must not have empty buffers";
+                                std::string extra = "Found Constant Tensor with empty buffer";
+                                throw InvalidTfLiteException(constraint, extra, *tensor);
+                            }
                         }
                     }
                 }
@@ -309,11 +338,11 @@ void ConstraintTensQuantScale(const Model &m_model)
     }
 }
 
-void ConstraintQuantScaleInf(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, BufferOffsetRef)
+void ConstraintQuantScaleInf(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, const BufferContext &)
 {
-    auto *inputs = CheckedPtr(op.inputs());
-    auto *outputs = CheckedPtr(op.outputs());
-    if ( inputs->size() > 0 && outputs->size() > 0 )
+    auto *inputs = op.inputs();
+    auto *outputs = op.outputs();
+    if ( inputs && inputs->size() > 0 && outputs && outputs->size() > 0 )
     {
         auto ifm = TensorFromUsage(regor::TensorUsage::IFM, op, builtinOperator, *subgraph.tensors());
         auto ofm = TensorFromUsage(regor::TensorUsage::OFM, op, builtinOperator, *subgraph.tensors());
@@ -336,7 +365,7 @@ void ConstraintQuantScaleInf(const Operator &op, const SubGraph &subgraph, const
     }
 }
 
-void ConstraintConvGroupsIfmDepth(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, BufferOffsetRef)
+void ConstraintConvGroupsIfmDepth(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, const BufferContext &)
 {
     auto ifm = TensorFromUsage(regor::TensorUsage::IFM, op, builtinOperator, *subgraph.tensors());
     auto weights = TensorFromUsage(regor::TensorUsage::Weights, op, builtinOperator, *subgraph.tensors());
@@ -359,7 +388,7 @@ void ConstraintConvGroupsIfmDepth(const Operator &op, const SubGraph &subgraph, 
     }
 }
 
-void ConstraintConvGroupsNumFilters(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, BufferOffsetRef)
+void ConstraintConvGroupsNumFilters(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, const BufferContext &)
 {
     auto ifm = TensorFromUsage(regor::TensorUsage::IFM, op, builtinOperator, *subgraph.tensors());
     auto weights = TensorFromUsage(regor::TensorUsage::Weights, op, builtinOperator, *subgraph.tensors());
@@ -384,7 +413,7 @@ void ConstraintConvGroupsNumFilters(const Operator &op, const SubGraph &subgraph
     }
 }
 
-void ConstraintDepthwiseConvOfmDepth(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, BufferOffsetRef)
+void ConstraintDepthwiseConvOfmDepth(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, const BufferContext &)
 {
     auto ifm = TensorFromUsage(regor::TensorUsage::IFM, op, builtinOperator, *subgraph.tensors());
     auto ofm = TensorFromUsage(regor::TensorUsage::OFM, op, builtinOperator, *subgraph.tensors());
@@ -408,7 +437,7 @@ void ConstraintDepthwiseConvOfmDepth(const Operator &op, const SubGraph &subgrap
     }
 }
 
-void ConstraintMatchingInOutTypes(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, BufferOffsetRef)
+void ConstraintMatchingInOutTypes(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, const BufferContext &)
 {
     auto ifm = TensorFromUsage(regor::TensorUsage::IFM, op, builtinOperator, *subgraph.tensors());
     auto ofm = TensorFromUsage(regor::TensorUsage::OFM, op, builtinOperator, *subgraph.tensors());
@@ -421,7 +450,7 @@ void ConstraintMatchingInOutTypes(const Operator &op, const SubGraph &subgraph, 
     }
 }
 
-void ConstraintSoftmaxInOutTypes(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, BufferOffsetRef)
+void ConstraintSoftmaxInOutTypes(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, const BufferContext &)
 {
     auto ifm = TensorFromUsage(regor::TensorUsage::IFM, op, builtinOperator, *subgraph.tensors());
     auto ofm = TensorFromUsage(regor::TensorUsage::OFM, op, builtinOperator, *subgraph.tensors());
@@ -434,7 +463,7 @@ void ConstraintSoftmaxInOutTypes(const Operator &op, const SubGraph &subgraph, c
     }
 }
 
-void ConstraintBetaValueRange(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, BufferOffsetRef)
+void ConstraintBetaValueRange(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, const BufferContext &)
 {
     auto beta = CheckedPtr(op.builtin_options_as_SoftmaxOptions())->beta();
     if ( beta < 0 )
@@ -445,7 +474,7 @@ void ConstraintBetaValueRange(const Operator &op, const SubGraph &subgraph, cons
     }
 }
 
-void ConstraintMatchingShapes(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, BufferOffsetRef)
+void ConstraintMatchingShapes(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, const BufferContext &)
 {
     auto ifm = TensorFromUsage(regor::TensorUsage::IFM, op, builtinOperator, *subgraph.tensors());
     auto ofm = TensorFromUsage(regor::TensorUsage::OFM, op, builtinOperator, *subgraph.tensors());
@@ -460,12 +489,12 @@ void ConstraintMatchingShapes(const Operator &op, const SubGraph &subgraph, cons
     }
 }
 
-void ConstraintSplitDim(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, BufferOffsetRef buffers)
+void ConstraintSplitDim(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, const BufferContext &context)
 {
     auto ifm = TensorFromUsage(regor::TensorUsage::IFM, op, builtinOperator, *subgraph.tensors());
     auto splitDimTensor = TensorFromUsage(regor::TensorUsage::Params, op, builtinOperator, *subgraph.tensors());
 
-    int64_t splitDim = DataFromBuffer<int>(buffers, splitDimTensor->buffer(), 0);
+    int64_t splitDim = DataFromBuffer<int>(context, splitDimTensor->buffer(), 0);
     int64_t ifmRank = CheckedPtr(ifm->shape())->size();
 
     if ( splitDim <= -ifmRank || splitDim > ifmRank || ifmRank < 0 )
@@ -476,13 +505,13 @@ void ConstraintSplitDim(const Operator &op, const SubGraph &subgraph, const Buil
     }
 }
 
-void ConstraintSplitNumSplits(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, BufferOffsetRef buffers)
+void ConstraintSplitNumSplits(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, const BufferContext &context)
 {
     auto ifm = TensorFromUsage(regor::TensorUsage::IFM, op, builtinOperator, *subgraph.tensors());
     auto ifmShape = ShapeFromTens(ifm);
 
     auto splitDimTensor = TensorFromUsage(regor::TensorUsage::Params, op, builtinOperator, *subgraph.tensors());
-    auto splitDim = DataFromBuffer<int>(buffers, splitDimTensor->buffer(), 0);
+    auto splitDim = DataFromBuffer<int>(context, splitDimTensor->buffer(), 0);
     if ( splitDim < 0 )
     {
         splitDim = CheckedAdd(ifmShape.Size(), splitDim);
@@ -504,7 +533,7 @@ void ConstraintSplitNumSplits(const Operator &op, const SubGraph &subgraph, cons
     }
 }
 
-void ConstraintSplitvInferred(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, BufferOffsetRef buffers)
+void ConstraintSplitvInferred(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, const BufferContext &context)
 {
     auto sizeSplits = TensorFromUsage(regor::TensorUsage::Params, op, builtinOperator, *subgraph.tensors());
 
@@ -521,10 +550,10 @@ void ConstraintSplitvInferred(const Operator &op, const SubGraph &subgraph, cons
 
     for ( unsigned int i = 0; static_cast<int>(i) < sizeSplitsElems; i++ )
     {
-        if ( DataFromBuffer<int>(buffers, sizeSplits->buffer(), i) == -1 )
+        if ( DataFromBuffer<int>(context, sizeSplits->buffer(), i) == -1 )
         {
             sizesToInfer++;
-            vec.emplace_back(DataFromBuffer<int>(buffers, sizeSplits->buffer(), i));
+            vec.emplace_back(DataFromBuffer<int>(context, sizeSplits->buffer(), i));
             if ( sizesToInfer > 1 )
             {
                 valid = false;
@@ -539,7 +568,7 @@ void ConstraintSplitvInferred(const Operator &op, const SubGraph &subgraph, cons
     }
 }
 
-void ConstraintAxisValid(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, BufferOffsetRef)
+void ConstraintAxisValid(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, const BufferContext &)
 {
     auto ofm = TensorFromUsage(regor::TensorUsage::OFM, op, builtinOperator, *subgraph.tensors());
     int64_t ofmRank = CheckedPtr(ofm->shape())->size();
@@ -554,7 +583,7 @@ void ConstraintAxisValid(const Operator &op, const SubGraph &subgraph, const Bui
     }
 }
 
-void ConstraintMatchingDimensionality(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, BufferOffsetRef)
+void ConstraintMatchingDimensionality(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, const BufferContext &)
 {
     auto ofm = TensorFromUsage(regor::TensorUsage::OFM, op, builtinOperator, *subgraph.tensors());
     unsigned int ofmRank = CheckedPtr(ofm->shape())->size();
@@ -573,7 +602,7 @@ void ConstraintMatchingDimensionality(const Operator &op, const SubGraph &subgra
     }
 }
 
-void ConstraintValidDimensions(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, BufferOffsetRef)
+void ConstraintValidDimensions(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, const BufferContext &)
 {
     auto ofm = TensorFromUsage(regor::TensorUsage::OFM, op, builtinOperator, *subgraph.tensors());
     auto ofmShape = ShapeFromTens(ofm);
@@ -619,7 +648,7 @@ void ConstraintValidDimensions(const Operator &op, const SubGraph &subgraph, con
 }
 
 
-void ConstraintStridedsliceInputCount(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, BufferOffsetRef)
+void ConstraintStridedsliceInputCount(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, const BufferContext &)
 {
     auto inputs = CheckedPtr(op.inputs());
 
@@ -631,7 +660,7 @@ void ConstraintStridedsliceInputCount(const Operator &op, const SubGraph &subgra
     }
 }
 
-void ConstraintPadInputCount(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, BufferOffsetRef)
+void ConstraintPadInputCount(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, const BufferContext &)
 {
     auto inputs = CheckedPtr(op.inputs());
 
@@ -643,7 +672,7 @@ void ConstraintPadInputCount(const Operator &op, const SubGraph &subgraph, const
     }
 }
 
-void ConstraintPadOutputShape(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, BufferOffsetRef buffers)
+void ConstraintPadOutputShape(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, const BufferContext &context)
 {
     auto ifm = TensorFromUsage(regor::TensorUsage::IFM, op, builtinOperator, *subgraph.tensors());
     auto ofm = TensorFromUsage(regor::TensorUsage::OFM, op, builtinOperator, *subgraph.tensors());
@@ -663,13 +692,13 @@ void ConstraintPadOutputShape(const Operator &op, const SubGraph &subgraph, cons
         int paddedOutDim;
         if ( padTensor->type() == TensorType::INT32 )
         {
-            paddedOutDim = CheckedAdd(CheckedAdd(ifmShape[dim], DataFromBuffer<int>(buffers, padTensor->buffer(), dim * 2)),
-                DataFromBuffer<int>(buffers, padTensor->buffer(), dim * 2 + 1));
+            paddedOutDim = CheckedAdd(CheckedAdd(ifmShape[dim], DataFromBuffer<int>(context, padTensor->buffer(), dim * 2)),
+                DataFromBuffer<int>(context, padTensor->buffer(), dim * 2 + 1));
         }
         else
         {
-            paddedOutDim = CheckedAdd(CheckedAdd(ifmShape[dim], DataFromBuffer<int64_t>(buffers, padTensor->buffer(), dim * 2)),
-                DataFromBuffer<int64_t>(buffers, padTensor->buffer(), dim * 2 + 1));
+            paddedOutDim = CheckedAdd(CheckedAdd(ifmShape[dim], DataFromBuffer<int64_t>(context, padTensor->buffer(), dim * 2)),
+                DataFromBuffer<int64_t>(context, padTensor->buffer(), dim * 2 + 1));
         }
 
         if ( paddedOutDim != ofmShape[dim] )
@@ -682,7 +711,7 @@ void ConstraintPadOutputShape(const Operator &op, const SubGraph &subgraph, cons
     }
 }
 
-void ConstraintMatchingInputsTypes(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, BufferOffsetRef)
+void ConstraintMatchingInputsTypes(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, const BufferContext &)
 {
     auto ifm = TensorFromUsage(regor::TensorUsage::IFM, op, builtinOperator, *subgraph.tensors());
     auto ifm2 = TensorFromUsage(MakeTensorUsage(regor::TensorUsage::IFM, 1), op, builtinOperator, *subgraph.tensors());
@@ -695,7 +724,7 @@ void ConstraintMatchingInputsTypes(const Operator &op, const SubGraph &subgraph,
     }
 }
 
-void ConstraintMatchingSigned(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, BufferOffsetRef)
+void ConstraintMatchingSigned(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, const BufferContext &)
 {
     auto ifm = TensorFromUsage(regor::TensorUsage::IFM, op, builtinOperator, *subgraph.tensors());
     auto ofm = TensorFromUsage(regor::TensorUsage::OFM, op, builtinOperator, *subgraph.tensors());
@@ -708,7 +737,7 @@ void ConstraintMatchingSigned(const Operator &op, const SubGraph &subgraph, cons
     }
 }
 
-void ConstraintUnsignedValid(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, BufferOffsetRef)
+void ConstraintUnsignedValid(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, const BufferContext &)
 {
     auto ifm = TensorFromUsage(regor::TensorUsage::IFM, op, builtinOperator, *subgraph.tensors());
     auto ofm = TensorFromUsage(regor::TensorUsage::OFM, op, builtinOperator, *subgraph.tensors());
@@ -722,7 +751,7 @@ void ConstraintUnsignedValid(const Operator &op, const SubGraph &subgraph, const
     }
 }
 
-void ConstraintInputSigned(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, BufferOffsetRef)
+void ConstraintInputSigned(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, const BufferContext &)
 {
     auto ifm = TensorFromUsage(regor::TensorUsage::IFM, op, builtinOperator, *subgraph.tensors());
 
@@ -734,7 +763,7 @@ void ConstraintInputSigned(const Operator &op, const SubGraph &subgraph, const B
     }
 }
 
-void ConstraintInput8bit(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, BufferOffsetRef)
+void ConstraintInput8bit(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, const BufferContext &)
 {
     auto ifm = TensorFromUsage(regor::TensorUsage::IFM, op, builtinOperator, *subgraph.tensors());
 
@@ -746,7 +775,7 @@ void ConstraintInput8bit(const Operator &op, const SubGraph &subgraph, const Bui
     }
 }
 
-void ConstraintParams32bit(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, BufferOffsetRef)
+void ConstraintParams32bit(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, const BufferContext &)
 {
     auto params = TensorFromUsage(regor::TensorUsage::Params, op, builtinOperator, *subgraph.tensors());
 
@@ -758,7 +787,7 @@ void ConstraintParams32bit(const Operator &op, const SubGraph &subgraph, const B
     }
 }
 
-void ConstraintArgmaxOutput(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, BufferOffsetRef)
+void ConstraintArgmaxOutput(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, const BufferContext &)
 {
     auto ofm = TensorFromUsage(regor::TensorUsage::OFM, op, builtinOperator, *subgraph.tensors());
 
@@ -770,7 +799,7 @@ void ConstraintArgmaxOutput(const Operator &op, const SubGraph &subgraph, const 
     }
 }
 
-void ConstraintGatherIndicesInput(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, BufferOffsetRef)
+void ConstraintGatherIndicesInput(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, const BufferContext &)
 {
     auto ifm2 = TensorFromUsage(regor::TensorUsage::IFM1, op, builtinOperator, *subgraph.tensors());
 
@@ -782,7 +811,7 @@ void ConstraintGatherIndicesInput(const Operator &op, const SubGraph &subgraph, 
     }
 }
 
-void ConstraintTransposeParamsInput(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, BufferOffsetRef)
+void ConstraintTransposeParamsInput(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, const BufferContext &)
 {
     auto ifm = TensorFromUsage(regor::TensorUsage::IFM, op, builtinOperator, *subgraph.tensors());
     auto params = TensorFromUsage(regor::TensorUsage::Params, op, builtinOperator, *subgraph.tensors());
@@ -798,7 +827,7 @@ void ConstraintTransposeParamsInput(const Operator &op, const SubGraph &subgraph
     }
 }
 
-void ConstraintMatchingEitherShapes(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, BufferOffsetRef)
+void ConstraintMatchingEitherShapes(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, const BufferContext &)
 {
     auto ifm = TensorFromUsage(regor::TensorUsage::IFM, op, builtinOperator, *subgraph.tensors());
     auto ofm = TensorFromUsage(regor::TensorUsage::OFM, op, builtinOperator, *subgraph.tensors());
@@ -827,7 +856,7 @@ void ConstraintMatchingEitherShapes(const Operator &op, const SubGraph &subgraph
     }
 }
 
-void ConstraintMatchingInOutQuant(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, BufferOffsetRef)
+void ConstraintMatchingInOutQuant(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, const BufferContext &)
 {
     auto ifm = TensorFromUsage(regor::TensorUsage::IFM, op, builtinOperator, *subgraph.tensors());
     auto ofm = TensorFromUsage(regor::TensorUsage::OFM, op, builtinOperator, *subgraph.tensors());
@@ -844,7 +873,7 @@ void ConstraintMatchingInOutQuant(const Operator &op, const SubGraph &subgraph, 
     }
 }
 
-void ConstraintKeepDimIfmOfm(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, BufferOffsetRef)
+void ConstraintKeepDimIfmOfm(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, const BufferContext &)
 {
     if ( CheckedPtr(op.builtin_options_as_FullyConnectedOptions())->keep_num_dims() )
     {
@@ -861,7 +890,7 @@ void ConstraintKeepDimIfmOfm(const Operator &op, const SubGraph &subgraph, const
     }
 }
 
-void ConstraintMatchingInOutElements(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, BufferOffsetRef)
+void ConstraintMatchingInOutElements(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, const BufferContext &)
 {
     auto ifm = TensorFromUsage(regor::TensorUsage::IFM, op, builtinOperator, *subgraph.tensors());
     auto ofm = TensorFromUsage(regor::TensorUsage::OFM, op, builtinOperator, *subgraph.tensors());
@@ -878,7 +907,7 @@ void ConstraintMatchingInOutElements(const Operator &op, const SubGraph &subgrap
     }
 }
 
-void ConstraintLstmInputRank(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, BufferOffsetRef)
+void ConstraintLstmInputRank(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, const BufferContext &)
 {
     auto ifm = TensorFromUsage(regor::TensorUsage::IFM, op, builtinOperator, *subgraph.tensors());
     auto ofm = TensorFromUsage(regor::TensorUsage::OFM, op, builtinOperator, *subgraph.tensors());
@@ -892,7 +921,7 @@ void ConstraintLstmInputRank(const Operator &op, const SubGraph &subgraph, const
     }
 }
 
-void ConstraintLstmInputs(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, BufferOffsetRef)
+void ConstraintLstmInputs(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, const BufferContext &)
 {
     auto input = CheckedPtr(op.inputs());
     if ( input->size() != 24 )
@@ -903,7 +932,7 @@ void ConstraintLstmInputs(const Operator &op, const SubGraph &subgraph, const Bu
     }
 }
 
-void ConstraintLstmIntermediates(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, BufferOffsetRef)
+void ConstraintLstmIntermediates(const Operator &op, const SubGraph &subgraph, const BuiltinOperator &builtinOperator, const BufferContext &)
 {
     auto intermediates = CheckedPtr(op.intermediates());
     if ( intermediates->size() != 5 )
@@ -914,7 +943,7 @@ void ConstraintLstmIntermediates(const Operator &op, const SubGraph &subgraph, c
     }
 }
 // TODO: Implement ConstraintLstmVariables when adding LSTM support
-void ConstraintLstmVariables(const Operator &, const SubGraph &, const BuiltinOperator &, BufferOffsetRef)
+void ConstraintLstmVariables(const Operator &, const SubGraph &, const BuiltinOperator &, const BufferContext &)
 {
 }
 
@@ -1034,6 +1063,7 @@ void TFLiteModelSemantics::Check()
 {
     auto buffers = CheckedPtr(m_model->buffers());
     auto specificOpConstraints = GetSpecificConstraints();
+    BufferContext context = {*buffers, m_input, m_size};
 
     try
     {
@@ -1054,12 +1084,12 @@ void TFLiteModelSemantics::Check()
 
                 for ( const auto &constraintFunc : genericOpConstraints )
                 {
-                    constraintFunc(*op, *subgraph, builtinOperator, *buffers);
+                    constraintFunc(*op, *subgraph, builtinOperator, context);
                 }
 
                 for ( const auto &constraintFunc : specificOpConstraints[builtinOperator] )
                 {
-                    constraintFunc(*op, *subgraph, builtinOperator, *buffers);
+                    constraintFunc(*op, *subgraph, builtinOperator, context);
                 }
             }
         }

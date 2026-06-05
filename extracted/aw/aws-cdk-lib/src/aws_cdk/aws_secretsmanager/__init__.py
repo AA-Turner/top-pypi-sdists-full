@@ -5274,23 +5274,28 @@ class SecretRotationApplication(
 
     def __init__(
         self,
-        application_id: builtins.str,
-        semantic_version: builtins.str,
+        application_name: builtins.str,
+        aws_semantic_version: builtins.str,
         *,
+        additional_semantic_versions: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         is_multi_user: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''
-        :param application_id: -
-        :param semantic_version: -
-        :param is_multi_user: Whether the rotation application uses the mutli user scheme. Default: false
+        :param application_name: - The name of the rotation application.
+        :param aws_semantic_version: - AWS partition semantic version for the application.
+        :param additional_semantic_versions: Semantic versions for partitions other than 'aws'. If not specified, it is assumed that non aws partitions (eg aws-cn, aws-us-gov) are not supported. Default: - no additional partition versions (only 'aws' partition is supported)
+        :param is_multi_user: Whether the rotation application uses the multi user scheme. Default: false
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__64ee5069d4d76c1a7480c8ab8a2310eb526b91e4ede733275861ab92f09c4d8d)
-            check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
-            check_type(argname="argument semantic_version", value=semantic_version, expected_type=type_hints["semantic_version"])
-        options = SecretRotationApplicationOptions(is_multi_user=is_multi_user)
+            check_type(argname="argument application_name", value=application_name, expected_type=type_hints["application_name"])
+            check_type(argname="argument aws_semantic_version", value=aws_semantic_version, expected_type=type_hints["aws_semantic_version"])
+        options = SecretRotationApplicationOptions(
+            additional_semantic_versions=additional_semantic_versions,
+            is_multi_user=is_multi_user,
+        )
 
-        jsii.create(self.__class__, self, [application_id, semantic_version, options])
+        jsii.create(self.__class__, self, [application_name, aws_semantic_version, options])
 
     @jsii.member(jsii_name="applicationArnForPartition")
     def application_arn_for_partition(self, partition: builtins.str) -> builtins.str:
@@ -5317,6 +5322,18 @@ class SecretRotationApplication(
             type_hints = typing.get_type_hints(_typecheckingstub__34cdc6a16dd1256cd156165681f90e3daccb47bbc9f00f3dee6be718836a144e)
             check_type(argname="argument partition", value=partition, expected_type=type_hints["partition"])
         return typing.cast(builtins.str, jsii.invoke(self, "semanticVersionForPartition", [partition]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="DB2_ROTATION_MULTI_USER")
+    def DB2_ROTATION_MULTI_USER(cls) -> "SecretRotationApplication":
+        '''Conducts an AWS SecretsManager secret rotation for RDS Db2 using the multi user rotation scheme.'''
+        return typing.cast("SecretRotationApplication", jsii.sget(cls, "DB2_ROTATION_MULTI_USER"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="DB2_ROTATION_SINGLE_USER")
+    def DB2_ROTATION_SINGLE_USER(cls) -> "SecretRotationApplication":
+        '''Conducts an AWS SecretsManager secret rotation for RDS Db2 using the single user rotation scheme.'''
+        return typing.cast("SecretRotationApplication", jsii.sget(cls, "DB2_ROTATION_SINGLE_USER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="MARIADB_ROTATION_MULTI_USER")
@@ -5405,20 +5422,29 @@ class SecretRotationApplication(
     @builtins.property
     @jsii.member(jsii_name="isMultiUser")
     def is_multi_user(self) -> typing.Optional[builtins.bool]:
-        '''Whether the rotation application uses the mutli user scheme.'''
+        '''Whether the rotation application uses the multi user scheme.'''
         return typing.cast(typing.Optional[builtins.bool], jsii.get(self, "isMultiUser"))
 
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_secretsmanager.SecretRotationApplicationOptions",
     jsii_struct_bases=[],
-    name_mapping={"is_multi_user": "isMultiUser"},
+    name_mapping={
+        "additional_semantic_versions": "additionalSemanticVersions",
+        "is_multi_user": "isMultiUser",
+    },
 )
 class SecretRotationApplicationOptions:
-    def __init__(self, *, is_multi_user: typing.Optional[builtins.bool] = None) -> None:
+    def __init__(
+        self,
+        *,
+        additional_semantic_versions: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        is_multi_user: typing.Optional[builtins.bool] = None,
+    ) -> None:
         '''Options for a SecretRotationApplication.
 
-        :param is_multi_user: Whether the rotation application uses the mutli user scheme. Default: false
+        :param additional_semantic_versions: Semantic versions for partitions other than 'aws'. If not specified, it is assumed that non aws partitions (eg aws-cn, aws-us-gov) are not supported. Default: - no additional partition versions (only 'aws' partition is supported)
+        :param is_multi_user: Whether the rotation application uses the multi user scheme. Default: false
 
         :exampleMetadata: fixture=_generated
 
@@ -5429,19 +5455,38 @@ class SecretRotationApplicationOptions:
             from aws_cdk import aws_secretsmanager as secretsmanager
             
             secret_rotation_application_options = secretsmanager.SecretRotationApplicationOptions(
+                additional_semantic_versions={
+                    "additional_semantic_versions_key": "additionalSemanticVersions"
+                },
                 is_multi_user=False
             )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4031e67669c9d894c4b135c6ba74260eb70dfbf2062b93dfcdaa12661f238f15)
+            check_type(argname="argument additional_semantic_versions", value=additional_semantic_versions, expected_type=type_hints["additional_semantic_versions"])
             check_type(argname="argument is_multi_user", value=is_multi_user, expected_type=type_hints["is_multi_user"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if additional_semantic_versions is not None:
+            self._values["additional_semantic_versions"] = additional_semantic_versions
         if is_multi_user is not None:
             self._values["is_multi_user"] = is_multi_user
 
     @builtins.property
+    def additional_semantic_versions(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''Semantic versions for partitions other than 'aws'.
+
+        If not specified, it is assumed that non aws partitions (eg aws-cn, aws-us-gov) are not supported.
+
+        :default: - no additional partition versions (only 'aws' partition is supported)
+        '''
+        result = self._values.get("additional_semantic_versions")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
     def is_multi_user(self) -> typing.Optional[builtins.bool]:
-        '''Whether the rotation application uses the mutli user scheme.
+        '''Whether the rotation application uses the multi user scheme.
 
         :default: false
         '''
@@ -7319,9 +7364,10 @@ def _typecheckingstub__285e1365869712d85cdd4496e40d771d84f2ec9854bb5d06447b27986
     pass
 
 def _typecheckingstub__64ee5069d4d76c1a7480c8ab8a2310eb526b91e4ede733275861ab92f09c4d8d(
-    application_id: builtins.str,
-    semantic_version: builtins.str,
+    application_name: builtins.str,
+    aws_semantic_version: builtins.str,
     *,
+    additional_semantic_versions: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     is_multi_user: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
@@ -7341,6 +7387,7 @@ def _typecheckingstub__34cdc6a16dd1256cd156165681f90e3daccb47bbc9f00f3dee6be7188
 
 def _typecheckingstub__4031e67669c9d894c4b135c6ba74260eb70dfbf2062b93dfcdaa12661f238f15(
     *,
+    additional_semantic_versions: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     is_multi_user: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""

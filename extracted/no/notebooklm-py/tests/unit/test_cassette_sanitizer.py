@@ -38,6 +38,7 @@ TESTS_DIR = REPO_ROOT / "tests"
 # Other test modules add it to ``sys.path``; we follow the same convention.
 sys.path.insert(0, str(TESTS_DIR))
 
+from cassette_patterns import find_credential_leaks, is_clean  # noqa: E402
 from vcr_config import scrub_string  # noqa: E402
 
 GUARD_SCRIPT = TESTS_DIR / "scripts" / "check_cassettes_clean.py"
@@ -210,6 +211,62 @@ def test_authuser_email_scrubbed_for_any_domain(url: str) -> None:
     # And the canonical placeholder is present with the URL-encoded ``%40`` shape
     # so VCR's URL-match path still sees a well-formed ``authuser=`` value.
     assert "authuser=SCRUBBED_EMAIL%40example.com" in scrubbed
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        # The actual leak shape from the 9 affected cassettes: the email-bearing
+        # inner URL is the *value* of a ``continue=`` redirect param, so its
+        # ``?authuser=`` got percent-encoded one extra level — ``?``→``%3F``,
+        # ``=``→``%3D``, ``@``→``%40`` (issue #1368).
+        "https://accounts.google.com/SignOutOptions?hl=en&continue="
+        "https://notebooklm.google.com/%3Fauthuser%3Dalice%40gmail.com&ec=GBRAmgU",
+        # ``brandaccounts`` redirect variant — same double-encoded inner URL.
+        "https://myaccount.google.com/brandaccounts?authuser=0&continue="
+        "https://notebooklm.google.com/%3Fauthuser%3Dalice%40gmail.com&service=/",
+        # Workspace / custom domain — shape-based detection must not narrow to
+        # the public-provider allowlist.
+        "https://notebooklm.google.com/%3Fauthuser%3Dalice%40company.com&ec=x",
+        # Plus-aliased local part (``+``→``%2B`` on the wire), multi-dot TLD.
+        "https://notebooklm.google.com/%3Fauthuser%3Dops%2Btag%40eng.corp.example.co.uk",
+    ],
+)
+def test_double_encoded_authuser_email_scrubbed_and_detected(url: str) -> None:
+    """Double-encoded ``authuser%3D…%40…`` redirect URLs are caught (#1368).
+
+    Regression gate for the leak class where the maintainer's email rode
+    double-URL-encoded inside Google account-menu ``continue=`` redirect URLs.
+    The single-encoded ``authuser=`` scrubber anchors on a literal ``=`` so it
+    never matched ``authuser%3D``, and the email detector anchored on a literal
+    ``@`` so it never matched ``%40`` — both the scrubber and the
+    ``is_clean``/``find_credential_leaks`` detectors slipped the form silently.
+
+    Asserts (a) the detectors FLAG the double-encoded form, and (b)
+    ``scrub_string`` redacts it to the canonical placeholder.
+    """
+    # (a) Detectors flag the leak on the raw double-encoded content.
+    ok, leaks = is_clean(url)
+    assert not ok, f"is_clean failed to flag double-encoded authuser leak: {url!r}"
+    assert any("alice" in leak or "ops" in leak for leak in leaks), leaks
+    assert find_credential_leaks(url), (
+        f"find_credential_leaks failed to flag double-encoded authuser leak: {url!r}"
+    )
+
+    # (b) The original email value is gone in every shape after scrubbing.
+    scrubbed = scrub_string(url)
+    assert "alice" not in scrubbed
+    assert "ops" not in scrubbed
+    assert "company.com" not in scrubbed
+    assert "corp.example" not in scrubbed
+    assert "%40gmail.com" not in scrubbed
+    # The canonical double-encoded placeholder is present so VCR's URL-match
+    # path still sees a well-formed value on replay.
+    assert "authuser%3DSCRUBBED_EMAIL%40example.com" in scrubbed
+    # And the scrubbed output passes the guard cleanly (idempotent validation).
+    ok_after, leaks_after = is_clean(scrubbed)
+    assert ok_after, f"scrubbed output still flagged: {leaks_after}"
+    assert find_credential_leaks(scrubbed) == []
 
 
 # ---------------------------------------------------------------------------
@@ -457,6 +514,48 @@ def test_python_guard_recursive_skips_examples_subdir(tmp_path: Path) -> None:
     res_explicit = _run_guard(str(cassette))
     assert res_explicit.returncode == 1
     assert "Leak (email)" in res_explicit.stdout
+
+
+def test_python_guard_secrets_only_scans_examples_subtree(tmp_path: Path) -> None:
+    """``--secrets-only --recursive`` scans an ``examples/`` subtree (#1266).
+
+    The default scan skips ``examples/`` (placeholder fixtures trip the full
+    heuristics), but ``--secrets-only`` matches only credential shapes — which
+    never occur in placeholder fixtures — so it MUST descend into ``examples/``
+    or a real key hidden there would be a silent blind spot. The key is built
+    by concatenation so no contiguous key literal lives in this source file.
+    Also exercises the ``.json`` widening: the default scan globs only ``.yaml``.
+    """
+    fake_key = "AIza" + "Z" * 35
+    examples = tmp_path / "examples"
+    examples.mkdir()
+    (examples / "leak.json").write_text(f'{{"JrWMbf":"{fake_key}"}}\n', encoding="utf-8")
+
+    # Default mode would skip the examples/ subtree AND only globs .yaml.
+    res_default = _run_guard("--recursive", str(tmp_path))
+    assert res_default.returncode == 0, res_default.stdout + res_default.stderr
+
+    # Secrets-only descends into examples/ and scans the .json file.
+    res_secrets = _run_guard("--secrets-only", "--recursive", str(tmp_path))
+    assert res_secrets.returncode == 1, res_secrets.stdout + res_secrets.stderr
+    assert "Google API key" in res_secrets.stdout
+
+
+def test_python_guard_secrets_only_ignores_placeholder_content(tmp_path: Path) -> None:
+    """``--secrets-only`` does not flag placeholder content that trips is_clean.
+
+    A real-provider email is a leak under the full heuristics but NOT a
+    high-severity credential shape — this is the property that makes scanning
+    fixture dirs full of ``"Scrubbed ..."`` / test-email placeholders viable.
+    """
+    cassette = tmp_path / "fixture.json"
+    cassette.write_text('{"email":"realname@gmail.com"}\n', encoding="utf-8")
+    # Full heuristics WOULD flag the email ...
+    assert _run_guard(str(cassette)).returncode == 1
+    # ... but secrets-only stays silent.
+    res = _run_guard("--secrets-only", str(cassette))
+    assert res.returncode == 0, res.stdout + res.stderr
+    assert "0 leaks found" in res.stdout
 
 
 def test_python_guard_exits_zero_when_no_cassettes_found(tmp_path: Path) -> None:

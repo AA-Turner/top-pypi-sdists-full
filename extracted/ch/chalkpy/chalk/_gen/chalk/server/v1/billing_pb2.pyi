@@ -293,18 +293,24 @@ class GetPodTimeRangesRequest(_message.Message):
     ) -> None: ...
 
 class PodTimeRange(_message.Message):
-    __slots__ = ("pod_name", "start_time", "end_time")
+    __slots__ = ("pod_name", "start_time", "end_time", "node_name", "instance_type")
     POD_NAME_FIELD_NUMBER: _ClassVar[int]
     START_TIME_FIELD_NUMBER: _ClassVar[int]
     END_TIME_FIELD_NUMBER: _ClassVar[int]
+    NODE_NAME_FIELD_NUMBER: _ClassVar[int]
+    INSTANCE_TYPE_FIELD_NUMBER: _ClassVar[int]
     pod_name: str
     start_time: _timestamp_pb2.Timestamp
     end_time: _timestamp_pb2.Timestamp
+    node_name: str
+    instance_type: str
     def __init__(
         self,
         pod_name: _Optional[str] = ...,
         start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        node_name: _Optional[str] = ...,
+        instance_type: _Optional[str] = ...,
     ) -> None: ...
 
 class GetPodTimeRangesResponse(_message.Message):

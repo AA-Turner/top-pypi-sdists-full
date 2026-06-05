@@ -1590,6 +1590,24 @@ class Feature(Generic[_TPrim, _TRich]):
                         raise_error=TypeError,
                     )
                 return Filter(_validate_filter_internal(filter.lhs), "and", _validate_filter_internal(filter.rhs))
+            # Allow a literal comparison condition in the join, e.g. `Document.version == 1` or
+            # `Document.active == True`. Exactly one side is a feature and the other is a constant, which
+            # constrains the joined (foreign) rows against a fixed value rather than against a column from
+            # the other feature class. We only permit this for equality joins; the feature side participates
+            # in the namespace bookkeeping below, and the literal side is passed through untouched.
+            #
+            # String operands are intentionally still treated as feature references (resolved via
+            # Feature.from_root_fqn below) for backwards compatibility, so a string literal is not supported
+            # here; use a non-string-typed feature for literal join conditions.
+            if filter.operation == "==":
+                # `isinstance(..., Feature)` narrows the operand so the namespace bookkeeping below is
+                # type-safe; the other side must be a non-string constant (strings remain feature refs).
+                if isinstance(filter.lhs, Feature) and not isinstance(filter.rhs, (Feature, str)):
+                    seen_namespaces.add(filter.lhs.root_namespace)
+                    return filter
+                if isinstance(filter.rhs, Feature) and not isinstance(filter.lhs, (Feature, str)):
+                    seen_namespaces.add(filter.rhs.root_namespace)
+                    return filter
             if not isinstance(filter.lhs, Feature):
                 if isinstance(filter.lhs, str):
                     try:

@@ -78,6 +78,7 @@ from .literals import (
     FilterValueTypeType,
     FunctionTypeType,
     GlueRecordTypeType,
+    GlueResourceTypeType,
     HTTPMethodType,
     HudiTargetCompressionTypeType,
     IcebergNullOrderType,
@@ -126,6 +127,7 @@ from .literals import (
     SchemaVersionStatusType,
     SeparatorType,
     SessionStatusType,
+    SessionTypeType,
     SettingSourceType,
     SortDirectionTypeType,
     SortType,
@@ -624,6 +626,8 @@ __all__ = (
     "GetCrawlersResponseTypeDef",
     "GetCustomEntityTypeRequestTypeDef",
     "GetCustomEntityTypeResponseTypeDef",
+    "GetDashboardUrlRequestTypeDef",
+    "GetDashboardUrlResponseTypeDef",
     "GetDataCatalogEncryptionSettingsRequestTypeDef",
     "GetDataCatalogEncryptionSettingsResponseTypeDef",
     "GetDataQualityModelRequestTypeDef",
@@ -712,6 +716,8 @@ __all__ = (
     "GetSecurityConfigurationsRequestPaginateTypeDef",
     "GetSecurityConfigurationsRequestTypeDef",
     "GetSecurityConfigurationsResponseTypeDef",
+    "GetSessionEndpointRequestTypeDef",
+    "GetSessionEndpointResponseTypeDef",
     "GetSessionRequestTypeDef",
     "GetSessionResponseTypeDef",
     "GetStatementRequestTypeDef",
@@ -1134,6 +1140,7 @@ __all__ = (
     "SerDeInfoTypeDef",
     "SerDeInfoUnionTypeDef",
     "SessionCommandTypeDef",
+    "SessionEndpointTypeDef",
     "SessionTypeDef",
     "SkewedInfoOutputTypeDef",
     "SkewedInfoTypeDef",
@@ -2821,6 +2828,11 @@ class GetCrawlersRequestTypeDef(TypedDict):
 class GetCustomEntityTypeRequestTypeDef(TypedDict):
     Name: str
 
+class GetDashboardUrlRequestTypeDef(TypedDict):
+    ResourceId: str
+    ResourceType: GlueResourceTypeType
+    RequestOrigin: NotRequired[str]
+
 class GetDataCatalogEncryptionSettingsRequestTypeDef(TypedDict):
     CatalogId: NotRequired[str]
 
@@ -3009,6 +3021,14 @@ class GetSecurityConfigurationRequestTypeDef(TypedDict):
 class GetSecurityConfigurationsRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
+
+class GetSessionEndpointRequestTypeDef(TypedDict):
+    SessionId: str
+
+class SessionEndpointTypeDef(TypedDict):
+    Url: str
+    AuthToken: str
+    AuthTokenExpirationTime: datetime
 
 class GetSessionRequestTypeDef(TypedDict):
     Id: str
@@ -4167,6 +4187,10 @@ class GetCustomEntityTypeResponseTypeDef(TypedDict):
     ContextWords: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
+class GetDashboardUrlResponseTypeDef(TypedDict):
+    Url: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class GetDataQualityModelResponseTypeDef(TypedDict):
     Status: DataQualityModelStatusType
     StartedOn: datetime
@@ -5070,6 +5094,7 @@ class SessionTypeDef(TypedDict):
     DPUSeconds: NotRequired[float]
     IdleTimeout: NotRequired[int]
     ProfileName: NotRequired[str]
+    SessionType: NotRequired[SessionTypeType]
 
 class DynamoDBCatalogSourceTypeDef(TypedDict):
     Name: str
@@ -5548,6 +5573,10 @@ class UpdateSchemaInputTypeDef(TypedDict):
     SchemaVersionNumber: NotRequired[SchemaVersionNumberTypeDef]
     Compatibility: NotRequired[CompatibilityType]
     Description: NotRequired[str]
+
+class GetSessionEndpointResponseTypeDef(TypedDict):
+    SparkConnect: SessionEndpointTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class GlueSchemaOutputTypeDef(TypedDict):
     Columns: NotRequired[list[GlueStudioSchemaColumnTypeDef]]
@@ -6136,6 +6165,7 @@ class CreateSessionRequestTypeDef(TypedDict):
     GlueVersion: NotRequired[str]
     Tags: NotRequired[Mapping[str, str]]
     RequestOrigin: NotRequired[str]
+    SessionType: NotRequired[SessionTypeType]
 
 class BasicAuthenticationPropertiesTypeDef(TypedDict):
     Username: NotRequired[ConnectorPropertyUnionTypeDef]

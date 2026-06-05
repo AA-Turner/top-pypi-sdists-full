@@ -1262,7 +1262,7 @@ dynamodb.Table(stack, "Table",
     ),
     import_source=dynamodb.ImportSourceSpecification(
         compression_type=dynamodb.InputCompressionType.GZIP,
-        input_format=dynamodb.InputFormat.dynamo_dBJson(),
+        input_format=dynamodb.InputFormat.dynamo_db_json(),
         bucket=bucket,
         key_prefix="prefix"
     )
@@ -3954,7 +3954,7 @@ class CfnGlobalTable(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_dynamodb as dynamodb
                 
-                replica_sSESpecification_property = dynamodb.CfnGlobalTable.ReplicaSSESpecificationProperty(
+                replica_sse_specification_property = dynamodb.CfnGlobalTable.ReplicaSSESpecificationProperty(
                     kms_master_key_id="kmsMasterKeyId"
                 )
             '''
@@ -4539,7 +4539,7 @@ class CfnGlobalTable(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_dynamodb as dynamodb
                 
-                s_sESpecification_property = dynamodb.CfnGlobalTable.SSESpecificationProperty(
+                s_se_specification_property = dynamodb.CfnGlobalTable.SSESpecificationProperty(
                     sse_enabled=False,
                 
                     # the properties below are optional
@@ -7790,7 +7790,7 @@ class CfnTable(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_dynamodb as dynamodb
                 
-                s_sESpecification_property = dynamodb.CfnTable.SSESpecificationProperty(
+                s_se_specification_property = dynamodb.CfnTable.SSESpecificationProperty(
                     sse_enabled=False,
                 
                     # the properties below are optional
@@ -10302,7 +10302,7 @@ class ImportSourceSpecification:
                 ),
                 import_source=dynamodb.ImportSourceSpecification(
                     compression_type=dynamodb.InputCompressionType.GZIP,
-                    input_format=dynamodb.InputFormat.dynamo_dBJson(),
+                    input_format=dynamodb.InputFormat.dynamo_db_json(),
                     bucket=bucket,
                     key_prefix="prefix"
                 )
@@ -10403,7 +10403,7 @@ class InputCompressionType(enum.Enum):
             ),
             import_source=dynamodb.ImportSourceSpecification(
                 compression_type=dynamodb.InputCompressionType.GZIP,
-                input_format=dynamodb.InputFormat.dynamo_dBJson(),
+                input_format=dynamodb.InputFormat.dynamo_db_json(),
                 bucket=bucket,
                 key_prefix="prefix"
             )
@@ -10444,7 +10444,7 @@ class InputFormat(
             ),
             import_source=dynamodb.ImportSourceSpecification(
                 compression_type=dynamodb.InputCompressionType.GZIP,
-                input_format=dynamodb.InputFormat.dynamo_dBJson(),
+                input_format=dynamodb.InputFormat.dynamo_db_json(),
                 bucket=bucket,
                 key_prefix="prefix"
             )

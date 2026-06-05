@@ -28,11 +28,16 @@ from ...version import __version__
 from ..adapters import get_adapter
 from ..adapters.base import HarnessContext
 from ..approval_gate import ApprovalGateError
-from ..cli.oauth_client import GuardDpopKeyMaterial, resolve_guard_oauth_client_config
+from ..cli.oauth_client import (
+    GuardDpopKeyMaterial,
+    resolve_guard_oauth_client_config,
+    validate_guard_sync_endpoint,
+)
 from ..config import GuardConfig
 from ..consumer import detect_harness, evaluate_detection
 from ..edge_events import build_runtime_session_event
 from ..models import GuardArtifact, HarnessDetection, PolicyDecision
+from ..package_firewall_entitlement import build_oauth_package_firewall_entitlement
 from ..redaction import redact_sensitive_text
 from ..shims import package_shim_cloud_coverage
 from ..store import GuardStore
@@ -1732,6 +1737,19 @@ def _guard_oauth_reauthorization_message() -> str:
     return "Guard authorization expired. Run `hol-guard connect` to sign in again."
 
 
+def _guard_sync_reconnect_message() -> str:
+    return "Guard Cloud sync endpoint is not trusted. Run `hol-guard connect` to restore Cloud sync."
+
+
+def _validate_guard_sync_url(sync_url: str, *, issuer: str | None = None) -> str:
+    try:
+        return validate_guard_sync_endpoint(sync_url, issuer=issuer)
+    except ValueError as error:
+        if issuer is not None:
+            raise GuardSyncAuthorizationExpiredError(f"{_guard_oauth_reauthorization_message()} {error}") from error
+        raise GuardSyncNotConfiguredError(f"{_guard_sync_reconnect_message()} {error}") from error
+
+
 def _refresh_guard_oauth_access_token(
     *,
     token_endpoint: str,
@@ -1780,6 +1798,10 @@ def _refresh_guard_oauth_access_token(
         raise GuardSyncAuthorizationExpiredError(_guard_oauth_reauthorization_message())
     return {
         "access_token": access_token,
+        "package_firewall_entitlement": build_oauth_package_firewall_entitlement(
+            payload,
+            now=datetime.now(timezone.utc),
+        ),
         "refresh_token": _optional_string(payload.get("refresh_token")) or refresh_token,
     }
 
@@ -1807,6 +1829,7 @@ def _persist_rotated_oauth_refresh_token(
     *,
     store: GuardStore,
     credentials: dict[str, object],
+    package_firewall_entitlement: dict[str, object] | None = None,
     refresh_token: str,
 ) -> None:
     issuer = _optional_string(credentials.get("issuer"))
@@ -1831,12 +1854,33 @@ def _persist_rotated_oauth_refresh_token(
         dpop_public_jwk_thumbprint=dpop_public_jwk_thumbprint,
         grant_id=_optional_string(credentials.get("grant_id")),
         machine_id=_optional_string(credentials.get("machine_id")),
+        supply_chain_entitlement_expires_at=(
+            _optional_string(package_firewall_entitlement.get("supply_chain_entitlement_expires_at"))
+            if isinstance(package_firewall_entitlement, dict)
+            else _optional_string(credentials.get("supply_chain_entitlement_expires_at"))
+        ),
+        supply_chain_firewall=(
+            package_firewall_entitlement.get("supply_chain_firewall")
+            if isinstance(package_firewall_entitlement, dict)
+            and isinstance(package_firewall_entitlement.get("supply_chain_firewall"), bool)
+            else (
+                credentials.get("supply_chain_firewall")
+                if isinstance(credentials.get("supply_chain_firewall"), bool)
+                else None
+            )
+        ),
+        supply_chain_plan_id=(
+            _optional_string(package_firewall_entitlement.get("supply_chain_plan_id"))
+            if isinstance(package_firewall_entitlement, dict)
+            else _optional_string(credentials.get("supply_chain_plan_id"))
+        ),
         workspace_id=_optional_string(credentials.get("workspace_id")),
         now=_now(),
     )
 
 
 def _resolve_guard_sync_auth_context(store: GuardStore) -> dict[str, object]:
+    oauth_health = store.get_oauth_local_credential_health()
     oauth_credentials = store.get_oauth_local_credentials()
     if oauth_credentials is not None:
         issuer = _optional_string(oauth_credentials.get("issuer"))
@@ -1845,29 +1889,45 @@ def _resolve_guard_sync_auth_context(store: GuardStore) -> dict[str, object]:
         if issuer is None or client_id is None or refresh_token is None:
             raise GuardSyncAuthorizationExpiredError(_guard_oauth_reauthorization_message())
         dpop_key_material = _oauth_dpop_key_material(oauth_credentials)
+        try:
+            oauth_client = resolve_guard_oauth_client_config(issuer)
+        except ValueError as error:
+            raise GuardSyncAuthorizationExpiredError(f"{_guard_oauth_reauthorization_message()} {error}") from error
         refreshed = _refresh_guard_oauth_access_token(
-            token_endpoint=resolve_guard_oauth_client_config(issuer).token_endpoint,
+            token_endpoint=oauth_client.token_endpoint,
             client_id=client_id,
             refresh_token=refresh_token,
             dpop_key_material=dpop_key_material,
         )
         rotated_refresh_token = str(refreshed["refresh_token"])
-        if rotated_refresh_token != refresh_token:
+        package_firewall_entitlement = (
+            refreshed["package_firewall_entitlement"]
+            if isinstance(refreshed.get("package_firewall_entitlement"), dict)
+            else None
+        )
+        if rotated_refresh_token != refresh_token or package_firewall_entitlement is not None:
             _persist_rotated_oauth_refresh_token(
                 store=store,
                 credentials=oauth_credentials,
+                package_firewall_entitlement=package_firewall_entitlement,
                 refresh_token=rotated_refresh_token,
             )
+        sync_url = _validate_guard_sync_url(
+            _oauth_sync_url_from_issuer(oauth_client.issuer),
+            issuer=oauth_client.issuer,
+        )
         return {
-            "sync_url": _oauth_sync_url_from_issuer(issuer),
+            "sync_url": sync_url,
             "access_token": str(refreshed["access_token"]),
             "dpop_key_material": dpop_key_material,
         }
+    if bool(oauth_health.get("configured")):
+        raise GuardSyncAuthorizationExpiredError(_guard_oauth_reauthorization_message())
     credentials = store.get_sync_credentials()
     if credentials is None:
         raise GuardSyncNotConfiguredError("Guard is not logged in.")
     return {
-        "sync_url": str(credentials["sync_url"]),
+        "sync_url": _validate_guard_sync_url(str(credentials["sync_url"])),
         "access_token": str(credentials["token"]),
         "dpop_key_material": None,
     }
@@ -2268,7 +2328,7 @@ def _normalized_receipts_sync_url(sync_url: str) -> str:
             (
                 parsed.scheme,
                 parsed.netloc,
-                "/api/guard/receipts/sync",
+                "/registry/api/v1/guard/receipts/sync",
                 parsed.query,
                 "",
             )
@@ -2279,6 +2339,16 @@ def _normalized_receipts_sync_url(sync_url: str) -> str:
 def _normalized_runtime_sessions_sync_url(sync_url: str) -> str:
     normalized_receipts_url = _normalized_receipts_sync_url(sync_url)
     parsed = urllib.parse.urlsplit(normalized_receipts_url)
+    if parsed.path.rstrip("/") == "/registry/api/v1/guard/receipts/sync":
+        return urllib.parse.urlunsplit(
+            (
+                parsed.scheme,
+                parsed.netloc,
+                "/registry/api/v1/guard/runtime/sessions/sync",
+                parsed.query,
+                "",
+            )
+        )
     if parsed.path.rstrip("/") == "/api/guard/receipts/sync":
         return urllib.parse.urlunsplit(
             (
@@ -2313,7 +2383,9 @@ def _normalized_runtime_sessions_sync_url(sync_url: str) -> str:
 def _normalized_supply_chain_bundle_url(sync_url: str, workspace_id: str) -> str:
     normalized_receipts_url = _normalized_receipts_sync_url(sync_url)
     parsed = urllib.parse.urlsplit(normalized_receipts_url)
-    if parsed.path.rstrip("/") == "/api/guard/receipts/sync":
+    if parsed.path.rstrip("/") == "/registry/api/v1/guard/receipts/sync":
+        next_path = "/registry/api/v1/guard/supply-chain/bundle"
+    elif parsed.path.rstrip("/") == "/api/guard/receipts/sync":
         next_path = "/api/guard/supply-chain/bundle"
     elif parsed.path.rstrip("/") == "/guard/receipts/sync":
         next_path = "/guard/supply-chain/bundle"
@@ -2342,9 +2414,9 @@ def _guard_events_sync_url(sync_url: str) -> str:
         return urllib.parse.urlunsplit((parsed.scheme, parsed.netloc, parsed.path.rstrip("/"), parsed.query, ""))
     path = parsed.path.rstrip("/")
     for suffix in (
+        "/registry/api/v1/guard/receipts/sync",
         "/api/guard/receipts/sync",
         "/guard/receipts/sync",
-        "/registry/api/v1/guard/receipts/sync",
     ):
         if path.endswith(suffix):
             path = path[: -len(suffix)]

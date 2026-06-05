@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from kanban_framework.infra.filesystem import Filesystem
 from kanban_framework.infra.scheduler import Scheduler
+from kanban_framework.infra.consts import Consts
 from kanban_framework.domain.task import TaskManager
 from kanban_framework.domain.workflow import WorkflowEngine
 from kanban_framework.cli.run_helpers import _resolve, _auto_track_step
@@ -40,6 +41,14 @@ def handle_mark_step(args: list[str], fs: Filesystem, tm: TaskManager,
     fs, cfg, _, _ = _resolve()
     task_id = args[1]
     step_id = args[2]
+    # Validate step_id exists in current mode's workflow
+    try:
+        task = tm.show(task_id)
+        from kanban_framework.domain.step_registry import find_step_def
+        if not find_step_def(step_id, mode=getattr(task, 'mode', None)):
+            return {"error": f"unknown step: {step_id}. Use 'kanban workflow steps {task_id}' to see valid step IDs."}
+    except Exception:
+        pass
     status = "completed"
     if len(args) >= 4:
         status = args[3]
@@ -67,10 +76,10 @@ def handle_mark_step(args: list[str], fs: Filesystem, tm: TaskManager,
             from kanban_framework.domain.step_progress import save_progress
             save_progress(fs, task_id, progress)
 
-    # Auto-decider: parse decision result and suggest action
+    # Auto-decider: parse decision result and auto-dispatch
     if status == "completed":
         from kanban_framework.domain.auto_decide import should_auto_decide, parse_auto_decision
-        from kanban_framework.domain.auto_decide import _decide_mode
+        from kanban_framework.domain.auto_decide import _decide_mode, dispatch_decision
         try:
             task = tm.show(task_id)
             if should_auto_decide(task, step_id):
@@ -79,6 +88,9 @@ def handle_mark_step(args: list[str], fs: Filesystem, tm: TaskManager,
                     fs.task_dir(task_id), task.iteration, decide_mode)
                 if decision:
                     result["auto_decision"] = decision
+                    dispatched = dispatch_decision(fs, cfg, task_id, decision)
+                    if dispatched:
+                        result["auto_dispatched"] = dispatched.get("auto_dispatched", False)
         except Exception:
             pass
 
@@ -88,13 +100,11 @@ def handle_mark_step(args: list[str], fs: Filesystem, tm: TaskManager,
 def _check_step_artifacts(fs: Filesystem, cfg, task_id: str, step_id: str) -> dict | None:
     """Verify required_artifacts for a step. Returns None if no artifacts defined."""
     from kanban_framework.domain.step_registry import find_step_def
-    quick = False
     try:
         from kanban_framework.domain.task import TaskManager
         tm = TaskManager(fs, cfg)
         task = tm.show(task_id)
-        quick = getattr(task, 'mode', '') == 'quick'
-        step_def = find_step_def(step_id, lightweight=getattr(task, 'lightweight', False), quick=quick)
+        step_def = find_step_def(step_id, mode=getattr(task, 'mode', None))
     except Exception:
         step_def = find_step_def(step_id)
 
@@ -158,14 +168,12 @@ def handle_steps(args: list[str], fs: Filesystem, tm: TaskManager,
     from kanban_framework.types import Phase
 
     # Load extensions for custom phases/steps
-    mode = task.mode if task.mode not in Scheduler.BUILTIN_MODE_NAMES else ("quick" if task.mode == "quick" else "lightweight")
-    quick = task.mode == "quick"
+    mode = task.mode or Consts.DEFAULT_MODE
     base_steps = _get_steps(mode)  # _get_steps already applies extensions
-    base_order = _get_phase_order(task.lightweight, quick=quick, mode=task.mode,
+    base_order = _get_phase_order(mode=task.mode,
                                    kanban_dir=cfg._fs.kanban_dir if cfg else None)
     str_order = [p.value if isinstance(p, Phase) else str(p) for p in base_order]
     dag = build_step_dag(
-        lightweight=task.lightweight, quick=quick,
         mode=mode, kanban_dir=fs.kanban_dir,
         custom_steps=base_steps, custom_order=str_order,
     )
@@ -181,7 +189,6 @@ def handle_steps(args: list[str], fs: Filesystem, tm: TaskManager,
         "task_id": task.id,
         "control_mode": task.control_mode.value,
         "mode": task.mode,
-        "lightweight": task.lightweight,
         "steps": all_steps,
         "available_steps": available,
         "available_count": len(available),
@@ -197,8 +204,7 @@ def handle_run_step(args: list[str], fs: Filesystem, tm: TaskManager,
     task = tm.show(args[1])
     step_id = args[2]
     from kanban_framework.domain.step_registry import find_step_def
-    quick = getattr(task, 'mode', '') == 'quick'
-    step_def = find_step_def(step_id, lightweight=task.lightweight, quick=quick)
+    step_def = find_step_def(step_id, mode=getattr(task, 'mode', None))
     if not step_def:
         return {"error": f"step {step_id} not found in workflow"}
     prompt = step_def.spawn_prompt
@@ -216,6 +222,21 @@ def handle_run_step(args: list[str], fs: Filesystem, tm: TaskManager,
         prompt = prompt.replace("$description", task.description or "")
         prompt = prompt.replace("$phase", task.phase_id or "")
         prompt = prompt.replace("$mode", task.mode or "")
+        output_dir = getattr(cfg, 'output_dir', 'src') or 'src'
+        prompt = prompt.replace("$output_dir", output_dir)
+        prompt = prompt.replace("$kanban_dir", str(fs.kanban_dir))
+    # Inject knowledge preamble (same logic as state_machine._build_step_result)
+    if prompt and not step_def.user_action:
+        from kanban_framework.domain.steps import (
+            _KNOWLEDGE_PREAMBLE_FIRST, _KNOWLEDGE_PREAMBLE_REUSE, _KNOWLEDGE_SKIP_PREFIXES,
+        )
+        if not step_id.startswith(_KNOWLEDGE_SKIP_PREFIXES):
+            td = fs.task_dir(task.id)
+            knowledge_file = td / "plan" / "knowledge_used.json"
+            preamble = _KNOWLEDGE_PREAMBLE_REUSE if knowledge_file.is_file() else _KNOWLEDGE_PREAMBLE_FIRST
+            preamble = preamble.replace("$task_title", task.title or "")
+            preamble = preamble.replace("$task_dir", str(td))
+            prompt = preamble + prompt
     # Auto-decider: inject spawn_prompt for user_action steps when auto_mode enabled
     if not prompt and step_def.user_action:
         from kanban_framework.domain.auto_decide import should_auto_decide, build_auto_decide_prompt
@@ -250,8 +271,7 @@ def handle_skip_step(args: list[str], fs: Filesystem, tm: TaskManager,
     fs, _, tm, _ = _resolve()
     task = tm.show(args[1])
     from kanban_framework.domain.step_registry import find_step_def
-    quick = getattr(task, 'mode', '') == 'quick'
-    step_def = find_step_def(args[2], lightweight=task.lightweight, quick=quick, mode=getattr(task, 'mode', None))
+    step_def = find_step_def(args[2], mode=getattr(task, 'mode', None))
     if not step_def:
         return {"error": f"step {args[2]} not found in workflow"}
     from kanban_framework.domain.state_machine import mark_step

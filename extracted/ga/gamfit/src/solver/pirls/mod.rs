@@ -1973,6 +1973,16 @@ impl<'a> WorkingModel for GamWorkingModel<'a> {
         }
         let mut firth = FirthDiagnostics::Inactive;
         if self.firth_bias_reduction {
+            // Standard link whose Fisher working weight drives the Jeffreys
+            // term. The firth gate only activates for links with a closed-form
+            // Fisher-weight jet (`{Logit, Probit}`); any other link here is a
+            // construction-time inconsistency, so fall back to logit rather than
+            // silently mis-weighting.
+            let jeffreys_link = match &self.link_kind {
+                InverseLink::Standard(link @ StandardLink::Logit)
+                | InverseLink::Standard(link @ StandardLink::Probit) => *link,
+                _ => StandardLink::Logit,
+            };
             // IMPORTANT: Jeffreys/Firth bias reduction must be computed in the
             // *same coefficient basis* as the inner objective being optimized by PIRLS.
             //
@@ -2003,6 +2013,7 @@ impl<'a> WorkingModel for GamWorkingModel<'a> {
                             )
                         })?;
                         compute_jeffreys_pirls_diagnostics_sparse(
+                            jeffreys_link,
                             csr,
                             self.workspace.eta_buf.view(),
                             self.priorweights,
@@ -2010,6 +2021,7 @@ impl<'a> WorkingModel for GamWorkingModel<'a> {
                     } else {
                         let x_dense_cow = x_transformed.to_dense_cow();
                         compute_jeffreys_pirls_diagnostics(
+                            jeffreys_link,
                             x_dense_cow.view(),
                             self.workspace.eta_buf.view(),
                             self.priorweights,
@@ -2024,6 +2036,7 @@ impl<'a> WorkingModel for GamWorkingModel<'a> {
                     let x_t_dense =
                         fast_ab(&self.x_original.to_dense(), &transform.materialize_dense());
                     compute_jeffreys_pirls_diagnostics(
+                        jeffreys_link,
                         x_t_dense.view(),
                         self.workspace.eta_buf.view(),
                         self.priorweights,
@@ -2038,6 +2051,7 @@ impl<'a> WorkingModel for GamWorkingModel<'a> {
                             )
                         })?;
                         compute_jeffreys_pirls_diagnostics_sparse(
+                            jeffreys_link,
                             csr,
                             self.workspace.eta_buf.view(),
                             self.priorweights,
@@ -2050,6 +2064,7 @@ impl<'a> WorkingModel for GamWorkingModel<'a> {
                             )
                             .map_err(EstimationError::InvalidInput)?;
                         compute_jeffreys_pirls_diagnostics(
+                            jeffreys_link,
                             x_dense.view(),
                             self.workspace.eta_buf.view(),
                             self.priorweights,
@@ -2621,6 +2636,7 @@ fn accumulate_outer_upper(
 }
 
 pub(super) fn compute_jeffreys_pirls_diagnostics_sparse(
+    link: StandardLink,
     x_design_csr: &SparseRowMat<usize, f64>,
     eta: ArrayView1<f64>,
     observation_weights: ArrayView1<f64>,
@@ -2641,10 +2657,11 @@ pub(super) fn compute_jeffreys_pirls_diagnostics_sparse(
             x_dense[[i, col.unbound()]] = vals[idx];
         }
     }
-    compute_jeffreys_pirls_diagnostics(x_dense.view(), eta, observation_weights)
+    compute_jeffreys_pirls_diagnostics(link, x_dense.view(), eta, observation_weights)
 }
 
 pub(super) fn compute_jeffreys_pirls_diagnostics(
+    link: StandardLink,
     x_design: ArrayView2<f64>,
     eta: ArrayView1<f64>,
     observation_weights: ArrayView1<f64>,
@@ -2653,8 +2670,11 @@ pub(super) fn compute_jeffreys_pirls_diagnostics(
     // outer REML code:
     //   Φ(β) = 0.5 log|Xᵀ W(η) X|_+.
     // The operator below is the single source of truth for both the Jeffreys
-    // scalar value and the PIRLS hat-diagonal correction derived from it.
-    let op = FirthDenseOperator::build_with_observation_weights(
+    // scalar value and the PIRLS hat-diagonal correction derived from it. The
+    // Fisher working weight `W(η)` is evaluated for the resolved standard link;
+    // `StandardLink::Logit` reproduces the released logit diagnostics exactly.
+    let op = FirthDenseOperator::build_with_observation_weights_for_link(
+        link,
         &x_design.to_owned(),
         &eta.to_owned(),
         observation_weights,
@@ -6512,35 +6532,72 @@ pub fn dense_block_xtwx(
     }
     let p_out = shape[1];
     let dim = k * p_out;
-    let mut out = Array2::<f64>::zeros((dim, dim));
-    for row in 0..n {
-        let rw = row_weights.as_ref().map(|w| w[row]).unwrap_or(1.0);
-        for a in 0..p_out {
-            for b in 0..p_out {
-                let wab = rw * fisher_blocks[[row, a, b]];
-                if !wab.is_finite() {
-                    crate::bail_invalid_estim!(
-                        "dense block Fisher entry ({row},{a},{b}) is not finite"
-                    );
-                }
-                if wab == 0.0 {
-                    continue;
-                }
-                let row_a = a * k;
-                let row_b = b * k;
-                for i in 0..k {
-                    let xi = design[[row, i]];
-                    if xi == 0.0 {
-                        continue;
-                    }
-                    let scaled = wab * xi;
-                    for j in 0..k {
-                        out[[row_a + i, row_b + j]] += scaled * design[[row, j]];
+    // Coupled multi-output Gram `Σ_row (W_row ⊗ x_row x_rowᵀ)` of dimension
+    // `(M·k) × (M·k)`. For the multinomial softmax family this `X^T W X` is
+    // rebuilt at every inner Newton cycle of every outer smoothing-parameter
+    // trial, so its `O(n · M² · k²)` accumulation is the dominant inner cost
+    // (#722). The per-row contributions are an independent sum, so fan the row
+    // loop across the rayon pool with per-thread dense accumulators reduced by
+    // addition — the arithmetic is identical to the serial accumulation,
+    // bit-for-bit up to the associativity of the row partition.
+    //
+    // Finiteness is validated up front in a cheap `O(n · M²)` parallel scan so
+    // the hot accumulation stays branch-light and the error is reported with
+    // the offending `(row, a, b)` index, preserving the serial contract.
+    use rayon::iter::{IntoParallelIterator, ParallelIterator};
+    let nonfinite = (0..n)
+        .into_par_iter()
+        .filter_map(|row| {
+            let rw = row_weights.as_ref().map(|w| w[row]).unwrap_or(1.0);
+            for a in 0..p_out {
+                for b in 0..p_out {
+                    if !(rw * fisher_blocks[[row, a, b]]).is_finite() {
+                        return Some((row, a, b));
                     }
                 }
             }
-        }
+            None
+        })
+        .min();
+    if let Some((row, a, b)) = nonfinite {
+        crate::bail_invalid_estim!("dense block Fisher entry ({row},{a},{b}) is not finite");
     }
+    let mut out = (0..n)
+        .into_par_iter()
+        .fold(
+            || Array2::<f64>::zeros((dim, dim)),
+            |mut acc, row| {
+                let rw = row_weights.as_ref().map(|w| w[row]).unwrap_or(1.0);
+                for a in 0..p_out {
+                    for b in 0..p_out {
+                        let wab = rw * fisher_blocks[[row, a, b]];
+                        if wab == 0.0 {
+                            continue;
+                        }
+                        let row_a = a * k;
+                        let row_b = b * k;
+                        for i in 0..k {
+                            let xi = design[[row, i]];
+                            if xi == 0.0 {
+                                continue;
+                            }
+                            let scaled = wab * xi;
+                            for j in 0..k {
+                                acc[[row_a + i, row_b + j]] += scaled * design[[row, j]];
+                            }
+                        }
+                    }
+                }
+                acc
+            },
+        )
+        .reduce(
+            || Array2::<f64>::zeros((dim, dim)),
+            |mut a, b| {
+                a += &b;
+                a
+            },
+        );
     for i in 0..dim {
         for j in (i + 1)..dim {
             let avg = 0.5 * (out[[i, j]] + out[[j, i]]);
@@ -7430,6 +7487,7 @@ mod tests {
             max_iterations: 20,
             convergence_tolerance: 1e-12,
             firth_bias_reduction: false,
+            robust_identification: crate::solver::workflow::RobustIdentification::Off,
             initial_lm_lambda: None,
             geodesic_acceleration: false,
             arrow_schur: None,
@@ -7649,6 +7707,7 @@ mod tests {
             max_iterations: 100,
             convergence_tolerance: 1e-8,
             firth_bias_reduction: false,
+            robust_identification: crate::solver::workflow::RobustIdentification::Off,
             initial_lm_lambda: None,
             geodesic_acceleration: false,
             arrow_schur: None,
@@ -7950,6 +8009,7 @@ mod tests {
             max_iterations: 100,
             convergence_tolerance: 1e-8,
             firth_bias_reduction: false,
+            robust_identification: crate::solver::workflow::RobustIdentification::Off,
             initial_lm_lambda: None,
             geodesic_acceleration: false,
             arrow_schur: None,
@@ -8029,6 +8089,7 @@ mod tests {
             max_iterations: 100,
             convergence_tolerance: 1e-8,
             firth_bias_reduction: false,
+            robust_identification: crate::solver::workflow::RobustIdentification::Off,
             initial_lm_lambda: None,
             geodesic_acceleration: false,
             arrow_schur: None,
@@ -9358,6 +9419,7 @@ mod root_cause_tests {
             max_iterations: 100,
             convergence_tolerance: 1e-8,
             firth_bias_reduction: false,
+            robust_identification: crate::solver::workflow::RobustIdentification::Off,
             initial_lm_lambda: None,
             geodesic_acceleration: false,
             arrow_schur: None,
@@ -9444,6 +9506,7 @@ mod root_cause_tests {
             max_iterations: 100,
             convergence_tolerance: 1e-8,
             firth_bias_reduction: false,
+            robust_identification: crate::solver::workflow::RobustIdentification::Off,
             initial_lm_lambda: None,
             geodesic_acceleration: false,
             arrow_schur: None,
@@ -9549,6 +9612,7 @@ mod root_cause_tests {
                 max_iterations: 100,
                 convergence_tolerance: 1e-8,
                 firth_bias_reduction: false,
+                robust_identification: crate::solver::workflow::RobustIdentification::Off,
                 initial_lm_lambda: None,
                 geodesic_acceleration: false,
                 arrow_schur: None,

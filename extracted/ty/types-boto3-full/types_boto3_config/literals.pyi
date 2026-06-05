@@ -93,6 +93,7 @@ __all__ = (
     "ResourceServiceName",
     "ResourceTypeType",
     "ResourceValueTypeType",
+    "RuleEvaluationVisibilityType",
     "SelectAggregateResourceConfigPaginatorName",
     "SelectResourceConfigPaginatorName",
     "ServiceName",
@@ -786,6 +787,7 @@ ResourceTypeType = Literal[
     "AWS::XRay::EncryptionConfig",
 ]
 ResourceValueTypeType = Literal["RESOURCE_ID"]
+RuleEvaluationVisibilityType = Literal["EXTERNAL", "INTERNAL"]
 SelectAggregateResourceConfigPaginatorName = Literal["select_aggregate_resource_config"]
 SelectResourceConfigPaginatorName = Literal["select_resource_config"]
 SortByType = Literal["SCORE"]

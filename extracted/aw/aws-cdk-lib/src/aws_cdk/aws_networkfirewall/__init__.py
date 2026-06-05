@@ -1499,7 +1499,7 @@ class CfnFirewallPolicy(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_networkfirewall as networkfirewall
                 
-                i_pSet_property = {
+                i_p_set_property = {
                     "definition": ["definition"]
                 }
             '''
@@ -2688,7 +2688,7 @@ class CfnLoggingConfiguration(
         def __init__(
             self,
             *,
-            log_destination: typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"],
+            log_destination: typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]],
             log_destination_type: builtins.str,
             log_type: builtins.str,
         ) -> None:
@@ -2733,7 +2733,7 @@ class CfnLoggingConfiguration(
         @builtins.property
         def log_destination(
             self,
-        ) -> typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]:
             '''The named location for the logs, provided in a key:value mapping that is specific to the chosen destination type.
 
             - For an Amazon S3 bucket, provide the name of the bucket, with key ``bucketName`` , and optionally provide a prefix, with key ``prefix`` .
@@ -2754,7 +2754,7 @@ class CfnLoggingConfiguration(
             '''
             result = self._values.get("log_destination")
             assert result is not None, "Required property 'log_destination' is missing"
-            return typing.cast(typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]], result)
 
         @builtins.property
         def log_destination_type(self) -> builtins.str:
@@ -3832,7 +3832,7 @@ class CfnRuleGroup(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_networkfirewall as networkfirewall
                 
-                i_pSet_property = {
+                i_p_set_property = {
                     "definition": ["definition"]
                 }
             '''
@@ -3889,7 +3889,7 @@ class CfnRuleGroup(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_networkfirewall as networkfirewall
                 
-                i_pSet_reference_property = {
+                i_p_set_reference_property = {
                     "reference_arn": "referenceArn"
                 }
             '''
@@ -5619,7 +5619,7 @@ class CfnRuleGroup(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_networkfirewall as networkfirewall
                 
-                t_cPFlag_field_property = networkfirewall.CfnRuleGroup.TCPFlagFieldProperty(
+                t_cp_flag_field_property = networkfirewall.CfnRuleGroup.TCPFlagFieldProperty(
                     flags=["flags"],
                 
                     # the properties below are optional
@@ -5971,7 +5971,7 @@ class CfnTLSInspectionConfiguration(
         # The values are placeholders you should change.
         from aws_cdk import aws_networkfirewall as networkfirewall
         
-        cfn_tLSInspection_configuration = networkfirewall.CfnTLSInspectionConfiguration(self, "MyCfnTLSInspectionConfiguration",
+        cfn_tls_inspection_configuration = networkfirewall.CfnTLSInspectionConfiguration(self, "MyCfnTLSInspectionConfiguration",
             tls_inspection_configuration=networkfirewall.CfnTLSInspectionConfiguration.TLSInspectionConfigurationProperty(
                 server_certificate_configurations=[networkfirewall.CfnTLSInspectionConfiguration.ServerCertificateConfigurationProperty(
                     certificate_authority_arn="certificateAuthorityArn",
@@ -6812,7 +6812,7 @@ class CfnTLSInspectionConfiguration(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_networkfirewall as networkfirewall
                 
-                t_lSInspection_configuration_property = networkfirewall.CfnTLSInspectionConfiguration.TLSInspectionConfigurationProperty(
+                t_ls_inspection_configuration_property = networkfirewall.CfnTLSInspectionConfiguration.TLSInspectionConfigurationProperty(
                     server_certificate_configurations=[networkfirewall.CfnTLSInspectionConfiguration.ServerCertificateConfigurationProperty(
                         certificate_authority_arn="certificateAuthorityArn",
                         check_certificate_revocation_status=networkfirewall.CfnTLSInspectionConfiguration.CheckCertificateRevocationStatusProperty(
@@ -6908,7 +6908,7 @@ class CfnTLSInspectionConfigurationProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_networkfirewall as networkfirewall
             
-            cfn_tLSInspection_configuration_props = networkfirewall.CfnTLSInspectionConfigurationProps(
+            cfn_tls_inspection_configuration_props = networkfirewall.CfnTLSInspectionConfigurationProps(
                 tls_inspection_configuration=networkfirewall.CfnTLSInspectionConfiguration.TLSInspectionConfigurationProperty(
                     server_certificate_configurations=[networkfirewall.CfnTLSInspectionConfiguration.ServerCertificateConfigurationProperty(
                         certificate_authority_arn="certificateAuthorityArn",
@@ -7901,7 +7901,7 @@ def _typecheckingstub__1e3640e7313e33945bc2b7c00caa777b47e14239e160ded6a349405ae
 
 def _typecheckingstub__71b2e62cece09027ed51c224134098d51d2c868274bd4da88e455b472e9c005d(
     *,
-    log_destination: typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b],
+    log_destination: typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]],
     log_destination_type: builtins.str,
     log_type: builtins.str,
 ) -> None:

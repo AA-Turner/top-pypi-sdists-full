@@ -3809,7 +3809,7 @@ class CfnPlan(
         def __init__(
             self,
             *,
-            db_instance_arn_map: typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"],
+            db_instance_arn_map: typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]],
             cross_account_role: typing.Optional[builtins.str] = None,
             external_id: typing.Optional[builtins.str] = None,
             timeout_minutes: typing.Optional[jsii.Number] = None,
@@ -3859,13 +3859,13 @@ class CfnPlan(
         @builtins.property
         def db_instance_arn_map(
             self,
-        ) -> typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-rdscreatecrossregionreplicaconfiguration.html#cfn-arcregionswitch-plan-rdscreatecrossregionreplicaconfiguration-dbinstancearnmap
             '''
             result = self._values.get("db_instance_arn_map")
             assert result is not None, "Required property 'db_instance_arn_map' is missing"
-            return typing.cast(typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]], result)
 
         @builtins.property
         def cross_account_role(self) -> typing.Optional[builtins.str]:
@@ -3918,7 +3918,7 @@ class CfnPlan(
         def __init__(
             self,
             *,
-            db_instance_arn_map: typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"],
+            db_instance_arn_map: typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]],
             cross_account_role: typing.Optional[builtins.str] = None,
             external_id: typing.Optional[builtins.str] = None,
             timeout_minutes: typing.Optional[jsii.Number] = None,
@@ -3968,13 +3968,13 @@ class CfnPlan(
         @builtins.property
         def db_instance_arn_map(
             self,
-        ) -> typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-rdspromotereadreplicaconfiguration.html#cfn-arcregionswitch-plan-rdspromotereadreplicaconfiguration-dbinstancearnmap
             '''
             result = self._values.get("db_instance_arn_map")
             assert result is not None, "Required property 'db_instance_arn_map' is missing"
-            return typing.cast(typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]], result)
 
         @builtins.property
         def cross_account_role(self) -> typing.Optional[builtins.str]:
@@ -6400,7 +6400,7 @@ def _typecheckingstub__15563430da8134fdc062f2fae765097f644a784a2fe1b26fc67f62716
 
 def _typecheckingstub__69e151ebf07c42c1ebe26cc5ea409aa1aeb69967851714e77f304f28756f73a5(
     *,
-    db_instance_arn_map: typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b],
+    db_instance_arn_map: typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]],
     cross_account_role: typing.Optional[builtins.str] = None,
     external_id: typing.Optional[builtins.str] = None,
     timeout_minutes: typing.Optional[jsii.Number] = None,
@@ -6410,7 +6410,7 @@ def _typecheckingstub__69e151ebf07c42c1ebe26cc5ea409aa1aeb69967851714e77f304f287
 
 def _typecheckingstub__34d6fb45c06539179fc1c696a36f1b14b11a2c153a1519a41e8993ee45aba9aa(
     *,
-    db_instance_arn_map: typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b],
+    db_instance_arn_map: typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]],
     cross_account_role: typing.Optional[builtins.str] = None,
     external_id: typing.Optional[builtins.str] = None,
     timeout_minutes: typing.Optional[jsii.Number] = None,

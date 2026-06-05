@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: aws-cdk.aws-iot-alpha
-Version: 2.257.0a0
+Version: 2.258.0a0
 Summary: The CDK Construct Library for AWS::IoT
 Home-page: https://github.com/aws/aws-cdk
 Author: Amazon Web Services
@@ -10,21 +10,23 @@ Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: JavaScript
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
 Classifier: Development Status :: 4 - Beta
 Classifier: License :: OSI Approved
 Classifier: Framework :: AWS CDK
 Classifier: Framework :: AWS CDK :: 2
-Requires-Python: ~=3.10
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
-Requires-Dist: aws-cdk-lib<3.0.0,>=2.257.0
+Requires-Dist: aws-cdk-lib<3.0.0,>=2.258.0
 Requires-Dist: constructs<11.0.0,>=10.5.0
-Requires-Dist: jsii<2.0.0,>=1.130.0
+Requires-Dist: jsii<2.0.0,>=1.133.0
 Requires-Dist: publication>=0.0.3
 Requires-Dist: typeguard==2.13.3
 
@@ -160,7 +162,7 @@ iot.AccountAuditConfiguration(self, "AuditConfiguration",
         device_certificate_key_quality_check=False,
         device_certificate_shared_check=False,
         intermediate_ca_revoked_for_active_device_certificates_check=False,
-        io_tPolicy_potential_mis_configuration_check=False,
+        io_t_policy_potential_mis_configuration_check=False,
         iot_policy_overly_permissive_check=False,
         iot_role_alias_allows_access_to_unused_services_check=False,
         iot_role_alias_overly_permissive_check=False,

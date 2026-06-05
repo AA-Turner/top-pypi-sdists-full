@@ -1,5 +1,5 @@
 //
-// SPDX-FileCopyrightText: Copyright 2025 Arm Limited and/or its affiliates <open-source-office@arm.com>
+// SPDX-FileCopyrightText: Copyright 2025-2026 Arm Limited and/or its affiliates <open-source-office@arm.com>
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -66,6 +66,7 @@ static const std::set<OpType> s_supportedOpTypes = {
     OpType::Select,
     OpType::Greater,
     OpType::GreaterEqual,
+    OpType::Less,
     OpType::LessEqual,
     OpType::Slice,
     OpType::TransposeConv2D,
@@ -99,6 +100,7 @@ static const std::set<OpType> s_supportedOpTypes = {
     OpType::MemoryCopy,
     OpType::Log,
     OpType::UnidirectionalSequenceLstm,
+    OpType::Neg,
 };
 
 static const std::set<DataType> s_supportedDataTypes = {

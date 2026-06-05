@@ -8,7 +8,7 @@ from typing import Any
 
 import pytest
 
-from notebooklm._source_content import SourceContentRenderer
+from notebooklm._source.content import SourceContentRenderer
 from notebooklm.rpc import RPCMethod
 from notebooklm.types import SourceNotFoundError
 
@@ -230,7 +230,16 @@ async def test_get_guide_uses_exact_rpc_shape_and_parses_summary_keywords() -> N
 
     guide = await renderer.get_guide("nb_1", "src_1")
 
-    assert guide == {"summary": "Summary", "keywords": ["keyword1", "keyword2"]}
+    # Typed return; attribute access is the new way (keywords is a tuple).
+    assert guide.summary == "Summary"
+    assert guide.keywords == ("keyword1", "keyword2")
+    # Legacy dict-subscript access still works (with a DeprecationWarning).
+    with pytest.warns(DeprecationWarning):
+        assert guide["summary"] == "Summary"
+    assert guide.to_public_dict() == {
+        "summary": "Summary",
+        "keywords": ["keyword1", "keyword2"],
+    }
     assert rpc.calls == [
         {
             "method": RPCMethod.GET_SOURCE_GUIDE,
@@ -260,5 +269,5 @@ async def test_get_guide_shape_variants_return_stable_defaults(response: Any) ->
     guide = await renderer.get_guide("nb_1", "src_1")
 
     assert set(guide) == {"summary", "keywords"}
-    assert isinstance(guide["summary"], str)
-    assert isinstance(guide["keywords"], list)
+    assert isinstance(guide.summary, str)
+    assert isinstance(guide.keywords, tuple)

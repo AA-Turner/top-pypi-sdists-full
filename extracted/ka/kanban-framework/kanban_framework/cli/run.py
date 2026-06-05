@@ -11,6 +11,7 @@ from kanban_framework.domain.nlp import parse_nlp
 from kanban_framework.domain.recovery import recover_list, recover_check_timeout, resume_task, rollback_task
 from kanban_framework.types import Phase
 from kanban_framework.infra.scheduler import Scheduler
+from kanban_framework.infra.consts import Consts
 
 
 def _resolve_phase(phase_str: str):
@@ -48,24 +49,23 @@ def cmd_run(args: list[str]) -> dict:
     task_id = args[0]
     fs, cfg, tm, we = _resolve()
     task = tm.show(task_id)
-    _log.info("run: task=%s phase=%s mode=%s lightweight=%s",
-              task_id, task.phase_id, getattr(task, 'mode', 'full'), task.lightweight)
+    _log.info("run: task=%s phase=%s mode=%s",
+              task_id, task.phase_id, getattr(task, 'mode', '') or Consts.DEFAULT_MODE)
     # FSM state validation (skip for --lightweight override, which changes mode)
     lightweight_requested = "--lightweight" in args
     if not lightweight_requested:
         validation = _validate_fsm_state(task, tm)
         if validation:
             return validation
-    # Set lightweight BEFORE transition (fix #147)
-    lw = task.lightweight or lightweight_requested
-    if lightweight_requested and not task.lightweight:
-        task = tm.update(task_id, lightweight=True, mode="lightweight")
+    # Set default mode BEFORE transition (fix #147, --lightweight backward compat)
+    if lightweight_requested and task.mode != Consts.DEFAULT_MODE:
+        task = tm.update(task_id, mode=Consts.DEFAULT_MODE)
     if len(args) > 2 and args[1] == "--phase":
         target = _resolve_phase(args[2])
     elif len(args) > 3 and args[2] == "--phase":
         target = _resolve_phase(args[3])
     else:
-        next_p = Scheduler.next_phase(task.phase, lightweight=lw, quick=getattr(task, 'mode', '') == 'quick',
+        next_p = Scheduler.next_phase(task.phase,
                                       mode=getattr(task, 'mode', None), workflow=cfg.workflow,
                                       kanban_dir=fs.kanban_dir)
         if next_p is None:
@@ -122,10 +122,9 @@ def cmd_run(args: list[str]) -> dict:
     new_phase_str = new_phase.value if isinstance(new_phase, Phase) else str(new_phase)
     tm.update(task_id, phase=new_phase_str, history=task.history)
     _track_phase_time(task_id, new_phase_str, "start")
-    lw = task.lightweight or lightweight_requested
     agents = _get_agents_for_phase(fs, new_phase_str,
                                      task_description=task.description,
-                                     lightweight=lw)
+                                     mode=task.mode or Consts.DEFAULT_MODE)
     result = {
         "task_id": task_id,
         "phase": new_phase_str,
@@ -136,7 +135,7 @@ def cmd_run(args: list[str]) -> dict:
     }
     # Include step info for the new phase
     from kanban_framework.domain.steps import _get_steps
-    mode = task.mode if task.mode not in Scheduler.BUILTIN_MODE_NAMES else ("quick" if task.mode == "quick" else "lightweight")
+    mode = task.mode or Consts.DEFAULT_MODE
     steps_map = _get_steps(mode)
     phase_steps = steps_map.get(new_phase_str, [])
     if not phase_steps:
@@ -153,7 +152,7 @@ def cmd_run(args: list[str]) -> dict:
     if brainstorming is not None:
         result["brainstorming_gate"] = brainstorming
 
-    # Mode handling: custom (lightweight already set before transition)
+    # Mode handling: show phase order for any non-custom mode
     if task.mode == "custom" and task.custom_fsm:
         result["mode"] = "custom"
         custom_phases = task.custom_fsm.get("phases", [])
@@ -163,13 +162,17 @@ def cmd_run(args: list[str]) -> dict:
             f"自定义模式: {' → '.join(custom_phases)}, "
             f"评估 Agent: {', '.join(a['name'] for a in custom_eval_agents) if custom_eval_agents else '无'}"
         )
-
-    if task.lightweight or task.mode == "lightweight":
-        result["lightweight"] = True
-        result["phase_order"] = [p.value for p in Scheduler.LIGHTWEIGHT_PHASE_ORDER]
-        result["message"] = (
-            "轻量模式: Plan → Execute → Evaluate(QA only) → Archive, 跳过 Plan Review/QA Spec/Spec Review/Retrospective"
-        )
+    else:
+        # Show phase order for any mode (lightweight, quick, or custom workflow)
+        from kanban_framework.infra.config import Config
+        cfg = Config(fs)
+        mode_phases = [p.value if hasattr(p, "value") else str(p)
+                       for p in Scheduler.dispatch_order(
+                           mode=task.mode, workflow=cfg.workflow,
+                           kanban_dir=fs.kanban_dir)]
+        result["mode"] = task.mode
+        result["phase_order"] = mode_phases
+        result["message"] = f"模式: {task.mode} — {' → '.join(mode_phases)}"
 
     # Subagent dispatch info
     for agent in agents:
@@ -225,7 +228,7 @@ def cmd_decide(args: list[str]) -> dict:
         from kanban_framework.infra.config import Config
         cfg = Config(fs)
         guard = Guard(fs, cfg)
-        guard_result = guard.check_artifacts(task, task.phase, lightweight=task.lightweight)
+        guard_result = guard.check_artifacts(task, task.phase)
         if not guard_result.passed:
             return {
                 "error": f"guard check failed: {'; '.join(guard_result.failures)}",

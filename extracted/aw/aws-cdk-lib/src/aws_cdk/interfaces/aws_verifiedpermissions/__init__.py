@@ -127,6 +127,53 @@ typing.cast(typing.Any, IPolicyRef).__jsii_proxy_class__ = lambda : _IPolicyRefP
 
 
 @jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_verifiedpermissions.IPolicyStoreAliasRef"
+)
+class IPolicyStoreAliasRef(
+    _constructs_77d1e7e8.IConstruct,
+    _IEnvironmentAware_f39049ee,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a PolicyStoreAlias.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="policyStoreAliasRef")
+    def policy_store_alias_ref(self) -> "PolicyStoreAliasReference":
+        '''(experimental) A reference to a PolicyStoreAlias resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IPolicyStoreAliasRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a PolicyStoreAlias.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_verifiedpermissions.IPolicyStoreAliasRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="policyStoreAliasRef")
+    def policy_store_alias_ref(self) -> "PolicyStoreAliasReference":
+        '''(experimental) A reference to a PolicyStoreAlias resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("PolicyStoreAliasReference", jsii.get(self, "policyStoreAliasRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IPolicyStoreAliasRef).__jsii_proxy_class__ = lambda : _IPolicyStoreAliasRefProxy
+
+
+@jsii.interface(
     jsii_type="aws-cdk-lib.interfaces.aws_verifiedpermissions.IPolicyStoreRef"
 )
 class IPolicyStoreRef(
@@ -354,6 +401,55 @@ class PolicyReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_verifiedpermissions.PolicyStoreAliasReference",
+    jsii_struct_bases=[],
+    name_mapping={"alias_name": "aliasName"},
+)
+class PolicyStoreAliasReference:
+    def __init__(self, *, alias_name: builtins.str) -> None:
+        '''A reference to a PolicyStoreAlias resource.
+
+        :param alias_name: The AliasName of the PolicyStoreAlias resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_verifiedpermissions as interfaces_verifiedpermissions
+            
+            policy_store_alias_reference = interfaces_verifiedpermissions.PolicyStoreAliasReference(
+                alias_name="aliasName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__74325e60cab5c87135f67433bc07cf33ffdd4d4a112c90537e211c5545af028e)
+            check_type(argname="argument alias_name", value=alias_name, expected_type=type_hints["alias_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "alias_name": alias_name,
+        }
+
+    @builtins.property
+    def alias_name(self) -> builtins.str:
+        '''The AliasName of the PolicyStoreAlias resource.'''
+        result = self._values.get("alias_name")
+        assert result is not None, "Required property 'alias_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PolicyStoreAliasReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_verifiedpermissions.PolicyStoreReference",
     jsii_struct_bases=[],
     name_mapping={
@@ -492,10 +588,12 @@ class PolicyTemplateReference:
 __all__ = [
     "IIdentitySourceRef",
     "IPolicyRef",
+    "IPolicyStoreAliasRef",
     "IPolicyStoreRef",
     "IPolicyTemplateRef",
     "IdentitySourceReference",
     "PolicyReference",
+    "PolicyStoreAliasReference",
     "PolicyStoreReference",
     "PolicyTemplateReference",
 ]
@@ -518,6 +616,13 @@ def _typecheckingstub__dd88b46fd9f517ec78a02f82d07146189c4b425becf99cd859c0f39ca
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__74325e60cab5c87135f67433bc07cf33ffdd4d4a112c90537e211c5545af028e(
+    *,
+    alias_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__b0ab09d050895f8245a50aa20d70e6b1e44a4969307ed3206e87ef0e591e7142(
     *,
     policy_store_arn: builtins.str,
@@ -534,5 +639,5 @@ def _typecheckingstub__d203176b01786ac1ce3e258885a0ac0d5e52f4964f225414a30b2099f
     """Type checking stubs"""
     pass
 
-for cls in [IIdentitySourceRef, IPolicyRef, IPolicyStoreRef, IPolicyTemplateRef]:
+for cls in [IIdentitySourceRef, IPolicyRef, IPolicyStoreAliasRef, IPolicyStoreRef, IPolicyTemplateRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

@@ -2624,7 +2624,7 @@ class CfnDistributionConfiguration(
         def __init__(
             self,
             *,
-            ami_tags: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            ami_tags: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             description: typing.Optional[builtins.str] = None,
             kms_key_id: typing.Optional[builtins.str] = None,
             launch_permission_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDistributionConfiguration.LaunchPermissionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -2690,13 +2690,13 @@ class CfnDistributionConfiguration(
         @builtins.property
         def ami_tags(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''The tags to apply to AMIs distributed to this Region.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-imagebuilder-distributionconfiguration-amidistributionconfiguration.html#cfn-imagebuilder-distributionconfiguration-amidistributionconfiguration-amitags
             '''
             result = self._values.get("ami_tags")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def description(self) -> typing.Optional[builtins.str]:
@@ -6908,7 +6908,7 @@ class CfnImageRecipe(
         parent_image: builtins.str,
         version: builtins.str,
         additional_instance_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnImageRecipe.AdditionalInstanceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        ami_tags: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        ami_tags: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         block_device_mappings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnImageRecipe.InstanceBlockDeviceMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         components: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnImageRecipe.ComponentConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         description: typing.Optional[builtins.str] = None,
@@ -7156,14 +7156,14 @@ class CfnImageRecipe(
     @jsii.member(jsii_name="amiTags")
     def ami_tags(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''Tags that are applied to the AMI that Image Builder creates during the Build phase prior to image distribution.'''
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], jsii.get(self, "amiTags"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "amiTags"))
 
     @ami_tags.setter
     def ami_tags(
         self,
-        value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7b194ae2195e82b1b59277988a8b1cf823ca9cdc3b2e26bbaa6e0b9e805a12ad)
@@ -7972,7 +7972,7 @@ class CfnImageRecipeProps:
         parent_image: builtins.str,
         version: builtins.str,
         additional_instance_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnImageRecipe.AdditionalInstanceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        ami_tags: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        ami_tags: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         block_device_mappings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnImageRecipe.InstanceBlockDeviceMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         components: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnImageRecipe.ComponentConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         description: typing.Optional[builtins.str] = None,
@@ -8138,13 +8138,13 @@ class CfnImageRecipeProps:
     @builtins.property
     def ami_tags(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''Tags that are applied to the AMI that Image Builder creates during the Build phase prior to image distribution.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-imagerecipe.html#cfn-imagebuilder-imagerecipe-amitags
         '''
         result = self._values.get("ami_tags")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
     @builtins.property
     def block_device_mappings(
@@ -8279,7 +8279,7 @@ class CfnInfrastructureConfiguration(
         key_pair: typing.Optional[builtins.str] = None,
         logging: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInfrastructureConfiguration.LoggingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         placement: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInfrastructureConfiguration.PlacementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        resource_tags: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        resource_tags: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
         sns_topic_arn: typing.Optional[typing.Union[builtins.str, "_ITopicRef_29aa9a88"]] = None,
         subnet_id: typing.Optional[builtins.str] = None,
@@ -8551,14 +8551,14 @@ class CfnInfrastructureConfiguration(
     @jsii.member(jsii_name="resourceTags")
     def resource_tags(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''The metadata tags to assign to the Amazon EC2 instance that Image Builder launches during the build process.'''
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], jsii.get(self, "resourceTags"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "resourceTags"))
 
     @resource_tags.setter
     def resource_tags(
         self,
-        value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b4e6c2bbdd440425ebe7067a9a03bf4079bbfef4001b7877cb6ce3dcd44c4cb0)
@@ -9006,7 +9006,7 @@ class CfnInfrastructureConfigurationProps:
         key_pair: typing.Optional[builtins.str] = None,
         logging: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInfrastructureConfiguration.LoggingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         placement: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInfrastructureConfiguration.PlacementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        resource_tags: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        resource_tags: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
         sns_topic_arn: typing.Optional[typing.Union[builtins.str, "_ITopicRef_29aa9a88"]] = None,
         subnet_id: typing.Optional[builtins.str] = None,
@@ -9209,7 +9209,7 @@ class CfnInfrastructureConfigurationProps:
     @builtins.property
     def resource_tags(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''The metadata tags to assign to the Amazon EC2 instance that Image Builder launches during the build process.
 
         Tags are formatted as key value pairs.
@@ -9217,7 +9217,7 @@ class CfnInfrastructureConfigurationProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-infrastructureconfiguration.html#cfn-imagebuilder-infrastructureconfiguration-resourcetags
         '''
         result = self._values.get("resource_tags")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
     @builtins.property
     def security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -9714,7 +9714,7 @@ class CfnLifecyclePolicy(
             last_launched: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLifecyclePolicy.LastLaunchedProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             regions: typing.Optional[typing.Sequence[builtins.str]] = None,
             shared_accounts: typing.Optional[typing.Sequence[builtins.str]] = None,
-            tag_map: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            tag_map: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         ) -> None:
             '''Defines criteria for AMIs that are excluded from lifecycle actions.
 
@@ -9808,13 +9808,13 @@ class CfnLifecyclePolicy(
         @builtins.property
         def tag_map(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''Lists tags that should be excluded from lifecycle actions for the AMIs that have them.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-imagebuilder-lifecyclepolicy-amiexclusionrules.html#cfn-imagebuilder-lifecyclepolicy-amiexclusionrules-tagmap
             '''
             result = self._values.get("tag_map")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9837,7 +9837,7 @@ class CfnLifecyclePolicy(
             self,
             *,
             amis: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLifecyclePolicy.AmiExclusionRulesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            tag_map: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            tag_map: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         ) -> None:
             '''Specifies resources that lifecycle policy actions should not apply to.
 
@@ -9895,13 +9895,13 @@ class CfnLifecyclePolicy(
         @builtins.property
         def tag_map(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''Contains a list of tags that Image Builder uses to skip lifecycle actions for Image Builder image resources that have them.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-imagebuilder-lifecyclepolicy-exclusionrules.html#cfn-imagebuilder-lifecyclepolicy-exclusionrules-tagmap
             '''
             result = self._values.get("tag_map")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -10407,7 +10407,7 @@ class CfnLifecyclePolicy(
             self,
             *,
             recipes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLifecyclePolicy.RecipeSelectionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            tag_map: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            tag_map: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         ) -> None:
             '''Resource selection criteria for the lifecycle policy.
 
@@ -10457,13 +10457,13 @@ class CfnLifecyclePolicy(
         @builtins.property
         def tag_map(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''A list of tags that are used as selection criteria for the Image Builder image resources that the lifecycle policy applies to.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-imagebuilder-lifecyclepolicy-resourceselection.html#cfn-imagebuilder-lifecyclepolicy-resourceselection-tagmap
             '''
             result = self._values.get("tag_map")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -11786,7 +11786,7 @@ def _typecheckingstub__3e9679e68354d4ed7fd182e9633596a907a1b8af3224253b40b59ab4a
 
 def _typecheckingstub__78b16e4a7c76877b5dc3dc5bc7508b79d60aed5becf1610e01c5aba5acf7f818(
     *,
-    ami_tags: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    ami_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     description: typing.Optional[builtins.str] = None,
     kms_key_id: typing.Optional[builtins.str] = None,
     launch_permission_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDistributionConfiguration.LaunchPermissionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -12339,7 +12339,7 @@ def _typecheckingstub__b92e909d03413ceab5b5ff0737ae582bf88ebb71e7e89f62cc57922d1
     parent_image: builtins.str,
     version: builtins.str,
     additional_instance_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnImageRecipe.AdditionalInstanceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ami_tags: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    ami_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     block_device_mappings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnImageRecipe.InstanceBlockDeviceMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     components: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnImageRecipe.ComponentConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     description: typing.Optional[builtins.str] = None,
@@ -12398,7 +12398,7 @@ def _typecheckingstub__fcc3e434aa1a301be5e1a5341bc64287bfcf82761f08ef98de5711b1b
     pass
 
 def _typecheckingstub__7b194ae2195e82b1b59277988a8b1cf823ca9cdc3b2e26bbaa6e0b9e805a12ad(
-    value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12504,7 +12504,7 @@ def _typecheckingstub__a289ec10c5f4c9443f1dfb0dc4ecb78a20e5f6e491ed688cb2e3a59ad
     parent_image: builtins.str,
     version: builtins.str,
     additional_instance_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnImageRecipe.AdditionalInstanceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ami_tags: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    ami_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     block_device_mappings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnImageRecipe.InstanceBlockDeviceMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     components: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnImageRecipe.ComponentConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     description: typing.Optional[builtins.str] = None,
@@ -12526,7 +12526,7 @@ def _typecheckingstub__8df8a03094d1fe92963a315a657a78657df102ba9fbe66eda2c26bb8e
     key_pair: typing.Optional[builtins.str] = None,
     logging: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInfrastructureConfiguration.LoggingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     placement: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInfrastructureConfiguration.PlacementProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    resource_tags: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    resource_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     sns_topic_arn: typing.Optional[typing.Union[builtins.str, _ITopicRef_29aa9a88]] = None,
     subnet_id: typing.Optional[builtins.str] = None,
@@ -12609,7 +12609,7 @@ def _typecheckingstub__ee5273f955052040314d788896b8d38dbd2dcdb1d6dce31f51de7b153
     pass
 
 def _typecheckingstub__b4e6c2bbdd440425ebe7067a9a03bf4079bbfef4001b7877cb6ce3dcd44c4cb0(
-    value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12687,7 +12687,7 @@ def _typecheckingstub__cf8c493013f64742391c2bf93c7050f371ffeff0d9a35a3791f0b9fbb
     key_pair: typing.Optional[builtins.str] = None,
     logging: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInfrastructureConfiguration.LoggingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     placement: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInfrastructureConfiguration.PlacementProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    resource_tags: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    resource_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     sns_topic_arn: typing.Optional[typing.Union[builtins.str, _ITopicRef_29aa9a88]] = None,
     subnet_id: typing.Optional[builtins.str] = None,
@@ -12799,7 +12799,7 @@ def _typecheckingstub__05134c25c9cdb0bbc6009541532ec2b9cbb483cc3413a7a624d12232b
     last_launched: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLifecyclePolicy.LastLaunchedProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     regions: typing.Optional[typing.Sequence[builtins.str]] = None,
     shared_accounts: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tag_map: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    tag_map: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12807,7 +12807,7 @@ def _typecheckingstub__05134c25c9cdb0bbc6009541532ec2b9cbb483cc3413a7a624d12232b
 def _typecheckingstub__284c02a995f46d8f38f0f1c9b8aa842e2acafc4d2a0cd2a09a7ccfd618f97a70(
     *,
     amis: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLifecyclePolicy.AmiExclusionRulesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tag_map: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    tag_map: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12859,7 +12859,7 @@ def _typecheckingstub__16450d1b17b0ea545ae61c434c161a1873c39c7215299585bcf233621
 def _typecheckingstub__a50d1f1937c770dfb0439cdf4e09d340344cb42f76c244b1320fe680a4c4e82c(
     *,
     recipes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLifecyclePolicy.RecipeSelectionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tag_map: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    tag_map: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

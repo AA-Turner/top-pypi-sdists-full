@@ -1,5 +1,5 @@
 import asyncio
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from contextlib import AbstractContextManager
 from typing import Any, cast
 from unittest.mock import Mock, call
@@ -11,11 +11,14 @@ from event_model import DataKey
 from ophyd_async.core import (
     AsyncConfigurable,
     AsyncReadable,
+    Device,
+    Signal,
     SignalDatatypeT,
     SignalR,
     Table,
     WatchableAsyncStatus,
     Watcher,
+    get_mock,
 )
 
 from ._utils import T
@@ -151,6 +154,30 @@ def assert_emitted(docs: Mapping[str, list[dict]], **numbers: int):
     assert actual_numbers == numbers
 
 
+def assert_has_calls(device: Device | Signal, calls: Sequence[Any], reset_after=True):
+    """Check that the device connected in mock mode has seen the supplied calls.
+
+    :param device: Device or Signal connected in mock mode to check.
+    :param calls: Expected sequence of mock calls.
+    :param reset_after:
+        Whether to reset the mock after assertion so subsequent calls don't see
+        the same calls again.
+
+    :example:
+    ```python device.trigger() assert_has_calls(
+        device, [
+            call.device.num_frames.put(1),
+            call.device.start_writing.put(None),
+        ],
+    )
+    ```
+    """
+    mock = get_mock(device)
+    assert list(mock.mock_calls) == list(calls)
+    if reset_after:
+        mock.reset_mock()
+
+
 class ApproxTable:
     """For approximating two tables are equivalent.
 
@@ -250,17 +277,18 @@ class StatusWatcher(Watcher[T]):
         time_remaining: float | Any = None,
     ):
         await asyncio.wait_for(self._event.wait(), timeout=1)
-        assert self.mock.call_count == 1
-        assert self.mock.call_args == call(
-            current=current,
-            initial=initial,
-            target=target,
-            name=name,
-            unit=unit,
-            precision=precision,
-            fraction=fraction,
-            time_elapsed=time_elapsed,
-            time_remaining=time_remaining,
-        )
+        assert list(self.mock.call_args_list) == [
+            call(
+                current=current,
+                initial=initial,
+                target=target,
+                name=name,
+                unit=unit,
+                precision=precision,
+                fraction=fraction,
+                time_elapsed=time_elapsed,
+                time_remaining=time_remaining,
+            )
+        ]
         self.mock.reset_mock()
         self._event.clear()

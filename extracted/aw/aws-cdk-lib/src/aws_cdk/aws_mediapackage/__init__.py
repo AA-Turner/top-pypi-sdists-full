@@ -1381,7 +1381,7 @@ class CfnOriginEndpoint(
                     constant_initialization_vector="constantInitializationVector",
                     encryption_method="encryptionMethod",
                     key_rotation_interval_seconds=123,
-                    repeat_ext_xKey=False
+                    repeat_ext_x_key=False
                 ),
                 include_dvb_subtitles=False,
                 include_iframe_only_stream=False,
@@ -2783,7 +2783,7 @@ class CfnOriginEndpoint(
                     constant_initialization_vector="constantInitializationVector",
                     encryption_method="encryptionMethod",
                     key_rotation_interval_seconds=123,
-                    repeat_ext_xKey=False
+                    repeat_ext_x_key=False
                 )
             '''
             if __debug__:
@@ -3189,7 +3189,7 @@ class CfnOriginEndpoint(
                         constant_initialization_vector="constantInitializationVector",
                         encryption_method="encryptionMethod",
                         key_rotation_interval_seconds=123,
-                        repeat_ext_xKey=False
+                        repeat_ext_x_key=False
                     ),
                     include_dvb_subtitles=False,
                     include_iframe_only_stream=False,
@@ -4032,7 +4032,7 @@ class CfnOriginEndpointProps:
                         constant_initialization_vector="constantInitializationVector",
                         encryption_method="encryptionMethod",
                         key_rotation_interval_seconds=123,
-                        repeat_ext_xKey=False
+                        repeat_ext_x_key=False
                     ),
                     include_dvb_subtitles=False,
                     include_iframe_only_stream=False,
@@ -4320,7 +4320,7 @@ class CfnPackagingConfiguration(
                     include_iframe_only_stream=False,
                     manifest_name="manifestName",
                     program_date_time_interval_seconds=123,
-                    repeat_ext_xKey=False,
+                    repeat_ext_x_key=False,
                     stream_selection=mediapackage.CfnPackagingConfiguration.StreamSelectionProperty(
                         max_video_bits_per_second=123,
                         min_video_bits_per_second=123,
@@ -4385,7 +4385,7 @@ class CfnPackagingConfiguration(
                     include_iframe_only_stream=False,
                     manifest_name="manifestName",
                     program_date_time_interval_seconds=123,
-                    repeat_ext_xKey=False,
+                    repeat_ext_x_key=False,
                     stream_selection=mediapackage.CfnPackagingConfiguration.StreamSelectionProperty(
                         max_video_bits_per_second=123,
                         min_video_bits_per_second=123,
@@ -4800,7 +4800,7 @@ class CfnPackagingConfiguration(
                         include_iframe_only_stream=False,
                         manifest_name="manifestName",
                         program_date_time_interval_seconds=123,
-                        repeat_ext_xKey=False,
+                        repeat_ext_x_key=False,
                         stream_selection=mediapackage.CfnPackagingConfiguration.StreamSelectionProperty(
                             max_video_bits_per_second=123,
                             min_video_bits_per_second=123,
@@ -5575,7 +5575,7 @@ class CfnPackagingConfiguration(
                     include_iframe_only_stream=False,
                     manifest_name="manifestName",
                     program_date_time_interval_seconds=123,
-                    repeat_ext_xKey=False,
+                    repeat_ext_x_key=False,
                     stream_selection=mediapackage.CfnPackagingConfiguration.StreamSelectionProperty(
                         max_video_bits_per_second=123,
                         min_video_bits_per_second=123,
@@ -5734,7 +5734,7 @@ class CfnPackagingConfiguration(
                         include_iframe_only_stream=False,
                         manifest_name="manifestName",
                         program_date_time_interval_seconds=123,
-                        repeat_ext_xKey=False,
+                        repeat_ext_x_key=False,
                         stream_selection=mediapackage.CfnPackagingConfiguration.StreamSelectionProperty(
                             max_video_bits_per_second=123,
                             min_video_bits_per_second=123,
@@ -6386,7 +6386,7 @@ class CfnPackagingConfigurationProps:
                         include_iframe_only_stream=False,
                         manifest_name="manifestName",
                         program_date_time_interval_seconds=123,
-                        repeat_ext_xKey=False,
+                        repeat_ext_x_key=False,
                         stream_selection=mediapackage.CfnPackagingConfiguration.StreamSelectionProperty(
                             max_video_bits_per_second=123,
                             min_video_bits_per_second=123,
@@ -6451,7 +6451,7 @@ class CfnPackagingConfigurationProps:
                         include_iframe_only_stream=False,
                         manifest_name="manifestName",
                         program_date_time_interval_seconds=123,
-                        repeat_ext_xKey=False,
+                        repeat_ext_x_key=False,
                         stream_selection=mediapackage.CfnPackagingConfiguration.StreamSelectionProperty(
                             max_video_bits_per_second=123,
                             min_video_bits_per_second=123,

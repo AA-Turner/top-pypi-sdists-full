@@ -635,9 +635,11 @@ Operation *GraphIrOptimiser::ConstPropagation(Graph *const graph, Operation *con
     }
 
     auto *ofmConn = operation->Output(TensorUsage::OFM);
-    if ( ofmConn->quantization.type != QuantizationType::EXPLICIT )
+
+    // TODO: Relax this restriction when MLBEDSW-11640 is implemented
+    // Don't constant propagate operations which write to a tensor with other writers
+    if ( ofmConn->tensor->Writers().size() > 1 )
     {
-        // TODO: Remove this restriction when MLBEDSW-10086 is implemented
         return operation;
     }
 
@@ -752,6 +754,32 @@ Operation *GraphIrOptimiser::RewriteIdentityResize(Graph *const graph, Operation
             identityOp->ConnectInput(TensorUsage::IFM, ifmConn->tensor).Set(Quantization::Unit()).Set(ifmConn->tensor->StorageShape());
             identityOp->ConnectOutput(TensorUsage::OFM, ofmConn->tensor).Set(Quantization::Unit()).Set(ofmConn->tensor->StorageShape());
 
+
+            returnOp = identityOp.get();
+            RecordOptimisation(*operation, returnOp);
+            operation->Disconnect();
+        }
+    }
+    return returnOp;
+}
+
+// Replace transpose ops that are essentially just a reshape with a identity op
+Operation *GraphIrOptimiser::RewriteIdentityTranspose(Graph *const graph, Operation *const operation)
+{
+    UNUSED(graph);
+    Operation *returnOp = operation;
+    OpType opType = operation->Type();
+    if ( opType == OpType::Transpose )
+    {
+        auto *ifmConn = operation->Input(TensorUsage::IFM);
+        auto *ofmConn = operation->Output(TensorUsage::OFM);
+        auto *attr = operation->Attribute<transpose_attr_t>();
+
+        if ( IsNoOpPermuteForShape(ifmConn->shape, attr->perm) )
+        {
+            auto identityOp = std::make_shared<Operation>(OpType::Identity);
+            identityOp->CopyInput(TensorUsage::IFM0, *ifmConn);
+            identityOp->CopyOutput(TensorUsage::OFM, *ofmConn);
 
             returnOp = identityOp.get();
             RecordOptimisation(*operation, returnOp);
@@ -1162,18 +1190,10 @@ Operation *GraphIrOptimiser::UnrollKernelStrides(Graph *const, Operation *const 
 
         const auto kernel = operation->Kernel();
         assert(kernel);
-        const int32_t kernel_h = kernel->Size().y;
-        assert(kernel_h > 0);
-        const int32_t kernel_w = kernel->Size().x;
-        assert(kernel_w > 0);
         const int32_t stride_h = kernel->Stride().y;
-        assert(stride_h > 0);
         const int32_t stride_w = kernel->Stride().x;
-        assert(stride_w > 0);
         const int32_t dilation_h = kernel->Dilation().y;
-        assert(dilation_h > 0);
         const int32_t dilation_w = kernel->Dilation().x;
-        assert(dilation_w > 0);
         const bool hasPadding = !kernel->Padding().IsZero();
         const bool hasIfmSlice = ifmConn->slice.shape || ifmConn->slice.offset;
         const bool hasOfmSlice = ofmConn->slice.shape || ofmConn->slice.offset;
@@ -1183,55 +1203,88 @@ Operation *GraphIrOptimiser::UnrollKernelStrides(Graph *const, Operation *const 
         const bool needUnrollW = stride_w > 3;
 
         // Figure out if op can be unrolled
-        const bool canUnroll = !hasPadding && !hasIfmSlice && !hasOfmSlice && kernel->Padding().IsZero();
+        const bool canUnroll = !hasPadding && !hasIfmSlice && !hasOfmSlice;
         const bool canUnrollH = dilation_h == 1 && canUnroll;
         const bool canUnrollW = dilation_w == 1 && canUnroll;
 
-        if ( (needUnrollH || needUnrollW) && canUnrollH && canUnrollW )
+        if ( needUnrollH || needUnrollW )
         {
-            const Shape inputGridCell = ifmConn->shape.WithHW(kernel_h, kernel_w);
-            const Shape outputGridCell = ofmConn->shape.WithHW(1, 1);
-            const Point2i gridSize = ofmConn->shape.WH();
-
-            for ( int h = 0; h < gridSize.y; h++ )
+            if ( canUnrollH && canUnrollW )
             {
-                for ( int w = 0; w < gridSize.x; w++ )
+                const Shape inputGridCell = ifmConn->shape.WithHW(kernel->Size());
+                const Shape outputGridCell = ofmConn->shape.WithHW(1, 1);
+                const Point2i gridSize = ofmConn->shape.WH();
+
+                for ( int h = 0; h < gridSize.y; h++ )
                 {
-                    TensorSlice ifmSlice;
-                    ifmSlice.shape = inputGridCell;
-                    ifmSlice.offset = Shape(0, h * stride_h, w * stride_w, 0);
-
-                    TensorSlice ofmSlice;
-                    ofmSlice.shape = outputGridCell;
-                    ofmSlice.offset = Shape(0, h, w, 0);
-
-                    // Add new for this grid cell
-                    auto op = std::make_shared<Operation>(operation->Type());
-                    op->SetKernel(std::make_unique<Kernel>(kernel->WithStride({1, 1})));
-                    op->CopyInput(TensorUsage::IFM, *ifmConn);
-                    op->Input(TensorUsage::IFM)->Set(ifmSlice);
-                    if ( weightsConn )
+                    for ( int w = 0; w < gridSize.x; w++ )
                     {
-                        op->CopyInput(TensorUsage::Weights, *weightsConn);
-                    }
-                    if ( scalesConn )
-                    {
-                        op->CopyInput(TensorUsage::Scales, *scalesConn);
-                    }
-                    op->CopyOutput(TensorUsage::OFM, *ofmConn);
-                    op->Output(TensorUsage::OFM)->Set(ofmSlice);
-                    RecordOptimisation(*operation, op.get());
+                        TensorSlice ifmSlice;
+                        ifmSlice.shape = inputGridCell;
+                        ifmSlice.offset = Shape(0, h * stride_h, w * stride_w, 0);
 
-                    returnOp = op.get();
+                        TensorSlice ofmSlice;
+                        ofmSlice.shape = outputGridCell;
+                        ofmSlice.offset = Shape(0, h, w, 0);
+
+                        // Add new for this grid cell
+                        auto op = std::make_shared<Operation>(operation->Type());
+                        op->SetKernel(std::make_unique<Kernel>(kernel->WithStride({1, 1})));
+                        op->CopyInput(TensorUsage::IFM, *ifmConn);
+                        op->Input(TensorUsage::IFM)->Set(ifmSlice);
+                        if ( weightsConn )
+                        {
+                            op->CopyInput(TensorUsage::Weights, *weightsConn);
+                        }
+                        if ( scalesConn )
+                        {
+                            op->CopyInput(TensorUsage::Scales, *scalesConn);
+                        }
+                        op->CopyOutput(TensorUsage::OFM, *ofmConn);
+                        op->Output(TensorUsage::OFM)->Set(ofmSlice);
+                        RecordOptimisation(*operation, op.get());
+
+                        returnOp = op.get();
+                    }
                 }
-            }
 
-            // Remove original op
-            operation->Disconnect();
+                // Remove original op
+                operation->Disconnect();
+            }
         }
     }
 
     return returnOp;
+}
+
+Operation *GraphIrOptimiser::ResetKernelAttributes(Graph *const, Operation *const operation)
+{
+    if ( IsConvolution(operation->Type()) || IsPooling(operation->Type()) || operation->Type() == OpType::Conv3D )
+    {
+        const auto &ofmConn = operation->Output(TensorUsage::OFM);
+        const auto kernel = operation->Kernel();
+
+        // If the output is only one element in a dimension, the stride in that dimension has no effect
+        // and can be set to 1
+        auto newStride = kernel->Stride();
+        auto ofmShape = Shape::PadAxes(ofmConn->SliceShape(), 3, 1);
+        if ( ofmShape.Width() == 1 ) newStride.x = 1;
+        if ( ofmShape.Height() == 1 ) newStride.y = 1;
+
+        // If the kernel is only one element in a dimension, the dilation in that dimension has no effect
+        // and can be set to 1
+        auto newDilation = kernel->Dilation();
+        if ( kernel->Size().x == 1 ) newDilation.x = 1;
+        if ( kernel->Size().y == 1 ) newDilation.y = 1;
+
+        if ( newStride != kernel->Stride() || newDilation != kernel->Dilation() )
+        {
+            auto newKernel = kernel->WithStride(newStride).WithDilation(newDilation);
+            operation->SetKernel(std::make_unique<Kernel>(std::move(newKernel)));
+            RecordOptimisation(*operation, operation);
+        }
+    }
+    return operation;
 }
 
 namespace
@@ -1399,15 +1452,13 @@ bool GraphIrOptimiser::CanFuseMultipleRescalesOnConsumer(Operation *const consum
     {
         return false;
     }
-    auto fusedType1 = rescale1->Output(TensorUsage::OFM)->tensor->Type();
-    auto fusedType2 = rescale2->Output(TensorUsage::OFM)->tensor->Type();
-    auto consumerOfmType = consumer->Output(TensorUsage::OFM)->tensor->Type();
     return _constraints->SupportsQuantization(
         consumer->Type(), q1, newType1, q2, newType2, consumerOfmConn->quantization, consumerOfmConn->tensor->Type());
 }
 
 // Check if a rescale can be fused onto a specific producer
-bool GraphIrOptimiser::CanFuseRescaleOnProducer(Operation *const producer, Quantization &newQuant, DataType newType)
+bool GraphIrOptimiser::CanFuseRescaleOnProducer(Operation *const producer, Quantization &newQuant, DataType newType,
+    const Quantization *newIFMQuant, DataType newIFMType, const Quantization *newIFM2Quant, DataType newIFM2Type)
 {
     OpType opType = producer->Type();
     // Don't fuse to dataLayout opTypes as those are not typically
@@ -1434,10 +1485,10 @@ bool GraphIrOptimiser::CanFuseRescaleOnProducer(Operation *const producer, Quant
     }
     auto ifmConn = producer->Input(TensorUsage::IFM);
     auto ifm2Conn = producer->Input(TensorUsage::IFM1);
-    auto ifmType = ifmConn->tensor->Type();
-    const auto &ifmQuant = ifmConn->quantization;
-    auto ifm2Type = ifm2Conn ? ifm2Conn->tensor->Type() : DataType::None;
-    const auto &ifm2Quant = ifm2Conn ? ifm2Conn->quantization : Quantization::Unit();
+    auto ifmType = newIFMType == DataType::None ? ifmConn->tensor->Type() : newIFMType;
+    const auto &ifmQuant = newIFMQuant ? *newIFMQuant : ifmConn->quantization;
+    auto ifm2Type = newIFM2Type == DataType::None ? (ifm2Conn ? ifm2Conn->tensor->Type() : DataType::None) : newIFM2Type;
+    const auto &ifm2Quant = newIFM2Quant ? *newIFM2Quant : (ifm2Conn ? ifm2Conn->quantization : Quantization::Unit());
     return _constraints->SupportsQuantization(producer->Type(), ifmQuant, ifmType, ifm2Quant, ifm2Type, newQuant, newType);
 }
 
@@ -1471,6 +1522,46 @@ Operation *GraphIrOptimiser::FuseRescale(Graph *const graph, Operation *const op
         quant.scales = ReduceScales(ofmConn->quantization.scales, attr->double_round);
         return quant;
     };
+    auto QuantAfterOFMFusing = [](Operation *const rescale)
+    {
+        assert(rescale->Type() == OpType::Rescale);
+        auto *attr = rescale->Attribute<rescale_attr_t>();
+        assert(attr);
+        auto ofmConn = rescale->Output(TensorUsage::OFM);
+        auto quant = ofmConn->quantization;
+        quant.scales = ReduceScales(quant.scales, attr->double_round);
+        assert(quant.type == QuantizationType::EXPLICIT && "Rescale without explicit scaling");
+        return quant;
+    };
+    auto OutputRescaleCandidate = [&](Operation *const producer) -> std::shared_ptr<Operation>
+    {
+        auto producerOfmConn = producer->Output(TensorUsage::OFM);
+        if ( producerOfmConn->tensor->Readers().size() != 1 ) return nullptr;
+        auto rescale = producerOfmConn->tensor->Readers()[0];
+        return rescale->Type() == OpType::Rescale ? std::move(rescale) : nullptr;
+    };
+    auto FuseOutputRescale = [&](Operation *const producer, const std::shared_ptr<Operation> &rescale)
+    {
+        if ( !rescale ) return false;
+        auto newOFMQuant = QuantAfterOFMFusing(rescale.get());
+        auto rescaleIfmConn = rescale->Input(TensorUsage::IFM);
+        auto rescaleOfmConn = rescale->Output(TensorUsage::OFM);
+        if ( !CanFuseRescaleOnProducer(producer, newOFMQuant, rescaleOfmConn->tensor->Type()) ) return false;
+        ReplaceProducerOutput({producer->shared_from_this()}, rescaleIfmConn->tensor.get(), rescaleOfmConn->tensor);
+        producer->Output(TensorUsage::OFM)->Set(rescaleOfmConn->rounding).Set(newOFMQuant);
+        rescale->Disconnect();
+        return true;
+    };
+    auto TryCompoundOutputRescale = [&](Operation *const producer, auto canFuse) -> std::shared_ptr<Operation>
+    {
+        auto rescale = OutputRescaleCandidate(producer);
+        if ( !rescale ) return rescale;
+        if ( !CanBeFused(graph, rescale.get(), /* ontoConsumers */ false) ) return nullptr;
+
+        auto quant = QuantAfterOFMFusing(rescale.get());
+        auto type = rescale->Output(TensorUsage::OFM)->tensor->Type();
+        return canFuse(quant, type) ? std::move(rescale) : nullptr;
+    };
     auto ofmConn = operation->Output(TensorUsage::OFM);
     auto ifmConn = operation->Input(TensorUsage::IFM);
     // Fusing onto consumers
@@ -1481,11 +1572,25 @@ Operation *GraphIrOptimiser::FuseRescale(Graph *const graph, Operation *const op
         assert(ofmConn->tensor->Readers().size() == 1);
         auto consumer = ofmConn->tensor->Readers()[0];
         TensorUsage consumerUsage = consumer->UsageOfTensor(ofmConn->tensor.get());
-        // Check if we can IFM-fuse directly on the consumer without involving any other Rescales
-        if ( CanFuseRescaleOnConsumer(consumer.get(), consumerUsage, newQuant, ifmConn->tensor->Type()) )
+        // First check if we can compound merge the rescale with a possible output rescale on the consumer
+        auto outputRescale = TryCompoundOutputRescale(consumer.get(),
+            [&](Quantization &quant, DataType type)
+            {
+                TensorUsage otherUsage = consumerUsage == TensorUsage::IFM0 ? TensorUsage::IFM1 : TensorUsage::IFM0;
+                auto *otherConn = IsBinaryElementwise(consumer->Type()) ? consumer->Input(otherUsage) : nullptr;
+                return consumerUsage == TensorUsage::IFM1 ?
+                           CanFuseRescaleOnProducer(consumer.get(), quant, type, otherConn ? &otherConn->quantization : nullptr,
+                               otherConn ? otherConn->tensor->Type() : DataType::None, &newQuant, ifmConn->tensor->Type()) :
+                           CanFuseRescaleOnProducer(consumer.get(), quant, type, &newQuant, ifmConn->tensor->Type());
+            });
+        // Check if we can IFM-fuse directly on the consumer without or without a compound fuse with the output rescale
+        if ( outputRescale || CanFuseRescaleOnConsumer(consumer.get(), consumerUsage, newQuant, ifmConn->tensor->Type()) )
         {
             ReplaceConsumerInput(nullptr, ofmConn->tensor->Readers(), ofmConn->tensor.get(), ifmConn->tensor);
             consumer->Input(consumerUsage)->Set(ofmConn->rounding).Set(newQuant);
+            bool outputFused = FuseOutputRescale(consumer.get(), outputRescale);
+            assert(outputFused == (outputRescale != nullptr));
+            UNUSED(outputFused);
             returnOp = consumer.get();
             operation->Disconnect();
         }
@@ -1517,7 +1622,16 @@ Operation *GraphIrOptimiser::FuseRescale(Graph *const graph, Operation *const op
                 {
                     // TODO MLBEDSW-11218: Support fusing onto multiple consumers
                     assert(otherRescale->Output(TensorUsage::OFM)->tensor->Readers().size() == 1);
-                    if ( CanFuseMultipleRescalesOnConsumer(consumer.get(), operation, otherRescale.get(), newQuant, newQuant2) )
+                    outputRescale = TryCompoundOutputRescale(consumer.get(),
+                        [&](Quantization &quant, DataType type)
+                        {
+                            return consumerUsage == TensorUsage::IFM0 ?
+                                       CanFuseRescaleOnProducer(consumer.get(), quant, type, &newQuant,
+                                           ifmConn->tensor->Type(), &newQuant2, otherRescaleIfmConn->tensor->Type()) :
+                                       CanFuseRescaleOnProducer(consumer.get(), quant, type, &newQuant2,
+                                           otherRescaleIfmConn->tensor->Type(), &newQuant, ifmConn->tensor->Type());
+                        });
+                    if ( outputRescale || CanFuseMultipleRescalesOnConsumer(consumer.get(), operation, otherRescale.get(), newQuant, newQuant2) )
                     {
                         // Fuse current rescale
                         ReplaceConsumerInput(nullptr, ofmConn->tensor->Readers(), ofmConn->tensor.get(), ifmConn->tensor);
@@ -1526,6 +1640,9 @@ Operation *GraphIrOptimiser::FuseRescale(Graph *const graph, Operation *const op
                         ReplaceConsumerInput(nullptr, otherRescaleOfmConn->tensor->Readers(),
                             otherRescaleOfmConn->tensor.get(), otherRescaleIfmConn->tensor);
                         consumer->Input(otherInputUsage)->Set(otherRescaleOfmConn->rounding).Set(newQuant2);
+                        bool outputFused = FuseOutputRescale(consumer.get(), outputRescale);
+                        assert(outputFused == (outputRescale != nullptr));
+                        UNUSED(outputFused);
                         returnOp = consumer.get();
                         operation->Disconnect();
                         otherRescale->Disconnect();
@@ -1537,11 +1654,7 @@ Operation *GraphIrOptimiser::FuseRescale(Graph *const graph, Operation *const op
     // Fusing onto producers
     if ( returnOp == operation && CanBeFused(graph, operation, /* ontoConsumers */ false) )
     {
-        auto newOFMQuant = ofmConn->quantization;
-        auto *attr = operation->Attribute<rescale_attr_t>();
-        // Normalize scales to shift 0 if possible
-        newOFMQuant.scales = ReduceScales(ofmConn->quantization.scales, attr->double_round);
-        assert(newOFMQuant.type == QuantizationType::EXPLICIT && "Rescale without explicit scaling");
+        auto newOFMQuant = QuantAfterOFMFusing(operation);
         // TODO MLBEDSW-11218: Support fusing onto multiple producers
         assert(ifmConn->tensor->Writers().size() == 1);
         auto producer = ifmConn->tensor->Writers()[0];
@@ -1590,6 +1703,8 @@ Operation *GraphIrOptimiser::RemoveReshape(Graph *const graph, Operation *const 
         bool isIfmSgIfm = graph->IsInput(ifm);
         bool isOfmSgOfm = graph->IsOutput(ofm);
         bool isIfmSgOfm = graph->IsOutput(ifm);
+        bool isOfmPersistent = graph->IsPersistent(ofm);
+        bool isIfmPersistent = graph->IsPersistent(ifm);
 
         // Check if ifm/ofm is produced/consumed by a CPU operation
         auto isPassthroughOp = [](const std::shared_ptr<Operation> &op) { return op->Type() == OpType::Passthrough; };
@@ -1599,7 +1714,7 @@ Operation *GraphIrOptimiser::RemoveReshape(Graph *const graph, Operation *const 
             std::find_if(ifm->Writers().begin(), ifm->Writers().end(), isPassthroughOp) != ifm->Writers().end();
 
         // Inserts a copy op if needed before removing reshapes.
-        if ( ((isIfmSgIfm || isIfmSgOfm || isIfmConst || isIfmCpuOfm) && (isOfmSgOfm || isOfmCpuIfm)) ||
+        if ( ((isIfmSgIfm || isIfmSgOfm || isIfmConst || isIfmCpuOfm || isIfmPersistent) && (isOfmSgOfm || isOfmCpuIfm || isOfmPersistent)) ||
              ((ifm->Readers().size() > 1) && (ifm->StorageShape() != ofm->StorageShape())) )
         {
             auto copyOp = InsertCopyOpAfterTensor(ifmConn->tensor, ifmConn->quantization);
@@ -1614,7 +1729,7 @@ Operation *GraphIrOptimiser::RemoveReshape(Graph *const graph, Operation *const 
         }
 
         // Remove the reshape and one of the tensors.
-        if ( isOfmSgOfm || isOfmCpuIfm )
+        if ( isOfmSgOfm || isOfmCpuIfm || isOfmPersistent )
         {
             // The OFM is in graph outputs, do not remove this tensor.
             // Bypass by replacing ifm with ofm.
@@ -1838,7 +1953,6 @@ Operation *GraphIrOptimiser::RewriteCast(Graph *const, Operation *const operatio
             newOp->ConnectInput(TensorUsage::IFM1, CreateConstTensor("const_one", int8_t(1)));
             newOp->CopyOutput(TensorUsage::OFM, *ofmConn);
             RecordOptimisation(*operation, newOp.get());
-            operation->Disconnect();
             returnOp = newOp.get();
         }
         else if ( IsInteger(ifmType) && IsBool(ofmType) )
@@ -1849,7 +1963,6 @@ Operation *GraphIrOptimiser::RewriteCast(Graph *const, Operation *const operatio
             newOp->ConnectInput(TensorUsage::IFM1, CreateConstTensor("const_zero", ifmConn->tensor->Type(), 0));
             newOp->CopyOutput(TensorUsage::OFM, *ofmConn);
             RecordOptimisation(*operation, newOp.get());
-            operation->Disconnect();
             returnOp = newOp.get();
         }
         else
@@ -1857,8 +1970,9 @@ Operation *GraphIrOptimiser::RewriteCast(Graph *const, Operation *const operatio
             // Replace CAST with ADD
             auto copyOp = std::make_shared<Operation>(OpType::Add);
             auto type = ifmConn->tensor->Type();
-            ReplaceOperation(operation, copyOp.get());
+            copyOp->CopyInput(TensorUsage::IFM0, *ifmConn);
             copyOp->ConnectInput(TensorUsage::IFM1, CreateConstTensor("const_zero", type, 0));
+            copyOp->CopyOutput(TensorUsage::OFM, *ofmConn);
             RecordOptimisation(*operation, copyOp.get());
             returnOp = copyOp.get();
         }
@@ -1870,6 +1984,9 @@ Operation *GraphIrOptimiser::RewriteCast(Graph *const, Operation *const operatio
             castOut->quantization.quantMin = {std::numeric_limits<int64_t>::min()};
             castOut->quantization.quantMax = {std::numeric_limits<int64_t>::max()};
         }
+
+        // Remove original op
+        operation->Disconnect();
     }
     return returnOp;
 }
@@ -2231,8 +2348,19 @@ Operation *GraphIrOptimiser::RewriteReduceSum(Graph *const graph, Operation *con
     return returnOp;
 }
 
-// Decompose Tile with more than one tiled axis
-// into several tile operations, each with one tiled axis
+static std::shared_ptr<Operation>
+CreateTileCopy(const TensorConnection &ifmConn, const TensorConnection &ofmConn, const TensorSlice *ofmSlice = nullptr)
+{
+    auto copyOp = std::make_shared<Operation>(OpType::MemoryCopy);
+    copyOp->CopyInput(TensorUsage::IFM, ifmConn);
+    copyOp->Input(TensorUsage::IFM)->Set(RoundMode::NATURAL);
+    copyOp->CopyOutput(TensorUsage::OFM, ofmConn);
+    if ( ofmSlice ) copyOp->Output(TensorUsage::OFM)->Set(*ofmSlice);
+    copyOp->Output(TensorUsage::OFM)->Set(RoundMode::NATURAL);
+    return copyOp;
+}
+
+// Rewrite Tile to one or more MemoryCopy operations
 Operation *GraphIrOptimiser::RewriteTile(Graph *const, Operation *const operation)
 {
     Operation *returnOp = operation;
@@ -2246,8 +2374,6 @@ Operation *GraphIrOptimiser::RewriteTile(Graph *const, Operation *const operatio
     auto *ofmConn = operation->Output(TensorUsage::OFM);
     auto *ifmConn = operation->Input(TensorUsage::IFM);
     auto *params = operation->Input(TensorUsage::Params);
-    auto *ofm = ofmConn->tensor.get();
-    auto *ifm = ifmConn->tensor.get();
 
     assert(ifmConn);
     assert(ofmConn);
@@ -2256,58 +2382,67 @@ Operation *GraphIrOptimiser::RewriteTile(Graph *const, Operation *const operatio
     // Convert params tensor to vector
     Shape multiples = TensorToShape(params->tensor.get(), params->shape.Elements());
 
-    // axisMask contains ones for every axis that needs to be tiled.
-    // e.g. if H,W are tiled, axisMask will be 0110
-    unsigned axisMask = multiples.GreaterMask(multiples.WithOnes());
-
-    // We only need to decompose if there is more than one tiled axis
-    if ( axisMask == 0 || IsPowerOfTwo(axisMask) )
+    TensorConnection inputConn = *ifmConn;
+    int finalTiledAxis = -1;
+    for ( int axis = 0; axis < multiples.Size(); ++axis )
     {
-        return returnOp;
+        if ( multiples[axis] > 1 ) finalTiledAxis = axis;
     }
 
-    auto inputConn = ifmConn;
-    int axis = ifmConn->shape.Size() - 1;
-
-    while ( axisMask )
+    if ( finalTiledAxis < 0 )
     {
-        // tile only if the LSB>0
-        if ( axisMask & 1 )
+        // If all multipliers are 1, replace Tile with a single MemoryCopy and skip all the tiling logic.
+        auto copyOp = CreateTileCopy(inputConn, *ofmConn);
+        RecordOptimisation(*operation, copyOp.get());
+        operation->Disconnect();
+        return copyOp.get();
+    }
+
+    for ( int axis = 0; axis < multiples.Size(); ++axis )
+    {
+        if ( multiples[axis] > 1 )
         {
-            // Create new tile operation that only tiles one of the axes
-            int multiplier = multiples[axis];
+            const int multiplier = multiples[axis];
 
             // The shape of the intermediate tensor is same as its input-tensor
             // but with one tiled axis (taken from ofm-shape)
-            Shape outShape = inputConn->shape;
+            Shape outShape = inputConn.shape;
             outShape[axis] = ofmConn->shape[axis];
 
-            std::vector<int32_t> newMultiples(multiples.Size(), 1);
-            newMultiples[axis] = multiplier;
-
-            std::shared_ptr<Tensor> outTens = ofmConn->tensor;
-            // create intermediate tensor if this is not the last tiled axis
-            if ( (axisMask >> 1) > 0 )
+            TensorConnection outConn;
+            if ( axis == finalTiledAxis )
             {
-                std::string name(fmt::format("{}_tiled_axis_{}", ofm->Name(), axis));
-                outTens = std::make_shared<Tensor>(name, ofm->Type(), outShape);
+                // The last MemoryCopy can write directly to the final OFM.
+                outConn = *ofmConn;
+            }
+            else
+            {
+                // Intermediate MemoryCopys materialize a partially tiled tensor that becomes
+                // the source for the next tiled axis.
+                std::string name = fmt::format("{}_tiled_axis_{}", ofmConn->tensor->Name(), axis);
+                outConn.tensor = std::make_shared<Tensor>(name, ofmConn->tensor->Type(), outShape);
+                outConn.shape = outShape;
+                outConn.quantization = inputConn.quantization;
+                outConn.rounding = RoundMode::NATURAL;
             }
 
-            auto tileOp = std::make_shared<Operation>(OpType::Tile);
-            tileOp->CopyInput(TensorUsage::IFM, *inputConn);
-            tileOp->ConnectOutput(TensorUsage::OFM, outTens).Set(outShape);
-            // create new param tensor
-            auto newParamtensor = CreateConstTensor(
-                "multiples", DataType::Int32, std::make_shared<Buffer>(newMultiples.size(), newMultiples.data()));
-            tileOp->ConnectInput(TensorUsage::Params, newParamtensor);
+            for ( int i = 0; i < multiplier; ++i )
+            {
+                // Copy the whole current input tensor into consecutive slices along the axis being expanded in this
+                // stage.
+                Shape offset = outShape.WithZeros();
+                offset[axis] = i * inputConn.shape[axis];
+                TensorSlice dst(offset, inputConn.shape);
 
-            RecordOptimisation(*operation, tileOp.get());
-            returnOp = tileOp.get();
+                auto copyOp = CreateTileCopy(inputConn, outConn, &dst);
+                RecordOptimisation(*operation, copyOp.get());
+                returnOp = copyOp.get();
+            }
 
-            inputConn = tileOp->Output(TensorUsage::OFM);
+            // Feed the next stage with the fully materialized intermediate tensor.
+            inputConn = std::move(outConn);
+            inputConn.slice = {};
         }
-        axis--;
-        axisMask >>= 1;
     }
 
     operation->Disconnect();
@@ -2559,36 +2694,7 @@ Operation *GraphIrOptimiser::RewriteMatmul(Graph *const graph, Operation *const 
     ifm1Conn->shape = ReshapeFunc(ifm1Conn->shape);
     ofmConn->shape = ReshapeFunc(ofmConn->shape);
 
-    // If IFM2 producer is already a NHCW transpose
-    // and there are no other producers/consumers of ifm2
-    // we remove the transpose instead of adding another
-    const auto &ifm1Writers = ifm1Conn->tensor->Writers();
-    const auto &ifm1Readers = ifm1Conn->tensor->Readers();
-    // TODO MLBEDSW-9620: Remove inverse transpose sequences
-    if ( (ifm1Readers.size() == 1) && (ifm1Writers.size() == 1) )
-    {
-        auto producer = ifm1Writers[0];
-        if ( producer->Type() == OpType::Transpose )
-        {
-
-            auto *attr = producer->Attribute<transpose_attr_t>();
-            TransposeType transposeType = TransposeType::None;
-            if ( attr->perm.Size() <= 4 )
-            {
-                transposeType = TransposeTypeFromShape(attr->perm);
-            }
-            if ( transposeType == TransposeType::NHCW )
-            {
-                auto *producerIfm = producer->Input(TensorUsage::IFM0);
-                operation->ConnectInput(TensorUsage::IFM1, producerIfm->tensor).Set(ifm1Conn->quantization);
-                operation->Input(TensorUsage::IFM1)->shape = ReshapeFunc(producerIfm->shape);
-                producer->Disconnect();
-                return returnOp;
-            }
-        }
-    }
-
-    // Otherwise create new transpose op
+    // Create new NHCW transpose op for IFM2
     auto transposeOp = std::make_shared<Operation>(OpType::Transpose);
     auto *attr = transposeOp->Attribute<transpose_attr_t>();
     attr->perm = Shape(0, 1, 3, 2);
@@ -2873,15 +2979,16 @@ Operation *GraphIrOptimiser::RewriteArgmax(Graph *const graph, Operation *const 
     auto convOp = std::make_shared<Operation>(OpType::DepthwiseConv2D);
     convOp->SetKernel(std::make_unique<Kernel>(Point2i(1, 1), Point2i(1, 1), Point2i(1, 1)));
     convOp->CopyInput(TensorUsage::IFM, *ifmConn);
+    convOp->Input(TensorUsage::IFM)->quantization = Quantization::Unit();
     convOp->ConnectInput(TensorUsage::Weights, weightTensor).Set(Quantization::Unit());
     // Add bias to the convolution corresponding to the input channel
     convOp->ConnectInput(TensorUsage::Scales, convBias).Set(Quantization::Unit());
-    convOp->ConnectOutput(TensorUsage::OFM, convOutput).Set(ifmConn->quantization);
+    convOp->ConnectOutput(TensorUsage::OFM, convOutput).Set(Quantization::Unit());
 
     // Max pool op. Squash the width dimension into height since max pool can only work in 2D.  1xHxWxC -> 1x(WxH)xCx1
     auto maxPoolOp = std::make_shared<Operation>(OpType::MaxPool);
     int newHeight = h * w;
-    maxPoolOp->ConnectInput(TensorUsage::IFM, convOutput).Set(ifmConn->quantization).Set(Shape(1, newHeight, c, 1));
+    maxPoolOp->ConnectInput(TensorUsage::IFM, convOutput).Set(Quantization::Unit()).Set(Shape(1, newHeight, c, 1));
     maxPoolOp->SetKernel(std::make_unique<Kernel>(Point2i(c, 1), Point2i(1, 1), Point2i(1, 1)));
     maxPoolOp->ConnectOutput(TensorUsage::OFM, maxPoolOutput).Set(Quantization::Unit()).Set(Shape(1, newHeight, 1, 1));
 
@@ -2894,7 +3001,7 @@ Operation *GraphIrOptimiser::RewriteArgmax(Graph *const graph, Operation *const 
     auto lutTensor = CreateConstTensor("lutTensor", DataType::UInt32, lutBuf, &lutShape);
 
     // Use the LUT operator to extract the channel information from the lower 7 bits
-    Operation *lutOp = CreateLUT(maxPoolOutput, lutTensor, ifmConn->quantization, ofmConn->quantization, DataType::UInt32);
+    Operation *lutOp = CreateLUT(maxPoolOutput, lutTensor, Quantization::Unit(), Quantization::Unit(), DataType::UInt32);
     lutOp->ConnectInput(TensorUsage::IFM, maxPoolOutput).Set(Quantization::Unit());
     lutOp->ConnectOutput(TensorUsage::OFM, lutOutput).Set(Quantization::Unit()).Set(Shape(h, w, 1));
 
@@ -2941,7 +3048,6 @@ Operation *GraphIrOptimiser::RewriteResize(Graph *const, Operation *const operat
     RecordOptimisation(*operation, copyOp.get());
     return copyOp.get();
 }
-
 
 static std::shared_ptr<Operation> CreatePadForKernelPadding(OpType type, const Margin &padding, const TensorConnection &ifmConn)
 {
@@ -3031,7 +3137,7 @@ Operation *GraphIrOptimiser::RewriteNonConstWeightOp(Graph *const, Operation *co
         Point2i newStride(kernel->Stride().y, kernel->Stride().x);
         Point2i newDilation(kernel->Dilation().y, kernel->Dilation().x);
         auto &pad = operation->Kernel()->Padding();
-        Margin newPadding(pad.Left(), pad.Top(), pad.Right(), pad.Bottom());
+        Margin newPadding(pad.Left(), pad.Top(), pad.Right(), pad.Bottom(), pad.Near(), pad.Far());
         auto newKernel = std::make_unique<Kernel>(
             kernel->WithSize(newSize).WithStride(newStride).WithDilation(newDilation).WithPadding(newPadding));
         operation->SetKernel(std::move(newKernel));
@@ -3118,6 +3224,22 @@ Operation *GraphIrOptimiser::ReplaceBroadcastWithAdd(Graph *const, Operation *co
     return operation;
 }
 
+// Returns true when every output position along this axis falls entirely in padding.
+static bool IsAllPaddingAxis(int ifmSize, int ofmSize, int stride, int padBefore, int kDilated)
+{
+    // The kernel window for output index o is:
+    // [o * stride - padBefore, o * stride - padBefore + (kDilated - 1)].
+    // Find the first and last o that still overlap the IFM.
+    int64_t firstNumerator = int64_t(padBefore) - (int64_t(kDilated) - 1);
+    int64_t firstOverlapOut = (firstNumerator >= 0) ? (firstNumerator + stride - 1) / stride : firstNumerator / stride;
+    int64_t lastOverlapOut = (int64_t(ifmSize - 1) + padBefore) / stride;
+
+    // Clamp to [0, ofmSize-1] and check if any overlap remains.
+    int64_t firstOut = std::max<int64_t>(0, firstOverlapOut);
+    int64_t lastOut = std::min<int64_t>(ofmSize - 1, lastOverlapOut);
+    return firstOut > lastOut;
+}
+
 Operation *GraphIrOptimiser::RealiseKernelPadding(Graph *const, Operation *const operation)
 {
     if ( !IsConvolution(operation->Type()) && operation->Type() != OpType::Conv3D )
@@ -3127,6 +3249,7 @@ Operation *GraphIrOptimiser::RealiseKernelPadding(Graph *const, Operation *const
 
     auto *kernel = operation->Kernel();
     auto *ifmConn = operation->Input(TensorUsage::IFM);
+    auto *ofmConn = operation->Output(TensorUsage::OFM);
     const auto &kSize = kernel->DilatedWH();
     const auto &padding = kernel->Padding();
     // If the kernel padding places the kernel ENTIRELY in the padded region
@@ -3150,6 +3273,29 @@ Operation *GraphIrOptimiser::RealiseKernelPadding(Graph *const, Operation *const
         {
             if ( req.decomposeProps.Any(ArchProperty::TensorAxis, ArchProperty::KernelStride, ArchProperty::KernelDilation) )
             {
+                if ( operation->Type() != OpType::Conv3D )
+                {
+                    // When the kernel never overlaps the IFM on an axis, the output is bias-only.
+                    const auto &ifmShape = ifmConn->SliceShape();
+                    const auto &ofmShape = ofmConn->SliceShape();
+                    const auto &stride = kernel->Stride();
+                    bool allPaddingH = IsAllPaddingAxis(
+                        ifmShape.Height(), ofmShape.Height(), stride.y, padding.Top(), kSize.y);
+                    bool allPaddingW = IsAllPaddingAxis(
+                        ifmShape.Width(), ofmShape.Width(), stride.x, padding.Left(), kSize.x);
+                    if ( allPaddingH || allPaddingW )
+                    {
+                        // Avoid materialising a padded IFM values that are not required; fill the OFM directly.
+                        TensorSlice padSlice = ofmConn->slice;
+                        padSlice.Initialize(ofmShape.WithZeros(), ofmShape);
+                        auto fillOp = CreateBiasFillForPadding(
+                            *ofmConn, *scalesConn, padSlice, fmt::format("{}_padfill", ofmConn->tensor->Name()));
+                        RecordOptimisation(*operation, fillOp.get());
+                        operation->Disconnect();
+                        return fillOp.get();
+                    }
+                }
+
                 auto padOp = CreatePadForKernelPadding(operation->Type(), padding, *ifmConn);
                 assert(padOp->OFM());
 
@@ -3204,10 +3350,10 @@ Operation *GraphIrOptimiser::MoveSplitSliceToConsumer(Graph *const, Operation *c
             bool bothHaveIfmStride = false;
             bool hasIfmSlice = false;
 
-            // Don't move to CPU, Reshape or Tile operations
+            // Don't move to CPU, Reshape, Tile, Scatter or Gather operations
             // low-level implementation of TILE requires unsliced inputs
             if ( cons->Type() == OpType::Passthrough || IsReshape(cons->Type()) || cons->Type() == OpType::Tile ||
-                 IsControlFlow(cons->Type()) )
+                 cons->Type() == OpType::Scatter || cons->Type() == OpType::Gather || IsControlFlow(cons->Type()) )
             {
                 return operation;
             }
@@ -3281,6 +3427,101 @@ void GraphIrOptimiser::OptimiseGraph(Graph *graph)
             RewriteGraph<GraphIrOptimiser>(graph, *iOpt);
         }
     }
+}
+
+// Remove MemoryCopy with OFM slice by moving the slice to the producer
+Operation *GraphIrOptimiser::MoveConcatSliceToProducer(Graph *const graph, Operation *const operation)
+{
+    // This shows the RewritePack transform (1 -> 2) and this transform (2 -> 3).
+    //
+    //    (1)          (2)          (3)
+    //
+    //  T1   T2      T1   T2      T1   T2
+    //  |    |       |    |       |    |
+    //  O1   O2      O1   O2      O1   O2
+    //  |    |   =>  |    |   =>   \  / (slice offset on OFM conn.)
+    //  T3   T4      T3   T4        T5
+    //   \  /        |    |
+    //   PACK       COPY COPY
+    //    |           \  / (slice offset on OFM conn.)
+    //    T5           T5
+
+    if ( operation->Type() != OpType::MemoryCopy )
+    {
+        return operation;
+    }
+
+    const auto *ifmConn = operation->Input(TensorUsage::IFM0);
+    assert(ifmConn);
+    const auto *ofmConn = operation->Output(TensorUsage::OFM);
+    assert(ofmConn);
+
+    // Only handle pure copy into an output slice with same shape
+    const bool hasIfmSlice = ifmConn->slice.shape && ifmConn->slice.shape != ifmConn->shape;
+    const bool hasIfmStride = ifmConn->slice.stride && ifmConn->slice.stride != ifmConn->slice.stride.WithOnes();
+    const bool hasOfmSlice = ofmConn->slice.shape && ofmConn->slice.shape != ofmConn->shape;
+    const bool hasOfmStride = ofmConn->slice.stride && ofmConn->slice.stride != ofmConn->slice.stride.WithOnes();
+    const bool hasReverse = ofmConn->reverse != ReverseType::None;
+    const bool hasEqualScales = ifmConn->quantization.EqualScales(ofmConn->quantization);
+    if ( hasIfmSlice || hasIfmStride || !hasOfmSlice || hasOfmStride || hasReverse || !hasEqualScales )
+    {
+        return operation;
+    }
+
+    // Require exactly one producer and that this MemoryCopy is the only reader of the intermediate
+    const auto *intermediate = ifmConn->tensor.get();  // T3/T4 in above graph
+    assert(intermediate);
+    if ( graph->IsInput(intermediate) || graph->IsOutput(intermediate) || graph->IsPersistent(intermediate) ||
+         intermediate->IsConstant() || !intermediate->IsSinglePath() )
+    {
+        return operation;
+    }
+
+    // OFM slice not possible on certain ops
+    const auto producer = intermediate->Writers().front();  // O1/O2 in above graph
+    assert(producer);
+    const auto prodOpType = producer->Type();
+    if ( prodOpType == OpType::Passthrough || prodOpType == OpType::Tile || prodOpType == OpType::Scatter ||
+         prodOpType == OpType::Gather || IsReshape(prodOpType) || IsDataLayout(prodOpType) || IsControlFlow(prodOpType) )
+    {
+        return operation;
+    }
+
+    // Don't do this optimization on non-EW ops with >3D IFM, because the decomposition path will re-add the MemoryCopy
+    if ( !IsElementwise(prodOpType) && ifmConn->shape.Elements() > ifmConn->shape.ElementsHWC() )
+    {
+        return operation;
+    }
+
+    // Require that producer actually produce an OFM
+    const auto prodOfmUsage = producer->UsageOfTensor(intermediate);
+    if ( !IsOFM(prodOfmUsage) )
+    {
+        return operation;
+    }
+
+    // Require that producer doesn't already have slice, stride or reverse, and must have same quantization
+    const auto *prodOfmConn = producer->Output(prodOfmUsage);
+    assert(prodOfmConn);
+    const bool prodHasOfmSlice = prodOfmConn->slice.shape && prodOfmConn->slice.shape != prodOfmConn->shape;
+    const bool prodHasOfmStride = prodOfmConn->slice.stride && prodOfmConn->slice.stride != prodOfmConn->slice.stride.WithOnes();
+    const bool prodHasReverse = prodOfmConn->reverse != ReverseType::None;
+    if ( prodHasOfmSlice || prodHasOfmStride || prodHasReverse )
+    {
+        return operation;
+    }
+    if ( prodOfmConn->shape != ifmConn->shape )
+    {
+        return operation;
+    }
+
+    // Bypass the intermediate tensor and MemoryCopy
+    producer->ConnectOutput(prodOfmUsage, ofmConn->tensor).Set(ofmConn->shape).Set(ofmConn->slice);
+
+    // Remove MemoryCopy
+    operation->Disconnect();
+
+    return producer.get();
 }
 
 }  // namespace regor

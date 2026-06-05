@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rapid-mlx"
-version = "0.6.73"
+version = "0.6.75"
 description = "Rapid-MLX — AI inference for Apple Silicon. Drop-in OpenAI API, 2-4x faster than Ollama."
 readme = "README.md"
 license = {text = "Apache-2.0"}
@@ -50,6 +50,13 @@ dependencies = [
     # rapidserver Worker as the reverse-tunnel transport. Pure Python,
     # ~200 KB. Replaces the prior frpc Go binary download.
     "websockets>=12.0",
+    # openai-harmony — official harmony-protocol streaming parser. Used
+    # by ``HarmonyStreamingRouter`` (output_router_harmony.py) to route
+    # gpt-oss tool calls correctly (issue #513 / cluster #444 #455
+    # #468 #480). Same library vLLM and SGLang delegate to for gpt-oss
+    # tool calling. Soft-imported at runtime; the legacy custom state
+    # machine remains the fallback if the dep is unavailable.
+    "openai-harmony>=0.0.6",
 ]
 
 [project.optional-dependencies]

@@ -4,9 +4,9 @@ Use FastAPI's ``TestClient`` against an app constructed via
 :func:`bty.web._app.create_app` with a ``tmp_path``-backed SQLite.
 No monkeypatching of module-level globals; each test gets its own
 isolated app + db. The ``app_client`` fixture drives ``POST /ui/login``
-with PAM monkeypatched to always succeed, captures the resulting
-session cookie, and exposes it via ``AUTH`` for tests that explicitly
-attach it.
+with ``$BTY_ADMIN_PASSWORD`` set to the admin password, captures the
+resulting session cookie, and exposes it via ``AUTH`` for tests that
+explicitly attach it.
 """
 
 from __future__ import annotations
@@ -23,6 +23,7 @@ from bty.web._releases import ARTIFACT_NAMES
 
 TEST_SERVICE_USER = "bty-test"
 TEST_SECRET_KEY = "test-secret-not-for-prod-use"
+TEST_PASSWORD = "test-admin-pw"
 
 # Mutated by the ``app_client`` fixture: tests authenticate via
 # ``cookies=AUTH`` (a dict like ``{"bty-token": "..."}``); requests
@@ -34,7 +35,7 @@ AUTH: dict[str, str] = {}
 def app_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
     """Yield a TestClient against an isolated bty-web app.
 
-    PAM is monkeypatched to always succeed; the fixture POSTs
+    ``$BTY_ADMIN_PASSWORD`` is set so auth is enabled; the fixture POSTs
     ``/ui/login`` once to mint a real session cookie, captures it for
     ``cookies=AUTH``, then clears the client's sticky cookies so each
     test opts in to authentication explicitly via ``cookies=AUTH`` (or
@@ -57,6 +58,7 @@ def app_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Test
     # tests can find the on-disk manifest under tmp_path. The default
     # is /var/lib/bty which would be unwritable in CI.
     monkeypatch.setenv("BTY_STATE_DIR", str(bty_state_dir))
+    monkeypatch.setenv("BTY_ADMIN_PASSWORD", TEST_PASSWORD)
     app = create_app(
         state_path=state,
         service_user=TEST_SERVICE_USER,
@@ -65,14 +67,10 @@ def app_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Test
         boot_root=boot_root,
     )
 
-    import pamela
-
-    monkeypatch.setattr(pamela, "authenticate", lambda *a, **kw: True)
-
     with TestClient(app) as client:
         r = client.post(
             "/ui/login",
-            data={"password": "pytest-password"},
+            data={"password": TEST_PASSWORD},
             follow_redirects=False,
         )
         assert r.status_code == 303, r.text
@@ -766,6 +764,7 @@ def test_serve_image_streams_uncached_remote_ref(
     monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
 
     os.environ["BTY_STATE_DIR"] = str(state_dir)
+    monkeypatch.setenv("BTY_ADMIN_PASSWORD", TEST_PASSWORD)
     try:
         app = create_app(
             state_path=state,
@@ -773,14 +772,11 @@ def test_serve_image_streams_uncached_remote_ref(
             secret_key=TEST_SECRET_KEY,
             image_root=image_root,
         )
-        import pamela
-
-        monkeypatch.setattr(pamela, "authenticate", lambda *a, **kw: True)
 
         with TestClient(app) as client:
             login = client.post(
                 "/ui/login",
-                data={"password": "pytest-password"},
+                data={"password": TEST_PASSWORD},
                 follow_redirects=False,
             )
             assert login.status_code == 303
@@ -846,6 +842,7 @@ def test_auto_import_inserts_catalog_entries_row_per_dir_scan_file(
 
     state = state_dir / "state.db"
     os.environ["BTY_STATE_DIR"] = str(state_dir)
+    monkeypatch.setenv("BTY_ADMIN_PASSWORD", TEST_PASSWORD)
     try:
         app = create_app(
             state_path=state,
@@ -853,13 +850,10 @@ def test_auto_import_inserts_catalog_entries_row_per_dir_scan_file(
             secret_key=TEST_SECRET_KEY,
             image_root=image_root,
         )
-        import pamela
-
-        monkeypatch.setattr(pamela, "authenticate", lambda *a, **kw: True)
         with TestClient(app) as client:
             r = client.post(
                 "/ui/login",
-                data={"password": "pytest-password"},
+                data={"password": TEST_PASSWORD},
                 follow_redirects=False,
             )
             assert r.status_code == 303
@@ -918,6 +912,7 @@ def test_auto_import_skips_catalog_cache_files(
 
     state = state_dir / "state.db"
     os.environ["BTY_STATE_DIR"] = str(state_dir)
+    monkeypatch.setenv("BTY_ADMIN_PASSWORD", TEST_PASSWORD)
     try:
         app = create_app(
             state_path=state,
@@ -925,13 +920,10 @@ def test_auto_import_skips_catalog_cache_files(
             secret_key=TEST_SECRET_KEY,
             image_root=image_root,
         )
-        import pamela
-
-        monkeypatch.setattr(pamela, "authenticate", lambda *a, **kw: True)
         with TestClient(app) as client:
             r = client.post(
                 "/ui/login",
-                data={"password": "pytest-password"},
+                data={"password": TEST_PASSWORD},
                 follow_redirects=False,
             )
             cookie = r.cookies.get("bty-token")
@@ -2992,14 +2984,19 @@ def test_events_list_requires_auth(app_client: TestClient) -> None:
 def test_events_list_no_operator_or_pxe_activity_initially(app_client: TestClient) -> None:
     """Before any operator / PXE activity, the only rows the audit
     log has are auto-import side-effects (the lifespan hashes
-    seeded images and emits ``image.hashed``). The test fixture
-    seeds ``demo.qcow2`` so that one is expected; everything
-    else should be absent."""
+    seeded images and emits ``image.hashed``) plus the fixture's
+    bootstrap ``auth.login.succeeded`` row. The test fixture seeds
+    ``demo.qcow2`` so that one is expected; everything else should
+    be absent."""
     r = app_client.get("/events", cookies=AUTH)
     assert r.status_code == 200
     events = r.json()["events"]
-    # No operator-driven or pxe-client-driven rows yet.
-    assert all(e["actor"] not in {"operator", "pxe-client"} for e in events)
+    # No operator-driven or pxe-client-driven rows yet. The fixture's
+    # bootstrap login is an ``auth``-subject row, not the machine /
+    # catalog operator activity this test guards against.
+    assert all(
+        e["actor"] not in {"operator", "pxe-client"} for e in events if e["subject_kind"] != "auth"
+    )
 
 
 def test_events_list_includes_machine_lifecycle(app_client: TestClient) -> None:
@@ -4497,6 +4494,7 @@ def test_appliance_upgrade_with_persistent_state_disk(
     monkeypatch.setenv("BTY_STATE_DIR", str(state_dir))
     monkeypatch.setenv("BTY_IMAGE_ROOT", str(image_root))
     monkeypatch.setenv("BTY_BACKUP_DIR", str(backups_root))
+    monkeypatch.setenv("BTY_ADMIN_PASSWORD", TEST_PASSWORD)
 
     # Old appliance stamped state.db with a previous-version marker.
     # We don't have an "old bty-web" available, so we initialise with
@@ -4595,12 +4593,7 @@ def test_appliance_upgrade_with_persistent_state_disk(
     )
     with TestClient(app) as client:
         # Login so the cookie-protected endpoints work below.
-        import pamela
-
-        monkeypatch.setattr(pamela, "authenticate", lambda *a, **kw: True)
-        login = client.post(
-            "/ui/login", data={"password": "pytest-password"}, follow_redirects=False
-        )
+        login = client.post("/ui/login", data={"password": TEST_PASSWORD}, follow_redirects=False)
         cookie = login.cookies.get("bty-token")
         assert cookie is not None
         auth_cookies = {"bty-token": cookie}
@@ -5240,6 +5233,7 @@ def test_catalog_cache_delete_unlinks_file_keeps_entry(
     monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
 
     os.environ["BTY_STATE_DIR"] = str(state_dir)
+    monkeypatch.setenv("BTY_ADMIN_PASSWORD", TEST_PASSWORD)
     try:
         app = create_app(
             state_path=state_dir / "state.db",
@@ -5248,14 +5242,11 @@ def test_catalog_cache_delete_unlinks_file_keeps_entry(
             image_root=image_root,
             boot_root=boot_root,
         )
-        import pamela
-
-        monkeypatch.setattr(pamela, "authenticate", lambda *a, **kw: True)
 
         with TestClient(app) as client:
             r = client.post(
                 "/ui/login",
-                data={"password": "pytest-password"},
+                data={"password": TEST_PASSWORD},
                 follow_redirects=False,
             )
             assert r.status_code == 303
@@ -6481,3 +6472,67 @@ def test_safe_path_rejects_symlink_escape(tmp_path: Path) -> None:
     with pytest.raises(HTTPException) as excinfo:
         _safe_path(root, "innocent")
     assert excinfo.value.status_code == 400
+
+
+def test_seed_boot_dir_copies_baked_artifact(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The container bakes its custom ipxe.efi under BTY_BOOT_SEED_DIR;
+    startup copies it into an empty boot_root so GET /boot/ipxe.efi works
+    out of the box."""
+    from bty.web._app import _seed_boot_dir
+
+    seed = tmp_path / "seed"
+    seed.mkdir()
+    (seed / "ipxe.efi").write_bytes(b"BAKED")
+    boot = tmp_path / "boot"
+
+    monkeypatch.setenv("BTY_BOOT_SEED_DIR", str(seed))
+    _seed_boot_dir(boot)
+    assert (boot / "ipxe.efi").read_bytes() == b"BAKED"
+
+
+def test_seed_boot_dir_skips_dotfile_placeholder(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A .gitkeep placeholder in an otherwise-empty seed dir (dev builds)
+    is not published into boot_root."""
+    from bty.web._app import _seed_boot_dir
+
+    seed = tmp_path / "seed"
+    seed.mkdir()
+    (seed / ".gitkeep").write_bytes(b"")
+    boot = tmp_path / "boot"
+
+    monkeypatch.setenv("BTY_BOOT_SEED_DIR", str(seed))
+    _seed_boot_dir(boot)
+    assert not (boot / ".gitkeep").exists()
+
+
+def test_seed_boot_dir_never_overwrites_operator_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An operator-placed bootfile in boot_root always wins over the baked one."""
+    from bty.web._app import _seed_boot_dir
+
+    seed = tmp_path / "seed"
+    seed.mkdir()
+    (seed / "ipxe.efi").write_bytes(b"BAKED")
+    boot = tmp_path / "boot"
+    boot.mkdir()
+    (boot / "ipxe.efi").write_bytes(b"OPERATOR")
+
+    monkeypatch.setenv("BTY_BOOT_SEED_DIR", str(seed))
+    _seed_boot_dir(boot)
+    assert (boot / "ipxe.efi").read_bytes() == b"OPERATOR"
+
+
+def test_seed_boot_dir_noop_when_unset(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Host / dev installs leave BTY_BOOT_SEED_DIR unset; seeding is a no-op
+    and does not create boot_root."""
+    from bty.web._app import _seed_boot_dir
+
+    monkeypatch.delenv("BTY_BOOT_SEED_DIR", raising=False)
+    boot = tmp_path / "boot"
+    _seed_boot_dir(boot)
+    assert not boot.exists()

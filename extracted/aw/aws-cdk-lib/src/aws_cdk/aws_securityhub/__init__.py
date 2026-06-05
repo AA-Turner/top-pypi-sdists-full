@@ -1018,7 +1018,7 @@ class CfnAutomationRule(
             related_findings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutomationRule.RelatedFindingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             severity: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutomationRule.SeverityUpdateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             types: typing.Optional[typing.Sequence[builtins.str]] = None,
-            user_defined_fields: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            user_defined_fields: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             verification_state: typing.Optional[builtins.str] = None,
             workflow: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutomationRule.WorkflowUpdateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
@@ -1163,13 +1163,13 @@ class CfnAutomationRule(
         @builtins.property
         def user_defined_fields(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''The rule action updates the ``UserDefinedFields`` field of a finding.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-automationrule-automationrulesfindingfieldsupdate.html#cfn-securityhub-automationrule-automationrulesfindingfieldsupdate-userdefinedfields
             '''
             result = self._values.get("user_defined_fields")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def verification_state(self) -> typing.Optional[builtins.str]:
@@ -14202,7 +14202,7 @@ def _typecheckingstub__46649258d4db7d36012fa064d0d3a3c3e3937ea1364fbd532ef0e84d4
     related_findings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutomationRule.RelatedFindingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     severity: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutomationRule.SeverityUpdateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     types: typing.Optional[typing.Sequence[builtins.str]] = None,
-    user_defined_fields: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    user_defined_fields: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     verification_state: typing.Optional[builtins.str] = None,
     workflow: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutomationRule.WorkflowUpdateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:

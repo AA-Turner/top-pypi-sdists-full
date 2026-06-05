@@ -183,6 +183,7 @@ __all__ = (
     "ImageVersionSortByType",
     "ImageVersionSortOrderType",
     "ImageVersionStatusType",
+    "IncludedDataType",
     "InferenceComponentCapacitySizeTypeType",
     "InferenceComponentPlacementStrategyType",
     "InferenceComponentSortKeyType",
@@ -1220,6 +1221,7 @@ ImageVersionSortOrderType = Literal["ASCENDING", "DESCENDING"]
 ImageVersionStatusType = Literal[
     "CREATED", "CREATE_FAILED", "CREATING", "DELETE_FAILED", "DELETING"
 ]
+IncludedDataType = Literal["AllData", "MetadataOnly"]
 InferenceComponentCapacitySizeTypeType = Literal["CAPACITY_PERCENT", "COPY_COUNT"]
 InferenceComponentPlacementStrategyType = Literal["BINPACK", "SPREAD"]
 InferenceComponentSortKeyType = Literal["CreationTime", "Name", "Status"]
@@ -2241,6 +2243,7 @@ ResourceTypeType = Literal[
     "HyperParameterTuningJob",
     "Image",
     "ImageVersion",
+    "Job",
     "Model",
     "ModelCard",
     "ModelPackage",

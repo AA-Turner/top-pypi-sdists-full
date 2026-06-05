@@ -1318,7 +1318,7 @@ class CfnAnalysisTemplate(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_cleanrooms as cleanrooms
                 
-                m_lSynthetic_data_parameters_property = cleanrooms.CfnAnalysisTemplate.MLSyntheticDataParametersProperty(
+                m_l_synthetic_data_parameters_property = cleanrooms.CfnAnalysisTemplate.MLSyntheticDataParametersProperty(
                     column_classification=cleanrooms.CfnAnalysisTemplate.ColumnClassificationDetailsProperty(
                         column_mapping=[cleanrooms.CfnAnalysisTemplate.SyntheticDataColumnPropertiesProperty(
                             column_name="columnName",
@@ -2603,7 +2603,7 @@ class CfnCollaboration(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_cleanrooms as cleanrooms
                 
-                m_lMember_abilities_property = cleanrooms.CfnCollaboration.MLMemberAbilitiesProperty(
+                m_l_member_abilities_property = cleanrooms.CfnCollaboration.MLMemberAbilitiesProperty(
                     custom_ml_member_abilities=["customMlMemberAbilities"]
                 )
             '''
@@ -2667,7 +2667,7 @@ class CfnCollaboration(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_cleanrooms as cleanrooms
                 
-                m_lPayment_config_property = cleanrooms.CfnCollaboration.MLPaymentConfigProperty(
+                m_l_payment_config_property = cleanrooms.CfnCollaboration.MLPaymentConfigProperty(
                     model_inference=cleanrooms.CfnCollaboration.ModelInferencePaymentConfigProperty(
                         is_responsible=False
                     ),
@@ -8742,7 +8742,7 @@ class CfnMembership(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_cleanrooms as cleanrooms
                 
-                membership_mLPayment_config_property = cleanrooms.CfnMembership.MembershipMLPaymentConfigProperty(
+                membership_ml_payment_config_property = cleanrooms.CfnMembership.MembershipMLPaymentConfigProperty(
                     model_inference=cleanrooms.CfnMembership.MembershipModelInferencePaymentConfigProperty(
                         is_responsible=False
                     ),

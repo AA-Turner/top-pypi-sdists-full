@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: wagtail_factories
-Version: 4.4.0
+Version: 4.5.0
 Summary: Factory boy classes for wagtail
 Home-page: https://github.com/wagtail/wagtail-factories/
 Author: Michael van Tellingen
@@ -20,23 +20,23 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Framework :: Django
 Classifier: Framework :: Django :: 4.2
-Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
 Classifier: Framework :: Wagtail
-Classifier: Framework :: Wagtail :: 6
 Classifier: Framework :: Wagtail :: 7
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: factory-boy<4,>=3.2
-Requires-Dist: wagtail>=6.3
+Requires-Dist: wagtail>=7.0
 Provides-Extra: docs
 Requires-Dist: sphinx>=8.2.3; extra == "docs"
 Provides-Extra: test
-Requires-Dist: pytest==9.0.0; extra == "test"
-Requires-Dist: pytest-django==4.11.1; extra == "test"
-Requires-Dist: pytest-cov==7.0.0; extra == "test"
-Requires-Dist: coverage==7.11.3; extra == "test"
-Requires-Dist: ruff==0.14.4; extra == "test"
+Requires-Dist: pytest==9.0.3; extra == "test"
+Requires-Dist: pytest-django==4.12.0; extra == "test"
+Requires-Dist: pytest-cov==7.1.0; extra == "test"
+Requires-Dist: coverage==7.13.5; extra == "test"
+Requires-Dist: ruff==0.15.12; extra == "test"
 Requires-Dist: tox==4.32.0; extra == "test"
 Dynamic: author
 Dynamic: author-email
@@ -48,6 +48,7 @@ Dynamic: license
 Dynamic: license-file
 Dynamic: provides-extra
 Dynamic: requires-dist
+Dynamic: requires-python
 Dynamic: summary
 
 # wagtail-factories

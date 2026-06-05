@@ -8187,7 +8187,7 @@ class CfnMailManagerRuleSet(
                         # the properties below are optional
                         action_failure_policy="actionFailurePolicy"
                     ),
-                    deliver_to_qBusiness=ses.CfnMailManagerRuleSet.DeliverToQBusinessActionProperty(
+                    deliver_to_q_business=ses.CfnMailManagerRuleSet.DeliverToQBusinessActionProperty(
                         application_id="applicationId",
                         index_id="indexId",
                         role_arn="roleArn",
@@ -9084,7 +9084,7 @@ class CfnMailManagerRuleSet(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_ses as ses
                 
-                deliver_to_qBusiness_action_property = ses.CfnMailManagerRuleSet.DeliverToQBusinessActionProperty(
+                deliver_to_q_business_action_property = ses.CfnMailManagerRuleSet.DeliverToQBusinessActionProperty(
                     application_id="applicationId",
                     index_id="indexId",
                     role_arn="roleArn",
@@ -9524,7 +9524,7 @@ class CfnMailManagerRuleSet(
                         # the properties below are optional
                         action_failure_policy="actionFailurePolicy"
                     ),
-                    deliver_to_qBusiness=ses.CfnMailManagerRuleSet.DeliverToQBusinessActionProperty(
+                    deliver_to_q_business=ses.CfnMailManagerRuleSet.DeliverToQBusinessActionProperty(
                         application_id="applicationId",
                         index_id="indexId",
                         role_arn="roleArn",
@@ -10653,7 +10653,7 @@ class CfnMailManagerRuleSet(
                             # the properties below are optional
                             action_failure_policy="actionFailurePolicy"
                         ),
-                        deliver_to_qBusiness=ses.CfnMailManagerRuleSet.DeliverToQBusinessActionProperty(
+                        deliver_to_q_business=ses.CfnMailManagerRuleSet.DeliverToQBusinessActionProperty(
                             application_id="applicationId",
                             index_id="indexId",
                             role_arn="roleArn",
@@ -11700,7 +11700,7 @@ class CfnMailManagerRuleSetProps:
                             # the properties below are optional
                             action_failure_policy="actionFailurePolicy"
                         ),
-                        deliver_to_qBusiness=ses.CfnMailManagerRuleSet.DeliverToQBusinessActionProperty(
+                        deliver_to_q_business=ses.CfnMailManagerRuleSet.DeliverToQBusinessActionProperty(
                             application_id="applicationId",
                             index_id="indexId",
                             role_arn="roleArn",
@@ -15698,7 +15698,7 @@ class CfnReceiptRule(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_ses as ses
                 
-                s_nSAction_property = ses.CfnReceiptRule.SNSActionProperty(
+                s_ns_action_property = ses.CfnReceiptRule.SNSActionProperty(
                     encoding="encoding",
                     topic_arn="topicArn"
                 )
@@ -20635,7 +20635,7 @@ class SNSActionConfig:
             # The values are placeholders you should change.
             from aws_cdk import aws_ses as ses
             
-            s_nSAction_config = ses.SNSActionConfig(
+            s_ns_action_config = ses.SNSActionConfig(
                 encoding="encoding",
                 topic_arn="topicArn"
             )

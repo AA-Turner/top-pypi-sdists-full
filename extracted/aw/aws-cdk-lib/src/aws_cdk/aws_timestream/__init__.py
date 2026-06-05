@@ -425,7 +425,7 @@ class CfnInfluxDBCluster(
         # The values are placeholders you should change.
         from aws_cdk import aws_timestream as timestream
         
-        cfn_influx_dBCluster = timestream.CfnInfluxDBCluster(self, "MyCfnInfluxDBCluster",
+        cfn_influx_db_cluster = timestream.CfnInfluxDBCluster(self, "MyCfnInfluxDBCluster",
             allocated_storage=123,
             bucket="bucket",
             db_instance_type="dbInstanceType",
@@ -438,6 +438,10 @@ class CfnInfluxDBCluster(
                     bucket_name="bucketName",
                     enabled=False
                 )
+            ),
+            maintenance_schedule=timestream.CfnInfluxDBCluster.MaintenanceScheduleProperty(
+                preferred_maintenance_window="preferredMaintenanceWindow",
+                timezone="timezone"
             ),
             name="name",
             network_type="networkType",
@@ -468,6 +472,7 @@ class CfnInfluxDBCluster(
         deployment_type: typing.Optional[builtins.str] = None,
         failover_mode: typing.Optional[builtins.str] = None,
         log_delivery_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInfluxDBCluster.LogDeliveryConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        maintenance_schedule: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInfluxDBCluster.MaintenanceScheduleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         name: typing.Optional[builtins.str] = None,
         network_type: typing.Optional[builtins.str] = None,
         organization: typing.Optional[builtins.str] = None,
@@ -491,6 +496,7 @@ class CfnInfluxDBCluster(
         :param deployment_type: Deployment type of the InfluxDB cluster.
         :param failover_mode: Failover mode of the InfluxDB cluster.
         :param log_delivery_configuration: Configuration for sending logs to customer account from the InfluxDB cluster.
+        :param maintenance_schedule: The maintenance schedule for the InfluxDB cluster.
         :param name: The unique name that is associated with the InfluxDB cluster.
         :param network_type: Network type of the InfluxDB cluster.
         :param organization: The organization for the InfluxDB cluster.
@@ -515,6 +521,7 @@ class CfnInfluxDBCluster(
             deployment_type=deployment_type,
             failover_mode=failover_mode,
             log_delivery_configuration=log_delivery_configuration,
+            maintenance_schedule=maintenance_schedule,
             name=name,
             network_type=network_type,
             organization=organization,
@@ -629,6 +636,15 @@ class CfnInfluxDBCluster(
         :cloudformationAttribute: InfluxAuthParametersSecretArn
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrInfluxAuthParametersSecretArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrNextMaintenanceTime")
+    def attr_next_maintenance_time(self) -> builtins.str:
+        '''The timestamp of the next scheduled maintenance event.
+
+        :cloudformationAttribute: NextMaintenanceTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrNextMaintenanceTime"))
 
     @builtins.property
     @jsii.member(jsii_name="attrReaderEndpoint")
@@ -781,6 +797,24 @@ class CfnInfluxDBCluster(
             type_hints = typing.get_type_hints(_typecheckingstub__3bcdc4478040881e6184512128e874c5748859c04d5ea5d21c23dd251fffc439)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "logDeliveryConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="maintenanceSchedule")
+    def maintenance_schedule(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInfluxDBCluster.MaintenanceScheduleProperty"]]:
+        '''The maintenance schedule for the InfluxDB cluster.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInfluxDBCluster.MaintenanceScheduleProperty"]], jsii.get(self, "maintenanceSchedule"))
+
+    @maintenance_schedule.setter
+    def maintenance_schedule(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInfluxDBCluster.MaintenanceScheduleProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__119e1048bbeda990b6fe69b72c4f5bce2fbcfc6b3e1807c23446337ac285833a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "maintenanceSchedule", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -982,6 +1016,80 @@ class CfnInfluxDBCluster(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_timestream.CfnInfluxDBCluster.MaintenanceScheduleProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "preferred_maintenance_window": "preferredMaintenanceWindow",
+            "timezone": "timezone",
+        },
+    )
+    class MaintenanceScheduleProperty:
+        def __init__(
+            self,
+            *,
+            preferred_maintenance_window: builtins.str,
+            timezone: builtins.str,
+        ) -> None:
+            '''The maintenance schedule for the InfluxDB cluster.
+
+            :param preferred_maintenance_window: The preferred maintenance window in format ddd:HH:MM-ddd:HH:MM.
+            :param timezone: The IANA timezone identifier for the maintenance schedule.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-timestream-influxdbcluster-maintenanceschedule.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_timestream as timestream
+                
+                maintenance_schedule_property = timestream.CfnInfluxDBCluster.MaintenanceScheduleProperty(
+                    preferred_maintenance_window="preferredMaintenanceWindow",
+                    timezone="timezone"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__ec60feb1ae535b423873bf5c1c4ebeefb7eb823796b3918c6e7a382a3b263cb9)
+                check_type(argname="argument preferred_maintenance_window", value=preferred_maintenance_window, expected_type=type_hints["preferred_maintenance_window"])
+                check_type(argname="argument timezone", value=timezone, expected_type=type_hints["timezone"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "preferred_maintenance_window": preferred_maintenance_window,
+                "timezone": timezone,
+            }
+
+        @builtins.property
+        def preferred_maintenance_window(self) -> builtins.str:
+            '''The preferred maintenance window in format ddd:HH:MM-ddd:HH:MM.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-timestream-influxdbcluster-maintenanceschedule.html#cfn-timestream-influxdbcluster-maintenanceschedule-preferredmaintenancewindow
+            '''
+            result = self._values.get("preferred_maintenance_window")
+            assert result is not None, "Required property 'preferred_maintenance_window' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def timezone(self) -> builtins.str:
+            '''The IANA timezone identifier for the maintenance schedule.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-timestream-influxdbcluster-maintenanceschedule.html#cfn-timestream-influxdbcluster-maintenanceschedule-timezone
+            '''
+            result = self._values.get("timezone")
+            assert result is not None, "Required property 'timezone' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MaintenanceScheduleProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_timestream.CfnInfluxDBCluster.S3ConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={"bucket_name": "bucketName", "enabled": "enabled"},
@@ -1065,6 +1173,7 @@ class CfnInfluxDBCluster(
         "deployment_type": "deploymentType",
         "failover_mode": "failoverMode",
         "log_delivery_configuration": "logDeliveryConfiguration",
+        "maintenance_schedule": "maintenanceSchedule",
         "name": "name",
         "network_type": "networkType",
         "organization": "organization",
@@ -1089,6 +1198,7 @@ class CfnInfluxDBClusterProps:
         deployment_type: typing.Optional[builtins.str] = None,
         failover_mode: typing.Optional[builtins.str] = None,
         log_delivery_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInfluxDBCluster.LogDeliveryConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        maintenance_schedule: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInfluxDBCluster.MaintenanceScheduleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         name: typing.Optional[builtins.str] = None,
         network_type: typing.Optional[builtins.str] = None,
         organization: typing.Optional[builtins.str] = None,
@@ -1110,6 +1220,7 @@ class CfnInfluxDBClusterProps:
         :param deployment_type: Deployment type of the InfluxDB cluster.
         :param failover_mode: Failover mode of the InfluxDB cluster.
         :param log_delivery_configuration: Configuration for sending logs to customer account from the InfluxDB cluster.
+        :param maintenance_schedule: The maintenance schedule for the InfluxDB cluster.
         :param name: The unique name that is associated with the InfluxDB cluster.
         :param network_type: Network type of the InfluxDB cluster.
         :param organization: The organization for the InfluxDB cluster.
@@ -1131,7 +1242,7 @@ class CfnInfluxDBClusterProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_timestream as timestream
             
-            cfn_influx_dBCluster_props = timestream.CfnInfluxDBClusterProps(
+            cfn_influx_db_cluster_props = timestream.CfnInfluxDBClusterProps(
                 allocated_storage=123,
                 bucket="bucket",
                 db_instance_type="dbInstanceType",
@@ -1144,6 +1255,10 @@ class CfnInfluxDBClusterProps:
                         bucket_name="bucketName",
                         enabled=False
                     )
+                ),
+                maintenance_schedule=timestream.CfnInfluxDBCluster.MaintenanceScheduleProperty(
+                    preferred_maintenance_window="preferredMaintenanceWindow",
+                    timezone="timezone"
                 ),
                 name="name",
                 network_type="networkType",
@@ -1170,6 +1285,7 @@ class CfnInfluxDBClusterProps:
             check_type(argname="argument deployment_type", value=deployment_type, expected_type=type_hints["deployment_type"])
             check_type(argname="argument failover_mode", value=failover_mode, expected_type=type_hints["failover_mode"])
             check_type(argname="argument log_delivery_configuration", value=log_delivery_configuration, expected_type=type_hints["log_delivery_configuration"])
+            check_type(argname="argument maintenance_schedule", value=maintenance_schedule, expected_type=type_hints["maintenance_schedule"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument network_type", value=network_type, expected_type=type_hints["network_type"])
             check_type(argname="argument organization", value=organization, expected_type=type_hints["organization"])
@@ -1197,6 +1313,8 @@ class CfnInfluxDBClusterProps:
             self._values["failover_mode"] = failover_mode
         if log_delivery_configuration is not None:
             self._values["log_delivery_configuration"] = log_delivery_configuration
+        if maintenance_schedule is not None:
+            self._values["maintenance_schedule"] = maintenance_schedule
         if name is not None:
             self._values["name"] = name
         if network_type is not None:
@@ -1291,6 +1409,17 @@ class CfnInfluxDBClusterProps:
         '''
         result = self._values.get("log_delivery_configuration")
         return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInfluxDBCluster.LogDeliveryConfigurationProperty"]], result)
+
+    @builtins.property
+    def maintenance_schedule(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInfluxDBCluster.MaintenanceScheduleProperty"]]:
+        '''The maintenance schedule for the InfluxDB cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbcluster.html#cfn-timestream-influxdbcluster-maintenanceschedule
+        '''
+        result = self._values.get("maintenance_schedule")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInfluxDBCluster.MaintenanceScheduleProperty"]], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
@@ -1419,7 +1548,7 @@ class CfnInfluxDBInstance(
         # The values are placeholders you should change.
         from aws_cdk import aws_timestream as timestream
         
-        cfn_influx_dBInstance = timestream.CfnInfluxDBInstance(self, "MyCfnInfluxDBInstance",
+        cfn_influx_db_instance = timestream.CfnInfluxDBInstance(self, "MyCfnInfluxDBInstance",
             allocated_storage=123,
             bucket="bucket",
             db_instance_type="dbInstanceType",
@@ -1431,6 +1560,10 @@ class CfnInfluxDBInstance(
                     bucket_name="bucketName",
                     enabled=False
                 )
+            ),
+            maintenance_schedule=timestream.CfnInfluxDBInstance.MaintenanceScheduleProperty(
+                preferred_maintenance_window="preferredMaintenanceWindow",
+                timezone="timezone"
             ),
             name="name",
             network_type="networkType",
@@ -1460,6 +1593,7 @@ class CfnInfluxDBInstance(
         db_storage_type: typing.Optional[builtins.str] = None,
         deployment_type: typing.Optional[builtins.str] = None,
         log_delivery_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInfluxDBInstance.LogDeliveryConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        maintenance_schedule: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInfluxDBInstance.MaintenanceScheduleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         name: typing.Optional[builtins.str] = None,
         network_type: typing.Optional[builtins.str] = None,
         organization: typing.Optional[builtins.str] = None,
@@ -1482,6 +1616,7 @@ class CfnInfluxDBInstance(
         :param db_storage_type: The Timestream for InfluxDB DB storage type to read and write InfluxDB data. You can choose between 3 different types of provisioned Influx IOPS included storage according to your workloads requirements: - Influx IO Included 3000 IOPS - Influx IO Included 12000 IOPS - Influx IO Included 16000 IOPS
         :param deployment_type: Specifies whether the Timestream for InfluxDB is deployed as Single-AZ or with a MultiAZ Standby for High availability.
         :param log_delivery_configuration: Configuration for sending InfluxDB engine logs to a specified S3 bucket.
+        :param maintenance_schedule: The maintenance schedule for the InfluxDB instance.
         :param name: The name that uniquely identifies the DB instance when interacting with the Amazon Timestream for InfluxDB API and CLI commands. This name will also be a prefix included in the endpoint. DB instance names must be unique per customer and per region.
         :param network_type: Network type of the InfluxDB Instance.
         :param organization: The name of the initial organization for the initial admin user in InfluxDB. An InfluxDB organization is a workspace for a group of users.
@@ -1505,6 +1640,7 @@ class CfnInfluxDBInstance(
             db_storage_type=db_storage_type,
             deployment_type=deployment_type,
             log_delivery_configuration=log_delivery_configuration,
+            maintenance_schedule=maintenance_schedule,
             name=name,
             network_type=network_type,
             organization=organization,
@@ -1623,6 +1759,15 @@ class CfnInfluxDBInstance(
         :cloudformationAttribute: InfluxAuthParametersSecretArn
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrInfluxAuthParametersSecretArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrNextMaintenanceTime")
+    def attr_next_maintenance_time(self) -> builtins.str:
+        '''The timestamp of the next scheduled maintenance event.
+
+        :cloudformationAttribute: NextMaintenanceTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrNextMaintenanceTime"))
 
     @builtins.property
     @jsii.member(jsii_name="attrSecondaryAvailabilityZone")
@@ -1764,6 +1909,24 @@ class CfnInfluxDBInstance(
             type_hints = typing.get_type_hints(_typecheckingstub__8f1952d4bf27eb9dea517af025bf1e2e4e2b6565bf7ed16673d4581a4927c005)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "logDeliveryConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="maintenanceSchedule")
+    def maintenance_schedule(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInfluxDBInstance.MaintenanceScheduleProperty"]]:
+        '''The maintenance schedule for the InfluxDB instance.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInfluxDBInstance.MaintenanceScheduleProperty"]], jsii.get(self, "maintenanceSchedule"))
+
+    @maintenance_schedule.setter
+    def maintenance_schedule(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInfluxDBInstance.MaintenanceScheduleProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ec355ad0023122464c4d76a9169799065a3f2799be6256c8ef0235686797b4b7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "maintenanceSchedule", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -1965,6 +2128,80 @@ class CfnInfluxDBInstance(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_timestream.CfnInfluxDBInstance.MaintenanceScheduleProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "preferred_maintenance_window": "preferredMaintenanceWindow",
+            "timezone": "timezone",
+        },
+    )
+    class MaintenanceScheduleProperty:
+        def __init__(
+            self,
+            *,
+            preferred_maintenance_window: builtins.str,
+            timezone: builtins.str,
+        ) -> None:
+            '''The maintenance schedule for the InfluxDB instance.
+
+            :param preferred_maintenance_window: The preferred maintenance window in format ddd:HH:MM-ddd:HH:MM.
+            :param timezone: The IANA timezone identifier for the maintenance schedule.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-timestream-influxdbinstance-maintenanceschedule.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_timestream as timestream
+                
+                maintenance_schedule_property = timestream.CfnInfluxDBInstance.MaintenanceScheduleProperty(
+                    preferred_maintenance_window="preferredMaintenanceWindow",
+                    timezone="timezone"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__6a2bbda2d5b0edf8e09d8b8c2cbe1947cbb76dd07ba9d72db05e820d8a91024f)
+                check_type(argname="argument preferred_maintenance_window", value=preferred_maintenance_window, expected_type=type_hints["preferred_maintenance_window"])
+                check_type(argname="argument timezone", value=timezone, expected_type=type_hints["timezone"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "preferred_maintenance_window": preferred_maintenance_window,
+                "timezone": timezone,
+            }
+
+        @builtins.property
+        def preferred_maintenance_window(self) -> builtins.str:
+            '''The preferred maintenance window in format ddd:HH:MM-ddd:HH:MM.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-timestream-influxdbinstance-maintenanceschedule.html#cfn-timestream-influxdbinstance-maintenanceschedule-preferredmaintenancewindow
+            '''
+            result = self._values.get("preferred_maintenance_window")
+            assert result is not None, "Required property 'preferred_maintenance_window' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def timezone(self) -> builtins.str:
+            '''The IANA timezone identifier for the maintenance schedule.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-timestream-influxdbinstance-maintenanceschedule.html#cfn-timestream-influxdbinstance-maintenanceschedule-timezone
+            '''
+            result = self._values.get("timezone")
+            assert result is not None, "Required property 'timezone' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MaintenanceScheduleProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_timestream.CfnInfluxDBInstance.S3ConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={"bucket_name": "bucketName", "enabled": "enabled"},
@@ -2047,6 +2284,7 @@ class CfnInfluxDBInstance(
         "db_storage_type": "dbStorageType",
         "deployment_type": "deploymentType",
         "log_delivery_configuration": "logDeliveryConfiguration",
+        "maintenance_schedule": "maintenanceSchedule",
         "name": "name",
         "network_type": "networkType",
         "organization": "organization",
@@ -2070,6 +2308,7 @@ class CfnInfluxDBInstanceProps:
         db_storage_type: typing.Optional[builtins.str] = None,
         deployment_type: typing.Optional[builtins.str] = None,
         log_delivery_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInfluxDBInstance.LogDeliveryConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        maintenance_schedule: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInfluxDBInstance.MaintenanceScheduleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         name: typing.Optional[builtins.str] = None,
         network_type: typing.Optional[builtins.str] = None,
         organization: typing.Optional[builtins.str] = None,
@@ -2090,6 +2329,7 @@ class CfnInfluxDBInstanceProps:
         :param db_storage_type: The Timestream for InfluxDB DB storage type to read and write InfluxDB data. You can choose between 3 different types of provisioned Influx IOPS included storage according to your workloads requirements: - Influx IO Included 3000 IOPS - Influx IO Included 12000 IOPS - Influx IO Included 16000 IOPS
         :param deployment_type: Specifies whether the Timestream for InfluxDB is deployed as Single-AZ or with a MultiAZ Standby for High availability.
         :param log_delivery_configuration: Configuration for sending InfluxDB engine logs to a specified S3 bucket.
+        :param maintenance_schedule: The maintenance schedule for the InfluxDB instance.
         :param name: The name that uniquely identifies the DB instance when interacting with the Amazon Timestream for InfluxDB API and CLI commands. This name will also be a prefix included in the endpoint. DB instance names must be unique per customer and per region.
         :param network_type: Network type of the InfluxDB Instance.
         :param organization: The name of the initial organization for the initial admin user in InfluxDB. An InfluxDB organization is a workspace for a group of users.
@@ -2111,7 +2351,7 @@ class CfnInfluxDBInstanceProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_timestream as timestream
             
-            cfn_influx_dBInstance_props = timestream.CfnInfluxDBInstanceProps(
+            cfn_influx_db_instance_props = timestream.CfnInfluxDBInstanceProps(
                 allocated_storage=123,
                 bucket="bucket",
                 db_instance_type="dbInstanceType",
@@ -2123,6 +2363,10 @@ class CfnInfluxDBInstanceProps:
                         bucket_name="bucketName",
                         enabled=False
                     )
+                ),
+                maintenance_schedule=timestream.CfnInfluxDBInstance.MaintenanceScheduleProperty(
+                    preferred_maintenance_window="preferredMaintenanceWindow",
+                    timezone="timezone"
                 ),
                 name="name",
                 network_type="networkType",
@@ -2148,6 +2392,7 @@ class CfnInfluxDBInstanceProps:
             check_type(argname="argument db_storage_type", value=db_storage_type, expected_type=type_hints["db_storage_type"])
             check_type(argname="argument deployment_type", value=deployment_type, expected_type=type_hints["deployment_type"])
             check_type(argname="argument log_delivery_configuration", value=log_delivery_configuration, expected_type=type_hints["log_delivery_configuration"])
+            check_type(argname="argument maintenance_schedule", value=maintenance_schedule, expected_type=type_hints["maintenance_schedule"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument network_type", value=network_type, expected_type=type_hints["network_type"])
             check_type(argname="argument organization", value=organization, expected_type=type_hints["organization"])
@@ -2173,6 +2418,8 @@ class CfnInfluxDBInstanceProps:
             self._values["deployment_type"] = deployment_type
         if log_delivery_configuration is not None:
             self._values["log_delivery_configuration"] = log_delivery_configuration
+        if maintenance_schedule is not None:
+            self._values["maintenance_schedule"] = maintenance_schedule
         if name is not None:
             self._values["name"] = name
         if network_type is not None:
@@ -2268,6 +2515,17 @@ class CfnInfluxDBInstanceProps:
         '''
         result = self._values.get("log_delivery_configuration")
         return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInfluxDBInstance.LogDeliveryConfigurationProperty"]], result)
+
+    @builtins.property
+    def maintenance_schedule(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInfluxDBInstance.MaintenanceScheduleProperty"]]:
+        '''The maintenance schedule for the InfluxDB instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbinstance.html#cfn-timestream-influxdbinstance-maintenanceschedule
+        '''
+        result = self._values.get("maintenance_schedule")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInfluxDBInstance.MaintenanceScheduleProperty"]], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
@@ -5228,6 +5486,7 @@ def _typecheckingstub__be8ecc5b7ea47ffefaf63209143e2288844fffe44ea992cf74c71a11f
     deployment_type: typing.Optional[builtins.str] = None,
     failover_mode: typing.Optional[builtins.str] = None,
     log_delivery_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInfluxDBCluster.LogDeliveryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    maintenance_schedule: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInfluxDBCluster.MaintenanceScheduleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
     network_type: typing.Optional[builtins.str] = None,
     organization: typing.Optional[builtins.str] = None,
@@ -5314,6 +5573,12 @@ def _typecheckingstub__3bcdc4478040881e6184512128e874c5748859c04d5ea5d21c23dd251
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__119e1048bbeda990b6fe69b72c4f5bce2fbcfc6b3e1807c23446337ac285833a(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnInfluxDBCluster.MaintenanceScheduleProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__2048d0f5633422d82f2979387fb4e6ca2674e41f31b67d8c2b05755937ab933b(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -5381,6 +5646,14 @@ def _typecheckingstub__30486ba511c7d03d709e141f626e8ba39cbc321f0c0d08443643f8c6b
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__ec60feb1ae535b423873bf5c1c4ebeefb7eb823796b3918c6e7a382a3b263cb9(
+    *,
+    preferred_maintenance_window: builtins.str,
+    timezone: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__8bbe9d14170f24c0bc2829837e1b538aebc3b8946a62ba268befb9cf1f2440b5(
     *,
     bucket_name: builtins.str,
@@ -5399,6 +5672,7 @@ def _typecheckingstub__814531a2e78a843f44fa3e4ebd14e42a7a13b1c44ad04cd38cf33c032
     deployment_type: typing.Optional[builtins.str] = None,
     failover_mode: typing.Optional[builtins.str] = None,
     log_delivery_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInfluxDBCluster.LogDeliveryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    maintenance_schedule: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInfluxDBCluster.MaintenanceScheduleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
     network_type: typing.Optional[builtins.str] = None,
     organization: typing.Optional[builtins.str] = None,
@@ -5424,6 +5698,7 @@ def _typecheckingstub__261e4a43f1d3c329e317698aa3b0f0428b7e7d3646c4c536f48fd191f
     db_storage_type: typing.Optional[builtins.str] = None,
     deployment_type: typing.Optional[builtins.str] = None,
     log_delivery_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInfluxDBInstance.LogDeliveryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    maintenance_schedule: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInfluxDBInstance.MaintenanceScheduleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
     network_type: typing.Optional[builtins.str] = None,
     organization: typing.Optional[builtins.str] = None,
@@ -5504,6 +5779,12 @@ def _typecheckingstub__8f1952d4bf27eb9dea517af025bf1e2e4e2b6565bf7ed16673d4581a4
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__ec355ad0023122464c4d76a9169799065a3f2799be6256c8ef0235686797b4b7(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnInfluxDBInstance.MaintenanceScheduleProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__850a764930865e073c6906c062d2d30700a4c783783240e878c9177e70352597(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -5571,6 +5852,14 @@ def _typecheckingstub__b492d3a7ee4233628eb816da2725d3abcbf6f6ef7090b366477dd8603
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__6a2bbda2d5b0edf8e09d8b8c2cbe1947cbb76dd07ba9d72db05e820d8a91024f(
+    *,
+    preferred_maintenance_window: builtins.str,
+    timezone: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__4aa0f60598bf7475cc8515647f29b3aaeaf36db24c7f9bfb5c8b0ae931853235(
     *,
     bucket_name: builtins.str,
@@ -5588,6 +5877,7 @@ def _typecheckingstub__d0e1a256f4abdadd4b29eda8fd45f16d71b49061c796d179f90eb728f
     db_storage_type: typing.Optional[builtins.str] = None,
     deployment_type: typing.Optional[builtins.str] = None,
     log_delivery_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInfluxDBInstance.LogDeliveryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    maintenance_schedule: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInfluxDBInstance.MaintenanceScheduleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
     network_type: typing.Optional[builtins.str] = None,
     organization: typing.Optional[builtins.str] = None,

@@ -211,7 +211,7 @@ std::vector<uint32_t> ArchEthosU85::ConfigRegisters()
 int ArchEthosU85::UpscaleAndRounding(ArchResampling resampling, int &rounding)
 {
     rounding = (resampling == ArchResampling::Nearest) ? 1 : 0;
-    return (resampling == ArchResampling::Zeros) ? 2 : 1;
+    return (resampling == ArchResampling::None) ? 1 : 2;
 }
 
 AxisMask ArchEthosU85::CanSubdivide(OpType opType, TransposeType transpose, ReverseType reverse)
@@ -936,8 +936,8 @@ std::unique_ptr<ArchitectureOpConfig> ArchEthosU85::FindBlockConfig(OpType opTyp
 
     // Accumulator settings
     EthosU85Accumulator accType = EthosU85Accumulator::Acc32;
-    if ( (query.ifmBits == 16 && !isPooling && query.scaled) ||  // Normal 16-bit selection
-         (query.ifmBits > 32) || (query.ofmBits > 32) )          // Special case for Rescale int48
+    if ( (query.ifmBits == 16 && !isPooling && !isReduceSum && query.scaled) ||  // Normal 16-bit selection
+         (query.ifmBits > 32) || (query.ofmBits > 32) )                          // Special case for Rescale int48
     {
         accType = EthosU85Accumulator::Acc48;
     }
@@ -978,6 +978,7 @@ std::unique_ptr<ArchitectureOpConfig> ArchEthosU85::FindBlockConfig(OpType opTyp
 
     // Common search variables
     FindConfigCommon common;
+    common.ifmBlockDepth = 0;
     common.ofmBlockMax = _ofmBlockMax.Unpermute(uint32_t(query.transpose));
     common.ublock = ofmUBlock;
     common.granule = ofmBlockGranule;
@@ -999,7 +1000,6 @@ std::unique_ptr<ArchitectureOpConfig> ArchEthosU85::FindBlockConfig(OpType opTyp
 
     if ( isDepthwise )
     {
-        common.ifmBlockDepth = 0;
         config->_ofmBlock = FindDepthwiseConfig(query, common, config->_ifmBlock);
         assert(config->_ofmBlock.Width() % ofmBlockGranule[-2] == 0);
         config->_traversal = EthosU85Traversal::Depthwise;
@@ -1345,6 +1345,11 @@ int EthosU85OpConfig::OptimalDepthGranule()
     return _ofmBlock.Depth();
 }
 
+int EthosU85OpConfig::MinimumDepthGranule()
+{
+    return std::max(16, _ofmUBlock.Depth());
+}
+
 std::string EthosU85OpConfig::ToString(bool full)
 {
     std::string tmp = fmt::format("OFM Block=[{}], IFM Block=[{}], OFM UBlock=[{}] Traversal={}, AccType={}", _ofmBlock.ToString(),
@@ -1363,6 +1368,7 @@ EthosU85NpuOp ArchEthosU85::GetHWOp(OpType type)
         {OpType::MatMul, EthosU85NpuOp::VectorProduct},
         {OpType::MaxPool, EthosU85NpuOp::Pooling},
         {OpType::AvgPool, EthosU85NpuOp::Pooling},
+        {OpType::SumPool, EthosU85NpuOp::Pooling},
         {OpType::NullPool, EthosU85NpuOp::Pooling},
         {OpType::QuantizedAvgPool, EthosU85NpuOp::Pooling},
         {OpType::QuantizedMaxPool, EthosU85NpuOp::Pooling},
@@ -1374,7 +1380,6 @@ EthosU85NpuOp ArchEthosU85::GetHWOp(OpType type)
         {OpType::Resize, EthosU85NpuOp::Resize},
         {OpType::Gather, EthosU85NpuOp::Dma},
         {OpType::Scatter, EthosU85NpuOp::Dma},
-        {OpType::Tile, EthosU85NpuOp::Dma},
         {OpType::If, EthosU85NpuOp::Branch},
         {OpType::While, EthosU85NpuOp::Branch},
     };
@@ -1526,12 +1531,6 @@ bool EthosU85OpGroup::Fuse(const ArchitectureOpGroupQuery &op, const std::vector
         return false;
     }
 
-    // Can't fuse reshaped Tensors
-    if ( prevOp.ofm.key == op.ifm[0].key && prevOp.ofm.shape != op.ifm[0].shape )
-    {
-        return false;
-    }
-
     _hasFusedTranspose = _hasFusedTranspose || (op.type == OpType::Transpose && !IsNone(op.ofm.transpose));
     _hasFusedReverse = _hasFusedReverse || (op.type == OpType::Reverse && op.ofm.reverse != ReverseType::None);
 
@@ -1541,6 +1540,16 @@ bool EthosU85OpGroup::Fuse(const ArchitectureOpGroupQuery &op, const std::vector
 
 bool EthosU85OpGroup::Chain(const ArchitectureOpGroupQuery &op, const std::vector<int> &dependsOn, int externalInputs)
 {
+    // This shows a chaining scenario:
+    //
+    // [T1] -> (O1) -> [T2] -> (O2) -> [T3] -> (O3) -> [T4]
+    //
+    // Where
+    // * O1 ("primary") starts the chain,
+    // * O2 ("prev") is chained on O1,
+    // * O3 ("next") is chained on O2 and
+    // * T2 and T3 are non-allocated tensors.
+
     // Op is considered for chaining
     EthosU85NpuOp npuOp = ArchEthosU85::GetHWOp(op.type);
     assert(_opsCount > 0);
@@ -1574,6 +1583,7 @@ bool EthosU85OpGroup::Chain(const ArchitectureOpGroupQuery &op, const std::vecto
     {
         return false;
     }
+    const EthosU85OpGroup::OpInfo &primaryOp = _ops[0];
     for ( int key : dependsOn )
     {
         int dep = KeyToOpIndex(key);
@@ -1589,13 +1599,39 @@ bool EthosU85OpGroup::Chain(const ArchitectureOpGroupQuery &op, const std::vecto
             return false;
         }
 
-        if ( prevOp.ofm.key == op.ifm[0].key )
+        if ( op.inputs == 1 && prevOp.ofm.key == op.ifm[0].key )
         {
+            // Can chain any unary EW regardless of shape as long as number of elements match
+            const bool matchingElements = primaryOp.ofm.shape.Elements() == op.ifm[0].shape.Elements();
+            if ( !matchingElements )
+            {
+                return false;
+            }
+
             _tensorCbMap[prevOp.ofm.key] = _chainIdx++;
             externalInputs--;
         }
-        else if ( op.inputs == 2 && (prevOp.ofm.key == op.ifm[1].key) )
+        else if ( op.inputs == 2 && (prevOp.ofm.key == op.ifm[0].key || prevOp.ofm.key == op.ifm[1].key) )
         {
+            // Can chain a binary EW if one of the following conditions are met:
+            //
+            // 1. No broadcasted IFMs
+            // 2. Same shape on the chained IFM and primary OFM (other IFM can be any shape)
+            // 3. Other IFM is scalar (chained IFM can be any shape)
+
+            const size_t chainedIFMIndex = prevOp.ofm.key == op.ifm[0].key ? 0 : 1;
+            assert(chainedIFMIndex < op.ifm.size());
+            const size_t otherIFMIndex = prevOp.ofm.key == op.ifm[0].key ? 1 : 0;
+            assert(otherIFMIndex < op.ifm.size());
+            const bool isBroadcast = op.ifm[chainedIFMIndex].shape != op.ifm[otherIFMIndex].shape;
+            const bool matchingShapes = op.ifm[chainedIFMIndex].shape == primaryOp.ofm.shape;
+            const bool matchingElements = op.ifm[chainedIFMIndex].shape.Elements() == primaryOp.ofm.shape.Elements();
+            const bool otherIsScalar = op.ifm[otherIFMIndex].shape.Elements() == 1;
+            if ( isBroadcast && !matchingShapes && !(matchingElements && otherIsScalar) )
+            {
+                return false;
+            }
+
             _tensorCbMap[prevOp.ofm.key] = _chainIdx++;
             externalInputs--;
         }

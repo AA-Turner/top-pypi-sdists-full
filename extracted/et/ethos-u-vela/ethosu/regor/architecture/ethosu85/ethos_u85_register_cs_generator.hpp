@@ -139,7 +139,6 @@ protected:
     void Emit(uint32_t instr);
     void Emit(uint64_t instr);
 
-    static int GetDoubleBufferOffset(HLCWeights *weights, int rangeIndex);
     static void CheckAddressRange(ArchitectureMemory *memory, Address address, int size);
     static void CheckAddresses(const HLCFeatureMap &fm);
     // Calculates the rolling buffer address of the given coordinate.
@@ -227,8 +226,6 @@ protected:
     // Inserts DMA commands for copying LUTs from constant memory
     // to LUT memory
     std::vector<std::unique_ptr<HighLevelCommand>> InsertLUTDMACommands(std::vector<std::unique_ptr<HighLevelCommand>> &cmds);
-    // Inserts DMA commands to handle TILE operations
-    std::vector<std::unique_ptr<HighLevelCommand>> InsertTileDMACommands(std::vector<std::unique_ptr<HighLevelCommand>> &cmds);
 
     //----------------------------------------------------------------------
     // Operations

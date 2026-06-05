@@ -54,14 +54,14 @@ def cmd_score(args: list[str]) -> dict:
             }
 
     scores = []
-    for it in range(1, task.iteration + 1):
+    for it in range(1, getattr(task, 'iteration', 1) + 1):
         report_dir = fs.report_dir(task_id, it)
         if not report_dir.exists():
             continue
         from kanban_framework.infra.scheduler import Scheduler
         mode = getattr(task, 'mode', None)
         mode_roles = [r["name"] for r in Scheduler.eval_roles(
-            lightweight=task.lightweight, mode=mode, kanban_dir=fs.kanban_dir)]
+            mode=mode, kanban_dir=fs.kanban_dir)]
         all_roles = list(dict.fromkeys(mode_roles + [
             "code_reviewer", "qa", "product_reviewer", "pm", "designer", "review"]))
         for role in all_roles:
@@ -111,7 +111,7 @@ def _cmd_score_record(args: list[str]) -> dict:
     current_scores.update(scores)
     history = list(task.score_history)
     history.append({
-        "iteration": task.iteration,
+        "iteration": getattr(task, 'iteration', 1),
         "average": avg,
         "roles": scores,
     })
@@ -132,7 +132,7 @@ def cmd_summary(args: list[str]) -> dict:
         "title": task.title,
         "status": task.status.value,
         "phase": task.phase.value,
-        "iteration": task.iteration,
+        "iteration": getattr(task, 'iteration', 1),
         "progress": progress.progress(task_id),
     }
 

@@ -95,7 +95,7 @@ class CfnMicrosoftAD(
         # The values are placeholders you should change.
         from aws_cdk import aws_directoryservice as directoryservice
         
-        cfn_microsoft_aD = directoryservice.CfnMicrosoftAD(self, "MyCfnMicrosoftAD",
+        cfn_microsoft_ad = directoryservice.CfnMicrosoftAD(self, "MyCfnMicrosoftAD",
             name="name",
             password="password",
             vpc_settings=directoryservice.CfnMicrosoftAD.VpcSettingsProperty(
@@ -465,7 +465,7 @@ class CfnMicrosoftADProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_directoryservice as directoryservice
             
-            cfn_microsoft_aDProps = directoryservice.CfnMicrosoftADProps(
+            cfn_microsoft_ad_props = directoryservice.CfnMicrosoftADProps(
                 name="name",
                 password="password",
                 vpc_settings=directoryservice.CfnMicrosoftAD.VpcSettingsProperty(
@@ -621,7 +621,7 @@ class CfnSimpleAD(
         # The values are placeholders you should change.
         from aws_cdk import aws_directoryservice as directoryservice
         
-        cfn_simple_aD = directoryservice.CfnSimpleAD(self, "MyCfnSimpleAD",
+        cfn_simple_ad = directoryservice.CfnSimpleAD(self, "MyCfnSimpleAD",
             name="name",
             size="size",
             vpc_settings=directoryservice.CfnSimpleAD.VpcSettingsProperty(
@@ -1080,7 +1080,7 @@ class CfnSimpleADProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_directoryservice as directoryservice
             
-            cfn_simple_aDProps = directoryservice.CfnSimpleADProps(
+            cfn_simple_ad_props = directoryservice.CfnSimpleADProps(
                 name="name",
                 size="size",
                 vpc_settings=directoryservice.CfnSimpleAD.VpcSettingsProperty(

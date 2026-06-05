@@ -163,6 +163,74 @@ class CollectionGroupReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_opensearchserverless.CollectionIndexReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "collection_index_id": "collectionIndexId",
+        "index_name": "indexName",
+    },
+)
+class CollectionIndexReference:
+    def __init__(
+        self,
+        *,
+        collection_index_id: builtins.str,
+        index_name: builtins.str,
+    ) -> None:
+        '''A reference to a CollectionIndex resource.
+
+        :param collection_index_id: The Id of the CollectionIndex resource.
+        :param index_name: The IndexName of the CollectionIndex resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_opensearchserverless as interfaces_opensearchserverless
+            
+            collection_index_reference = interfaces_opensearchserverless.CollectionIndexReference(
+                collection_index_id="collectionIndexId",
+                index_name="indexName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0bc8fbaf35bc901936c94fbb2c85b198fdade97250b8131958131439686e35c9)
+            check_type(argname="argument collection_index_id", value=collection_index_id, expected_type=type_hints["collection_index_id"])
+            check_type(argname="argument index_name", value=index_name, expected_type=type_hints["index_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "collection_index_id": collection_index_id,
+            "index_name": index_name,
+        }
+
+    @builtins.property
+    def collection_index_id(self) -> builtins.str:
+        '''The Id of the CollectionIndex resource.'''
+        result = self._values.get("collection_index_id")
+        assert result is not None, "Required property 'collection_index_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def index_name(self) -> builtins.str:
+        '''The IndexName of the CollectionIndex resource.'''
+        result = self._values.get("index_name")
+        assert result is not None, "Required property 'index_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CollectionIndexReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_opensearchserverless.CollectionReference",
     jsii_struct_bases=[],
     name_mapping={"collection_arn": "collectionArn", "collection_id": "collectionId"},
@@ -319,6 +387,53 @@ class _ICollectionGroupRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, ICollectionGroupRef).__jsii_proxy_class__ = lambda : _ICollectionGroupRefProxy
+
+
+@jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_opensearchserverless.ICollectionIndexRef"
+)
+class ICollectionIndexRef(
+    _constructs_77d1e7e8.IConstruct,
+    _IEnvironmentAware_f39049ee,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a CollectionIndex.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="collectionIndexRef")
+    def collection_index_ref(self) -> "CollectionIndexReference":
+        '''(experimental) A reference to a CollectionIndex resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ICollectionIndexRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a CollectionIndex.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_opensearchserverless.ICollectionIndexRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="collectionIndexRef")
+    def collection_index_ref(self) -> "CollectionIndexReference":
+        '''(experimental) A reference to a CollectionIndex resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("CollectionIndexReference", jsii.get(self, "collectionIndexRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ICollectionIndexRef).__jsii_proxy_class__ = lambda : _ICollectionIndexRefProxy
 
 
 @jsii.interface(
@@ -900,9 +1015,11 @@ class VpcEndpointReference:
 __all__ = [
     "AccessPolicyReference",
     "CollectionGroupReference",
+    "CollectionIndexReference",
     "CollectionReference",
     "IAccessPolicyRef",
     "ICollectionGroupRef",
+    "ICollectionIndexRef",
     "ICollectionRef",
     "IIndexRef",
     "ILifecyclePolicyRef",
@@ -930,6 +1047,14 @@ def _typecheckingstub__c739f7c4af23f34b25c875fb65df26ed250d3ce2ec367efa27222334a
     *,
     collection_group_arn: builtins.str,
     collection_group_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0bc8fbaf35bc901936c94fbb2c85b198fdade97250b8131958131439686e35c9(
+    *,
+    collection_index_id: builtins.str,
+    index_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -980,5 +1105,5 @@ def _typecheckingstub__b08dfe0437caf78c6728ccbe3f060d9d69e6b653518ea92835805c932
     """Type checking stubs"""
     pass
 
-for cls in [IAccessPolicyRef, ICollectionGroupRef, ICollectionRef, IIndexRef, ILifecyclePolicyRef, ISecurityConfigRef, ISecurityPolicyRef, IVpcEndpointRef]:
+for cls in [IAccessPolicyRef, ICollectionGroupRef, ICollectionIndexRef, ICollectionRef, IIndexRef, ILifecyclePolicyRef, ISecurityConfigRef, ISecurityPolicyRef, IVpcEndpointRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

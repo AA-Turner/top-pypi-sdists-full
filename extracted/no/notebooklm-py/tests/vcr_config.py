@@ -81,9 +81,8 @@ def _load_sibling(module_name: str, file_name: str) -> Any:
     spec = importlib.util.spec_from_file_location(
         module_name, Path(__file__).resolve().parent / file_name
     )
-    assert spec is not None and spec.loader is not None, (
-        f"Could not load {file_name} next to vcr_config.py"
-    )
+    if spec is None or spec.loader is None:  # pragma: no cover - import wiring guard
+        raise ImportError(f"Could not load {file_name} next to vcr_config.py")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -118,7 +117,7 @@ def _is_vcr_record_mode() -> bool:
     module's VCR-instance config and ``tests/integration/conftest.py``
     consume this helper to avoid drift between the two checks.
     """
-    return os.environ.get("NOTEBOOKLM_VCR_RECORD", "").lower() in ("1", "true", "yes")
+    return os.environ.get("NOTEBOOKLM_VCR_RECORD", "").casefold() in ("1", "true", "yes")
 
 
 def get_error_injection_mode() -> str | None:
@@ -134,7 +133,10 @@ def get_error_injection_mode() -> str | None:
     same canonical set in :mod:`tests.cassette_patterns` so they cannot
     drift.
     """
-    raw = os.environ.get(ERROR_INJECT_ENV_VAR, "").strip().lower()
+    # ``.casefold()`` (not ``.lower()``) for parity with ``_is_vcr_record_mode``
+    # and the project's Unicode-aware case-insensitive rule — ASCII-identical
+    # for VALID_ERROR_MODES, so this is consistency hygiene (#1268).
+    raw = os.environ.get(ERROR_INJECT_ENV_VAR, "").strip().casefold()
     if not raw:
         return None
     return raw if raw in VALID_ERROR_MODES else None
@@ -178,7 +180,7 @@ def _substitute_synthetic_error(response: dict[str, Any]) -> dict[str, Any]:
     synthetic-error shape from :mod:`tests.cassette_patterns`.
 
     The error-injection middleware in
-    :mod:`notebooklm._middleware_error_injection` already substitutes
+    :mod:`notebooklm._middleware.error_injection` already substitutes
     the live response BEFORE it reaches VCR, so in normal recording this hook
     sees the synthetic shape already. This pass exists so that:
 
@@ -222,7 +224,7 @@ def scrub_response(response: dict[str, Any]) -> dict[str, Any]:
     by Google's chunked batchexecute responses. Scrubbing frequently changes
     payload length (e.g. ``21_digit_account_id`` -> ``SCRUBBED_USER_ID``); if
     we left the original counts in place the cassette would fail the byte-count
-    assertion in ``tests/unit/test_cassette_shapes.py`` and the decoder's
+    assertion in ``tests/_guardrails/test_cassette_shapes.py`` and the decoder's
     tolerance branch would log a warning on every replay. The helper is a
     no-op on bodies that don't look chunked, so it's safe to call
     unconditionally.
@@ -231,7 +233,7 @@ def scrub_response(response: dict[str, Any]) -> dict[str, Any]:
     :func:`_substitute_synthetic_error` runs FIRST so that downstream scrub
     steps see the canonical synthetic shape rather than whatever the wire
     produced (the error-injection middleware in
-    :mod:`notebooklm._middleware_error_injection` normally already
+    :mod:`notebooklm._middleware.error_injection` normally already
     substituted, but this pass closes the loop for VCR-only test paths).
     """
     # synthetic-error substitution (no-op when env var unset).

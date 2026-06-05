@@ -169,6 +169,27 @@ def _scan(cursor: Cursor) -> Iterator[Reference]:
     while cursor.pos < cursor.end:
         char = cursor.data[cursor.pos]
 
+        # Top-level indented code block.
+        if cursor.at_line_start():
+            end = _scan_indented_code(cursor)
+            if end is not None:
+                cursor.advance(end - cursor.pos)
+                continue
+
+        # Snippet directives and section markers: --8<-- ...
+        if cursor.at_line_start():
+            end = _scan_snippet(cursor)
+            if end is not None:
+                cursor.advance(end - cursor.pos)
+                continue
+
+        # Markdown comment hack: [//]: ...
+        if cursor.at_line_start():
+            end = _scan_markdown_comment(cursor)
+            if end is not None:
+                cursor.advance(end - cursor.pos)
+                continue
+
         # Escaped character or math
         if char == _BACKSLASH:
             next = cursor.peek(1)
@@ -382,6 +403,98 @@ def _scan(cursor: Cursor) -> Iterator[Reference]:
 
         # Literal
         cursor.advance(1)
+
+
+# ---------------------------------------------------------------------------
+
+
+def _scan_indented_code(cursor: Cursor) -> int | None:
+    """Scan for a top-level indented code block."""
+    line = _find_line_start(cursor, cursor.pos)
+    if not _is_previous_line_blank(cursor, line):
+        return None
+
+    pos = line
+    indent, end = _measure_indent(cursor, pos)
+    if indent < 4:  # noqa: PLR2004
+        return None
+    if end >= cursor.end or cursor.data[end] in (_CR, _NL):
+        return None
+
+    # Consume the whole chunk: indented lines plus blank continuation lines.
+    pos = _skip_line(cursor, end)
+    while pos < cursor.end:
+        if _is_blank_line(cursor, pos):
+            pos = _skip_line(cursor, pos)
+            continue
+
+        indent, end = _measure_indent(cursor, pos)
+        if indent < 4:  # noqa: PLR2004
+            break
+        pos = _skip_line(cursor, end)
+
+    return pos
+
+
+# ---------------------------------------------------------------------------
+
+
+def _scan_snippet(cursor: Cursor) -> int | None:
+    """Scan for a pymdownx.snippets directive or section marker line."""
+    pos = _skip_whitespace(cursor, cursor.pos)
+
+    # Markdown snippet sections are commonly wrapped in heading comments.
+    if pos < cursor.end and cursor.data[pos] == _HASH:
+        pos = _skip_whitespace(cursor, pos + 1)
+
+    # Match the scissors marker: -+8<-+
+    start = pos
+    while pos < cursor.end and cursor.data[pos] == _DASH:
+        pos += 1
+    if pos == start or pos >= cursor.end or cursor.data[pos] != ord(b"8"):
+        return None
+    pos += 1
+
+    start = pos
+    while pos < cursor.end and cursor.data[pos] == _LANGLE:
+        pos += 1
+    if pos == start:
+        return None
+
+    start = pos
+    while pos < cursor.end and cursor.data[pos] == _DASH:
+        pos += 1
+    if pos == start:
+        return None
+
+    # Snippet syntax ends at the line boundary.
+    if pos < cursor.end and cursor.data[pos] not in (_SPACE, _TAB, _CR, _NL):
+        return None
+
+    return _skip_line(cursor, pos)
+
+
+# ---------------------------------------------------------------------------
+
+
+def _scan_markdown_comment(cursor: Cursor) -> int | None:
+    """Scan for a Markdown comment line written as `[//]: ...`."""
+    start = cursor.pos
+
+    # Skip if there're more than four spaces of indentation
+    if cursor.col > 3:  # noqa: PLR2004
+        return None
+
+    id, end = _scan_link_id(cursor, start)
+    if (
+        id is None
+        or cursor.data[id.start - cursor.shift : id.end - cursor.shift] != b"//"
+    ):
+        return None
+    if end >= cursor.end or cursor.data[end] != _COLON:
+        return None
+
+    return _skip_line(cursor, end)
 
 
 # ---------------------------------------------------------------------------
@@ -871,10 +984,7 @@ def _scan_footnote_ref_or_def(
     if end >= cursor.end or cursor.data[end] != _RBRACKET:
         return None
 
-    # Skip if we didn't find an id
     id = cursor.span(start + 2, end)
-    if id.start == id.end:
-        return None
 
     # Validate id - non-empty, no internal spaces
     text = cursor.data[id.start : id.end]
@@ -891,6 +1001,11 @@ def _scan_footnote_ref_or_def(
         and cursor.at_line_start()
     ):
         return _scan_footnote_def(cursor, id, end)
+
+    # Python Markdown doesn't recognize footnote references with escapes.
+    if _has_escaped_char(text):
+        cursor.advance(end - start)
+        return iter(())
 
     # Advance cursor and return link
     cursor.advance(end - start)
@@ -1512,6 +1627,16 @@ def _is_callout_marker(cursor: Cursor, text: Span, end: int) -> bool:
     return found and pos == start
 
 
+def _has_escaped_char(value: bytes) -> bool:
+    """Return whether a value contains an escaped Markdown character."""
+    i = 0
+    while i + 1 < len(value):
+        if value[i] == _BACKSLASH and value[i + 1] in _ESCAPABLE:
+            return True
+        i += 1
+    return False
+
+
 # ---------------------------------------------------------------------------
 
 
@@ -1520,6 +1645,23 @@ def _skip_whitespace(cursor: Cursor, pos: int) -> int:
     while pos < cursor.end and cursor.data[pos] in _WHITESPACE:
         pos += 1
     return pos
+
+
+def _measure_indent(cursor: Cursor, pos: int) -> tuple[int, int]:
+    """Return visual indentation width and first non-whitespace position."""
+    indent = 0
+    while pos < cursor.end:
+        char = cursor.data[pos]
+        if char == _SPACE:
+            indent += 1
+            pos += 1
+            continue
+        if char == _TAB:
+            indent += 4 - (indent % 4)
+            pos += 1
+            continue
+        break
+    return indent, pos
 
 
 def _skip_whitespace_newline(cursor: Cursor, pos: int) -> int:

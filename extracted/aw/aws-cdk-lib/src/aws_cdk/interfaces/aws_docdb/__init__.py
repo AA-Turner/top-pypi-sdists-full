@@ -53,7 +53,7 @@ class DBClusterParameterGroupReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_docdb as interfaces_docdb
             
-            d_bCluster_parameter_group_reference = interfaces_docdb.DBClusterParameterGroupReference(
+            d_b_cluster_parameter_group_reference = interfaces_docdb.DBClusterParameterGroupReference(
                 db_cluster_parameter_group_id="dbClusterParameterGroupId"
             )
         '''
@@ -102,7 +102,7 @@ class DBClusterReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_docdb as interfaces_docdb
             
-            d_bCluster_reference = interfaces_docdb.DBClusterReference(
+            d_b_cluster_reference = interfaces_docdb.DBClusterReference(
                 db_cluster_id="dbClusterId"
             )
         '''
@@ -151,7 +151,7 @@ class DBInstanceReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_docdb as interfaces_docdb
             
-            d_bInstance_reference = interfaces_docdb.DBInstanceReference(
+            d_b_instance_reference = interfaces_docdb.DBInstanceReference(
                 db_instance_id="dbInstanceId"
             )
         '''
@@ -200,7 +200,7 @@ class DBSubnetGroupReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_docdb as interfaces_docdb
             
-            d_bSubnet_group_reference = interfaces_docdb.DBSubnetGroupReference(
+            d_b_subnet_group_reference = interfaces_docdb.DBSubnetGroupReference(
                 db_subnet_group_id="dbSubnetGroupId"
             )
         '''

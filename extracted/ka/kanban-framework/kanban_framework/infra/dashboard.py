@@ -11,10 +11,10 @@ import subprocess
 import sys
 from pathlib import Path
 
-_SKIP_NAMES = {"node_modules", "__pycache__", ".DS_Store"}
+_SKIP_NAMES = {"node_modules", "__pycache__", ".DS_Store", "src"}
 _SKIP_EXTS = {".pid", ".log"}
-_SCRIPTS = {"server.js", "package.json"}
-_ASSET_DIRS = {"css", "js", "tests"}
+_SCRIPTS = {"api.py"}
+_ASSET_DIRS = {"css", "static"}
 
 
 def _source_dir() -> Path:
@@ -24,17 +24,17 @@ def _source_dir() -> Path:
         import importlib.resources as ir
         base = ir.files("kanban_framework")
         d = base / "dashboard"
-        if (d / "server.js").is_file():
+        if (d / "api.py").is_file():
             return d
     except Exception:
         pass
     # 2. Fallback via __file__
     d = Path(__file__).resolve().parent.parent / "dashboard"
-    if (d / "server.js").is_file():
+    if (d / "api.py").is_file():
         return d
     # 3. Dev layout: .claude/skills/kanban/kanban_framework/dashboard/
     d = Path(__file__).resolve().parent.parent.parent / "dashboard"
-    if (d / "server.js").is_file():
+    if (d / "api.py").is_file():
         return d
     raise FileNotFoundError("dashboard source not found in kanban_framework package")
 
@@ -220,16 +220,6 @@ class DashboardManager:
     def _is_running(self, pid: int | None) -> bool:
         if pid is None:
             return False
-        if sys.platform == "win32":
-            # os.kill(pid, 0) does not work reliably on Windows
-            try:
-                result = subprocess.run(
-                    ["tasklist", "/FI", f"PID eq {pid}", "/NH"],
-                    capture_output=True, text=True, timeout=5
-                )
-                return f"{pid}" in result.stdout and "node" in result.stdout.lower()
-            except Exception:
-                return False
         try:
             os.kill(pid, 0)
             return True
@@ -264,70 +254,37 @@ class DashboardManager:
 
     def check_env(self) -> dict:
         """Pre-flight check: verify dashboard can start."""
-        import shutil as _shutil
         issues = []
         ok = []
-        # Node.js
-        node = _shutil.which("node")
-        if node:
-            ok.append(f"node ({node})")
-        else:
-            issues.append("Node.js not found — install from https://nodejs.org")
-        # npm
-        npm = _shutil.which("npm")
-        if npm:
-            ok.append(f"npm ({npm})")
-        else:
-            issues.append("npm not found")
-        # Express (key dependency)
-        express = self._deploy_dir / "node_modules" / "express" / "index.js"
-        if express.is_file():
-            ok.append("express (installed)")
-        else:
-            issues.append("express not installed — run: kanban dashboard start")
+        # Python (always available since we're running in it)
+        ok.append(f"python ({sys.executable})")
+        # FastAPI
+        try:
+            import fastapi
+            ok.append(f"fastapi ({fastapi.__version__})")
+        except ImportError:
+            issues.append("fastapi not installed — pip install kanban-framework")
+        # uvicorn
+        try:
+            import uvicorn
+            ok.append(f"uvicorn ({uvicorn.__version__})")
+        except ImportError:
+            issues.append("uvicorn not installed")
         return {
             "ready": len(issues) == 0,
             "ok": ok,
             "issues": issues,
-            "fix_hint": "kanban dashboard start" if issues else None,
+            "fix_hint": "pip install kanban-framework" if issues else None,
         }
 
     def _ensure_node_modules(self) -> None:
-        """Install npm dependencies if node_modules is missing or incomplete."""
-        nm = self._deploy_dir / "node_modules"
-        # Check for key dependency (express), not just directory existence
-        express_index = nm / "express" / "index.js"
-        if nm.is_dir() and express_index.is_file():
-            return
-        # npm available?
-        npm = shutil.which("npm")
-        if not npm:
-            raise RuntimeError(
-                "npm not found — install Node.js (https://nodejs.org) to use the dashboard"
-            )
-        # Remove stale node_modules if exists but incomplete
-        if nm.is_dir() and not express_index.is_file():
-            shutil.rmtree(str(nm), ignore_errors=True)
-        # Install — bypass npm proxy to avoid connection failures (#241)
-        env = os.environ.copy()
-        for proxy_var in ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy", "ALL_PROXY", "all_proxy"):
-            env.pop(proxy_var, None)
-        env["NPM_CONFIG_PROXY"] = ""
-        env["NPM_CONFIG_HTTPS-PROXY"] = ""
-        result = subprocess.run(
-            [npm, "install"],
-            cwd=str(self._deploy_dir),
-            capture_output=True, text=True, encoding="utf-8", errors="replace",
-            env=env,
-        )
-        if result.returncode != 0:
-            err = result.stderr.strip() or "npm install failed"
-            raise RuntimeError(f"npm install failed: {err}")
+        """No-op — FastAPI dashboard has no npm dependencies."""
+        pass
 
     def status(self) -> dict:
         pid = self._read_pid()
         running = self._is_running(pid)
-        deployed = (self._deploy_dir / "server.js").is_file()
+        deployed = (self._deploy_dir / "api.py").is_file()
         port_file = self._port_file()
         saved_port = int(port_file.read_text().strip()) if port_file.exists() else 3000
         return {
@@ -358,8 +315,6 @@ class DashboardManager:
     def start(self, port: int | None = None) -> dict:
         # Deploy first
         self.deploy()
-        # Install deps
-        self._ensure_node_modules()
         # Validate port
         actual_port = port or self._read_port() or 3000
         if actual_port in self._UNSAFE_PORTS:
@@ -367,7 +322,7 @@ class DashboardManager:
                 "started": False,
                 "reason": "unsafe_port",
                 "port": actual_port,
-                "hint": f"Port {actual_port} is blocked by browsers (Chrome/Firefox). Use a different port, e.g. --port {min(p for p in range(3000, 9000) if p not in self._UNSAFE_PORTS)}",
+                "hint": f"Port {actual_port} is blocked by browsers (Chrome/Firefox). Use a different port.",
             }
         pid = self._read_pid()
         if self._is_running(pid):
@@ -380,7 +335,6 @@ class DashboardManager:
         if self._port_in_use(actual_port):
             port_pid = self._find_by_port(actual_port)
             if port_pid and port_pid != pid:
-                # Kill the stale process occupying the port
                 self._kill_process(port_pid)
                 import time
                 time.sleep(0.5)
@@ -389,20 +343,18 @@ class DashboardManager:
                         "started": False,
                         "reason": "port_in_use",
                         "port": actual_port,
-                        "hint": f"Port {actual_port} is occupied and could not be freed. Try --port to use a different one.",
+                        "hint": f"Port {actual_port} is occupied and could not be freed.",
                     }
             else:
                 return {
                     "started": False,
                     "reason": "port_in_use",
                     "port": actual_port,
-                    "hint": f"Port {actual_port} is occupied by another process. Stop it first or use --port to pick a different one.",
+                    "hint": f"Port {actual_port} is occupied by another process.",
                 }
-        # Start server
+        # Start uvicorn with FastAPI app
         env = os.environ.copy()
         env["KANBAN_ROOT"] = str(self._kanban_dir)
-        if port:
-            env["PORT"] = str(port)
         log = open(self._log_file(), "w")
         kwargs = {
             "cwd": str(self._deploy_dir),
@@ -411,7 +363,6 @@ class DashboardManager:
             "env": env,
         }
         if self._is_windows():
-            # Windows: detach from console without requiring process group
             flags = 0
             for attr in ("CREATE_NEW_PROCESS_GROUP", "DETACHED_PROCESS", "CREATE_NO_WINDOW"):
                 if hasattr(subprocess, attr):
@@ -419,10 +370,18 @@ class DashboardManager:
             if flags:
                 kwargs["creationflags"] = flags
             kwargs["start_new_session"] = True
-        proc = subprocess.Popen(["node", "server.js"], **kwargs)
+        # Launch uvicorn with the FastAPI app
+        proc = subprocess.Popen([
+            sys.executable, "-m", "uvicorn",
+            "kanban_framework.dashboard.api:create_app",
+            "--factory",
+            "--host", "127.0.0.1",
+            "--port", str(actual_port),
+            "--no-access-log",
+        ], **kwargs)
         self._pid_file().write_text(str(proc.pid))
-        self._port_file().write_text(str(port or 3000))
-        return {"started": True, "pid": proc.pid, "port": port or 3000, "deploy_dir": str(self._deploy_dir)}
+        self._port_file().write_text(str(actual_port))
+        return {"started": True, "pid": proc.pid, "port": actual_port, "deploy_dir": str(self._deploy_dir)}
 
     def stop(self) -> dict:
         pid = self._read_pid()

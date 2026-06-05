@@ -156,12 +156,21 @@ const NATIVE_COMMANDS: &[(&str, &str)] = &[
     ("freeze", "create"),
     ("freeze", "update"),
     ("freeze", "delete"),
+    ("stack", "drop"),
+    ("stack", "edit"),
+    ("stack", "new"),
+    ("stack", "note"),
     // Internal Python migration helpers. Listed so `looks_native`
     // routes `mergify _internal …` past the shim fallback when
     // clap rejects it, but they stay hidden from `--help` (see
     // the `Subcommands::Internal` variant).
     ("_internal", "stack-local-commits"),
     ("_internal", "stack-remote-changes"),
+    // Self-invocation target for the rebase-todo machinery — set
+    // as `GIT_SEQUENCE_EDITOR` before `git rebase -i` so we can
+    // rewrite the todo file in-process. Not a user-facing
+    // command; not stable.
+    ("_internal", "rebase-todo-rewrite"),
 ];
 
 /// Native commands the Rust binary handles without delegating to
@@ -209,6 +218,82 @@ enum NativeCommand {
     /// JSON array of `{change_id, pull}` records. Wire format is
     /// not stable.
     InternalStackRemoteChanges(InternalStackRemoteChangesOpts),
+    /// `mergify stack new <name> [--base REMOTE/BRANCH]
+    /// [--checkout/--no-checkout]` — create a new stack branch
+    /// tracking the resolved trunk. First stack subcommand to land
+    /// natively; the rest still shim to Python.
+    StackNew(StackNewOpts),
+    /// `mergify stack note [<commit>] [-m <msg>] [--append]
+    /// [--remove]` — attach/append/remove the "why was this commit
+    /// amended" note on `refs/notes/mergify/stack`.
+    StackNote(StackNoteOpts),
+    /// `mergify stack edit [<commit>]` — pause an interactive
+    /// rebase at the target commit so the user can amend it.
+    StackEdit(StackEditOpts),
+    /// `mergify stack drop <COMMIT>... [--dry-run]` — drop one or
+    /// more commits from the stack via the rebase-todo machinery.
+    StackDrop(StackDropOpts),
+    /// `_internal rebase-todo-rewrite --action <ACTION>
+    /// --sha <SHA> <TODO_PATH>` — self-invocation target set as
+    /// `GIT_SEQUENCE_EDITOR` by the rebase-family stack
+    /// subcommands. Reads the rebase-todo at `TODO_PATH`,
+    /// applies the named transformation, writes it back in place.
+    /// Wire format is not stable.
+    InternalRebaseTodoRewrite(InternalRebaseTodoRewriteOpts),
+}
+
+struct StackEditOpts {
+    /// `None` for an interactive rebase (no commit pre-selected);
+    /// `Some(prefix)` to pause the rebase on the matching commit.
+    commit_prefix: Option<String>,
+}
+
+struct StackDropOpts {
+    commit_prefixes: Vec<String>,
+    dry_run: bool,
+}
+
+struct InternalRebaseTodoRewriteOpts {
+    /// Which transformation to apply. New variants land with the
+    /// respective port slices (today: `edit`, `drop`).
+    action: InternalRebaseAction,
+    /// Target commit SHA — used by `edit`. Required for any
+    /// single-target action.
+    sha: Option<String>,
+    /// Comma-separated commit SHAs — used by `drop`. Required
+    /// for multi-target actions.
+    shas: Option<String>,
+    /// Path to the rebase-todo file git wrote.
+    todo_path: PathBuf,
+}
+
+#[derive(Clone, Copy, clap::ValueEnum)]
+enum InternalRebaseAction {
+    Edit,
+    Drop,
+}
+
+struct StackNoteOpts {
+    /// Commit to target — `None` means HEAD. Accepts a SHA prefix,
+    /// a ref (`HEAD~1`, branch name, etc.), or a Change-Id prefix
+    /// (resolved against the stack walk).
+    commit: Option<String>,
+    /// Inline message; `None` means "open `$GIT_EDITOR`". Mutually
+    /// exclusive with `remove`.
+    message: Option<String>,
+    /// Concatenate to the existing note instead of replacing.
+    append: bool,
+    /// Remove the note. Mutually exclusive with `message` /
+    /// `append`.
+    remove: bool,
+}
+
+struct StackNewOpts {
+    name: String,
+    /// `Some((remote, branch))` for an explicit `--base`; `None`
+    /// means "resolve the trunk".
+    base: Option<(String, String)>,
+    checkout: bool,
 }
 
 struct InternalStackLocalCommitsOpts {
@@ -301,7 +386,7 @@ struct FreezeListOpts {
 }
 
 struct TestsShowOpts {
-    repository: String,
+    repository: Option<String>,
     test_names: Vec<String>,
     token: Option<String>,
     api_url: Option<String>,
@@ -314,7 +399,7 @@ struct TestsShowOpts {
 }
 
 struct TestsQuarantineOpts {
-    repository: String,
+    repository: Option<String>,
     test_name: String,
     reason: String,
     branch: Option<String>,
@@ -324,7 +409,7 @@ struct TestsQuarantineOpts {
 }
 
 struct TestsUnquarantineOpts {
-    repository: String,
+    repository: Option<String>,
     name_or_id: String,
     token: Option<String>,
     api_url: Option<String>,
@@ -332,7 +417,7 @@ struct TestsUnquarantineOpts {
 }
 
 struct TestsQuarantinedOpts {
-    repository: String,
+    repository: Option<String>,
     token: Option<String>,
     api_url: Option<String>,
     json: bool,
@@ -451,13 +536,63 @@ fn detect_dispatch(argv: &[String]) -> Option<Dispatch> {
     Some(dispatch_from_parsed(parsed))
 }
 
+/// Route a captured `mergify stack <args…>` invocation to either
+/// the native stack subcommand handler or the Python shim.
+///
+/// `stack` is a hybrid group during the port: today only `new` is
+/// native, every other subcommand still runs through `mergify-py-shim`.
+/// The decision is made by inspecting the first positional arg
+/// after `stack` — if it names a natively-ported subcommand, we
+/// secondary-parse the rest with clap and dispatch native;
+/// otherwise we forward the whole argv to Python verbatim.
+///
+/// `--help` for shimmed subcommands (and the bare `stack --help`)
+/// falls through to Python, which prints the full help listing
+/// including the Python-only subcommands. Adding new native stack
+/// subcommands later means adding a branch here and a matching
+/// `NATIVE_COMMANDS` entry.
+fn dispatch_stack(debug: bool, args: Vec<String>) -> Dispatch {
+    match args.first().map(String::as_str) {
+        Some("new") => {
+            // `args[0]` is the subcommand — clap consumes it as
+            // the program name in the secondary parse, leaving
+            // `args[1..]` as the actual arguments.
+            let parsed = match StackNewCli::try_parse_from(&args) {
+                Ok(p) => p,
+                Err(err) => err.exit(),
+            };
+            Dispatch::Native(NativeCommand::StackNew(StackNewOpts::from(parsed)))
+        }
+        Some("note") => {
+            let parsed = match StackNoteCli::try_parse_from(&args) {
+                Ok(p) => p,
+                Err(err) => err.exit(),
+            };
+            Dispatch::Native(NativeCommand::StackNote(StackNoteOpts::from(parsed)))
+        }
+        Some("edit") => {
+            let parsed = match StackEditCli::try_parse_from(&args) {
+                Ok(p) => p,
+                Err(err) => err.exit(),
+            };
+            Dispatch::Native(NativeCommand::StackEdit(StackEditOpts::from(parsed)))
+        }
+        Some("drop") => {
+            let parsed = match StackDropCli::try_parse_from(&args) {
+                Ok(p) => p,
+                Err(err) => err.exit(),
+            };
+            Dispatch::Native(NativeCommand::StackDrop(StackDropOpts::from(parsed)))
+        }
+        _ => Dispatch::Shim(inject_global_flags(debug, prepend_one("stack", args))),
+    }
+}
+
 #[allow(clippy::too_many_lines)] // mostly mechanical match arms
 fn dispatch_from_parsed(parsed: CliRoot) -> Dispatch {
     let debug = parsed.debug;
     match parsed.command {
-        Subcommands::Stack(ShimmedArgs { args }) => {
-            Dispatch::Shim(inject_global_flags(debug, prepend_one("stack", args)))
-        }
+        Subcommands::Stack(ShimmedArgs { args }) => dispatch_stack(debug, args),
         Subcommands::Internal(InternalArgs {
             command:
                 InternalSubcommand::StackLocalCommits(InternalStackLocalCommitsArgs {
@@ -490,6 +625,22 @@ fn dispatch_from_parsed(parsed: CliRoot) -> Dispatch {
                 repo,
                 stack_prefix,
                 author,
+            },
+        )),
+        Subcommands::Internal(InternalArgs {
+            command:
+                InternalSubcommand::RebaseTodoRewrite(InternalRebaseTodoRewriteArgs {
+                    action,
+                    sha,
+                    shas,
+                    todo_path,
+                }),
+        }) => Dispatch::Native(NativeCommand::InternalRebaseTodoRewrite(
+            InternalRebaseTodoRewriteOpts {
+                action,
+                sha,
+                shas,
+                todo_path,
             },
         )),
         Subcommands::Ci(CiArgs {
@@ -940,7 +1091,7 @@ fn run_native(cmd: NativeCommand) -> ExitCode {
             NativeCommand::TestsShow(opts) => {
                 mergify_ci::tests_show::run(
                     TestsShowOptions {
-                        repository: &opts.repository,
+                        repository: opts.repository.as_deref(),
                         test_names: &opts.test_names,
                         token: opts.token.as_deref(),
                         api_url: opts.api_url.as_deref(),
@@ -957,7 +1108,7 @@ fn run_native(cmd: NativeCommand) -> ExitCode {
             NativeCommand::TestsQuarantine(opts) => {
                 mergify_ci::tests_quarantine::quarantine(
                     QuarantineOptions {
-                        repository: &opts.repository,
+                        repository: opts.repository.as_deref(),
                         test_name: &opts.test_name,
                         reason: &opts.reason,
                         branch: opts.branch.as_deref(),
@@ -971,7 +1122,7 @@ fn run_native(cmd: NativeCommand) -> ExitCode {
             NativeCommand::TestsUnquarantine(opts) => {
                 mergify_ci::tests_quarantine::unquarantine(
                     UnquarantineOptions {
-                        repository: &opts.repository,
+                        repository: opts.repository.as_deref(),
                         name_or_id: &opts.name_or_id,
                         token: opts.token.as_deref(),
                         api_url: opts.api_url.as_deref(),
@@ -983,7 +1134,7 @@ fn run_native(cmd: NativeCommand) -> ExitCode {
             NativeCommand::TestsQuarantined(opts) => {
                 mergify_ci::tests_quarantine::quarantined(
                     QuarantinedOptions {
-                        repository: &opts.repository,
+                        repository: opts.repository.as_deref(),
                         token: opts.token.as_deref(),
                         api_url: opts.api_url.as_deref(),
                     },
@@ -1094,6 +1245,186 @@ fn run_native(cmd: NativeCommand) -> ExitCode {
             )
             .await
             .map(|()| mergify_core::ExitCode::Success),
+            NativeCommand::StackNew(opts) => {
+                let base = opts
+                    .base
+                    .map(|(remote, branch)| mergify_stack::commands::new::Base {
+                        remote,
+                        branch,
+                    });
+                let outcome =
+                    mergify_stack::commands::new::run(None, &opts.name, base, opts.checkout)?;
+                if let Some(auto_set) = &outcome.upstream_auto_set {
+                    // Yellow notice — matches `utils.get_trunk`'s
+                    // print when it auto-sets upstream tracking.
+                    eprintln!(
+                        "Upstream not set for {branch}, automatically set to {remote}/{target}",
+                        branch = auto_set.current_branch,
+                        remote = auto_set.remote,
+                        target = auto_set.branch,
+                    );
+                }
+                println!(
+                    "Created branch '{name}' tracking {base}",
+                    name = outcome.branch_name,
+                    base = outcome.base_refspec,
+                );
+                if outcome.checked_out {
+                    println!("Switched to branch '{}'", outcome.branch_name);
+                } else {
+                    println!(
+                        "Run 'git checkout {}' to switch to the new branch",
+                        outcome.branch_name,
+                    );
+                }
+                Ok(mergify_core::ExitCode::Success)
+            }
+            NativeCommand::StackNote(opts) => {
+                let action = if opts.remove {
+                    mergify_stack::commands::note::Action::Remove
+                } else if let Some(msg) = opts.message {
+                    if opts.append {
+                        mergify_stack::commands::note::Action::Append(msg)
+                    } else {
+                        mergify_stack::commands::note::Action::Set(msg)
+                    }
+                } else {
+                    mergify_stack::commands::note::Action::FromEditor
+                };
+                let outcome = mergify_stack::commands::note::run(
+                    None,
+                    opts.commit.as_deref(),
+                    action,
+                )?;
+                match outcome {
+                    mergify_stack::commands::note::Outcome::Attached { sha, subject } => {
+                        println!(
+                            "Note attached to {short} {subject}.",
+                            short = &sha[..sha.len().min(12)],
+                        );
+                    }
+                    mergify_stack::commands::note::Outcome::Removed { sha, subject } => {
+                        println!(
+                            "Note removed from {short} {subject}.",
+                            short = &sha[..sha.len().min(12)],
+                        );
+                    }
+                    mergify_stack::commands::note::Outcome::NoNoteToRemove {
+                        sha,
+                        subject,
+                    } => {
+                        println!(
+                            "No note on {short} {subject}.",
+                            short = &sha[..sha.len().min(12)],
+                        );
+                    }
+                }
+                Ok(mergify_core::ExitCode::Success)
+            }
+            NativeCommand::StackEdit(opts) => {
+                let mergify_binary = std::env::current_exe().map_err(|e| {
+                    mergify_core::CliError::Generic(format!(
+                        "could not locate current binary path for GIT_SEQUENCE_EDITOR: {e}"
+                    ))
+                })?;
+                let outcome = mergify_stack::commands::edit::run(
+                    &mergify_stack::commands::edit::Options {
+                        repo_dir: None,
+                        commit_prefix: opts.commit_prefix.as_deref(),
+                        mergify_binary: &mergify_binary,
+                    },
+                )?;
+                match outcome {
+                    mergify_stack::commands::edit::Outcome::PausedAt { commit } => {
+                        let short = &commit.sha[..commit.sha.len().min(12)];
+                        println!("Editing commit: {short} {subject}", subject = commit.subject);
+                        println!("Amend the commit, then run: git rebase --continue");
+                    }
+                    mergify_stack::commands::edit::Outcome::EmptyStack => {
+                        println!("No commits in the stack");
+                    }
+                    mergify_stack::commands::edit::Outcome::InteractiveCompleted => {}
+                }
+                Ok(mergify_core::ExitCode::Success)
+            }
+            NativeCommand::StackDrop(opts) => {
+                let mergify_binary = std::env::current_exe().map_err(|e| {
+                    mergify_core::CliError::Generic(format!(
+                        "could not locate current binary path for GIT_SEQUENCE_EDITOR: {e}"
+                    ))
+                })?;
+                let outcome = mergify_stack::commands::drop::run(
+                    &mergify_stack::commands::drop::Options {
+                        repo_dir: None,
+                        commit_prefixes: &opts.commit_prefixes,
+                        dry_run: opts.dry_run,
+                        mergify_binary: &mergify_binary,
+                    },
+                )?;
+                match outcome {
+                    mergify_stack::commands::drop::Outcome::Dropped { dropped } => {
+                        for c in &dropped {
+                            let short = &c.sha[..c.sha.len().min(12)];
+                            println!("Dropping: {short} {subject}", subject = c.subject);
+                        }
+                        println!("Commits dropped successfully.");
+                    }
+                    mergify_stack::commands::drop::Outcome::DryRun { plan } => {
+                        println!("Drop plan:");
+                        for c in &plan {
+                            let short = &c.sha[..c.sha.len().min(12)];
+                            println!("  drop {short} {subject}", subject = c.subject);
+                        }
+                        println!("Dry run — no changes made");
+                    }
+                    mergify_stack::commands::drop::Outcome::EmptyStack => {
+                        println!("No commits in the stack");
+                    }
+                }
+                Ok(mergify_core::ExitCode::Success)
+            }
+            NativeCommand::InternalRebaseTodoRewrite(opts) => {
+                let action = match opts.action {
+                    InternalRebaseAction::Edit => {
+                        let sha = opts.sha.ok_or_else(|| {
+                            mergify_core::CliError::InvalidState(
+                                "_internal rebase-todo-rewrite --action edit requires --sha"
+                                    .to_string(),
+                            )
+                        })?;
+                        mergify_stack::rebase_todo::Action::Edit { sha }
+                    }
+                    InternalRebaseAction::Drop => {
+                        let raw = opts.shas.ok_or_else(|| {
+                            mergify_core::CliError::InvalidState(
+                                "_internal rebase-todo-rewrite --action drop requires --shas"
+                                    .to_string(),
+                            )
+                        })?;
+                        let shas = raw
+                            .split(',')
+                            .map(str::trim)
+                            .filter(|s| !s.is_empty())
+                            .map(str::to_string)
+                            .collect();
+                        mergify_stack::rebase_todo::Action::Drop { shas }
+                    }
+                };
+                let original = std::fs::read_to_string(&opts.todo_path).map_err(|e| {
+                    mergify_core::CliError::Generic(format!(
+                        "read rebase-todo at {}: {e}",
+                        opts.todo_path.display()
+                    ))
+                })?;
+                let rewritten = mergify_stack::rebase_todo::rewrite(&original, &action)?;
+                std::fs::write(&opts.todo_path, rewritten).map_err(|e| {
+                    mergify_core::CliError::Generic(format!(
+                        "write rebase-todo at {}: {e}",
+                        opts.todo_path.display()
+                    ))
+                })?;
+                Ok(mergify_core::ExitCode::Success)
+            }
             NativeCommand::InternalStackLocalCommits(opts) => {
                 // Run `git log` for the stack range, parse each
                 // commit's `Change-Id:` trailer, emit a JSON array
@@ -1237,6 +1568,179 @@ enum InternalSubcommand {
     /// regrouping. Not a stable user-facing surface.
     #[command(name = "stack-remote-changes")]
     StackRemoteChanges(InternalStackRemoteChangesArgs),
+    /// Self-invocation target for the rebase-family stack
+    /// subcommands. `mergify stack <cmd>` sets
+    /// `GIT_SEQUENCE_EDITOR` to a command line ending in this
+    /// subcommand before spawning `git rebase -i`; git invokes
+    /// it on the freshly-written rebase-todo file. Not a stable
+    /// user-facing surface.
+    #[command(name = "rebase-todo-rewrite")]
+    RebaseTodoRewrite(InternalRebaseTodoRewriteArgs),
+}
+
+#[derive(clap::Args)]
+struct InternalRebaseTodoRewriteArgs {
+    /// Transformation to apply. New variants land with the
+    /// respective port slices (today: `edit`, `drop`).
+    #[arg(long, value_enum)]
+    action: InternalRebaseAction,
+    /// Target SHA — required when `--action edit`.
+    #[arg(long)]
+    sha: Option<String>,
+    /// Comma-separated SHAs — required when `--action drop`.
+    #[arg(long)]
+    shas: Option<String>,
+    /// Path to the rebase-todo file git wrote; positional so it
+    /// catches whatever git's `sh -c "$EDITOR \"$@\"" sh <path>`
+    /// hands us.
+    todo_path: PathBuf,
+}
+
+/// `mergify stack new <name>` — clap definition for the natively-
+/// ported `stack new` subcommand. Parsed as a side step after the
+/// top-level clap pass captures `Stack(ShimmedArgs)`, so the rest
+/// of the `stack` group still flows through the Python shim.
+#[derive(Parser)]
+#[command(name = "new", about = "Create a new stack branch")]
+struct StackNewCli {
+    /// Name of the new branch.
+    name: String,
+
+    /// Base branch to fork from, formatted as `REMOTE/BRANCH`
+    /// (e.g. `origin/main`). When omitted, the trunk is resolved
+    /// from the current branch's tracking info or
+    /// `refs/remotes/origin/HEAD`.
+    #[arg(long, short = 'b', value_parser = parse_remote_branch)]
+    base: Option<(String, String)>,
+
+    /// Checkout the new branch after creation. This is the default.
+    /// Pass `--no-checkout` to keep the current branch checked out.
+    #[arg(
+        long = "checkout",
+        action = clap::ArgAction::SetTrue,
+        conflicts_with = "no_checkout",
+    )]
+    #[allow(dead_code)] // default-on; only consumed for `conflicts_with`
+    checkout: bool,
+
+    /// Leave the current branch checked out and just create the
+    /// new branch ref.
+    #[arg(long = "no-checkout", action = clap::ArgAction::SetTrue)]
+    no_checkout: bool,
+}
+
+impl From<StackNewCli> for StackNewOpts {
+    fn from(cli: StackNewCli) -> Self {
+        Self {
+            name: cli.name,
+            base: cli.base,
+            // Default is checkout-on; `--no-checkout` is the only
+            // way to flip it. `--checkout` is accepted for parity
+            // with the Python click flag pair but is a no-op since
+            // it matches the default.
+            checkout: !cli.no_checkout,
+        }
+    }
+}
+
+/// `mergify stack edit [<commit>]` — clap definition for the
+/// natively-ported `stack edit` subcommand. Same secondary-parse
+/// pattern as `stack new` / `stack note`.
+#[derive(Parser)]
+#[command(name = "edit", about = "Edit the stack history")]
+struct StackEditCli {
+    /// Commit to pause the rebase on. Accepts a SHA prefix or a
+    /// Change-Id prefix; omit for a fully interactive rebase.
+    commit: Option<String>,
+}
+
+impl From<StackEditCli> for StackEditOpts {
+    fn from(cli: StackEditCli) -> Self {
+        Self {
+            commit_prefix: cli.commit,
+        }
+    }
+}
+
+/// `mergify stack drop <COMMIT>... [--dry-run]` — clap definition
+/// for the natively-ported `stack drop` subcommand.
+#[derive(Parser)]
+#[command(name = "drop", about = "Drop commits from the stack")]
+struct StackDropCli {
+    /// Commits to drop. Each accepts a SHA prefix or a Change-Id
+    /// prefix.
+    #[arg(required = true)]
+    commits: Vec<String>,
+
+    /// Show the plan without dropping.
+    #[arg(short = 'n', long = "dry-run", action = clap::ArgAction::SetTrue)]
+    dry_run: bool,
+}
+
+impl From<StackDropCli> for StackDropOpts {
+    fn from(cli: StackDropCli) -> Self {
+        Self {
+            commit_prefixes: cli.commits,
+            dry_run: cli.dry_run,
+        }
+    }
+}
+
+/// `mergify stack note [<commit>]` — clap definition for the
+/// natively-ported `stack note` subcommand. Same secondary-parse
+/// pattern as `stack new`.
+#[derive(Parser)]
+#[command(
+    name = "note",
+    about = "Attach a 'why was this commit amended' note to a commit"
+)]
+struct StackNoteCli {
+    /// Target commit. Accepts a SHA prefix, a ref (`HEAD~1`,
+    /// branch name, …), or a Change-Id prefix (resolved against
+    /// the stack walk). Defaults to HEAD.
+    commit: Option<String>,
+
+    /// Note message. If omitted, opens `$GIT_EDITOR` /
+    /// `$VISUAL` / `$EDITOR` / `vi` on a tempfile.
+    #[arg(short = 'm', long = "message")]
+    message: Option<String>,
+
+    /// Append to an existing note instead of replacing.
+    #[arg(long = "append", action = clap::ArgAction::SetTrue)]
+    append: bool,
+
+    /// Remove the note on the target commit. Mutually exclusive
+    /// with `--message` and `--append`.
+    #[arg(
+        long = "remove",
+        action = clap::ArgAction::SetTrue,
+        conflicts_with_all = ["message", "append"],
+    )]
+    remove: bool,
+}
+
+impl From<StackNoteCli> for StackNoteOpts {
+    fn from(cli: StackNoteCli) -> Self {
+        Self {
+            commit: cli.commit,
+            message: cli.message,
+            append: cli.append,
+            remove: cli.remove,
+        }
+    }
+}
+
+/// Parse a `REMOTE/BRANCH` argument into its two parts. Matches
+/// the Python `trunk_type` click callback in
+/// `mergify_cli/stack/cli.py`: split on the first `/`, so branch
+/// names containing `/` (e.g. `release/2026.06`) survive intact;
+/// the error message is kept verbatim so users see the same text
+/// regardless of which `stack` subcommand is parsing.
+fn parse_remote_branch(value: &str) -> Result<(String, String), String> {
+    value
+        .split_once('/')
+        .map(|(r, b)| (r.to_string(), b.to_string()))
+        .ok_or_else(|| "Trunk is invalid. It must be origin/branch-name".to_string())
 }
 
 #[derive(clap::Args)]
@@ -1410,8 +1914,8 @@ struct ScopesCliArgs {
 
 #[derive(clap::Args)]
 struct ScopesSendCliArgs {
-    /// Repository full name (owner/repo). Falls back to
-    /// ``GITHUB_REPOSITORY`` env var.
+    /// Repository full name (owner/repo). Detected from the CI
+    /// environment or the local git remote when omitted.
     #[arg(long, short = 'r')]
     repository: Option<String>,
 
@@ -1465,8 +1969,8 @@ struct JunitProcessCliArgs {
     #[arg(long, short = 't')]
     token: Option<String>,
 
-    /// Repository full name (owner/repo). Auto-detected from the
-    /// CI environment when omitted.
+    /// Repository full name (owner/repo). Detected from the CI
+    /// environment or the local git remote when omitted.
     #[arg(long, short = 'r')]
     repository: Option<String>,
 
@@ -1533,14 +2037,14 @@ struct TestsShowCliArgs {
     #[arg(value_name = "NAME", required = true, num_args = 1..)]
     test_names: Vec<String>,
 
-    /// Repository full name (owner/repo).
+    /// Repository full name (owner/repo). Detected from the CI
+    /// environment or the local git remote when omitted.
     #[arg(
         long,
         short = 'r',
-        required = true,
         value_parser = mergify_ci::detector::parse_owner_repo,
     )]
-    repository: String,
+    repository: Option<String>,
 
     /// Mergify or GitHub token. Falls back to ``MERGIFY_TOKEN`` and
     /// then ``GITHUB_TOKEN`` env vars.
@@ -1584,14 +2088,14 @@ struct TestsQuarantineCliArgs {
     #[arg(value_name = "NAME")]
     test_name: String,
 
-    /// Repository full name (owner/repo).
+    /// Repository full name (owner/repo). Detected from the CI
+    /// environment or the local git remote when omitted.
     #[arg(
         long,
         short = 'r',
-        required = true,
         value_parser = mergify_ci::detector::parse_owner_repo,
     )]
-    repository: String,
+    repository: Option<String>,
 
     /// Reason recorded for quarantining the test.
     #[arg(long)]
@@ -1624,14 +2128,14 @@ struct TestsUnquarantineCliArgs {
     #[arg(value_name = "NAME_OR_ID")]
     name_or_id: String,
 
-    /// Repository full name (owner/repo).
+    /// Repository full name (owner/repo). Detected from the CI
+    /// environment or the local git remote when omitted.
     #[arg(
         long,
         short = 'r',
-        required = true,
         value_parser = mergify_ci::detector::parse_owner_repo,
     )]
-    repository: String,
+    repository: Option<String>,
 
     /// Mergify or GitHub token. Falls back to ``MERGIFY_TOKEN`` and
     /// then ``GITHUB_TOKEN`` env vars.
@@ -1650,14 +2154,14 @@ struct TestsUnquarantineCliArgs {
 
 #[derive(clap::Args)]
 struct TestsQuarantinedCliArgs {
-    /// Repository full name (owner/repo).
+    /// Repository full name (owner/repo). Detected from the CI
+    /// environment or the local git remote when omitted.
     #[arg(
         long,
         short = 'r',
-        required = true,
         value_parser = mergify_ci::detector::parse_owner_repo,
     )]
-    repository: String,
+    repository: Option<String>,
 
     /// Mergify or GitHub token. Falls back to ``MERGIFY_TOKEN`` and
     /// then ``GITHUB_TOKEN`` env vars.

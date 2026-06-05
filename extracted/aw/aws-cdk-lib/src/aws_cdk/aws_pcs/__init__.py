@@ -1827,6 +1827,7 @@ class CfnComputeNodeGroup(
             name="name",
             purchase_option="purchaseOption",
             slurm_configuration=pcs.CfnComputeNodeGroup.SlurmConfigurationProperty(
+                scale_down_idle_time_in_seconds=123,
                 slurm_custom_settings=[pcs.CfnComputeNodeGroup.SlurmCustomSettingProperty(
                     parameter_name="parameterName",
                     parameter_value="parameterValue"
@@ -2476,16 +2477,21 @@ class CfnComputeNodeGroup(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_pcs.CfnComputeNodeGroup.SlurmConfigurationProperty",
         jsii_struct_bases=[],
-        name_mapping={"slurm_custom_settings": "slurmCustomSettings"},
+        name_mapping={
+            "scale_down_idle_time_in_seconds": "scaleDownIdleTimeInSeconds",
+            "slurm_custom_settings": "slurmCustomSettings",
+        },
     )
     class SlurmConfigurationProperty:
         def __init__(
             self,
             *,
+            scale_down_idle_time_in_seconds: typing.Optional[jsii.Number] = None,
             slurm_custom_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComputeNodeGroup.SlurmCustomSettingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Additional options related to the Slurm scheduler.
 
+            :param scale_down_idle_time_in_seconds: The time before an idle node is scaled down.
             :param slurm_custom_settings: Additional Slurm-specific configuration that directly maps to Slurm settings.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pcs-computenodegroup-slurmconfiguration.html
@@ -2498,6 +2504,7 @@ class CfnComputeNodeGroup(
                 from aws_cdk import aws_pcs as pcs
                 
                 slurm_configuration_property = pcs.CfnComputeNodeGroup.SlurmConfigurationProperty(
+                    scale_down_idle_time_in_seconds=123,
                     slurm_custom_settings=[pcs.CfnComputeNodeGroup.SlurmCustomSettingProperty(
                         parameter_name="parameterName",
                         parameter_value="parameterValue"
@@ -2506,10 +2513,22 @@ class CfnComputeNodeGroup(
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__33800b7dfb5193bcd6bf17beca91a47b148b0349a0de5c1a62f72612ea620096)
+                check_type(argname="argument scale_down_idle_time_in_seconds", value=scale_down_idle_time_in_seconds, expected_type=type_hints["scale_down_idle_time_in_seconds"])
                 check_type(argname="argument slurm_custom_settings", value=slurm_custom_settings, expected_type=type_hints["slurm_custom_settings"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if scale_down_idle_time_in_seconds is not None:
+                self._values["scale_down_idle_time_in_seconds"] = scale_down_idle_time_in_seconds
             if slurm_custom_settings is not None:
                 self._values["slurm_custom_settings"] = slurm_custom_settings
+
+        @builtins.property
+        def scale_down_idle_time_in_seconds(self) -> typing.Optional[jsii.Number]:
+            '''The time before an idle node is scaled down.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pcs-computenodegroup-slurmconfiguration.html#cfn-pcs-computenodegroup-slurmconfiguration-scaledownidletimeinseconds
+            '''
+            result = self._values.get("scale_down_idle_time_in_seconds")
+            return typing.cast(typing.Optional[jsii.Number], result)
 
         @builtins.property
         def slurm_custom_settings(
@@ -2753,6 +2772,7 @@ class CfnComputeNodeGroupProps:
                 name="name",
                 purchase_option="purchaseOption",
                 slurm_configuration=pcs.CfnComputeNodeGroup.SlurmConfigurationProperty(
+                    scale_down_idle_time_in_seconds=123,
                     slurm_custom_settings=[pcs.CfnComputeNodeGroup.SlurmCustomSettingProperty(
                         parameter_name="parameterName",
                         parameter_value="parameterValue"
@@ -3975,6 +3995,7 @@ def _typecheckingstub__c591f6ad958f29b5e6c332ca3927c8ba0e76bc075461fbecdd513918b
 
 def _typecheckingstub__33800b7dfb5193bcd6bf17beca91a47b148b0349a0de5c1a62f72612ea620096(
     *,
+    scale_down_idle_time_in_seconds: typing.Optional[jsii.Number] = None,
     slurm_custom_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnComputeNodeGroup.SlurmCustomSettingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""

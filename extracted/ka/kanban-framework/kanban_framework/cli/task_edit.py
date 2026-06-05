@@ -17,15 +17,12 @@ def _sync_phase_for_mode(current_phase: str, target_mode: str,
     Otherwise, find the closest phase that exists in the target order.
     Works for built-in modes and custom modes defined in workflow config.
     """
-    if target_mode in Scheduler.BUILTIN_MODE_NAMES:
-        target_order = [p.value for p in Scheduler._BUILTIN_MODES.get(target_mode, Scheduler.PHASE_ORDER)]
-    else:
-        # Custom mode: load phase order from workflow config
-        target_order = [p.value if hasattr(p, "value") else str(p)
-                        for p in Scheduler.dispatch_order(mode=target_mode, workflow=workflow,
-                                                          kanban_dir=kanban_dir)]
-        if not target_order:
-            return None
+    # Load phase order from workflow config for all modes
+    target_order = [p.value if hasattr(p, "value") else str(p)
+                    for p in Scheduler.dispatch_order(mode=target_mode, workflow=workflow,
+                                                      kanban_dir=kanban_dir)]
+    if not target_order:
+        return None
 
     if current_phase in target_order:
         return None
@@ -93,16 +90,14 @@ def _handle_skip_to(task_id: str, target: str, task) -> dict:
         return {"error": f"无法跳到 {target} 阶段，缺少必要产物: {', '.join(missing)}。请先手动创建这些文件。"}
 
     progress = load_progress(fs, task_id)
-    steps_map = _get_steps("quick" if getattr(task, 'mode', '') == "quick"
-                           else "lightweight")
+    from kanban_framework.infra.consts import Consts
+    mode = getattr(task, 'mode', '') or Consts.DEFAULT_MODE
+    steps_map = _get_steps(mode)
     from kanban_framework.types import Phase
     from kanban_framework.infra.scheduler import Scheduler
-    quick = getattr(task, 'mode', '') == "quick"
-    mode = getattr(task, 'mode', '') or 'lightweight'
     from kanban_framework.infra.config import Config
     cfg = Config(fs)
-    mode_order = Scheduler.dispatch_order(lightweight=task.lightweight, quick=quick,
-                                          mode=mode if mode not in Scheduler.BUILTIN_MODE_NAMES else None,
+    mode_order = Scheduler.dispatch_order(mode=mode,
                                           workflow=cfg.workflow, kanban_dir=fs.kanban_dir)
     phases_to_skip = []
     for p in mode_order:
@@ -162,24 +157,17 @@ def _cmd_task_edit(args: list[str]) -> dict:
     task = tm.show(parsed.task_id)
 
     updates: dict = {}
+    from kanban_framework.infra.consts import Consts
     mode = parsed.mode
-    if mode == "full":
-        return {
-            "error": "'full' mode has been removed in v0.126.0. Use 'lightweight' or 'quick' instead.",
-            "hint": "kanban task edit <id> --mode lightweight",
-        }
     if parsed.lightweight:
-        mode = "lightweight"
-        updates["lightweight"] = True
+        mode = Consts.DEFAULT_MODE
     if mode:
         updates["mode"] = mode
-        if mode in ("lightweight", "quick") or mode not in Scheduler.BUILTIN_MODE_NAMES:
-            updates["lightweight"] = True
-            synced = _sync_phase_for_mode(task.phase_id, mode,
-                                          workflow=tm._cfg.workflow if tm._cfg else None,
-                                          kanban_dir=tm._fs.kanban_dir)
-            if synced is not None:
-                updates["phase"] = synced
+        synced = _sync_phase_for_mode(task.phase_id, mode,
+                                      workflow=tm._cfg.workflow if tm._cfg else None,
+                                      kanban_dir=tm._fs.kanban_dir)
+        if synced is not None:
+            updates["phase"] = synced
     if parsed.priority is not None:
         updates["priority"] = max(0, min(10, parsed.priority))
     if parsed.control_mode:
@@ -226,7 +214,6 @@ def _cmd_task_edit(args: list[str]) -> dict:
         "task_id": parsed.task_id,
         "updated": list(updates.keys()),
         "mode": mode or task.mode,
-        "lightweight": updates.get("lightweight", task.lightweight),
         "control_mode": updates.get("control_mode", task.control_mode.value if task.control_mode else "semi"),
         "message": f"Task {parsed.task_id} updated",
     }

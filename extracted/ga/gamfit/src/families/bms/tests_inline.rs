@@ -54,6 +54,28 @@ mod tests {
         }
     }
 
+    #[test]
+    fn bernoulli_marginal_slope_outer_seed_config_screens_glm_stability_anchors() {
+        let config = default_test_family().outer_seed_config(6);
+        assert_eq!(
+            config.risk_profile,
+            crate::seeding::SeedRiskProfile::GeneralizedLinear
+        );
+        assert_eq!(config.seed_budget, 1);
+        assert_eq!(config.screen_max_inner_iterations, 2);
+        assert_eq!(config.max_seeds, 6);
+
+        let seeds = crate::seeding::generate_rho_candidates(6, None, &config);
+        for anchor in [2.0, 4.0] {
+            assert!(
+                seeds
+                    .iter()
+                    .any(|seed| seed.iter().all(|rho| (*rho - anchor).abs() < 1e-12)),
+                "missing symmetric GLM startup anchor rho={anchor}"
+            );
+        }
+    }
+
     fn empty_termspec() -> TermCollectionSpec {
         TermCollectionSpec {
             linear_terms: vec![],
@@ -3106,7 +3128,7 @@ mod tests {
         ];
         assert_eq!(
             family.exact_outer_derivative_order(&specs, &BlockwiseFitOptions::default()),
-            ExactOuterDerivativeOrder::Second
+            ExactOuterDerivativeOrder::First
         );
         assert!(family.exact_newton_joint_psi_workspace_for_first_order_terms());
 
@@ -3123,7 +3145,7 @@ mod tests {
         assert_eq!(
             large_flex_family
                 .exact_outer_derivative_order(&large_flex_specs, &BlockwiseFitOptions::default()),
-            ExactOuterDerivativeOrder::Second
+            ExactOuterDerivativeOrder::First
         );
         let (large_flex_gradient, large_flex_hessian) = custom_family_outer_derivatives(
             &large_flex_family,
@@ -3136,7 +3158,7 @@ mod tests {
         );
         assert_eq!(
             large_flex_hessian,
-            crate::solver::outer_strategy::DeclaredHessianForm::Either
+            crate::solver::outer_strategy::DeclaredHessianForm::Unavailable
         );
 
         let mut large_rigid_family = large_flex_family.clone();
@@ -6322,6 +6344,193 @@ mod tests {
         assert!((calibrated - target_mu).abs() <= 1e-10);
     }
 
+    /// Builds a 3-row family on a global empirical latent grid plus a closure
+    /// returning the closed-form `(neglog, grad, hess)` as a function of
+    /// `(m = marginal_eta, g = slope)`. Shared by the finite-difference
+    /// validation tests below.
+    fn empirical_rigid_fd_fixture() -> (
+        BernoulliMarginalSlopeFamily,
+        EmpiricalZGrid,
+        [f64; 3],
+        [f64; 3],
+    ) {
+        let grid_nodes = array![-1.15, -1.05, -0.95, -0.8, -0.65, -0.45, 0.1, 0.9, 2.4, 4.7];
+        let grid_w = array![1.0, 1.0, 1.0, 0.9, 0.9, 0.8, 0.5, 0.35, 0.2, 0.1];
+        let grid = build_empirical_z_grid(&grid_nodes, &grid_w, 7, "cf vs fd grid").expect("grid");
+        let family = BernoulliMarginalSlopeFamily {
+            y: Arc::new(array![1.0, 0.0, 1.0]),
+            weights: Arc::new(array![1.0, 0.7, 1.3]),
+            z: Arc::new(array![0.3, -0.8, 1.6]),
+            latent_measure: LatentMeasureKind::GlobalEmpirical { grid: grid.clone() },
+            gaussian_frailty_sd: Some(0.82),
+            ..default_test_family()
+        };
+        (family, grid, [0.25, -0.4, 0.7], [1.35, 0.9, 1.1])
+    }
+
+    /// Validates the §2 implicit-function-theorem closed form for the rigid
+    /// empirical-grid kernel against central finite differences of its own
+    /// exact row negative log-likelihood (ground truth, not a derivative): FD
+    /// of `nll` reproduces the analytic gradient, and FD of the gradient the
+    /// Hessian. An independent check sharing no derivative-formula code — a
+    /// sign or algebra slip in any intercept derivative breaks it.
+    #[test]
+    fn empirical_rigid_grad_hess_match_finite_differences() {
+        let (family, grid, marginal_etas, slopes) = empirical_rigid_fd_fixture();
+        let cf = |row: usize, m: f64, g: f64| {
+            let marginal = family.marginal_link_map(m).expect("link map");
+            family
+                .empirical_rigid_primary_grad_hess_closed_form(
+                    row,
+                    marginal,
+                    g,
+                    &grid.nodes,
+                    &grid.weights,
+                )
+                .expect("closed form")
+        };
+        let h = 1e-4;
+        for row in 0..3 {
+            let (m, g) = (marginal_etas[row], slopes[row]);
+            let (_, grad_cf, hess_cf) = cf(row, m, g);
+
+            // gradient vs FD of nll
+            let grad_fd = [
+                (cf(row, m + h, g).0 - cf(row, m - h, g).0) / (2.0 * h),
+                (cf(row, m, g + h).0 - cf(row, m, g - h).0) / (2.0 * h),
+            ];
+            for k in 0..2 {
+                assert!(
+                    (grad_cf[k] - grad_fd[k]).abs() <= 1e-5 + 1e-4 * grad_cf[k].abs(),
+                    "row {row}: grad[{k}] closed-form {} vs fd {}",
+                    grad_cf[k],
+                    grad_fd[k]
+                );
+            }
+            // Hessian vs FD of gradient
+            let (gpm, gmm) = (cf(row, m + h, g).1, cf(row, m - h, g).1);
+            let (gpg, gmg) = (cf(row, m, g + h).1, cf(row, m, g - h).1);
+            for k in 0..2 {
+                let fd0 = (gpm[k] - gmm[k]) / (2.0 * h);
+                let fd1 = (gpg[k] - gmg[k]) / (2.0 * h);
+                assert!(
+                    (hess_cf[0][k] - fd0).abs() <= 1e-5 + 1e-4 * hess_cf[0][k].abs(),
+                    "row {row}: hess[0][{k}] closed-form {} vs fd {}",
+                    hess_cf[0][k],
+                    fd0
+                );
+                assert!(
+                    (hess_cf[1][k] - fd1).abs() <= 1e-5 + 1e-4 * hess_cf[1][k].abs(),
+                    "row {row}: hess[1][{k}] closed-form {} vs fd {}",
+                    hess_cf[1][k],
+                    fd1
+                );
+            }
+        }
+    }
+
+    /// Higher-order analogue: the §2 IFT closed forms for the rigid
+    /// empirical-grid **third** and **fourth** derivative tensors must equal the
+    /// central finite differences of the analytic level below — FD of the
+    /// Hessian reproduces the third tensor, FD of the third the fourth. Every
+    /// level is thus tied transitively to the exact negative log-likelihood
+    /// (validated in `empirical_rigid_grad_hess_match_finite_differences`); a
+    /// sign or algebra slip in any single intercept derivative localises to one
+    /// component assertion.
+    #[test]
+    fn empirical_rigid_higher_order_match_finite_differences() {
+        let (family, grid, marginal_etas, slopes) = empirical_rigid_fd_fixture();
+        let hess = |row: usize, m: f64, g: f64| {
+            let marginal = family.marginal_link_map(m).expect("link map");
+            family
+                .empirical_rigid_primary_grad_hess_closed_form(
+                    row,
+                    marginal,
+                    g,
+                    &grid.nodes,
+                    &grid.weights,
+                )
+                .expect("closed form")
+                .2
+        };
+        let third = |row: usize, m: f64, g: f64| {
+            let marginal = family.marginal_link_map(m).expect("link map");
+            family
+                .empirical_rigid_third_full_closed_form(
+                    row,
+                    marginal,
+                    g,
+                    &grid.nodes,
+                    &grid.weights,
+                )
+                .expect("third closed form")
+        };
+        let fourth = |row: usize, m: f64, g: f64| {
+            let marginal = family.marginal_link_map(m).expect("link map");
+            family
+                .empirical_rigid_fourth_full_closed_form(
+                    row,
+                    marginal,
+                    g,
+                    &grid.nodes,
+                    &grid.weights,
+                )
+                .expect("fourth closed form")
+        };
+        let h = 1e-4;
+        for row in 0..3 {
+            let (m, g) = (marginal_etas[row], slopes[row]);
+
+            // third[i][j][k] vs ∂_i of hess[j][k]
+            let t_cf = third(row, m, g);
+            let (hpm, hmm) = (hess(row, m + h, g), hess(row, m - h, g));
+            let (hpg, hmg) = (hess(row, m, g + h), hess(row, m, g - h));
+            for j in 0..2 {
+                for k in 0..2 {
+                    let fd0 = (hpm[j][k] - hmm[j][k]) / (2.0 * h);
+                    let fd1 = (hpg[j][k] - hmg[j][k]) / (2.0 * h);
+                    assert!(
+                        (t_cf[0][j][k] - fd0).abs() <= 1e-4 + 1e-4 * t_cf[0][j][k].abs(),
+                        "row {row}: third[0][{j}][{k}] cf {} vs fd {}",
+                        t_cf[0][j][k],
+                        fd0
+                    );
+                    assert!(
+                        (t_cf[1][j][k] - fd1).abs() <= 1e-4 + 1e-4 * t_cf[1][j][k].abs(),
+                        "row {row}: third[1][{j}][{k}] cf {} vs fd {}",
+                        t_cf[1][j][k],
+                        fd1
+                    );
+                }
+            }
+
+            // fourth[i][j][k][l] vs ∂_i of third[j][k][l]
+            let f_cf = fourth(row, m, g);
+            let (tpm, tmm) = (third(row, m + h, g), third(row, m - h, g));
+            let (tpg, tmg) = (third(row, m, g + h), third(row, m, g - h));
+            for j in 0..2 {
+                for k in 0..2 {
+                    for l in 0..2 {
+                        let fd0 = (tpm[j][k][l] - tmm[j][k][l]) / (2.0 * h);
+                        let fd1 = (tpg[j][k][l] - tmg[j][k][l]) / (2.0 * h);
+                        assert!(
+                            (f_cf[0][j][k][l] - fd0).abs() <= 1e-3 + 1e-3 * f_cf[0][j][k][l].abs(),
+                            "row {row}: fourth[0][{j}][{k}][{l}] cf {} vs fd {}",
+                            f_cf[0][j][k][l],
+                            fd0
+                        );
+                        assert!(
+                            (f_cf[1][j][k][l] - fd1).abs() <= 1e-3 + 1e-3 * f_cf[1][j][k][l].abs(),
+                            "row {row}: fourth[1][{j}][{k}][{l}] cf {} vs fd {}",
+                            f_cf[1][j][k][l],
+                            fd1
+                        );
+                    }
+                }
+            }
+        }
+    }
+
     #[test]
     fn gaussian_rigid_intercept_miscalibrates_skewed_empirical_law() {
         let nodes = vec![-0.95, -0.7, -0.45, -0.2, 0.4, 1.3, 3.1];
@@ -7321,6 +7530,239 @@ mod tests {
         (family, states)
     }
 
+    /// gam#683: the axis-projected fast path inside
+    /// `row_primary_{third,fourth}_contracted_recompute` must reproduce the
+    /// slow per-(row, direction) cell-walk workers it replaces, for the
+    /// single-axis directions every outer-derivative consumer builds. Equality
+    /// holds by (bi)linearity of the contraction; the tolerance only absorbs
+    /// the float reassociation of pulling the scalar outside the cell sum.
+    #[test]
+    fn bernoulli_flex_axis_tensor_cache_matches_slow_recompute() {
+        let (family, states) = make_flex_hvp_cache_test_family(24);
+        let cache = family
+            .build_exact_eval_cache(&states)
+            .expect("flex exact eval cache");
+        let r = cache.primary.total;
+        let q = cache.primary.q;
+        let g = cache.primary.logslope;
+        let mut max_rel_third = 0.0_f64;
+        let mut max_rel_fourth = 0.0_f64;
+        for row in 0..family.y.len() {
+            let row_ctx = BernoulliMarginalSlopeFamily::row_ctx(&cache, row);
+            let zero_dir = Array1::<f64>::zeros(r);
+            let zero_third = family
+                .row_primary_third_contracted_recompute(row, &states, &cache, row_ctx, &zero_dir)
+                .expect("zero third fast path");
+            assert!(
+                zero_third.iter().all(|&value| value == 0.0),
+                "zero third direction must return exact zeros"
+            );
+            let mut q_dir = Array1::<f64>::zeros(r);
+            q_dir[q] = 1.25;
+            let zero_fourth = family
+                .row_primary_fourth_contracted_recompute(
+                    row, &states, &cache, row_ctx, &zero_dir, &q_dir,
+                )
+                .expect("zero fourth fast path");
+            assert!(
+                zero_fourth.iter().all(|&value| value == 0.0),
+                "zero fourth direction must return exact zeros"
+            );
+            let batched = family
+                .row_primary_third_contracted_many_with_moments(
+                    row,
+                    &states,
+                    &cache,
+                    row_ctx,
+                    &[zero_dir.clone(), q_dir.clone()],
+                )
+                .expect("batched zero/single-axis third fast path");
+            assert_eq!(batched.len(), 2);
+            assert!(
+                batched[0].iter().all(|&value| value == 0.0),
+                "batched zero third direction must return exact zeros"
+            );
+            let q_single = family
+                .row_primary_third_contracted_recompute(row, &states, &cache, row_ctx, &q_dir)
+                .expect("single q third fast path");
+            for (a, b) in batched[1].iter().zip(q_single.iter()) {
+                assert!(
+                    (a - b).abs() <= 1e-12,
+                    "batched q third differs from single q third: batched={a:.3e} single={b:.3e}"
+                );
+            }
+            // Third: each primary axis, several scalars including negative.
+            for &axis in &[q, g] {
+                for &s in &[1.0_f64, -0.7, 2.3] {
+                    let mut dir = Array1::<f64>::zeros(r);
+                    dir[axis] = s;
+                    let fast = family
+                        .row_primary_third_contracted_recompute(row, &states, &cache, row_ctx, &dir)
+                        .expect("fast third");
+                    let slow = family
+                        .row_primary_third_contracted_recompute_with_moments(
+                            row, &states, &cache, row_ctx, &dir,
+                        )
+                        .expect("slow third");
+                    assert_eq!(fast.dim(), (r, r));
+                    for (a, b) in fast.iter().zip(slow.iter()) {
+                        let denom = a.abs().max(b.abs()).max(1.0);
+                        max_rel_third = max_rel_third.max((a - b).abs() / denom);
+                    }
+                }
+            }
+            // Fourth: every ordered pair of single axes, distinct scalars. The
+            // slow reference symmetrizes `ordered` exactly as `_recompute` does.
+            for &(au, su) in &[(q, 1.3_f64), (g, -0.9)] {
+                for &(av, sv) in &[(q, 0.8_f64), (g, 1.7)] {
+                    let mut du = Array1::<f64>::zeros(r);
+                    du[au] = su;
+                    let mut dv = Array1::<f64>::zeros(r);
+                    dv[av] = sv;
+                    let fast = family
+                        .row_primary_fourth_contracted_recompute(
+                            row, &states, &cache, row_ctx, &du, &dv,
+                        )
+                        .expect("fast fourth");
+                    let ordered = family
+                        .row_primary_fourth_contracted_recompute_ordered(
+                            row, &states, &cache, row_ctx, &du, &dv,
+                        )
+                        .expect("slow fourth ordered");
+                    let swapped = family
+                        .row_primary_fourth_contracted_recompute_ordered(
+                            row, &states, &cache, row_ctx, &dv, &du,
+                        )
+                        .expect("slow fourth swapped");
+                    for ((f, o), w) in fast.iter().zip(ordered.iter()).zip(swapped.iter()) {
+                        let slow = 0.5 * (o + w);
+                        let denom = f.abs().max(slow.abs()).max(1.0);
+                        max_rel_fourth = max_rel_fourth.max((f - slow).abs() / denom);
+                    }
+                }
+            }
+        }
+        assert!(
+            max_rel_third <= 1e-9,
+            "third axis-cache vs slow recompute drift too large: {max_rel_third:.3e}"
+        );
+        assert!(
+            max_rel_fourth <= 1e-9,
+            "fourth axis-cache vs slow recompute drift too large: {max_rel_fourth:.3e}"
+        );
+    }
+
+    #[test]
+    fn bernoulli_row_cell_moment_upgrade_reuses_base_partitions_without_lru() {
+        let (family, states) = make_flex_hvp_cache_test_family(12);
+        let cache = family
+            .build_exact_eval_cache(&states)
+            .expect("flex exact eval cache");
+        let base = cache
+            .row_cell_moments
+            .as_ref()
+            .expect("degree-9 base row-cell bundle");
+        assert_eq!(base.max_degree, 9);
+        assert!(base.covers_all_rows());
+        assert_eq!(base.selected_rows, family.y.len());
+
+        let stats_before = family.cell_moment_cache_stats.snapshot();
+        let d15 = family
+            .bundle_for_degree(&states, &cache, 15)
+            .expect("degree-15 bundle result")
+            .expect("degree-15 bundle");
+        let stats_after_d15 = family.cell_moment_cache_stats.snapshot();
+        assert_eq!(
+            stats_before, stats_after_d15,
+            "high-degree bundle upgrade must not probe the row-unique fit-lifetime LRU"
+        );
+        assert_eq!(d15.max_degree, 15);
+        assert!(d15.covers_all_rows());
+        assert_eq!(d15.selected_rows, base.selected_rows);
+
+        for row in 0..family.y.len() {
+            let base_row = base.row(row, 9).expect("base row moments");
+            let high_row = d15.row(row, 15).expect("degree-15 row moments");
+            assert_eq!(base_row.len(), high_row.len());
+            for (base_cell, high_cell) in base_row.iter().zip(high_row.iter()) {
+                assert_eq!(base_cell.partition_cell, high_cell.partition_cell);
+                assert_eq!(high_cell.state.moments.len(), 16);
+                for k in 0..=9 {
+                    let denom = base_cell.state.moments[k].abs().max(1.0);
+                    let rel =
+                        (base_cell.state.moments[k] - high_cell.state.moments[k]).abs() / denom;
+                    assert!(
+                        rel <= 1e-12,
+                        "prefix moment drift row={row} k={k} rel={rel:e}"
+                    );
+                }
+            }
+        }
+
+        let d21 = family
+            .bundle_for_degree(&states, &cache, 21)
+            .expect("degree-21 bundle result")
+            .expect("degree-21 bundle");
+        assert_eq!(family.cell_moment_cache_stats.snapshot(), stats_after_d15);
+        assert_eq!(d21.max_degree, 21);
+        assert!(d21.covers_all_rows());
+    }
+
+    #[test]
+    fn bernoulli_value_cell_moments_use_shared_lru() {
+        let family = BernoulliMarginalSlopeFamily {
+            cell_moment_lru: Arc::new(exact_kernel::CellMomentLruCache::new(16 * 1024 * 1024)),
+            cell_moment_cache_stats: Arc::new(exact_kernel::CellMomentCacheStats::default()),
+            ..default_test_family()
+        };
+        let cell = exact_kernel::DenestedCubicCell {
+            left: -1.25,
+            right: 0.75,
+            c0: 0.15,
+            c1: -0.35,
+            c2: 0.08,
+            c3: -0.015,
+        };
+
+        let before = family.cell_moment_cache_stats.snapshot();
+        let first = family
+            .evaluate_cell_moments_lru(cell, 4)
+            .expect("cold value moments");
+        let (hits, misses, _) = family.cell_moment_cache_stats.hit_rate_delta(before);
+        assert_eq!(hits, 0, "first value-moment call should be cold");
+        assert_eq!(misses, 1, "first value-moment call should record one miss");
+
+        let second = family
+            .evaluate_cell_moments_lru(cell, 4)
+            .expect("warm value moments");
+        assert_eq!(second, first);
+        let (hits, misses, _) = family.cell_moment_cache_stats.hit_rate_delta(before);
+        assert_eq!(hits, 1, "second value-moment call should hit the LRU");
+        assert_eq!(
+            misses, 1,
+            "warm value-moment call must not record another miss"
+        );
+
+        let derivative = family
+            .evaluate_cell_derivative_moments_lru(cell, 4)
+            .expect("cold derivative moments after value moments");
+        let derivative_again = family
+            .evaluate_cell_derivative_moments_lru(cell, 4)
+            .expect("warm derivative moments");
+        assert_eq!(derivative_again, derivative);
+
+        let third = family
+            .evaluate_cell_moments_lru(cell, 4)
+            .expect("value moments preserved beside derivative moments");
+        assert_eq!(third, first);
+        let (hits, misses, _) = family.cell_moment_cache_stats.hit_rate_delta(before);
+        assert_eq!(
+            (hits, misses),
+            (3, 2),
+            "value and derivative moments should share one LRU entry without evicting each other"
+        );
+    }
+
     #[test]
     fn bernoulli_flex_paired_subsample_ll_delta_sign_matches_full_ll() {
         use crate::families::marginal_slope_shared::OuterScoreSubsample;
@@ -7377,6 +7819,7 @@ mod tests {
             20,
             BMS_ROW_PRIMARY_HESSIAN_EXPECTED_REUSE_PASSES,
             16 * 1024 * 1024 * 1024,
+            16 * 1024 * 1024 * 1024,
             0,
         );
         assert_eq!(plan.bytes, 626_496_000);
@@ -7396,6 +7839,7 @@ mod tests {
             20,
             BMS_ROW_PRIMARY_HESSIAN_EXPECTED_REUSE_PASSES,
             2 * 1024 * 1024 * 1024,
+            2 * 1024 * 1024 * 1024,
             0,
         );
         assert!(!plan.materialize);
@@ -7414,6 +7858,7 @@ mod tests {
             20,
             BMS_ROW_PRIMARY_HESSIAN_EXPECTED_REUSE_PASSES,
             16 * 1024 * 1024 * 1024,
+            16 * 1024 * 1024 * 1024,
             (15 * 1024 * 1024 * 1024) / 2,
         );
         assert!(!plan.materialize);
@@ -7425,9 +7870,84 @@ mod tests {
 
     #[test]
     fn bernoulli_flex_row_primary_hessian_cache_policy_streams_low_reuse() {
-        let plan = decide_row_primary_hessian_cache(100, 4, 1, 16 * 1024 * 1024 * 1024, 0);
+        let plan = decide_row_primary_hessian_cache(
+            100,
+            4,
+            1,
+            16 * 1024 * 1024 * 1024,
+            16 * 1024 * 1024 * 1024,
+            0,
+        );
         assert!(!plan.materialize);
         assert_eq!(plan.reason, RowPrimaryHessianCacheReason::ReuseTooLow);
+    }
+
+    #[test]
+    fn bernoulli_flex_row_primary_hessian_cache_policy_no_flip_under_memory_pressure() {
+        // Regression for the AoU 16d-flex shape (n=320k, r=20 → 1.08 GB cache)
+        // that flipped materialize→stream mid-fit, dropping the inner solve from
+        // the fast dense route onto the matrix-free CG path that never finished.
+        let n = 320_000usize;
+        let r = 20usize;
+        let bytes = (n as u64) * ((r * r + r + 1) as u64) * 8;
+        assert_eq!(bytes, 1_077_760_000);
+
+        // First decision while RAM is plentiful: 4.15 GiB available establishes
+        // the stable capacity floor; single-cache budget ≈ 1.11 GB > 1.08 GB →
+        // materialize on the dense route.
+        let plentiful = 4_457_512_960u64;
+        let plan_hot = decide_row_primary_hessian_cache(
+            n,
+            r,
+            BMS_ROW_PRIMARY_HESSIAN_EXPECTED_REUSE_PASSES,
+            plentiful,
+            plentiful,
+            0,
+        );
+        assert!(plan_hot.materialize);
+        assert_eq!(
+            plan_hot.reason,
+            RowPrimaryHessianCacheReason::ReuseAmortizesBuild
+        );
+
+        // Later in the same fit, live available RAM has dropped to 3.18 GiB but
+        // the stable capacity floor is unchanged. Pre-fix the single-cache
+        // budget would have fallen to ≈0.80 GB and rejected the same 1.08 GB
+        // cache; with the stable floor the decision must NOT flip.
+        let pressured = 3_180_212_224u64;
+        let plan_cold = decide_row_primary_hessian_cache(
+            n,
+            r,
+            BMS_ROW_PRIMARY_HESSIAN_EXPECTED_REUSE_PASSES,
+            plentiful,
+            pressured,
+            0,
+        );
+        assert!(
+            plan_cold.materialize,
+            "stable capacity budget must keep the 1.08 GB cache materialized through a transient available-RAM dip"
+        );
+        assert_eq!(
+            plan_cold.reason,
+            RowPrimaryHessianCacheReason::ReuseAmortizesBuild
+        );
+
+        // Sanity: feeding the pressured value as BOTH the stable floor and the
+        // live reading (the pre-fix behaviour) reproduces the bad flip, proving
+        // the floor — not some unrelated slack — is what prevents it.
+        let plan_prefix = decide_row_primary_hessian_cache(
+            n,
+            r,
+            BMS_ROW_PRIMARY_HESSIAN_EXPECTED_REUSE_PASSES,
+            pressured,
+            pressured,
+            0,
+        );
+        assert!(!plan_prefix.materialize);
+        assert_eq!(
+            plan_prefix.reason,
+            RowPrimaryHessianCacheReason::SingleCacheExceedsRamFraction
+        );
     }
 
     #[test]
@@ -7449,6 +7969,8 @@ mod tests {
             row_primary_hessians: RowPrimaryEvalCache::Empty,
             rigid_third_full: crate::resource::RayonSafeOnce::new(),
             rigid_fourth_full: crate::resource::RayonSafeOnce::new(),
+            flex_axis_third_tensors: crate::resource::RayonSafeOnce::new(),
+            flex_axis_fourth_tensors: crate::resource::RayonSafeOnce::new(),
         };
         let direction =
             Array1::from_iter((0..cached.slices.total).map(|idx| 0.02 * ((idx % 5) as f64 - 2.0)));
@@ -7484,15 +8006,111 @@ mod tests {
     }
 
     #[test]
+    fn bernoulli_flex_tiled_hvp_cache_matches_host_cache_small_case() {
+        let (family, states) = make_flex_hvp_cache_test_family(14);
+        let mut host_cache = family
+            .build_exact_eval_cache(&states)
+            .expect("host exact eval cache");
+        host_cache.row_primary_hessians = family
+            .build_row_primary_hessian_cache(&states, &host_cache)
+            .expect("host row Hessian cache");
+        let host_pin = host_cache
+            .row_primary_hessians
+            .host_pin()
+            .expect("host row-primary cache");
+        let r = host_cache.primary.total;
+        let mut tiles = Vec::new();
+        for rows in [0..5, 5..10, 10..14] {
+            tiles.push(RowPrimaryEvalTile {
+                row_start: rows.start,
+                rows: RowPrimaryEvalPin::new(
+                    host_pin.neglog().slice(s![rows.clone()]).to_owned(),
+                    host_pin.grad().slice(s![rows.clone(), ..]).to_owned(),
+                    host_pin.hess().slice(s![rows, ..]).to_owned(),
+                    0,
+                ),
+            });
+        }
+        let tiled_cache = BernoulliMarginalSlopeExactEvalCache {
+            slices: host_cache.slices.clone(),
+            primary: host_cache.primary.clone(),
+            row_contexts: host_cache.row_contexts.clone(),
+            row_cell_moments: host_cache.row_cell_moments.clone(),
+            row_cell_moments_d15: crate::resource::RayonSafeOnce::new(),
+            row_cell_moments_d21: crate::resource::RayonSafeOnce::new(),
+            row_primary_hessians: RowPrimaryEvalCache::Tiled(RowPrimaryEvalTiles::new(
+                family.y.len(),
+                r,
+                5,
+                tiles,
+            )),
+            rigid_third_full: crate::resource::RayonSafeOnce::new(),
+            rigid_fourth_full: crate::resource::RayonSafeOnce::new(),
+            flex_axis_third_tensors: crate::resource::RayonSafeOnce::new(),
+            flex_axis_fourth_tensors: crate::resource::RayonSafeOnce::new(),
+        };
+        let direction = Array1::from_iter(
+            (0..host_cache.slices.total).map(|idx| 0.015 * ((idx % 7) as f64 - 3.0)),
+        );
+        let hv_host = family
+            .exact_newton_joint_hessian_matvec_from_cache(&direction, &states, &host_cache)
+            .expect("host Hv");
+        let hv_tiled = family
+            .exact_newton_joint_hessian_matvec_from_cache(&direction, &states, &tiled_cache)
+            .expect("tiled Hv");
+        let rel_hv = rel_diff_array1(&hv_host, &hv_tiled);
+        assert!(rel_hv < 5e-11, "tiled Hv drift rel {rel_hv}");
+
+        let diag_host = family
+            .exact_newton_joint_hessian_diagonal_from_cache(&states, &host_cache)
+            .expect("host diag");
+        let diag_tiled = family
+            .exact_newton_joint_hessian_diagonal_from_cache(&states, &tiled_cache)
+            .expect("tiled diag");
+        let rel_diag = rel_diff_array1(&diag_host, &diag_tiled);
+        assert!(rel_diag < 5e-11, "tiled diag drift rel {rel_diag}");
+
+        // Batched multi-RHS apply over the tiled cache must reproduce, column
+        // for column, the single-vector HVP applied to each column. Build a
+        // small (total x n_rhs) block of distinct directions, apply it both
+        // ways, and require exact agreement.
+        let total = tiled_cache.slices.total;
+        let n_rhs = 3usize;
+        let mut v_cols = Array2::<f64>::zeros((total, n_rhs));
+        for col in 0..n_rhs {
+            for idx in 0..total {
+                v_cols[[idx, col]] = 0.013 * ((idx % (5 + col)) as f64 - 2.0) + 0.001 * col as f64;
+            }
+        }
+        let mut batched = Array2::<f64>::zeros((total, n_rhs));
+        family
+            .exact_newton_joint_hessian_matvec_mat_from_cache_into(
+                &v_cols,
+                &states,
+                &tiled_cache,
+                &mut batched,
+            )
+            .expect("tiled batched Hv");
+        for col in 0..n_rhs {
+            let col_dir = v_cols.column(col).to_owned();
+            let hv_col = family
+                .exact_newton_joint_hessian_matvec_from_cache(&col_dir, &states, &tiled_cache)
+                .expect("tiled per-column Hv");
+            let rel_col = rel_diff_array1(&hv_col, &batched.column(col).to_owned());
+            assert!(
+                rel_col < 5e-11,
+                "tiled batched apply column {col} drift rel {rel_col}"
+            );
+        }
+    }
+
+    #[test]
     fn bernoulli_flex_hvp_cache_timing_biobank_shape_pattern() {
         // Wall-clock micro-benchmark for the per-row primary-Hessian cache
         // (`row_primary_hessians`).  The matrix-free CG / inner-Newton loops
         // contract the same per-row primary Hessian against many trial
         // directions at the same β, so caching the `r×r` blocks once should
-        // beat rebuilding cell moments + flex jets on every Hv.  Ignored by
-        // default because timing assertions are flaky on shared CI runners;
-        // run locally with `cargo test --release -- --ignored
-        // bernoulli_flex_hvp_cache_timing_biobank_shape_pattern --nocapture`.
+        // beat rebuilding cell moments + flex jets on every Hv.
         let (family, states) = make_flex_hvp_cache_test_family(96);
         let mut cached = family
             .build_exact_eval_cache(&states)
@@ -7510,6 +8128,8 @@ mod tests {
             row_primary_hessians: RowPrimaryEvalCache::Empty,
             rigid_third_full: crate::resource::RayonSafeOnce::new(),
             rigid_fourth_full: crate::resource::RayonSafeOnce::new(),
+            flex_axis_third_tensors: crate::resource::RayonSafeOnce::new(),
+            flex_axis_fourth_tensors: crate::resource::RayonSafeOnce::new(),
         };
         let directions: Vec<_> = (0..4)
             .map(|rep| {

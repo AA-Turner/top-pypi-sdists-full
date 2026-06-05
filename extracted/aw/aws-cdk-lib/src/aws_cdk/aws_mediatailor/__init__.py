@@ -3088,7 +3088,7 @@ class CfnPlaybackConfiguration(
             *,
             body: typing.Optional[builtins.str] = None,
             compress_request: typing.Optional[builtins.str] = None,
-            headers: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            headers: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             http_method: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The configuration for the request to the Ad Decision Server URL.
@@ -3157,7 +3157,7 @@ class CfnPlaybackConfiguration(
         @builtins.property
         def headers(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''The headers in the request sent to the Ad Decision Server URL.
 
             The max length is 10,000 characters.
@@ -3165,7 +3165,7 @@ class CfnPlaybackConfiguration(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-playbackconfiguration-httprequest.html#cfn-mediatailor-playbackconfiguration-httprequest-headers
             '''
             result = self._values.get("headers")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def http_method(self) -> typing.Optional[builtins.str]:
@@ -5741,7 +5741,7 @@ def _typecheckingstub__7a1a27fdd711151047a9a372fb7f330c24afc446e3e97dd914e66a4a4
     *,
     body: typing.Optional[builtins.str] = None,
     compress_request: typing.Optional[builtins.str] = None,
-    headers: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    headers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     http_method: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""

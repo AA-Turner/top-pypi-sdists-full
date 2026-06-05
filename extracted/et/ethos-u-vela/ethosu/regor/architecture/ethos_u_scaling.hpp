@@ -1,5 +1,5 @@
 //
-// SPDX-FileCopyrightText: Copyright 2021-2025 Arm Limited and/or its affiliates <open-source-office@arm.com>
+// SPDX-FileCopyrightText: Copyright 2021-2026 Arm Limited and/or its affiliates <open-source-office@arm.com>
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -33,19 +33,5 @@ void QuantizePoolingScale(int kernelElements, double rescale, int rescaleBits, u
 
 // Max scale precision based on register size N (32 or 31)
 void QuantizePoolingScaleMaxPrecision(int kernelElements, double rescale, uint32_t &scale, int &shift, int N);
-
-// Simplified version of calculating elementwise Add/Sub scales
-void SimplifiedElementwiseAddSubScale(double input1Scale, double input2Scale, double outputScale, int inputShift,
-    double &input1Rescale, double &input2Rescale, QuantizedScale &outScale);
-
-Quantization RescalePerChannel(const Quantization &ifmQuant, const Quantization &weightQuant,
-    const Quantization &ofmQuant, const DataType scaleDataType, const DataType ifmDataType, OpType opType);
-
-static inline double GetScaleFactor(HLCOperation *op, bool reducedPrecision = false)
-{
-    float ifmScale = op->ifm[0].quantization.Scale().Dequantize();
-    float ofmScale = op->ofm.quantization.Scale().Dequantize();
-    return reducedPrecision ? (ifmScale / ofmScale) : (static_cast<double>(ifmScale) / static_cast<double>(ofmScale));
-}
 
 }  // namespace regor

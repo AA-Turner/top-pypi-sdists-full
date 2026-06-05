@@ -624,7 +624,9 @@ class RawGraphClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[typing.List[Episode]]:
         """
-        Add data to the graph in batch mode. Episodes are processed sequentially in the order provided.
+        Deprecated. Use the [Batch API](/adding-batch-data) (`client.batch.*`) instead.
+
+        Adds data to the graph in batch mode, processing episodes concurrently.
 
         Parameters
         ----------
@@ -765,7 +767,11 @@ class RawGraphClient:
             Nested objects and arrays are not allowed.
 
         source_node_labels : typing.Optional[typing.Sequence[str]]
-            The labels for the source node
+            The labels for the source node. At most one entity-type label may be
+            provided so that manually-added triples remain consistent with automatic
+            episode extraction, which assigns one best-match entity type per node.
+            The base "Entity" label is added implicitly by the graph layer on save
+            and does not need to be supplied here.
 
         source_node_name : typing.Optional[str]
             The name of the source node to add
@@ -781,7 +787,11 @@ class RawGraphClient:
             Nested objects and arrays are not allowed.
 
         target_node_labels : typing.Optional[typing.Sequence[str]]
-            The labels for the target node
+            The labels for the target node. At most one entity-type label may be
+            provided so that manually-added triples remain consistent with automatic
+            episode extraction, which assigns one best-match entity type per node.
+            The base "Entity" label is added implicitly by the graph layer on save
+            and does not need to be supplied here.
 
         target_node_name : typing.Optional[str]
             The name of the target node to add
@@ -1337,7 +1347,7 @@ class RawGraphClient:
             The graph_id to search in. When searching user graph, please use user_id instead.
 
         limit : typing.Optional[int]
-            The maximum number of facts to retrieve. Defaults to 10. Limited to 50.
+            The maximum number of facts to retrieve for non-auto scopes. Defaults to 10. Limited to 50. Ignored when scope=auto.
 
         max_characters : typing.Optional[int]
             Maximum total characters across all selected results when scope=auto. Defaults to 2500. Limited to 50000.
@@ -1346,9 +1356,8 @@ class RawGraphClient:
             weighting for maximal marginal relevance
 
         reranker : typing.Optional[Reranker]
-            Defaults to RRF. When scope=auto, this only affects graph-service retrieval
-            shape for graph facts, observations, and thread summaries; source-episode
-            retrieval uses RRF, and auto search applies its own internal rerank after retrieval.
+            Defaults to RRF. Ignored when scope=auto except node_distance and episode_mentions are rejected;
+            auto search always uses RRF retrieval and applies its own internal rerank after retrieval.
 
         return_raw_results : typing.Optional[bool]
             When scope=auto, include the selected raw graph results alongside the materialized context block.
@@ -1639,6 +1648,71 @@ class RawGraphClient:
                         ),
                     ),
                 )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 500:
+                raise InternalServerError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise core_api_error_ApiError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.text
+            )
+        raise core_api_error_ApiError(
+            status_code=_response.status_code, headers=dict(_response.headers), body=_response_json
+        )
+
+    def warm(
+        self, graph_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> HttpResponse[SuccessResponse]:
+        """
+        Hints Zep to warm a graph for low-latency search
+
+        Parameters
+        ----------
+        graph_id : str
+            The graph_id of the graph to warm.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[SuccessResponse]
+            Warm hint accepted
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"graph/{jsonable_encoder(graph_id)}/warm",
+            method="GET",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    SuccessResponse,
+                    parse_obj_as(
+                        type_=SuccessResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
             if _response.status_code == 404:
                 raise NotFoundError(
                     headers=dict(_response.headers),
@@ -2254,7 +2328,9 @@ class AsyncRawGraphClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[typing.List[Episode]]:
         """
-        Add data to the graph in batch mode. Episodes are processed sequentially in the order provided.
+        Deprecated. Use the [Batch API](/adding-batch-data) (`client.batch.*`) instead.
+
+        Adds data to the graph in batch mode, processing episodes concurrently.
 
         Parameters
         ----------
@@ -2395,7 +2471,11 @@ class AsyncRawGraphClient:
             Nested objects and arrays are not allowed.
 
         source_node_labels : typing.Optional[typing.Sequence[str]]
-            The labels for the source node
+            The labels for the source node. At most one entity-type label may be
+            provided so that manually-added triples remain consistent with automatic
+            episode extraction, which assigns one best-match entity type per node.
+            The base "Entity" label is added implicitly by the graph layer on save
+            and does not need to be supplied here.
 
         source_node_name : typing.Optional[str]
             The name of the source node to add
@@ -2411,7 +2491,11 @@ class AsyncRawGraphClient:
             Nested objects and arrays are not allowed.
 
         target_node_labels : typing.Optional[typing.Sequence[str]]
-            The labels for the target node
+            The labels for the target node. At most one entity-type label may be
+            provided so that manually-added triples remain consistent with automatic
+            episode extraction, which assigns one best-match entity type per node.
+            The base "Entity" label is added implicitly by the graph layer on save
+            and does not need to be supplied here.
 
         target_node_name : typing.Optional[str]
             The name of the target node to add
@@ -2967,7 +3051,7 @@ class AsyncRawGraphClient:
             The graph_id to search in. When searching user graph, please use user_id instead.
 
         limit : typing.Optional[int]
-            The maximum number of facts to retrieve. Defaults to 10. Limited to 50.
+            The maximum number of facts to retrieve for non-auto scopes. Defaults to 10. Limited to 50. Ignored when scope=auto.
 
         max_characters : typing.Optional[int]
             Maximum total characters across all selected results when scope=auto. Defaults to 2500. Limited to 50000.
@@ -2976,9 +3060,8 @@ class AsyncRawGraphClient:
             weighting for maximal marginal relevance
 
         reranker : typing.Optional[Reranker]
-            Defaults to RRF. When scope=auto, this only affects graph-service retrieval
-            shape for graph facts, observations, and thread summaries; source-episode
-            retrieval uses RRF, and auto search applies its own internal rerank after retrieval.
+            Defaults to RRF. Ignored when scope=auto except node_distance and episode_mentions are rejected;
+            auto search always uses RRF retrieval and applies its own internal rerank after retrieval.
 
         return_raw_results : typing.Optional[bool]
             When scope=auto, include the selected raw graph results alongside the materialized context block.
@@ -3271,6 +3354,71 @@ class AsyncRawGraphClient:
                         ),
                     ),
                 )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 500:
+                raise InternalServerError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise core_api_error_ApiError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.text
+            )
+        raise core_api_error_ApiError(
+            status_code=_response.status_code, headers=dict(_response.headers), body=_response_json
+        )
+
+    async def warm(
+        self, graph_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> AsyncHttpResponse[SuccessResponse]:
+        """
+        Hints Zep to warm a graph for low-latency search
+
+        Parameters
+        ----------
+        graph_id : str
+            The graph_id of the graph to warm.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[SuccessResponse]
+            Warm hint accepted
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"graph/{jsonable_encoder(graph_id)}/warm",
+            method="GET",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    SuccessResponse,
+                    parse_obj_as(
+                        type_=SuccessResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
             if _response.status_code == 404:
                 raise NotFoundError(
                     headers=dict(_response.headers),

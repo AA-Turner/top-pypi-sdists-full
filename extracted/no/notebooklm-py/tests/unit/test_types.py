@@ -57,15 +57,21 @@ class TestTimestampParsing:
         assert parsed is not None
         assert parsed.timestamp() == ts
 
-    def test_datetime_from_timestamp_oserror(self):
+    def test_datetime_from_timestamp_oserror(self, monkeypatch):
         """Platform-specific timestamp errors should normalize to None."""
+        from unittest.mock import MagicMock
+
+        from notebooklm._types import common as _common
         from notebooklm.types import _datetime_from_timestamp
 
-        with patch("notebooklm._types.common.datetime") as mock_datetime:
-            mock_datetime.fromtimestamp.side_effect = OSError("timestamp out of range")
-            parsed = _datetime_from_timestamp(1704067200)
+        mock_datetime = MagicMock()
+        mock_datetime.fromtimestamp.side_effect = OSError("timestamp out of range")
+        monkeypatch.setattr(_common, "datetime", mock_datetime)
+
+        parsed = _datetime_from_timestamp(1704067200)
 
         assert parsed is None
+        mock_datetime.fromtimestamp.assert_called_once_with(1704067200)
 
     @pytest.mark.parametrize("value", ["bad", None, float("inf"), float("-inf")])
     def test_datetime_from_timestamp_invalid_value(self, value):
@@ -88,6 +94,8 @@ _PUBLIC_MOVABLE_CLASSES = [
     "ConnectionLimits",
     "ConversationTurn",
     "GenerationStatus",
+    "MindMap",
+    "MindMapKind",
     "Note",
     "Notebook",
     "NotebookDescription",
@@ -162,7 +170,6 @@ def test_representative_public_dataclasses_pickle_round_trip():
         ConnectionLimits,
         ConversationTurn,
         GenerationStatus,
-        Note,
         Notebook,
         NotebookDescription,
         NotebookMetadata,
@@ -632,6 +639,185 @@ class TestSource:
         """Test that None raises ValueError."""
         with pytest.raises(ValueError, match="Invalid source data"):
             Source.from_api_response(None)
+
+    def test_from_api_response_carries_status(self):
+        """``from_api_response`` decodes ``status`` from the row's status block.
+
+        Previously the classmethod never set ``status``, so it silently
+        fell back to ``SourceStatus.READY`` even when the wire carried a
+        PROCESSING/ERROR status block. After unifying on the single
+        ``SourceRow``-based construction it now reads the same status the
+        listing path does.
+        """
+        from notebooklm.rpc.types import SourceStatus
+
+        data = [
+            [
+                ["src_proc"],
+                "Processing Source",
+                [None, None, [1704067200, 0], None, 5, None, None, ["https://example.com"]],
+                [None, SourceStatus.PROCESSING],
+            ]
+        ]
+        source = Source.from_api_response(data)
+
+        assert source.status == SourceStatus.PROCESSING
+        assert source.is_processing is True
+        assert source.is_ready is False
+
+    def test_from_api_response_deeply_nested_carries_status(self):
+        """The deeply-nested dispatch path also decodes the status block.
+
+        ``from_unknown_shape`` unwraps the extra outer list and funnels
+        the entry through the same ``from_row`` construction, so the
+        decoded status must survive on the deeply-nested shape too.
+        """
+        from notebooklm.rpc.types import SourceStatus
+
+        entry = [
+            ["src_deep_err"],
+            "Deep Errored Source",
+            [None, None, None, None, 3, None, None, ["https://example.com"]],
+            [None, SourceStatus.ERROR],
+        ]
+        source = Source.from_api_response([[entry]])
+
+        assert source.id == "src_deep_err"
+        assert source.status == SourceStatus.ERROR
+        assert source.is_error is True
+
+    def test_from_api_response_status_defaults_ready_without_block(self):
+        """A row without a status block keeps the historical READY default."""
+        from notebooklm.rpc.types import SourceStatus
+
+        # Medium-nested entry with no status block at index 3.
+        data = [[["src_no_status"], "No Status", [None, None, None, None, 5]]]
+        source = Source.from_api_response(data)
+
+        assert source.status == SourceStatus.READY
+
+        # Flat shape also defaults to READY.
+        flat = Source.from_api_response(["src_flat", "Flat"])
+        assert flat.status == SourceStatus.READY
+
+    def test_from_api_response_matches_listing_path(self):
+        """``from_api_response`` and the ``GET_NOTEBOOK`` listing path produce
+        identical ``Source`` instances from the same entry — the two parsers
+        are now a single source of truth (issue #1205, part 1/5).
+        """
+        from notebooklm._row_adapters.sources import SourceRow
+        from notebooklm.rpc import RPCMethod
+        from notebooklm.rpc.types import SourceStatus
+
+        # An entry exactly as ``SourceLister._parse_source`` receives it.
+        entry = [
+            ["src_match"],
+            "Matching Source",
+            [None, 11, [1704067200, 0], None, 5, None, None, ["https://example.com"]],
+            [None, SourceStatus.PROCESSING],
+        ]
+
+        # Listing path: ``SourceLister._parse_source`` wraps the entry with
+        # ``SourceRow.from_entry`` and funnels it through ``Source.from_row``.
+        listing_source = Source.from_row(
+            SourceRow.from_entry(entry, method_id=RPCMethod.GET_NOTEBOOK.value)
+        )
+
+        # Public classmethod path: the same entry wrapped in the medium-
+        # nested envelope that ``ADD_SOURCE``/rename responses carry.
+        api_source = Source.from_api_response([entry])
+
+        assert api_source == listing_source
+        assert api_source.status == listing_source.status == SourceStatus.PROCESSING
+        assert api_source.url == listing_source.url == "https://example.com"
+        assert api_source.created_at == listing_source.created_at
+        # type code lives at metadata[4] (== 5 → WEB_PAGE) for both paths.
+        assert api_source.kind == listing_source.kind == SourceType.WEB_PAGE
+
+    def test_from_api_response_forwards_method_id_to_row(self):
+        """``method_id`` threads through to the constructed ``SourceRow`` so
+        drift diagnostics name the originating RPC (issue #1242).
+
+        The ADD_SOURCE / rename construction paths pass the real method id;
+        without forwarding it the row defaults to ``GET_NOTEBOOK`` and any
+        ``safe_index`` drift log is mis-tagged.
+        """
+        from notebooklm._row_adapters.sources import SourceRow
+        from notebooklm.rpc import RPCMethod
+
+        captured: dict[str, str | None] = {}
+        real_from_unknown_shape = SourceRow.from_unknown_shape
+
+        def _spy(data, *, method_id=None):
+            captured["method_id"] = method_id
+            return real_from_unknown_shape(data, method_id=method_id)
+
+        entry = [["src_add"], "Added Source", [None, 5, [1704067200, 0]]]
+        with patch.object(SourceRow, "from_unknown_shape", staticmethod(_spy)):
+            Source.from_api_response([entry], method_id=RPCMethod.ADD_SOURCE.value)
+
+        assert captured["method_id"] == RPCMethod.ADD_SOURCE.value
+
+    def test_from_api_response_default_method_id_is_get_notebook(self):
+        """Without an explicit ``method_id`` the row falls back to the
+        historical ``GET_NOTEBOOK`` default — preserving prior behavior for
+        callers that do not pass it (issue #1242 backward-compat)."""
+        from notebooklm._row_adapters.sources import SourceRow
+        from notebooklm.rpc import RPCMethod
+
+        entry = [["src_default"], "Default", [None, 5, [1704067200, 0]]]
+        row = SourceRow.from_unknown_shape([entry])
+
+        assert row.method_id == RPCMethod.GET_NOTEBOOK.value
+
+    def test_from_api_response_drift_tags_real_method_id(self, monkeypatch):
+        """A ``safe_index`` drift on an ADD_SOURCE-built row surfaces an
+        ``UnknownRPCMethodError`` tagged with ADD_SOURCE, not the default
+        ``GET_NOTEBOOK`` (issue #1242).
+
+        ``SourceRow.created_at_raw`` is the adapter's only ``safe_index``
+        call site; force it to drift so we can assert the tagged method id
+        flows from ``from_api_response``'s ``method_id`` argument.
+        """
+        from notebooklm._row_adapters import sources as _row_adapters_sources
+        from notebooklm.exceptions import UnknownRPCMethodError
+        from notebooklm.rpc import RPCMethod
+
+        def _drift(data, *path, method_id, source):
+            raise UnknownRPCMethodError(
+                "forced drift",
+                method_id=method_id,
+                path=tuple(path),
+                source=source,
+            )
+
+        monkeypatch.setattr(_row_adapters_sources, "safe_index", _drift)
+
+        # metadata[2] is a non-empty list so created_at_raw reaches safe_index.
+        entry = [["src_drift"], "Drift", [None, 5, [1704067200, 0]]]
+        row = _row_adapters_sources.SourceRow.from_unknown_shape(
+            [entry], method_id=RPCMethod.ADD_SOURCE.value
+        )
+        with pytest.raises(UnknownRPCMethodError) as exc_info:
+            _ = row.created_at_raw
+
+        assert exc_info.value.method_id == RPCMethod.ADD_SOURCE.value
+
+    def test_from_api_response_accepts_unused_notebook_id(self):
+        """``notebook_id`` is retained for call-site symmetry / forward-compat
+        but does not influence the parsed source (issue #1241).
+
+        It is kept (not dropped) because ``Source.from_api_response`` is
+        tracked public surface; ``scripts/audit_public_api_compat.py`` flags
+        removing the parameter as a backward-incompatible signature change.
+        """
+        data = [[["src_nb"], "With Notebook Id", [None, 5, [1704067200, 0]]]]
+
+        without_id = Source.from_api_response(data)
+        with_id = Source.from_api_response(data, "nb_ignored")
+        with_keyword = Source.from_api_response(data, notebook_id="nb_ignored")
+
+        assert without_id == with_id == with_keyword
 
 
 class TestSourceTypeCompatMapping:
@@ -1312,43 +1498,6 @@ class TestReportSuggestion:
 
         assert suggestion.title == ""
         assert suggestion.audience_level == 2
-
-
-class TestNote:
-    def test_from_api_response(self):
-        """Test parsing Note."""
-        data = ["note_123", "Note Title", "Note content here"]
-        note = Note.from_api_response(data, "nb_123")
-
-        assert note.id == "note_123"
-        assert note.notebook_id == "nb_123"
-        assert note.title == "Note Title"
-        assert note.content == "Note content here"
-
-    def test_from_api_response_with_timestamp(self):
-        """Test parsing Note with timestamp."""
-        ts = 1704067200
-        data = ["note_123", "Title", "Content", [ts]]
-        note = Note.from_api_response(data, "nb_123")
-
-        assert note.created_at is not None
-        assert note.created_at.timestamp() == ts
-
-    def test_from_api_response_out_of_range_timestamp(self):
-        """Note timestamp range errors should produce None rather than raising."""
-        data = ["note_123", "Title", "Content", [float("inf")]]
-        note = Note.from_api_response(data, "nb_123")
-
-        assert note.created_at is None
-
-    def test_from_api_response_empty(self):
-        """Test parsing with minimal data."""
-        data = []
-        note = Note.from_api_response(data, "nb_123")
-
-        assert note.id == ""
-        assert note.title == ""
-        assert note.content == ""
 
 
 class TestChatMode:

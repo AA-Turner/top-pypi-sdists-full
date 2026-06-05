@@ -62,15 +62,21 @@ class GetAggregatesResponse(_message.Message):
     ) -> None: ...
 
 class GetAggregateBackfillJobsRequest(_message.Message):
-    __slots__ = ("limit", "cursor", "plan_hash")
+    __slots__ = ("limit", "cursor", "plan_hash", "init_status")
     LIMIT_FIELD_NUMBER: _ClassVar[int]
     CURSOR_FIELD_NUMBER: _ClassVar[int]
     PLAN_HASH_FIELD_NUMBER: _ClassVar[int]
+    INIT_STATUS_FIELD_NUMBER: _ClassVar[int]
     limit: int
     cursor: str
     plan_hash: str
+    init_status: _backfill_pb2.AggregateBackfillStatus
     def __init__(
-        self, limit: _Optional[int] = ..., cursor: _Optional[str] = ..., plan_hash: _Optional[str] = ...
+        self,
+        limit: _Optional[int] = ...,
+        cursor: _Optional[str] = ...,
+        plan_hash: _Optional[str] = ...,
+        init_status: _Optional[_Union[_backfill_pb2.AggregateBackfillStatus, str]] = ...,
     ) -> None: ...
 
 class GetAggregateBackfillJobsResponse(_message.Message):

@@ -540,8 +540,8 @@ class CfnDeviceProfile(
         
         cfn_device_profile = iotwireless.CfnDeviceProfile(self, "MyCfnDeviceProfile",
             lo_ra_wan=iotwireless.CfnDeviceProfile.LoRaWANDeviceProfileProperty(
-                class_bTimeout=123,
-                class_cTimeout=123,
+                class_b_timeout=123,
+                class_c_timeout=123,
                 factory_preset_freqs_list=[123],
                 mac_version="macVersion",
                 max_duty_cycle=123,
@@ -555,7 +555,7 @@ class CfnDeviceProfile(
                 rx_delay1=123,
                 rx_dr_offset1=123,
                 rx_freq2=123,
-                supports32_bit_fCnt=False,
+                supports32_bit_f_cnt=False,
                 supports_class_b=False,
                 supports_class_c=False,
                 supports_join=False
@@ -855,9 +855,9 @@ class CfnDeviceProfile(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_iotwireless as iotwireless
                 
-                lo_ra_wANDevice_profile_property = iotwireless.CfnDeviceProfile.LoRaWANDeviceProfileProperty(
-                    class_bTimeout=123,
-                    class_cTimeout=123,
+                lo_ra_wan_device_profile_property = iotwireless.CfnDeviceProfile.LoRaWANDeviceProfileProperty(
+                    class_b_timeout=123,
+                    class_c_timeout=123,
                     factory_preset_freqs_list=[123],
                     mac_version="macVersion",
                     max_duty_cycle=123,
@@ -871,7 +871,7 @@ class CfnDeviceProfile(
                     rx_delay1=123,
                     rx_dr_offset1=123,
                     rx_freq2=123,
-                    supports32_bit_fCnt=False,
+                    supports32_bit_f_cnt=False,
                     supports_class_b=False,
                     supports_class_c=False,
                     supports_join=False
@@ -1164,8 +1164,8 @@ class CfnDeviceProfileProps:
             
             cfn_device_profile_props = iotwireless.CfnDeviceProfileProps(
                 lo_ra_wan=iotwireless.CfnDeviceProfile.LoRaWANDeviceProfileProperty(
-                    class_bTimeout=123,
-                    class_cTimeout=123,
+                    class_b_timeout=123,
+                    class_c_timeout=123,
                     factory_preset_freqs_list=[123],
                     mac_version="macVersion",
                     max_duty_cycle=123,
@@ -1179,7 +1179,7 @@ class CfnDeviceProfileProps:
                     rx_delay1=123,
                     rx_dr_offset1=123,
                     rx_freq2=123,
-                    supports32_bit_fCnt=False,
+                    supports32_bit_f_cnt=False,
                     supports_class_b=False,
                     supports_class_c=False,
                     supports_join=False
@@ -1660,7 +1660,7 @@ class CfnFuotaTask(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_iotwireless as iotwireless
                 
-                lo_ra_wANProperty = iotwireless.CfnFuotaTask.LoRaWANProperty(
+                lo_ra_wan_property = iotwireless.CfnFuotaTask.LoRaWANProperty(
                     rf_region="rfRegion",
                 
                     # the properties below are optional
@@ -2291,7 +2291,7 @@ class CfnMulticastGroup(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_iotwireless as iotwireless
                 
-                lo_ra_wANProperty = iotwireless.CfnMulticastGroup.LoRaWANProperty(
+                lo_ra_wan_property = iotwireless.CfnMulticastGroup.LoRaWANProperty(
                     dl_class="dlClass",
                     rf_region="rfRegion",
                 
@@ -4197,7 +4197,7 @@ class CfnServiceProfile(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_iotwireless as iotwireless
                 
-                lo_ra_wANService_profile_property = iotwireless.CfnServiceProfile.LoRaWANServiceProfileProperty(
+                lo_ra_wan_service_profile_property = iotwireless.CfnServiceProfile.LoRaWANServiceProfileProperty(
                     add_gw_metadata=False,
                     channel_mask="channelMask",
                     dev_status_req_freq=123,
@@ -4944,7 +4944,7 @@ class CfnTaskDefinition(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_iotwireless as iotwireless
                 
-                lo_ra_wANGateway_version_property = iotwireless.CfnTaskDefinition.LoRaWANGatewayVersionProperty(
+                lo_ra_wan_gateway_version_property = iotwireless.CfnTaskDefinition.LoRaWANGatewayVersionProperty(
                     model="model",
                     package_version="packageVersion",
                     station="station"
@@ -5036,7 +5036,7 @@ class CfnTaskDefinition(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_iotwireless as iotwireless
                 
-                lo_ra_wANUpdate_gateway_task_create_property = iotwireless.CfnTaskDefinition.LoRaWANUpdateGatewayTaskCreateProperty(
+                lo_ra_wan_update_gateway_task_create_property = iotwireless.CfnTaskDefinition.LoRaWANUpdateGatewayTaskCreateProperty(
                     current_version=iotwireless.CfnTaskDefinition.LoRaWANGatewayVersionProperty(
                         model="model",
                         package_version="packageVersion",
@@ -5147,7 +5147,7 @@ class CfnTaskDefinition(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_iotwireless as iotwireless
                 
-                lo_ra_wANUpdate_gateway_task_entry_property = iotwireless.CfnTaskDefinition.LoRaWANUpdateGatewayTaskEntryProperty(
+                lo_ra_wan_update_gateway_task_entry_property = iotwireless.CfnTaskDefinition.LoRaWANUpdateGatewayTaskEntryProperty(
                     current_version=iotwireless.CfnTaskDefinition.LoRaWANGatewayVersionProperty(
                         model="model",
                         package_version="packageVersion",
@@ -5519,17 +5519,17 @@ class CfnWirelessDevice(
                 abp_v10_x=iotwireless.CfnWirelessDevice.AbpV10xProperty(
                     dev_addr="devAddr",
                     session_keys=iotwireless.CfnWirelessDevice.SessionKeysAbpV10xProperty(
-                        app_sKey="appSKey",
-                        nwk_sKey="nwkSKey"
+                        app_s_key="appSKey",
+                        nwk_s_key="nwkSKey"
                     )
                 ),
                 abp_v11=iotwireless.CfnWirelessDevice.AbpV11Property(
                     dev_addr="devAddr",
                     session_keys=iotwireless.CfnWirelessDevice.SessionKeysAbpV11Property(
-                        app_sKey="appSKey",
-                        f_nwk_sInt_key="fNwkSIntKey",
-                        nwk_sEnc_key="nwkSEncKey",
-                        s_nwk_sInt_key="sNwkSIntKey"
+                        app_s_key="appSKey",
+                        f_nwk_s_int_key="fNwkSIntKey",
+                        nwk_s_enc_key="nwkSEncKey",
+                        s_nwk_s_int_key="sNwkSIntKey"
                     )
                 ),
                 dev_eui="devEui",
@@ -5909,8 +5909,8 @@ class CfnWirelessDevice(
                 abp_v10x_property = iotwireless.CfnWirelessDevice.AbpV10xProperty(
                     dev_addr="devAddr",
                     session_keys=iotwireless.CfnWirelessDevice.SessionKeysAbpV10xProperty(
-                        app_sKey="appSKey",
-                        nwk_sKey="nwkSKey"
+                        app_s_key="appSKey",
+                        nwk_s_key="nwkSKey"
                     )
                 )
             '''
@@ -5985,10 +5985,10 @@ class CfnWirelessDevice(
                 abp_v11_property = iotwireless.CfnWirelessDevice.AbpV11Property(
                     dev_addr="devAddr",
                     session_keys=iotwireless.CfnWirelessDevice.SessionKeysAbpV11Property(
-                        app_sKey="appSKey",
-                        f_nwk_sInt_key="fNwkSIntKey",
-                        nwk_sEnc_key="nwkSEncKey",
-                        s_nwk_sInt_key="sNwkSIntKey"
+                        app_s_key="appSKey",
+                        f_nwk_s_int_key="fNwkSIntKey",
+                        nwk_s_enc_key="nwkSEncKey",
+                        s_nwk_s_int_key="sNwkSIntKey"
                     )
                 )
             '''
@@ -6231,21 +6231,21 @@ class CfnWirelessDevice(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_iotwireless as iotwireless
                 
-                lo_ra_wANDevice_property = iotwireless.CfnWirelessDevice.LoRaWANDeviceProperty(
+                lo_ra_wan_device_property = iotwireless.CfnWirelessDevice.LoRaWANDeviceProperty(
                     abp_v10_x=iotwireless.CfnWirelessDevice.AbpV10xProperty(
                         dev_addr="devAddr",
                         session_keys=iotwireless.CfnWirelessDevice.SessionKeysAbpV10xProperty(
-                            app_sKey="appSKey",
-                            nwk_sKey="nwkSKey"
+                            app_s_key="appSKey",
+                            nwk_s_key="nwkSKey"
                         )
                     ),
                     abp_v11=iotwireless.CfnWirelessDevice.AbpV11Property(
                         dev_addr="devAddr",
                         session_keys=iotwireless.CfnWirelessDevice.SessionKeysAbpV11Property(
-                            app_sKey="appSKey",
-                            f_nwk_sInt_key="fNwkSIntKey",
-                            nwk_sEnc_key="nwkSEncKey",
-                            s_nwk_sInt_key="sNwkSIntKey"
+                            app_s_key="appSKey",
+                            f_nwk_s_int_key="fNwkSIntKey",
+                            nwk_s_enc_key="nwkSEncKey",
+                            s_nwk_s_int_key="sNwkSIntKey"
                         )
                     ),
                     dev_eui="devEui",
@@ -6570,8 +6570,8 @@ class CfnWirelessDevice(
                 from aws_cdk import aws_iotwireless as iotwireless
                 
                 session_keys_abp_v10x_property = iotwireless.CfnWirelessDevice.SessionKeysAbpV10xProperty(
-                    app_sKey="appSKey",
-                    nwk_sKey="nwkSKey"
+                    app_s_key="appSKey",
+                    nwk_s_key="nwkSKey"
                 )
             '''
             if __debug__:
@@ -6650,10 +6650,10 @@ class CfnWirelessDevice(
                 from aws_cdk import aws_iotwireless as iotwireless
                 
                 session_keys_abp_v11_property = iotwireless.CfnWirelessDevice.SessionKeysAbpV11Property(
-                    app_sKey="appSKey",
-                    f_nwk_sInt_key="fNwkSIntKey",
-                    nwk_sEnc_key="nwkSEncKey",
-                    s_nwk_sInt_key="sNwkSIntKey"
+                    app_s_key="appSKey",
+                    f_nwk_s_int_key="fNwkSIntKey",
+                    nwk_s_enc_key="nwkSEncKey",
+                    s_nwk_s_int_key="sNwkSIntKey"
                 )
             '''
             if __debug__:
@@ -6807,48 +6807,6 @@ class CfnWirelessDeviceImportTask(
             type_hints = typing.get_type_hints(_typecheckingstub__0d121c90d7dfb0259cd82cd60fb07e4d513bab61d418ad9a9c01e74eba9f65ba)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForWirelessDeviceImportTask", [resource]))
-
-    @jsii.member(jsii_name="fromWirelessDeviceImportTaskArn")
-    @builtins.classmethod
-    def from_wireless_device_import_task_arn(
-        cls,
-        scope: "_constructs_77d1e7e8.Construct",
-        id: builtins.str,
-        arn: builtins.str,
-    ) -> "_IWirelessDeviceImportTaskRef_84dee71f":
-        '''Creates a new IWirelessDeviceImportTaskRef from an ARN.
-
-        :param scope: -
-        :param id: -
-        :param arn: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a0c293252db3b2463ec5dfc198c9ca809a983a4ac7c329a34635fd53b19f6b97)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IWirelessDeviceImportTaskRef_84dee71f", jsii.sinvoke(cls, "fromWirelessDeviceImportTaskArn", [scope, id, arn]))
-
-    @jsii.member(jsii_name="fromWirelessDeviceImportTaskId")
-    @builtins.classmethod
-    def from_wireless_device_import_task_id(
-        cls,
-        scope: "_constructs_77d1e7e8.Construct",
-        id: builtins.str,
-        wireless_device_import_task_id: builtins.str,
-    ) -> "_IWirelessDeviceImportTaskRef_84dee71f":
-        '''Creates a new IWirelessDeviceImportTaskRef from a wirelessDeviceImportTaskId.
-
-        :param scope: -
-        :param id: -
-        :param wireless_device_import_task_id: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__50573423c06641c7238fcaa89088754c478960c1ce3fc1363300661b7fdde907)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument wireless_device_import_task_id", value=wireless_device_import_task_id, expected_type=type_hints["wireless_device_import_task_id"])
-        return typing.cast("_IWirelessDeviceImportTaskRef_84dee71f", jsii.sinvoke(cls, "fromWirelessDeviceImportTaskId", [scope, id, wireless_device_import_task_id]))
 
     @jsii.member(jsii_name="isCfnWirelessDeviceImportTask")
     @builtins.classmethod
@@ -7328,17 +7286,17 @@ class CfnWirelessDeviceProps:
                     abp_v10_x=iotwireless.CfnWirelessDevice.AbpV10xProperty(
                         dev_addr="devAddr",
                         session_keys=iotwireless.CfnWirelessDevice.SessionKeysAbpV10xProperty(
-                            app_sKey="appSKey",
-                            nwk_sKey="nwkSKey"
+                            app_s_key="appSKey",
+                            nwk_s_key="nwkSKey"
                         )
                     ),
                     abp_v11=iotwireless.CfnWirelessDevice.AbpV11Property(
                         dev_addr="devAddr",
                         session_keys=iotwireless.CfnWirelessDevice.SessionKeysAbpV11Property(
-                            app_sKey="appSKey",
-                            f_nwk_sInt_key="fNwkSIntKey",
-                            nwk_sEnc_key="nwkSEncKey",
-                            s_nwk_sInt_key="sNwkSIntKey"
+                            app_s_key="appSKey",
+                            f_nwk_s_int_key="fNwkSIntKey",
+                            nwk_s_enc_key="nwkSEncKey",
+                            s_nwk_s_int_key="sNwkSIntKey"
                         )
                     ),
                     dev_eui="devEui",
@@ -7844,7 +7802,7 @@ class CfnWirelessGateway(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_iotwireless as iotwireless
                 
-                lo_ra_wANGateway_property = iotwireless.CfnWirelessGateway.LoRaWANGatewayProperty(
+                lo_ra_wan_gateway_property = iotwireless.CfnWirelessGateway.LoRaWANGatewayProperty(
                     gateway_eui="gatewayEui",
                     rf_region="rfRegion"
                 )
@@ -9205,22 +9163,6 @@ def _typecheckingstub__9b81904b6ea4a40be4179e391a0bb52c165600b850295d5a6b580ad76
 
 def _typecheckingstub__0d121c90d7dfb0259cd82cd60fb07e4d513bab61d418ad9a9c01e74eba9f65ba(
     resource: _IWirelessDeviceImportTaskRef_84dee71f,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a0c293252db3b2463ec5dfc198c9ca809a983a4ac7c329a34635fd53b19f6b97(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__50573423c06641c7238fcaa89088754c478960c1ce3fc1363300661b7fdde907(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    wireless_device_import_task_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

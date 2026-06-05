@@ -324,8 +324,8 @@ pub(crate) fn firth_problem_scale_allows(n_obs: usize, p_coeff: usize) -> bool {
 #[cfg(test)]
 mod tests {
     use super::{
-        DirectionalHyperParam, EvalCacheManager, EvalShared, FirthDenseOperator,
-        HyperDesignDerivative, HyperPenaltyDerivative, ImplicitDerivLevel, RemlConfig, RemlState,
+        DirectionalHyperParam, EvalCacheManager, EvalShared, HyperDesignDerivative,
+        HyperPenaltyDerivative, ImplicitDerivLevel, RemlConfig, RemlState,
     };
     use crate::estimate::EstimationError;
     use crate::faer_ndarray::{FaerCholesky, FaerEigh};
@@ -1238,7 +1238,13 @@ mod tests {
         ];
         let beta = array![0.1, -0.2, 0.3, 0.05];
         let eta = x.dot(&beta);
-        let op = FirthDenseOperator::build(&x, &eta).expect("firth operator");
+        let op = super::RemlState::build_firth_dense_operator_for_link(
+            crate::types::StandardLink::Logit,
+            &x,
+            &eta,
+            ndarray::Array1::ones(x.nrows()).view(),
+        )
+        .expect("firth operator");
 
         // Exact reduced-space Firth gradient:
         //   gradPhi = 0.5 Xᵀ (w' ⊙ h), with h = diag(X_r K_r X_rᵀ).

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: connected-components-3d
-Version: 3.29.0
+Version: 4.0.0
 Summary: Connected components on discrete and continuous multilabel 3D and 2D images. Handles 26, 18, and 6 connected variants; periodic boundaries (4, 8, & 6).
 Home-page: https://github.com/seung-lab/connected-components-3d/
 Author: William Silversmith

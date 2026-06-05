@@ -106,7 +106,7 @@ cloudfront.Distribution(self, "myDist",
 An existing S3 origin access control can be imported using the `fromOriginAccessControlId` method:
 
 ```python
-imported_oAC = cloudfront.S3OriginAccessControl.from_origin_access_control_id(self, "myImportedOAC", "ABC123ABC123AB")
+imported_oac = cloudfront.S3OriginAccessControl.from_origin_access_control_id(self, "myImportedOAC", "ABC123ABC123AB")
 ```
 
 > [Note](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-restricting-access-to-s3.html): When you use OAC with S3
@@ -478,11 +478,11 @@ distribution_arn = stack.format_arn(
     arn_format=cdk.ArnFormat.SLASH_RESOURCE_NAME
 )
 
-cloudfront_sP = iam.ServicePrincipal("cloudfront.amazonaws.com")
+cloudfront_sp = iam.ServicePrincipal("cloudfront.amazonaws.com")
 
 oac_bucket_policy_statement = iam.PolicyStatement(
     effect=iam.Effect.ALLOW,
-    principals=[cloudfront_sP],
+    principals=[cloudfront_sp],
     actions=["s3:GetObject"],
     resources=[my_bucket.arn_for_objects("*")],
     conditions={

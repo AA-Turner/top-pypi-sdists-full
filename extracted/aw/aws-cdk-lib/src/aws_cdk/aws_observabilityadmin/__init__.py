@@ -1240,6 +1240,9 @@ class CfnOrganizationTelemetryRule(
                         field_delimiter="fieldDelimiter",
                         output_format="outputFormat"
                     ),
+                    log_delivery_parameters=observabilityadmin.CfnOrganizationTelemetryRule.LogDeliveryParametersProperty(
+                        log_types=["logTypes"]
+                    ),
                     retention_in_days=123,
                     vpc_flow_log_parameters=observabilityadmin.CfnOrganizationTelemetryRule.VPCFlowLogParametersProperty(
                         log_format="logFormat",
@@ -1911,7 +1914,7 @@ class CfnOrganizationTelemetryRule(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_observabilityadmin as observabilityadmin
                 
-                e_lBLoad_balancer_logging_parameters_property = observabilityadmin.CfnOrganizationTelemetryRule.ELBLoadBalancerLoggingParametersProperty(
+                e_lb_load_balancer_logging_parameters_property = observabilityadmin.CfnOrganizationTelemetryRule.ELBLoadBalancerLoggingParametersProperty(
                     field_delimiter="fieldDelimiter",
                     output_format="outputFormat"
                 )
@@ -2214,6 +2217,61 @@ class CfnOrganizationTelemetryRule(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_observabilityadmin.CfnOrganizationTelemetryRule.LogDeliveryParametersProperty",
+        jsii_struct_bases=[],
+        name_mapping={"log_types": "logTypes"},
+    )
+    class LogDeliveryParametersProperty:
+        def __init__(
+            self,
+            *,
+            log_types: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''Parameters for log delivery configuration.
+
+            :param log_types: Types of logs to deliver.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationtelemetryrule-logdeliveryparameters.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_observabilityadmin as observabilityadmin
+                
+                log_delivery_parameters_property = observabilityadmin.CfnOrganizationTelemetryRule.LogDeliveryParametersProperty(
+                    log_types=["logTypes"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__a183c154606401083ca822364b827272ff7c3ef3b6f8d8a6c81bc781343121f7)
+                check_type(argname="argument log_types", value=log_types, expected_type=type_hints["log_types"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if log_types is not None:
+                self._values["log_types"] = log_types
+
+        @builtins.property
+        def log_types(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''Types of logs to deliver.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationtelemetryrule-logdeliveryparameters.html#cfn-observabilityadmin-organizationtelemetryrule-logdeliveryparameters-logtypes
+            '''
+            result = self._values.get("log_types")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "LogDeliveryParametersProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_observabilityadmin.CfnOrganizationTelemetryRule.LoggingFilterProperty",
         jsii_struct_bases=[],
         name_mapping={"default_behavior": "defaultBehavior", "filters": "filters"},
@@ -2441,6 +2499,7 @@ class CfnOrganizationTelemetryRule(
             "destination_pattern": "destinationPattern",
             "destination_type": "destinationType",
             "elb_load_balancer_logging_parameters": "elbLoadBalancerLoggingParameters",
+            "log_delivery_parameters": "logDeliveryParameters",
             "retention_in_days": "retentionInDays",
             "vpc_flow_log_parameters": "vpcFlowLogParameters",
             "waf_logging_parameters": "wafLoggingParameters",
@@ -2454,6 +2513,7 @@ class CfnOrganizationTelemetryRule(
             destination_pattern: typing.Optional[builtins.str] = None,
             destination_type: typing.Optional[builtins.str] = None,
             elb_load_balancer_logging_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOrganizationTelemetryRule.ELBLoadBalancerLoggingParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            log_delivery_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOrganizationTelemetryRule.LogDeliveryParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             retention_in_days: typing.Optional[jsii.Number] = None,
             vpc_flow_log_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOrganizationTelemetryRule.VPCFlowLogParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             waf_logging_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOrganizationTelemetryRule.WAFLoggingParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -2464,6 +2524,7 @@ class CfnOrganizationTelemetryRule(
             :param destination_pattern: The pattern used to generate the destination path or name, supporting macros like and .
             :param destination_type: The type of destination for the telemetry data (e.g., "Amazon CloudWatch Logs", "S3").
             :param elb_load_balancer_logging_parameters: Configuration parameters specific to ELB load balancer logging when ELB is the resource type.
+            :param log_delivery_parameters: Parameters for log delivery configuration.
             :param retention_in_days: The number of days to retain the telemetry data in the destination.
             :param vpc_flow_log_parameters: Configuration parameters specific to VPC Flow Logs when VPC is the resource type.
             :param waf_logging_parameters: Configuration parameters specific to WAF logging when WAF is the resource type.
@@ -2499,6 +2560,9 @@ class CfnOrganizationTelemetryRule(
                     elb_load_balancer_logging_parameters=observabilityadmin.CfnOrganizationTelemetryRule.ELBLoadBalancerLoggingParametersProperty(
                         field_delimiter="fieldDelimiter",
                         output_format="outputFormat"
+                    ),
+                    log_delivery_parameters=observabilityadmin.CfnOrganizationTelemetryRule.LogDeliveryParametersProperty(
+                        log_types=["logTypes"]
                     ),
                     retention_in_days=123,
                     vpc_flow_log_parameters=observabilityadmin.CfnOrganizationTelemetryRule.VPCFlowLogParametersProperty(
@@ -2540,6 +2604,7 @@ class CfnOrganizationTelemetryRule(
                 check_type(argname="argument destination_pattern", value=destination_pattern, expected_type=type_hints["destination_pattern"])
                 check_type(argname="argument destination_type", value=destination_type, expected_type=type_hints["destination_type"])
                 check_type(argname="argument elb_load_balancer_logging_parameters", value=elb_load_balancer_logging_parameters, expected_type=type_hints["elb_load_balancer_logging_parameters"])
+                check_type(argname="argument log_delivery_parameters", value=log_delivery_parameters, expected_type=type_hints["log_delivery_parameters"])
                 check_type(argname="argument retention_in_days", value=retention_in_days, expected_type=type_hints["retention_in_days"])
                 check_type(argname="argument vpc_flow_log_parameters", value=vpc_flow_log_parameters, expected_type=type_hints["vpc_flow_log_parameters"])
                 check_type(argname="argument waf_logging_parameters", value=waf_logging_parameters, expected_type=type_hints["waf_logging_parameters"])
@@ -2552,6 +2617,8 @@ class CfnOrganizationTelemetryRule(
                 self._values["destination_type"] = destination_type
             if elb_load_balancer_logging_parameters is not None:
                 self._values["elb_load_balancer_logging_parameters"] = elb_load_balancer_logging_parameters
+            if log_delivery_parameters is not None:
+                self._values["log_delivery_parameters"] = log_delivery_parameters
             if retention_in_days is not None:
                 self._values["retention_in_days"] = retention_in_days
             if vpc_flow_log_parameters is not None:
@@ -2598,6 +2665,17 @@ class CfnOrganizationTelemetryRule(
             '''
             result = self._values.get("elb_load_balancer_logging_parameters")
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOrganizationTelemetryRule.ELBLoadBalancerLoggingParametersProperty"]], result)
+
+        @builtins.property
+        def log_delivery_parameters(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOrganizationTelemetryRule.LogDeliveryParametersProperty"]]:
+            '''Parameters for log delivery configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationtelemetryrule-telemetrydestinationconfiguration.html#cfn-observabilityadmin-organizationtelemetryrule-telemetrydestinationconfiguration-logdeliveryparameters
+            '''
+            result = self._values.get("log_delivery_parameters")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOrganizationTelemetryRule.LogDeliveryParametersProperty"]], result)
 
         @builtins.property
         def retention_in_days(self) -> typing.Optional[jsii.Number]:
@@ -2720,6 +2798,9 @@ class CfnOrganizationTelemetryRule(
                         elb_load_balancer_logging_parameters=observabilityadmin.CfnOrganizationTelemetryRule.ELBLoadBalancerLoggingParametersProperty(
                             field_delimiter="fieldDelimiter",
                             output_format="outputFormat"
+                        ),
+                        log_delivery_parameters=observabilityadmin.CfnOrganizationTelemetryRule.LogDeliveryParametersProperty(
+                            log_types=["logTypes"]
                         ),
                         retention_in_days=123,
                         vpc_flow_log_parameters=observabilityadmin.CfnOrganizationTelemetryRule.VPCFlowLogParametersProperty(
@@ -2926,7 +3007,7 @@ class CfnOrganizationTelemetryRule(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_observabilityadmin as observabilityadmin
                 
-                v_pCFlow_log_parameters_property = observabilityadmin.CfnOrganizationTelemetryRule.VPCFlowLogParametersProperty(
+                v_pc_flow_log_parameters_property = observabilityadmin.CfnOrganizationTelemetryRule.VPCFlowLogParametersProperty(
                     log_format="logFormat",
                     max_aggregation_interval=123,
                     traffic_type="trafficType"
@@ -3015,7 +3096,7 @@ class CfnOrganizationTelemetryRule(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_observabilityadmin as observabilityadmin
                 
-                w_aFLogging_parameters_property = observabilityadmin.CfnOrganizationTelemetryRule.WAFLoggingParametersProperty(
+                w_af_logging_parameters_property = observabilityadmin.CfnOrganizationTelemetryRule.WAFLoggingParametersProperty(
                     logging_filter=observabilityadmin.CfnOrganizationTelemetryRule.LoggingFilterProperty(
                         default_behavior="defaultBehavior",
                         filters=[observabilityadmin.CfnOrganizationTelemetryRule.FilterProperty(
@@ -3157,6 +3238,9 @@ class CfnOrganizationTelemetryRuleProps:
                         elb_load_balancer_logging_parameters=observabilityadmin.CfnOrganizationTelemetryRule.ELBLoadBalancerLoggingParametersProperty(
                             field_delimiter="fieldDelimiter",
                             output_format="outputFormat"
+                        ),
+                        log_delivery_parameters=observabilityadmin.CfnOrganizationTelemetryRule.LogDeliveryParametersProperty(
+                            log_types=["logTypes"]
                         ),
                         retention_in_days=123,
                         vpc_flow_log_parameters=observabilityadmin.CfnOrganizationTelemetryRule.VPCFlowLogParametersProperty(
@@ -5314,7 +5398,7 @@ class CfnTelemetryRule(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_observabilityadmin as observabilityadmin
                 
-                e_lBLoad_balancer_logging_parameters_property = observabilityadmin.CfnTelemetryRule.ELBLoadBalancerLoggingParametersProperty(
+                e_lb_load_balancer_logging_parameters_property = observabilityadmin.CfnTelemetryRule.ELBLoadBalancerLoggingParametersProperty(
                     field_delimiter="fieldDelimiter",
                     output_format="outputFormat"
                 )
@@ -6391,7 +6475,7 @@ class CfnTelemetryRule(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_observabilityadmin as observabilityadmin
                 
-                v_pCFlow_log_parameters_property = observabilityadmin.CfnTelemetryRule.VPCFlowLogParametersProperty(
+                v_pc_flow_log_parameters_property = observabilityadmin.CfnTelemetryRule.VPCFlowLogParametersProperty(
                     log_format="logFormat",
                     max_aggregation_interval=123,
                     traffic_type="trafficType"
@@ -6480,7 +6564,7 @@ class CfnTelemetryRule(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_observabilityadmin as observabilityadmin
                 
-                w_aFLogging_parameters_property = observabilityadmin.CfnTelemetryRule.WAFLoggingParametersProperty(
+                w_af_logging_parameters_property = observabilityadmin.CfnTelemetryRule.WAFLoggingParametersProperty(
                     logging_filter=observabilityadmin.CfnTelemetryRule.LoggingFilterProperty(
                         default_behavior="defaultBehavior",
                         filters=[observabilityadmin.CfnTelemetryRule.FilterProperty(
@@ -6994,6 +7078,13 @@ def _typecheckingstub__1e1cb85478af2a0db2ff4e2c1201fbe45401829631a994c0a6593451b
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__a183c154606401083ca822364b827272ff7c3ef3b6f8d8a6c81bc781343121f7(
+    *,
+    log_types: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__0a6ecd2133b0bae7130114f115e61eb5e98343b8c136ecade19918d01b854904(
     *,
     default_behavior: typing.Optional[builtins.str] = None,
@@ -7024,6 +7115,7 @@ def _typecheckingstub__36b4168c57b4555036ca598e8299a36985c9aab7a1eb6b84357df4454
     destination_pattern: typing.Optional[builtins.str] = None,
     destination_type: typing.Optional[builtins.str] = None,
     elb_load_balancer_logging_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOrganizationTelemetryRule.ELBLoadBalancerLoggingParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    log_delivery_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOrganizationTelemetryRule.LogDeliveryParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     retention_in_days: typing.Optional[jsii.Number] = None,
     vpc_flow_log_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOrganizationTelemetryRule.VPCFlowLogParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     waf_logging_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOrganizationTelemetryRule.WAFLoggingParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,

@@ -19,6 +19,7 @@ from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.asymmetric.utils import decode_dss_signature
 
 from ...version import __version__
+from ..package_firewall_entitlement import build_oauth_package_firewall_entitlement
 from ..store import GuardStore
 from .oauth_client import (
     GuardDpopKeyMaterial,
@@ -88,6 +89,7 @@ class GuardOAuthTokenExchangeResult:
     token_type: str
     grant_id: str | None
     machine_id: str | None
+    supply_chain_entitlement: dict[str, object] | None
     workspace_id: str | None
 
 
@@ -337,6 +339,11 @@ def resolve_connect_url(connect_url: str) -> tuple[str, str]:
     return normalized_url, allowed_origin
 
 
+def _oauth_sync_url_from_issuer(issuer: str) -> str:
+    oauth_client = resolve_guard_oauth_client_config(issuer)
+    return f"{oauth_client.issuer}/api/guard/receipts/sync"
+
+
 def build_device_authorization_request_body(
     *,
     machine_id: str,
@@ -396,6 +403,10 @@ def _parse_guard_token_exchange_payload(payload: dict[str, object]) -> GuardOAut
         token_type=token_type,
         grant_id=_read_nested_string(claims, "grant", "grantId"),
         machine_id=_read_nested_string(claims, "machine", "machineId"),
+        supply_chain_entitlement=build_oauth_package_firewall_entitlement(
+            payload,
+            now=datetime.now(timezone.utc),
+        ),
         workspace_id=_read_nested_string(claims, "workspace", "workspaceId"),
     )
 
@@ -717,6 +728,7 @@ def _persist_oauth_local_credentials(
     now: str,
     grant_id: str | None = None,
     machine_id: str | None = None,
+    supply_chain_entitlement: dict[str, object] | None = None,
     workspace_id: str | None = None,
     runtime_id: str | None = None,
     runtime_label: str | None = None,
@@ -730,6 +742,24 @@ def _persist_oauth_local_credentials(
         dpop_public_jwk_thumbprint=dpop_key_material.public_jwk_thumbprint,
         grant_id=grant_id,
         machine_id=machine_id,
+        supply_chain_entitlement_expires_at=(
+            str(supply_chain_entitlement.get("supply_chain_entitlement_expires_at"))
+            if isinstance(supply_chain_entitlement, dict)
+            and isinstance(supply_chain_entitlement.get("supply_chain_entitlement_expires_at"), str)
+            else None
+        ),
+        supply_chain_firewall=(
+            bool(supply_chain_entitlement.get("supply_chain_firewall"))
+            if isinstance(supply_chain_entitlement, dict)
+            and isinstance(supply_chain_entitlement.get("supply_chain_firewall"), bool)
+            else None
+        ),
+        supply_chain_plan_id=(
+            str(supply_chain_entitlement.get("supply_chain_plan_id"))
+            if isinstance(supply_chain_entitlement, dict)
+            and isinstance(supply_chain_entitlement.get("supply_chain_plan_id"), str)
+            else None
+        ),
         workspace_id=workspace_id,
         runtime_id=runtime_id,
         runtime_label=runtime_label,
@@ -778,6 +808,7 @@ def run_guard_disconnect_command(
             dpop_key_material=dpop_key_material,
             grant_id=_read_nested_string(credentials, "grant_id"),
             machine_id=_read_nested_string(credentials, "machine_id"),
+            supply_chain_entitlement=token_result.supply_chain_entitlement,
             workspace_id=workspace_id,
             runtime_id=_read_nested_string(credentials, "runtime_id"),
             runtime_label=_read_nested_string(credentials, "runtime_label"),
@@ -869,6 +900,7 @@ def run_guard_device_connect_command(
         dpop_key_material=dpop_key_material,
         grant_id=token_result.grant_id,
         machine_id=token_result.machine_id,
+        supply_chain_entitlement=token_result.supply_chain_entitlement,
         workspace_id=token_result.workspace_id,
         runtime_id=HEADLESS_RUNTIME_ID,
         runtime_label=HEADLESS_RUNTIME_LABEL,
@@ -880,6 +912,8 @@ def run_guard_device_connect_command(
             "grant_id": token_result.grant_id,
             "machine_id": token_result.machine_id,
             "workspace_id": token_result.workspace_id,
+            "connect_url": connect_url,
+            "sync_url": _oauth_sync_url_from_issuer(oauth_client.issuer),
             "connect_command": CONNECT_COMMAND,
             "connect_status_command": CONNECT_STATUS_COMMAND,
             "connect_repair_command": CONNECT_REPAIR_COMMAND,
@@ -931,6 +965,7 @@ def run_guard_browser_connect_command(
         dpop_key_material=session.dpop_key_material,
         grant_id=token_result.grant_id,
         machine_id=token_result.machine_id,
+        supply_chain_entitlement=token_result.supply_chain_entitlement,
         workspace_id=token_result.workspace_id,
         runtime_id=HEADLESS_RUNTIME_ID,
         runtime_label=HEADLESS_RUNTIME_LABEL,
@@ -945,6 +980,8 @@ def run_guard_browser_connect_command(
         "grant_id": token_result.grant_id,
         "machine_id": token_result.machine_id,
         "workspace_id": token_result.workspace_id,
+        "connect_url": connect_url,
+        "sync_url": _oauth_sync_url_from_issuer(oauth_client.issuer),
         "connect_command": CONNECT_COMMAND,
         "connect_status_command": CONNECT_STATUS_COMMAND,
         "connect_repair_command": CONNECT_REPAIR_COMMAND,
@@ -958,26 +995,49 @@ def build_connect_status_payload(
     connect_url: str,
     action: str = "status",
 ) -> dict[str, object]:
-    latest_state = store.get_latest_guard_connect_state(now=datetime.now(timezone.utc).isoformat())
+    latest_state = store.get_effective_guard_connect_state(now=datetime.now(timezone.utc).isoformat())
+    cloud_profile = store.get_cloud_sync_profile()
+    oauth_storage_health = store.get_oauth_local_credential_health()
+    oauth_repair_required = (
+        bool(oauth_storage_health.get("configured")) and oauth_storage_health.get("state") == "degraded"
+    )
+    has_sync_summary = bool(store.get_sync_payload("sync_summary"))
     status = str(latest_state.get("status") or "not_paired") if latest_state is not None else "not_paired"
     milestone = str(latest_state.get("milestone") or "not_started") if latest_state is not None else "not_started"
     reason = latest_state.get("reason") if latest_state is not None else None
     stored_sync_url = latest_state.get("sync_url") if latest_state is not None else None
+    if latest_state is None and cloud_profile is not None:
+        status = "connected"
+        milestone = "first_sync_succeeded" if has_sync_summary else "first_sync_pending"
+    recovery_command = connect_recovery_command(latest_state)
+    if latest_state is None and cloud_profile is not None and has_sync_summary:
+        recovery_command = "hol-guard sync"
+    if oauth_repair_required and cloud_profile is None:
+        status = "retry_required"
+        milestone = "first_sync_failed"
+        reason = "Guard Cloud authorization on this machine is incomplete. Run hol-guard connect again."
+        recovery_command = CONNECT_COMMAND
     payload: dict[str, object] = {
         "status": status,
         "milestone": milestone,
         "reason": reason,
         "latest_connect_state": latest_state,
-        "sync_url": stored_sync_url if isinstance(stored_sync_url, str) and stored_sync_url.strip() else sync_url,
+        "sync_url": (
+            stored_sync_url
+            if isinstance(stored_sync_url, str) and stored_sync_url.strip()
+            else (cloud_profile["sync_url"] if cloud_profile is not None else sync_url)
+        ),
         "connect_url": connect_url,
         "connect_command": CONNECT_COMMAND,
-        "recovery_command": connect_recovery_command(latest_state),
+        "recovery_command": recovery_command,
         "connect_status_command": CONNECT_STATUS_COMMAND,
         "connect_repair_command": CONNECT_REPAIR_COMMAND,
     }
     if action in {"repair", "re-pair"}:
         payload["repair_action"] = "rerun_connect"
         payload["repair_message"] = "Run hol-guard connect to start OAuth Device Code approval."
+    elif oauth_repair_required and cloud_profile is None:
+        payload["repair_message"] = "Run hol-guard connect again to repair local Guard Cloud authorization."
     return payload
 
 

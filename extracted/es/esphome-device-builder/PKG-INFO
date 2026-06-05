@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: esphome-device-builder
-Version: 0.1.0b90
+Version: 0.1.0b93
 Summary: ESPHome Device Builder
 Author-email: The ESPHome Authors <esphome@openhomefoundation.org>
 Maintainer-email: Open Home Foundation <esphome@openhomefoundation.org>
@@ -20,7 +20,7 @@ Classifier: Topic :: Home Automation
 Requires-Python: >=3.12
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: esphome-device-builder-frontend==0.1.121
+Requires-Dist: esphome-device-builder-frontend==0.1.124
 Requires-Dist: aiohttp>=3.9.0
 Requires-Dist: aiohttp-asyncmdnsresolver>=0.1.1
 Requires-Dist: colorlog>=6.8.0
@@ -99,6 +99,17 @@ restarts under the chosen backend and the tray badge updates to reflect
 which one is running. Switch back to **Classic ESPHome Dashboard** the
 same way.
 
+> **Windows build location.** On native Windows the dashboard puts its
+> build tree and PlatformIO toolchain under a short, space-free root,
+> `C:\esphb-<id8>\` (where `<id8>` is the first 8 characters of the
+> dashboard id), rather than under your config / profile dir, so deep
+> ESP-IDF build paths stay under the 260-char `MAX_PATH` limit and clear of
+> spaces in your profile name (`C:\Users\First Last\…`). It is **not**
+> removed on uninstall, so a reinstall keeps the warm toolchain; delete
+> `C:\esphb-*` by hand to reclaim the disk space. This applies only to
+> native Windows; running in a Linux Docker container (or the HA add-on)
+> uses the normal data dir.
+
 ### Standalone (PyPI)
 
 For developers, headless servers, or anyone running outside the
@@ -170,6 +181,21 @@ the browser's default heuristic is fine when you're not rebuilding
 every few minutes.
 
 </details>
+
+### Standard ESPHome container image
+
+The standard `ghcr.io/esphome/esphome` container doesn't carry the
+preview toggle yet (only the Home Assistant add-on image does). To run
+the new dashboard from it, override the entrypoint to install the wheel
+and launch it against your config dir:
+
+```bash
+uv pip install esphome-device-builder && exec esphome-device-builder /config
+```
+
+The wheel ships the prebuilt frontend, so there's nothing to build by
+hand. Point it at wherever your YAMLs are mounted (`/config` matches the
+standard image's layout).
 
 ## Username / password authentication
 
@@ -455,7 +481,7 @@ tracked separately:
   (`ghcr.io/esphome/esphome`) — currently only the HA-addon image carries
   it
 - 🗺️ See the
-  [project backlog](https://github.com/orgs/esphome/projects/7/views/1?filterQuery=project%3A%22device-builder-dashboard%22)
+  [project backlog](https://github.com/orgs/esphome/projects/7/views/1?filterQuery=project%3A%22device-builder%22)
   for in-progress work and what's planned next
 
 ## Documentation

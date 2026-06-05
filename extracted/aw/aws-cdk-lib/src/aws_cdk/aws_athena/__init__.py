@@ -618,7 +618,7 @@ class CfnDataCatalog(
         connection_type: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         error: typing.Optional[builtins.str] = None,
-        parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         status: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -820,14 +820,14 @@ class CfnDataCatalog(
     @jsii.member(jsii_name="parameters")
     def parameters(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''Specifies the Lambda function or functions to use for creating the data catalog.'''
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], jsii.get(self, "parameters"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "parameters"))
 
     @parameters.setter
     def parameters(
         self,
-        value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2c7bec0cee9cc93380a50923dfa0015a801db986ded37e98f7318cd85af887ed)
@@ -884,7 +884,7 @@ class CfnDataCatalogProps:
         connection_type: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         error: typing.Optional[builtins.str] = None,
-        parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         status: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -1008,7 +1008,7 @@ class CfnDataCatalogProps:
     @builtins.property
     def parameters(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''Specifies the Lambda function or functions to use for creating the data catalog.
 
         This is a mapping whose values depend on the catalog type.
@@ -1043,7 +1043,7 @@ class CfnDataCatalogProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-athena-datacatalog.html#cfn-athena-datacatalog-parameters
         '''
         result = self._values.get("parameters")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
     @builtins.property
     def status(self) -> typing.Optional[builtins.str]:
@@ -2229,7 +2229,7 @@ class CfnWorkGroup(
             self,
             *,
             name: typing.Optional[builtins.str] = None,
-            properties: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         ) -> None:
             '''A classification refers to a set of specific configurations.
 
@@ -2274,13 +2274,13 @@ class CfnWorkGroup(
         @builtins.property
         def properties(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''A set of properties specified within a configuration classification.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-athena-workgroup-classification.html#cfn-athena-workgroup-classification-properties
             '''
             result = self._values.get("properties")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2549,12 +2549,12 @@ class CfnWorkGroup(
         def __init__(
             self,
             *,
-            additional_configs: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            additional_configs: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             classifications: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWorkGroup.ClassificationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             coordinator_dpu_size: typing.Optional[jsii.Number] = None,
             default_executor_dpu_size: typing.Optional[jsii.Number] = None,
             max_concurrent_dpus: typing.Optional[jsii.Number] = None,
-            spark_properties: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            spark_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         ) -> None:
             '''The engine configuration for the workgroup, which includes the minimum/maximum number of Data Processing Units (DPU) that queries should use when running in provisioned capacity.
 
@@ -2621,7 +2621,7 @@ class CfnWorkGroup(
         @builtins.property
         def additional_configs(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''Contains additional notebook engine ``MAP<string, string>`` parameter mappings in the form of key-value pairs.
 
             To specify an Athena notebook that the Jupyter server will download and serve, specify a value for the ``StartSessionRequest$NotebookVersion`` field, and then add a key named ``NotebookId`` to ``AdditionalConfigs`` that has the value of the Athena notebook ID.
@@ -2629,7 +2629,7 @@ class CfnWorkGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-athena-workgroup-engineconfiguration.html#cfn-athena-workgroup-engineconfiguration-additionalconfigs
             '''
             result = self._values.get("additional_configs")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def classifications(
@@ -2676,13 +2676,13 @@ class CfnWorkGroup(
         @builtins.property
         def spark_properties(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''Specifies custom jar files and Spark properties for use cases like cluster encryption, table formats, and general Spark tuning.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-athena-workgroup-engineconfiguration.html#cfn-athena-workgroup-engineconfiguration-sparkproperties
             '''
             result = self._values.get("spark_properties")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4615,7 +4615,7 @@ def _typecheckingstub__05023d61a95576869568bc095d9889b971a9d8c061cba5833a71f4423
     connection_type: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     error: typing.Optional[builtins.str] = None,
-    parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     status: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -4685,7 +4685,7 @@ def _typecheckingstub__d548d02ca24f2ba4149dd152142567beb4e778d9ac5d7054123114541
     pass
 
 def _typecheckingstub__2c7bec0cee9cc93380a50923dfa0015a801db986ded37e98f7318cd85af887ed(
-    value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4709,7 +4709,7 @@ def _typecheckingstub__d2151d2fd30be9f56cebbd5adb97d92e074856a6590b6970f5a1cb707
     connection_type: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     error: typing.Optional[builtins.str] = None,
-    parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     status: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -4951,7 +4951,7 @@ def _typecheckingstub__5d08c097512b882cb470dc37bf746c41eaf32d76443ec31f122bf7863
 def _typecheckingstub__55a719924f1051c27f16cdae0bef656c3f2bf9dd5c5267f88d57e9e1dcd0289a(
     *,
     name: typing.Optional[builtins.str] = None,
-    properties: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4983,12 +4983,12 @@ def _typecheckingstub__fa79fae7a2ac9eacbed710d8ee5a01ad03c3b9f537094d9f71d622a0b
 
 def _typecheckingstub__7db16b4a91e2a7d8e37d2a78d99d1f8f7ac00698770fd9725457188e1b99978f(
     *,
-    additional_configs: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    additional_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     classifications: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkGroup.ClassificationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     coordinator_dpu_size: typing.Optional[jsii.Number] = None,
     default_executor_dpu_size: typing.Optional[jsii.Number] = None,
     max_concurrent_dpus: typing.Optional[jsii.Number] = None,
-    spark_properties: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    spark_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

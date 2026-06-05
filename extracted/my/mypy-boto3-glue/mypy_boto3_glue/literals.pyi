@@ -94,6 +94,7 @@ __all__ = (
     "GetUserDefinedFunctionsPaginatorName",
     "GetWorkflowRunsPaginatorName",
     "GlueRecordTypeType",
+    "GlueResourceTypeType",
     "GlueServiceName",
     "HTTPMethodType",
     "HudiTargetCompressionTypeType",
@@ -165,6 +166,7 @@ __all__ = (
     "SeparatorType",
     "ServiceName",
     "SessionStatusType",
+    "SessionTypeType",
     "SettingSourceType",
     "SortDirectionTypeType",
     "SortType",
@@ -471,6 +473,7 @@ GetWorkflowRunsPaginatorName = Literal["get_workflow_runs"]
 GlueRecordTypeType = Literal[
     "BIGDECIMAL", "BYTE", "DATE", "DOUBLE", "FLOAT", "INT", "LONG", "SHORT", "STRING", "TIMESTAMP"
 ]
+GlueResourceTypeType = Literal["JOB", "SESSION"]
 HTTPMethodType = Literal["GET", "POST"]
 HudiTargetCompressionTypeType = Literal["gzip", "lzo", "snappy", "uncompressed"]
 HyperTargetCompressionTypeType = Literal["uncompressed"]
@@ -626,6 +629,7 @@ SchemaStatusType = Literal["AVAILABLE", "DELETING", "PENDING"]
 SchemaVersionStatusType = Literal["AVAILABLE", "DELETING", "FAILURE", "PENDING"]
 SeparatorType = Literal["comma", "ctrla", "pipe", "semicolon", "tab"]
 SessionStatusType = Literal["FAILED", "PROVISIONING", "READY", "STOPPED", "STOPPING", "TIMEOUT"]
+SessionTypeType = Literal["LIVY", "SPARK_CONNECT"]
 SettingSourceType = Literal["CATALOG", "TABLE"]
 SortDirectionTypeType = Literal["ASCENDING", "DESCENDING"]
 SortType = Literal["ASC", "DESC"]
@@ -996,6 +1000,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -1023,6 +1028,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",

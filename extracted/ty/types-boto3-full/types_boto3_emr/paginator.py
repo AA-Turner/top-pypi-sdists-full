@@ -19,6 +19,7 @@ Usage::
         ListInstancesPaginator,
         ListNotebookExecutionsPaginator,
         ListSecurityConfigurationsPaginator,
+        ListSessionsPaginator,
         ListStepsPaginator,
         ListStudioSessionMappingsPaginator,
         ListStudiosPaginator,
@@ -34,6 +35,7 @@ Usage::
     list_instances_paginator: ListInstancesPaginator = client.get_paginator("list_instances")
     list_notebook_executions_paginator: ListNotebookExecutionsPaginator = client.get_paginator("list_notebook_executions")
     list_security_configurations_paginator: ListSecurityConfigurationsPaginator = client.get_paginator("list_security_configurations")
+    list_sessions_paginator: ListSessionsPaginator = client.get_paginator("list_sessions")
     list_steps_paginator: ListStepsPaginator = client.get_paginator("list_steps")
     list_studio_session_mappings_paginator: ListStudioSessionMappingsPaginator = client.get_paginator("list_studio_session_mappings")
     list_studios_paginator: ListStudiosPaginator = client.get_paginator("list_studios")
@@ -62,6 +64,8 @@ from .type_defs import (
     ListNotebookExecutionsOutputTypeDef,
     ListSecurityConfigurationsInputPaginateTypeDef,
     ListSecurityConfigurationsOutputTypeDef,
+    ListSessionsInputPaginateTypeDef,
+    ListSessionsOutputPaginatorTypeDef,
     ListStepsInputPaginateTypeDef,
     ListStepsOutputTypeDef,
     ListStudioSessionMappingsInputPaginateTypeDef,
@@ -84,6 +88,7 @@ __all__ = (
     "ListInstancesPaginator",
     "ListNotebookExecutionsPaginator",
     "ListSecurityConfigurationsPaginator",
+    "ListSessionsPaginator",
     "ListStepsPaginator",
     "ListStudioSessionMappingsPaginator",
     "ListStudiosPaginator",
@@ -234,6 +239,27 @@ class ListSecurityConfigurationsPaginator(_ListSecurityConfigurationsPaginatorBa
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/emr/paginator/ListSecurityConfigurations.html#EMR.Paginator.ListSecurityConfigurations.paginate)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_emr/paginators/#listsecurityconfigurationspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListSessionsPaginatorBase = Paginator[ListSessionsOutputPaginatorTypeDef]
+else:
+    _ListSessionsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListSessionsPaginator(_ListSessionsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/emr/paginator/ListSessions.html#EMR.Paginator.ListSessions)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_emr/paginators/#listsessionspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListSessionsInputPaginateTypeDef]
+    ) -> PageIterator[ListSessionsOutputPaginatorTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/emr/paginator/ListSessions.html#EMR.Paginator.ListSessions.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_emr/paginators/#listsessionspaginator)
         """
 
 

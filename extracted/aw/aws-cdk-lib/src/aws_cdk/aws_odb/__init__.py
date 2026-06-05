@@ -113,7 +113,7 @@ class CfnCloudAutonomousVmCluster(
         from aws_cdk import aws_odb as odb
         
         cfn_cloud_autonomous_vm_cluster = odb.CfnCloudAutonomousVmCluster(self, "MyCfnCloudAutonomousVmCluster",
-            autonomous_data_storage_size_in_tBs=123,
+            autonomous_data_storage_size_in_t_bs=123,
             cloud_exadata_infrastructure_id="cloudExadataInfrastructureId",
             cpu_core_count_per_node=123,
             db_servers=["dbServers"],
@@ -134,7 +134,7 @@ class CfnCloudAutonomousVmCluster(
                 preference="preference",
                 weeks_of_month=[123]
             ),
-            memory_per_oracle_compute_unit_in_gBs=123,
+            memory_per_oracle_compute_unit_in_g_bs=123,
             odb_network_id="odbNetworkId",
             scan_listener_port_non_tls=123,
             scan_listener_port_tls=123,
@@ -1108,7 +1108,7 @@ class CfnCloudAutonomousVmClusterProps:
             from aws_cdk import aws_odb as odb
             
             cfn_cloud_autonomous_vm_cluster_props = odb.CfnCloudAutonomousVmClusterProps(
-                autonomous_data_storage_size_in_tBs=123,
+                autonomous_data_storage_size_in_t_bs=123,
                 cloud_exadata_infrastructure_id="cloudExadataInfrastructureId",
                 cpu_core_count_per_node=123,
                 db_servers=["dbServers"],
@@ -1129,7 +1129,7 @@ class CfnCloudAutonomousVmClusterProps:
                     preference="preference",
                     weeks_of_month=[123]
                 ),
-                memory_per_oracle_compute_unit_in_gBs=123,
+                memory_per_oracle_compute_unit_in_g_bs=123,
                 odb_network_id="odbNetworkId",
                 scan_listener_port_non_tls=123,
                 scan_listener_port_tls=123,
@@ -2448,7 +2448,7 @@ class CfnCloudVmCluster(
                 is_health_monitoring_enabled=False,
                 is_incident_logs_enabled=False
             ),
-            data_storage_size_in_tBs=123,
+            data_storage_size_in_t_bs=123,
             db_nodes=[odb.CfnCloudVmCluster.DbNodeProperty(
                 db_server_id="dbServerId",
         
@@ -2458,11 +2458,11 @@ class CfnCloudVmCluster(
                 cpu_core_count=123,
                 db_node_arn="dbNodeArn",
                 db_node_id="dbNodeId",
-                db_node_storage_size_in_gBs=123,
+                db_node_storage_size_in_g_bs=123,
                 db_system_id="dbSystemId",
                 host_ip_id="hostIpId",
                 hostname="hostname",
-                memory_size_in_gBs=123,
+                memory_size_in_g_bs=123,
                 ocid="ocid",
                 status="status",
                 tags=[CfnTag(
@@ -2472,7 +2472,7 @@ class CfnCloudVmCluster(
                 vnic2_id="vnic2Id",
                 vnic_id="vnicId"
             )],
-            db_node_storage_size_in_gBs=123,
+            db_node_storage_size_in_g_bs=123,
             db_servers=["dbServers"],
             display_name="displayName",
             gi_version="giVersion",
@@ -2485,7 +2485,7 @@ class CfnCloudVmCluster(
             is_local_backup_enabled=False,
             is_sparse_diskgroup_enabled=False,
             license_model="licenseModel",
-            memory_size_in_gBs=123,
+            memory_size_in_g_bs=123,
             odb_network_id="odbNetworkId",
             scan_listener_port_tcp=123,
             ssh_public_keys=["sshPublicKeys"],
@@ -3296,11 +3296,11 @@ class CfnCloudVmCluster(
                     cpu_core_count=123,
                     db_node_arn="dbNodeArn",
                     db_node_id="dbNodeId",
-                    db_node_storage_size_in_gBs=123,
+                    db_node_storage_size_in_g_bs=123,
                     db_system_id="dbSystemId",
                     host_ip_id="hostIpId",
                     hostname="hostname",
-                    memory_size_in_gBs=123,
+                    memory_size_in_g_bs=123,
                     ocid="ocid",
                     status="status",
                     tags=[CfnTag(
@@ -3707,7 +3707,7 @@ class CfnCloudVmClusterProps:
                     is_health_monitoring_enabled=False,
                     is_incident_logs_enabled=False
                 ),
-                data_storage_size_in_tBs=123,
+                data_storage_size_in_t_bs=123,
                 db_nodes=[odb.CfnCloudVmCluster.DbNodeProperty(
                     db_server_id="dbServerId",
             
@@ -3717,11 +3717,11 @@ class CfnCloudVmClusterProps:
                     cpu_core_count=123,
                     db_node_arn="dbNodeArn",
                     db_node_id="dbNodeId",
-                    db_node_storage_size_in_gBs=123,
+                    db_node_storage_size_in_g_bs=123,
                     db_system_id="dbSystemId",
                     host_ip_id="hostIpId",
                     hostname="hostname",
-                    memory_size_in_gBs=123,
+                    memory_size_in_g_bs=123,
                     ocid="ocid",
                     status="status",
                     tags=[CfnTag(
@@ -3731,7 +3731,7 @@ class CfnCloudVmClusterProps:
                     vnic2_id="vnic2Id",
                     vnic_id="vnicId"
                 )],
-                db_node_storage_size_in_gBs=123,
+                db_node_storage_size_in_g_bs=123,
                 db_servers=["dbServers"],
                 display_name="displayName",
                 gi_version="giVersion",
@@ -3744,7 +3744,7 @@ class CfnCloudVmClusterProps:
                 is_local_backup_enabled=False,
                 is_sparse_diskgroup_enabled=False,
                 license_model="licenseModel",
-                memory_size_in_gBs=123,
+                memory_size_in_g_bs=123,
                 odb_network_id="odbNetworkId",
                 scan_listener_port_tcp=123,
                 ssh_public_keys=["sshPublicKeys"],

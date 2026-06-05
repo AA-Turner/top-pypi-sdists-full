@@ -1070,6 +1070,42 @@ struct PreparedSurvivalLocationScaleModel {
     k_wiggle: usize,
 }
 
+impl PreparedSurvivalLocationScaleModel {
+    /// Whether this prepared model is the fully reduced, unpenalized
+    /// constant-scale PARAMETRIC AFT regime (issue #736/#735/#721).
+    ///
+    /// In this regime the time block has collapsed to its identifiable affine
+    /// null space (`reduce_time_to_parametric` fired, so `k_time == 0`), the
+    /// scale is a single constant log-σ (`k_log_sigma == 0`), the mean is rigid
+    /// or a plain parametric covariate effect whose default shrinkage ridge has
+    /// been dropped by `survival_reduced_parametric_aft_regime` (`k_threshold ==
+    /// 0`), and there is no link-wiggle or monotone time-wiggle (`k_wiggle ==
+    /// 0`, `x_link_wiggle == None`, `time_wiggle_ncols == 0`). Every block is
+    /// therefore parametric and UNPENALIZED — zero smoothing parameters — so the
+    /// model is a plain few-parameter AFT MLE (loglogistic / lognormal, exactly
+    /// what `survreg`/`lifelines` fit, including a parametric `~ age` effect) and
+    /// the REML/LAML outer search is vacuous. Such fits are routed to a direct,
+    /// robust parametric MLE (`fit_parametric_aft_direct_mle`) instead of the
+    /// coupled exact-joint REML optimizer, which does not converge on this tiny
+    /// unpenalized likelihood.
+    ///
+    /// Any genuinely flexible/penalized survival LS fit — smooth scale
+    /// (`noise_formula = s(...)`, log_sigma smoothing penalties), smooth mean
+    /// (`threshold ~ s(z)` wiggliness penalties), a link-wiggle, or an active
+    /// monotone time-wiggle — keeps at least one nonzero `k_*` (the ridge-drop
+    /// predicate excludes any block carrying a `nullspace_dim > 0` smoothing
+    /// penalty) and so does NOT match here, keeping the full coupled exact-joint
+    /// path unchanged.
+    fn is_reduced_parametric_aft(&self) -> bool {
+        self.k_time == 0
+            && self.k_threshold == 0
+            && self.k_log_sigma == 0
+            && self.k_wiggle == 0
+            && self.family.x_link_wiggle.is_none()
+            && self.family.time_wiggle_ncols == 0
+    }
+}
+
 #[derive(Clone, Copy)]
 struct SurvivalLambdaLayout {
     k_time: usize,
@@ -3481,6 +3517,18 @@ fn drop_leading_penalty_columns(
                     .with_precision_label(label.clone()),
                 )
             }
+            PenaltyMatrix::Fixed { log_lambda, inner } => {
+                structural_nullspace_exact = false;
+                let dense = inner.to_dense();
+                Some(
+                    PenaltyMatrix::Dense(
+                        dense
+                            .slice(s![fixed_cols..full_dim, fixed_cols..full_dim])
+                            .to_owned(),
+                    )
+                    .with_fixed_log_lambda(*log_lambda),
+                )
+            }
         };
 
         if let Some(reduced) = reduced {
@@ -3824,6 +3872,27 @@ fn structural_time_initial_beta_guess(
     }
 }
 
+/// Whether the scale block carries no penalties — a single constant `σ`
+/// (the parametric-AFT regime). This is exactly the condition under which
+/// `prepare_survival_location_scale_model` pins the time-warp ρ seed AT the
+/// inner ρ box bound (the affine-baseline limit). On that dead-flat,
+/// statistically-unidentified time ridge the seed-screening cascade has no
+/// useful signal to rank — every capped proxy fit collapses to non-finite
+/// cost and the cascade escalates to its uncapped final stage, paying a full
+/// inner solve per seed on the near-singular Hessian (the multi-minute
+/// no-iteration-log stall, #736/#735/#721). The pinned seed is already the
+/// correct optimum, so screening is pure cost here.
+///
+/// A genuinely flexible scale (`noise_formula = s(...)`) carries log-sigma
+/// penalties, never reaches the seed-pinning branch, and keeps full
+/// screening.
+fn survival_constant_scale(spec: &SurvivalLocationScaleSpec) -> bool {
+    match &spec.log_sigma_block {
+        CovariateBlockKind::Static(block) => block.penalties.is_empty(),
+        CovariateBlockKind::TimeVarying(block) => block.penalties.is_empty(),
+    }
+}
+
 fn survival_blockwise_fit_options(spec: &SurvivalLocationScaleSpec) -> BlockwiseFitOptions {
     BlockwiseFitOptions {
         inner_max_cycles: spec.max_iter,
@@ -3833,6 +3902,11 @@ fn survival_blockwise_fit_options(spec: &SurvivalLocationScaleSpec) -> Blockwise
         compute_covariance: true,
         cache_session: spec.cache_session.clone(),
         cache_mirror_sessions: spec.cache_mirror_sessions.clone(),
+        // Constant-scale (parametric-AFT) fits pin the time-warp ρ seed at the
+        // identified affine-baseline limit; re-screening that already-correct
+        // seed across the flat unidentified time ridge only stalls. Genuinely
+        // flexible scale/spatial fits keep the default `true` and full screening.
+        screen_initial_rho: !survival_constant_scale(spec),
         ..BlockwiseFitOptions::default()
     }
 }
@@ -3961,10 +4035,22 @@ fn prepare_survival_location_scale_model(
     validate_survival_location_scale_spec(spec)?;
     let n = spec.event_target.len();
     let protected_timewiggle_cols = spec.timewiggle_block.as_ref().map_or(0, |w| w.ncols);
+    // Constant-scale AFT regime: a single global σ identifies the time baseline
+    // only through its affine `1 + log t` transform (the parametric AFT), so the
+    // flexible I-spline time-warp's non-affine deviation is statistically
+    // unidentified (issue #736/#735/#721). When there is also no monotone
+    // timewiggle reintroducing flexibility, reduce the time block to its
+    // identifiable parametric (affine null-space) rank so the inner coupled
+    // exact-joint solve has no unconstrained free direction to choke on. A
+    // genuinely flexible scale (`noise_formula = s(...)`, log_sigma penalties
+    // present) or an active timewiggle keeps the full monotone I-spline because
+    // the varying σ / wiggle DOES identify the non-affine baseline shape.
+    let reduce_time_to_parametric = survival_constant_scale(spec) && protected_timewiggle_cols == 0;
     let mut time_prepared = prepare_identified_time_block(
         &spec.time_block,
         spec.derivative_guard,
         protected_timewiggle_cols,
+        reduce_time_to_parametric,
     )?;
 
     if time_prepared.initial_beta.is_none() {
@@ -4015,10 +4101,20 @@ fn prepare_survival_location_scale_model(
             .cloned()
             .map(PenaltyMatrix::Dense)
             .collect(),
-        nullspace_dims: spec.time_block.nullspace_dims.clone(),
+        nullspace_dims: time_prepared.nullspace_dims.clone(),
+        // A caller-supplied per-penalty time seed is indexed by the ORIGINAL
+        // (un-reduced) penalty set. When the constant-scale-AFT reduction
+        // dropped those penalties (`time_prepared.penalties` empty / shorter
+        // than the original), that seed no longer matches and is irrelevant —
+        // the reduced affine block is unpenalized — so fall back to the empty
+        // seed for the (zero) retained penalties.
         initial_log_lambdas: initial_log_lambdas(
             &time_prepared.penalties,
-            spec.time_block.initial_log_lambdas.clone(),
+            if time_prepared.penalties.len() == spec.time_block.penalties.len() {
+                spec.time_block.initial_log_lambdas.clone()
+            } else {
+                None
+            },
         )?,
         initial_beta: time_prepared.initial_beta.clone(),
         // Canonical-gauge ownership for the location-scale joint design.
@@ -4127,24 +4223,6 @@ fn prepare_survival_location_scale_model(
         } else {
             (None, None)
         };
-    let thresholdspec = ParameterBlockSpec {
-        name: "threshold".to_string(),
-        design: threshold_design.clone(),
-        offset: threshold_prep.offset.clone(),
-        penalties: threshold_penalties.clone(),
-        nullspace_dims: threshold_nullspace_dims.clone(),
-        initial_log_lambdas: threshold_initial_log_lambdas,
-        initial_beta: threshold_initial_beta,
-        // Lower than `time_transform` (200): the location-channel covariate
-        // block yields the shared constant direction to the time baseline.
-        // See the canonical-gauge ownership note on the `time_transform`
-        // spec above (issue #366).
-        gauge_priority: 150,
-        jacobian_callback: None,
-        stacked_design: threshold_stacked_design,
-        stacked_offset: threshold_stacked_offset,
-    };
-
     let survival_primary_design = DesignMatrix::Dense(DenseDesignMatrix::from(Arc::new(
         BlockDesignOperator::new(vec![
             DesignBlock::Dense(DenseDesignMatrix::from(shared_dense_arc(
@@ -4158,7 +4236,24 @@ fn prepare_survival_location_scale_model(
     let non_intercept_start =
         infer_non_intercept_start_design(&log_sigma_prep.design_exit, &spec.weights)?;
     let log_sigma_full_ncols = log_sigma_prep.design_exit.ncols();
-    let log_sigma_fixed_cols = non_intercept_start.min(log_sigma_full_ncols);
+    // The scale channel enters the survival location-scale likelihood as
+    // `z = (h(t) - eta_t(x)) / exp(eta_sigma)`: `eta_sigma` is MULTIPLICATIVE,
+    // not an additive predictor. The constant (intercept) direction of the
+    // scale block is therefore the free overall sigma parameter — it is NOT
+    // aliased with the additive location/time constant that `time_transform`
+    // and `threshold` share, so no higher-priority block owns the scale-block
+    // gauge direction. The only genuine alias the scale block can carry is
+    // between its NON-intercept covariate columns and the location predictor,
+    // and that aliasing is already removed by the scale-deviation
+    // reparameterisation below (which residualises columns from
+    // `non_intercept_start` onward against the primary location design).
+    // Hence the scale block drops NO leading columns: dropping its lone
+    // intercept (the constant-sigma case, `non_intercept_start == full_ncols`)
+    // would canonicalise a genuinely identifiable free parameter to width 0
+    // and refuse the coupled three-block startup certification (#736), and
+    // over-reducing it desynchronises the raw/active block widths at the
+    // covariance-lift boundary (#735).
+    let log_sigma_fixed_cols = 0usize;
     let scale_transform = build_scale_deviation_transform_design(
         &survival_primary_design,
         &log_sigma_prep.design_exit,
@@ -4218,6 +4313,80 @@ fn prepare_survival_location_scale_model(
         log_sigma_full_ncols,
         "survival location-scale log-sigma",
     )?;
+
+    // Reduced parametric-AFT regime (issue #736/#735/#721): when the time-warp
+    // has collapsed to its affine null space, there is no wiggle, and every
+    // surviving location/scale penalty is a full-rank parametric ridge
+    // (`nullspace_dim == 0` — e.g. the linear-term `LinearTermRidge` on `age`),
+    // drop those ridges. They are NOT wiggliness penalties: a single linear
+    // coefficient has nothing to smooth, so the ridge carries no smoothing
+    // parameter worth a vacuous outer ρ coordinate, and its default λ would only
+    // bias the parametric coefficient away from the unpenalized
+    // `survreg`/`lifelines` MLE this regime must reproduce. Dropping them
+    // (exactly as the reduced time block drops its projected-to-zero penalties)
+    // takes `k_threshold`/`k_log_sigma` to 0, so the dispatch
+    // (`is_reduced_parametric_aft`) routes the fit to the direct unpenalized
+    // parametric-AFT Newton MLE with zero outer coordinates. The OUTER ρ layout
+    // (`fit_survival_location_scale_terms`) applies the SAME predicate to the
+    // same boot-design penalties, so the inner and outer counts stay identical.
+    // Evaluate the regime predicate on the PRE-drop block penalties
+    // (`threshold_prep`/`log_sigma_prep`), which are an exact copy of the boot
+    // designs the OUTER layout (`fit_survival_location_scale_terms`) inspects —
+    // `prepare_cov_block_kind` clones `b.penalties`/`b.nullspace_dims` straight
+    // from the block built off that boot design. Reading the same source on both
+    // sides guarantees the inner and outer ρ counts are computed from identical
+    // penalty/null-space metadata, so they can never diverge (a divergence would
+    // desynchronise `k_threshold` between the layout and the prepared model).
+    let drop_parametric_ridges = survival_reduced_parametric_aft_regime(
+        &spec.time_block.penalties,
+        spec.time_block.design_exit.ncols(),
+        survival_constant_scale(spec),
+        protected_timewiggle_cols,
+        &threshold_prep.nullspace_dims,
+        threshold_prep.penalties.len(),
+        &log_sigma_prep.nullspace_dims,
+        log_sigma_prep.penalties.len(),
+        spec.linkwiggle_block.is_some(),
+    );
+    let (threshold_penalties, threshold_nullspace_dims, threshold_initial_log_lambdas) =
+        if drop_parametric_ridges {
+            (Vec::new(), Vec::new(), Array1::<f64>::zeros(0))
+        } else {
+            (
+                threshold_penalties,
+                threshold_nullspace_dims,
+                threshold_initial_log_lambdas,
+            )
+        };
+    let (log_sigma_penalties, log_sigma_nullspace_dims, log_sigma_initial_log_lambdas) =
+        if drop_parametric_ridges {
+            (Vec::new(), Vec::new(), Array1::<f64>::zeros(0))
+        } else {
+            (
+                log_sigma_penalties,
+                log_sigma_nullspace_dims,
+                log_sigma_initial_log_lambdas,
+            )
+        };
+
+    let thresholdspec = ParameterBlockSpec {
+        name: "threshold".to_string(),
+        design: threshold_design.clone(),
+        offset: threshold_prep.offset.clone(),
+        penalties: threshold_penalties.clone(),
+        nullspace_dims: threshold_nullspace_dims.clone(),
+        initial_log_lambdas: threshold_initial_log_lambdas,
+        initial_beta: threshold_initial_beta,
+        // Lower than `time_transform` (200): the location-channel covariate
+        // block yields the shared constant direction to the time baseline.
+        // See the canonical-gauge ownership note on the `time_transform`
+        // spec above (issue #366).
+        gauge_priority: 150,
+        jacobian_callback: None,
+        stacked_design: threshold_stacked_design,
+        stacked_offset: threshold_stacked_offset,
+    };
+
     // Same canonical-vs-stacked split as the threshold block: time-varying
     // log_sigma stacks `[exit; entry; deriv]` (3*n rows) into
     // `stacked_design`; the canonical `spec.design` is the n-row exit
@@ -4339,7 +4508,34 @@ fn prepare_survival_location_scale_model(
         threshold_full_ncols,
         log_sigma_fixed_cols,
         log_sigma_full_ncols,
-        k_time: spec.time_block.penalties.len(),
+        // Time-warp smoothing-parameter count. The reduced constant-scale-AFT
+        // time block is unpenalized (`k_time == 0`); the flexible regime keeps
+        // one ρ per time penalty. This MUST be the same value the OUTER ρ layout
+        // (`fit_survival_location_scale_terms`) computes, otherwise the inner
+        // blockwise λ slicing, the outer REML search, and the reduced-parametric
+        // dispatch (`is_reduced_parametric_aft`) disagree on whether the time
+        // block carries a ρ.
+        //
+        // Source it from `survival_time_rho_count` — the single source of truth
+        // for that decision — evaluated on the SAME un-reduced inputs the outer
+        // layout uses (`spec.time_block.penalties`, the original time width, the
+        // constant-scale/timewiggle regime). Deriving it here from
+        // `time_prepared.penalties.len()` instead made `k_time` depend on whether
+        // the inner reduction branch inside `prepare_identified_time_block`
+        // happened to fire and clear the projected-to-zero penalties; when that
+        // inner collapse did not align with the regime predicate the dispatch saw
+        // a stray `k_time == 1` and routed a genuinely unpenalized parametric AFT
+        // (#736: constant scale, linear mean, loglogistic) down the coupled
+        // exact-joint REML path it cannot certify, instead of the direct MLE
+        // bypass. Tying `k_time` to `survival_time_rho_count` makes the inner and
+        // outer counts provably identical (same function, same arguments) and the
+        // bypass fire exactly when the regime is fully reduced (#736 #735 #721).
+        k_time: survival_time_rho_count(
+            &spec.time_block.penalties,
+            spec.time_block.design_exit.ncols(),
+            survival_constant_scale(spec),
+            protected_timewiggle_cols,
+        ),
         k_threshold: threshold_penalties.len(),
         k_log_sigma: log_sigma_penalties.len(),
         k_wiggle: spec
@@ -4635,6 +4831,11 @@ struct TimeBlockPrepared {
     coefficient_lower_bounds: Option<Array1<f64>>,
     linear_constraints: Option<LinearInequalityConstraints>,
     penalties: Vec<Array2<f64>>,
+    /// Structural null-space dimension of each (possibly reduced) penalty,
+    /// aligned with `penalties`. Carries the reduced count when the block has
+    /// been collapsed to its identifiable parametric form so the REML log-det
+    /// accounting matches the actual `zᵀ S z` rank rather than the raw basis.
+    nullspace_dims: Vec<usize>,
     initial_beta: Option<Array1<f64>>,
     transform: TimeIdentifiabilityTransform,
 }
@@ -4972,10 +5173,178 @@ fn validate_linear_constraints(
     Ok(())
 }
 
+/// Orthonormal basis `z` (raw `p` × reduced `r`) of the penalty null space —
+/// the affine `{1, log t}` AFT baseline an I-spline 2nd-order difference penalty
+/// leaves unpenalized. The penalized (curvature) directions are exactly the
+/// non-affine deviation the constant-scale data cannot identify, so the
+/// null-space columns are precisely the identifiable parametric subspace.
+///
+/// The basis is the eigenvectors of the summed time penalty whose eigenvalues
+/// sit at the bottom of the spectrum (geometric kernel). `r` is read off the
+/// eigenvalue gap with the same relative threshold the I-spline builder uses to
+/// report `nullspace_dims`, so this is the structural null-space dimension
+/// rather than a hard-coded `2`.
+fn time_parametric_null_space_basis(penalties: &[Array2<f64>], p: usize) -> Option<Array2<f64>> {
+    if p == 0 || penalties.is_empty() {
+        return None;
+    }
+    let mut total = Array2::<f64>::zeros((p, p));
+    for s_mat in penalties {
+        if s_mat.nrows() != p || s_mat.ncols() != p {
+            return None;
+        }
+        total += s_mat;
+    }
+    let (evals, evecs) = total.eigh(faer::Side::Lower).ok()?;
+    let max_ev = evals
+        .iter()
+        .copied()
+        .fold(0.0_f64, |a, b| a.max(b.abs()))
+        .max(1.0);
+    // Mirror the I-spline builder's null-space threshold (survival_construction).
+    let threshold = 100.0 * (p as f64) * f64::EPSILON * max_ev;
+    // `eigh` returns ascending eigenvalues with eigenvectors as the matching
+    // columns of `evecs`; the kernel is the leading low-eigenvalue block.
+    let null_cols: Vec<usize> = evals
+        .iter()
+        .enumerate()
+        .filter(|&(_, &e)| e <= threshold)
+        .map(|(idx, _)| idx)
+        .collect();
+    if null_cols.is_empty() || null_cols.len() >= p {
+        // No surplus flexibility to remove (or a degenerate all-null penalty):
+        // there is nothing to reduce, keep the full basis.
+        return None;
+    }
+    Some(evecs.select(ndarray::Axis(1), &null_cols))
+}
+
+/// Does the constant-scale-AFT regime actually reduce the time block to its
+/// unpenalized affine parametric null space?
+///
+/// This is the single predicate that both the inner block preparation
+/// (`prepare_identified_time_block`) and the OUTER ρ layout
+/// (`SurvivalLambdaLayout`) consult so they agree on the reduced time block's
+/// smoothing-parameter count. The reduction fires only when the regime is
+/// constant-scale with no monotone timewiggle reintroducing flexibility AND the
+/// time penalty actually has an affine null space to collapse onto. When it
+/// fires the reduced block is genuinely unpenalized (`zᵀ S z ≈ 0` on the
+/// null space), so it carries ZERO smoothing parameters and must contribute no
+/// ρ coordinate to the outer REML search — exactly like the constant `log_sigma`
+/// and rigid `threshold` blocks (issue #736/#735/#721).
+fn time_block_reduces_to_parametric(
+    time_penalties: &[Array2<f64>],
+    time_ncols: usize,
+    constant_scale: bool,
+    protected_timewiggle_cols: usize,
+) -> bool {
+    constant_scale
+        && protected_timewiggle_cols == 0
+        && time_parametric_null_space_basis(time_penalties, time_ncols).is_some()
+}
+
+/// Number of time-warp smoothing parameters (outer ρ coordinates) the survival
+/// location-scale model exposes. The flexible regime keeps one ρ per time
+/// penalty; the reduced constant-scale-AFT regime drops them all because the
+/// affine parametric block it collapses to is unpenalized.
+fn survival_time_rho_count(
+    time_penalties: &[Array2<f64>],
+    time_ncols: usize,
+    constant_scale: bool,
+    protected_timewiggle_cols: usize,
+) -> usize {
+    if time_block_reduces_to_parametric(
+        time_penalties,
+        time_ncols,
+        constant_scale,
+        protected_timewiggle_cols,
+    ) {
+        0
+    } else {
+        time_penalties.len()
+    }
+}
+
+/// Whether this fit is the reduced, fully PARAMETRIC constant-scale AFT regime,
+/// in which the location and scale carry no genuine smoothing — only (at most)
+/// full-rank parametric shrinkage ridges (`nullspace_dim == 0`, e.g. the
+/// linear-term `LinearTermRidge` gam places on a non-intercept covariate such as
+/// `age` in `Surv(time,event) ~ age`) — and so must be fit as a plain
+/// few-parameter AFT MLE (loglogistic / lognormal), exactly like
+/// `survreg`/`lifelines` (issue #736/#735/#721).
+///
+/// The conditions are:
+///   * the time-warp has collapsed to its identifiable affine null space
+///     (`survival_time_rho_count == 0`), i.e. constant scale with no protected
+///     timewiggle;
+///   * there is no link-wiggle and no monotone time-wiggle;
+///   * every threshold and every log-σ penalty is a full-rank parametric ridge
+///     (`nullspace_dim == 0`) — NEVER a wiggliness/smoothing penalty, whose
+///     structural null space (the unpenalized polynomial/affine subspace) is
+///     always nonzero.
+///
+/// In this regime those parametric ridges are dropped from BOTH the inner
+/// prepared model and the outer ρ layout (mirroring how the reduced time block
+/// drops its projected-to-zero penalties): the affine time-warp plus the
+/// location intercept already identify the location/scale, the ridge has no
+/// smoothing parameter worth a vacuous outer ρ coordinate (its default λ would
+/// merely bias the parametric coefficient away from the `survreg`/`lifelines`
+/// MLE), so the fit becomes an unpenalized direct parametric-AFT Newton MLE
+/// (`fit_parametric_aft_direct_mle`) with zero outer coordinates — converging in
+/// milliseconds instead of stalling the coupled exact-joint REML optimizer on a
+/// flat, vacuous ρ surface.
+///
+/// Certification is conservative: if either block's `nullspace_dims` metadata is
+/// absent or length-mismatched (so a null space cannot be certified zero) the
+/// regime is NOT recognized and the fit stays on the full coupled path. A
+/// genuinely flexible fit (smooth mean `~ s(z)`, smooth scale
+/// `noise_formula = s(...)`, a link-wiggle, an active timewiggle, or a varying
+/// scale) carries a wiggliness penalty with `nullspace_dim > 0` or a surviving
+/// time ρ, so it never matches here.
+fn survival_reduced_parametric_aft_regime(
+    time_penalties: &[Array2<f64>],
+    time_ncols: usize,
+    constant_scale: bool,
+    protected_timewiggle_cols: usize,
+    threshold_nullspace_dims: &[usize],
+    threshold_npenalties: usize,
+    log_sigma_nullspace_dims: &[usize],
+    log_sigma_npenalties: usize,
+    has_linkwiggle: bool,
+) -> bool {
+    if has_linkwiggle || protected_timewiggle_cols > 0 {
+        return false;
+    }
+    if survival_time_rho_count(
+        time_penalties,
+        time_ncols,
+        constant_scale,
+        protected_timewiggle_cols,
+    ) != 0
+    {
+        return false;
+    }
+    block_penalties_all_parametric_ridges(threshold_nullspace_dims, threshold_npenalties)
+        && block_penalties_all_parametric_ridges(log_sigma_nullspace_dims, log_sigma_npenalties)
+}
+
+/// True iff a block's `npenalties` penalties are all full-rank parametric ridges
+/// — every certified structural null-space dimension is zero. A block with no
+/// penalties trivially passes. When the `nullspace_dims` metadata is absent or
+/// length-mismatched the null space cannot be certified, so this conservatively
+/// returns `false` (treat as potentially smoothing).
+fn block_penalties_all_parametric_ridges(nullspace_dims: &[usize], npenalties: usize) -> bool {
+    if npenalties == 0 {
+        return true;
+    }
+    nullspace_dims.len() == npenalties && nullspace_dims.iter().all(|&d| d == 0)
+}
+
 fn prepare_identified_time_block(
     input: &TimeBlockInput,
     derivative_guard: f64,
     monotone_time_wiggle_ncols: usize,
+    reduce_to_parametric: bool,
 ) -> Result<TimeBlockPrepared, String> {
     let p = input.design_exit.ncols();
     if !input.time_monotonicity.is_coordinate_cone() {
@@ -4989,6 +5358,81 @@ fn prepare_identified_time_block(
     let design_entry = input.design_entry.to_dense();
     let design_exit = input.design_exit.to_dense();
     let design_derivative_exit = input.design_derivative_exit.to_dense();
+
+    // Constant-scale AFT regime: reduce the unidentified flexible I-spline
+    // time-warp to its identifiable affine parametric form before any
+    // constraint is generated (issue #736/#735/#721).
+    //
+    // `z` (raw `p` × reduced `r`) is an orthonormal basis of the time penalty's
+    // null space — the affine `1 + log t` AFT baseline. Projecting the three
+    // exit/entry/derivative designs onto `X z` leaves a clean `r`-column
+    // parametric block whose every direction is data-identified, so the coupled
+    // exact-joint inner solve has no free penalized-stationarity null space to
+    // choke on. The penalty `zᵀ S z` collapses to (numerically) zero on the
+    // null space — the correct, unpenalized parametric block, exactly like the
+    // constant-scale `log_sigma` block — and the regime's pinned `ρ = 10` time
+    // seed (`build_survival_two_block_exact_joint_setup`) certifies its flat
+    // box-bound KKT immediately rather than crawling the old 12-column ridge.
+    //
+    // Monotonicity is preserved structurally: the per-row derivative guard
+    // `(X' z) β_r + offset ≥ guard` is built from the *reduced* derivative
+    // design, so `h(t)` stays non-decreasing pointwise at every observed time.
+    // (The coordinate-cone per-column `γ ≥ 0` lower bounds are dropped — they
+    // are a property of individual I-spline columns, not of the affine
+    // generators that span their null space — and the row-wise guard takes over
+    // that role exactly.)
+    if reduce_to_parametric && let Some(z) = time_parametric_null_space_basis(&input.penalties, p) {
+        let r = z.ncols();
+        let reduced_entry = design_entry.dot(&z);
+        let reduced_exit = design_exit.dot(&z);
+        let reduced_derivative_exit = design_derivative_exit.dot(&z);
+        // `z` spans the penalty null space, so every `zᵀ S z` is (numerically)
+        // the zero `r×r` matrix: the reduced affine block has NO curvature left
+        // to penalize. An unpenalized parametric block has no smoothing
+        // parameter to select, so we drop the projected-to-zero penalties (and
+        // their null-space-dimension bookkeeping) entirely rather than carry a
+        // list of zero matrices. This is what makes the reduced time block
+        // contribute ZERO ρ coordinates to the outer REML search — identical to
+        // the constant `log_sigma` and rigid `threshold` blocks — so the outer
+        // optimizer no longer crawls a flat, irrelevant time-smoothing ridge
+        // (issue #736/#735/#721). The parametric design and the row-wise
+        // monotonicity guard below carry all the time-warp structure; the
+        // dropped penalties were exactly zero and contributed nothing.
+        let reduced_penalties: Vec<Array2<f64>> = Vec::new();
+        let reduced_nullspace_dims: Vec<usize> = Vec::new();
+        let reduced_derivative_design =
+            DesignMatrix::Dense(DenseDesignMatrix::from(reduced_derivative_exit.clone()));
+        // Pointwise monotonicity in the reduced affine space: enforce the
+        // derivative guard directly via row constraints on `X' z`. There is no
+        // coordinate-cone lower-bound ridge here because the affine generators
+        // are not individually sign-definite I-spline columns.
+        let linear_constraints = time_derivative_guard_constraints(
+            &reduced_derivative_design,
+            &input.derivative_offset_exit,
+            derivative_guard,
+        )?;
+        let initial_beta = match (linear_constraints.as_ref(), input.initial_beta.as_ref()) {
+            (Some(constraints), Some(beta0)) => Some(project_onto_linear_constraints(
+                r,
+                constraints,
+                Some(&z.t().dot(beta0)),
+            )?),
+            (_, Some(beta0)) => Some(z.t().dot(beta0)),
+            _ => None,
+        };
+        return Ok(TimeBlockPrepared {
+            design_entry: reduced_entry,
+            design_exit: reduced_exit,
+            design_derivative_exit: reduced_derivative_exit,
+            coefficient_lower_bounds: None,
+            linear_constraints,
+            penalties: reduced_penalties,
+            nullspace_dims: reduced_nullspace_dims,
+            initial_beta,
+            transform: TimeIdentifiabilityTransform { z },
+        });
+    }
+
     let penalties = input.penalties.clone();
     let coefficient_lower_bounds = structural_time_coefficient_lower_bounds_with_monotone_time_wiggle(
         &input.design_derivative_exit,
@@ -5025,6 +5469,7 @@ fn prepare_identified_time_block(
         coefficient_lower_bounds: Some(coefficient_lower_bounds),
         linear_constraints,
         penalties,
+        nullspace_dims: input.nullspace_dims.clone(),
         initial_beta,
         transform: TimeIdentifiabilityTransform { z: Array2::eye(p) },
     })
@@ -7066,6 +7511,29 @@ fn lift_conditional_covariance(
             log_sigma_fixed_cols, p_log_sigma_reduced, p_log_sigma_full
         ) }.into());
     }
+    // Raw↔canonical reconciliation at the time sub-block. The time
+    // identifiability map `z` lifts the inner solver's ACTIVE (reduced,
+    // canonical-gauge) time coefficients back to the RAW time layout, so it must
+    // be at least as tall as it is wide — the active block can never carry more
+    // columns than the raw block it expands into. If a future canonicalization
+    // ever produces a `z` whose active width exceeds the raw width (the
+    // raw-vs-active drift behind the historical `[N,N] → [N-1,N-1]` finalization
+    // panic, #735), surface it here as a structured DimensionMismatch instead of
+    // letting the downstream block assignment fault with a bare ndarray
+    // broadcast. The threshold/log_sigma offsets are already validated above via
+    // `*_fixed_cols + reduced == full`; this is the matching guard for the one
+    // time block whose map is a dense matrix rather than a fixed-column offset.
+    if p_time_reduced > p_time_full {
+        return Err(SurvivalLocationScaleError::DimensionMismatch {
+            reason: format!(
+                "survival location-scale covariance lift time map is wider than tall: \
+             active(reduced)={p_time_reduced} exceeds raw(full)={p_time_full}; \
+             the time identifiability transform `z` must map reduced→raw"
+            ),
+        }
+        .into());
+    }
+
     let p_reduced = p_time_reduced + p_threshold_reduced + p_log_sigma_reduced + p_linkwiggle;
     let p_full = p_time_full + p_threshold_full + p_log_sigma_full + p_linkwiggle;
     if cov_reduced.nrows() != p_reduced || cov_reduced.ncols() != p_reduced {
@@ -7076,6 +7544,10 @@ fn lift_conditional_covariance(
         ) }.into());
     }
 
+    // The destination slice is sized from `z` itself (`p_time_full` rows,
+    // `p_time_reduced` cols), so the assign cannot broadcast-fault as long as the
+    // guards above hold and `t_map` is at least that large — which `p_full ≥
+    // p_time_full` and `p_reduced ≥ p_time_reduced` guarantee by construction.
     let mut t_map = Array2::<f64>::zeros((p_full, p_reduced));
     t_map
         .slice_mut(s![0..p_time_full, 0..p_time_reduced])
@@ -7099,6 +7571,298 @@ fn lift_conditional_covariance(
 }
 
 impl SurvivalLocationScaleFamily {
+    /// Recompute every block's linear predictor `η_b = D_b · β_b + o_b` from
+    /// the joint coefficient vector `theta` (block-concatenated) and the block
+    /// specs, returning freshly populated [`ParameterBlockState`]s.
+    ///
+    /// This mirrors the static-geometry branch of the inner solver's
+    /// `refresh_all_block_etas`: in the reduced constant-scale parametric-AFT
+    /// regime there is no link-wiggle and no monotone time-wiggle, so the
+    /// family geometry is static and `solver_design()`/`solver_offset()`
+    /// (the stacked `[entry; exit; deriv]` channels) map β to η directly. Each
+    /// block's β is passed through `post_update_block_beta` so the time-warp
+    /// monotonicity constraints are validated exactly as the coupled path does.
+    fn parametric_aft_states_from_theta(
+        &self,
+        theta: &Array1<f64>,
+        specs: &[ParameterBlockSpec],
+    ) -> Result<Vec<ParameterBlockState>, String> {
+        let offsets = self.joint_block_offsets();
+        if theta.len() != *offsets.last().unwrap_or(&0) {
+            return Err(SurvivalLocationScaleError::DimensionMismatch {
+                reason: format!(
+                    "parametric-AFT direct MLE theta length mismatch: got {}, expected {}",
+                    theta.len(),
+                    offsets.last().copied().unwrap_or(0)
+                ),
+            }
+            .into());
+        }
+        let mut states = Vec::with_capacity(specs.len());
+        for (b, spec) in specs.iter().enumerate() {
+            let beta = theta.slice(s![offsets[b]..offsets[b + 1]]).to_owned();
+            let eta = spec.solver_design().matrixvectormultiply(&beta) + spec.solver_offset();
+            states.push(ParameterBlockState { beta, eta });
+        }
+        // Validate (and, for any family that projects, project) each block's β
+        // against its constraints — the time block's monotone-derivative guard.
+        for b in 0..specs.len() {
+            let raw = states[b].beta.clone();
+            let projected = self.post_update_block_beta(&states, b, &specs[b], raw)?;
+            if projected != states[b].beta {
+                states[b].beta.assign(&projected);
+                states[b].eta = specs[b]
+                    .solver_design()
+                    .matrixvectormultiply(&states[b].beta)
+                    + specs[b].solver_offset();
+            }
+        }
+        Ok(states)
+    }
+
+    /// Direct, robust maximum-likelihood fit of the fully reduced constant-scale
+    /// parametric AFT (affine time-warp + location intercept/covariates +
+    /// constant log-σ).
+    ///
+    /// In this regime every block is UNPENALIZED — there are no smoothing
+    /// parameters and the REML/LAML outer search is vacuous — so the coupled
+    /// exact-joint REML machinery is the wrong tool (issue #736/#735/#721): it
+    /// runs an outer ρ search around an inner per-block trust-region Newton that
+    /// oscillates and never certifies stationarity on this tiny unpenalized
+    /// likelihood. Instead we run a damped, line-searched joint Newton directly
+    /// on the negative log-likelihood `−ℓ(θ)`, converging to the gradient-norm
+    /// tolerance in a handful of iterations exactly like `survreg`/`lifelines`.
+    ///
+    /// The step is `δ = H⁻¹ g` with `g = ∇ℓ` (the block-concatenated
+    /// log-likelihood gradient) and `H = −∇²ℓ` (the exact joint Hessian, all
+    /// cross-blocks included). When `H` is not positive definite at the current
+    /// iterate we add Levenberg damping `τ·I` (escalating geometrically) until
+    /// the Cholesky factorization succeeds, giving a guaranteed ascent
+    /// direction. The step length is first capped to keep the monotone
+    /// time-warp feasible (`max_feasible_step_size`) and then Armijo-backtracked
+    /// on `−ℓ`, so the time derivative stays `≥ guard` at every observed time
+    /// and `ℓ` increases monotonically.
+    ///
+    /// Returns the converged block states, the log-likelihood at the MLE, and
+    /// the joint negative-log-likelihood Hessian `H` (the observed information),
+    /// whose inverse is the conditional covariance the caller assembles.
+    fn fit_parametric_aft_direct_mle(
+        &self,
+        specs: &[ParameterBlockSpec],
+        max_iter: usize,
+        grad_tol: f64,
+    ) -> Result<(Vec<ParameterBlockState>, f64, Array2<f64>), String> {
+        use crate::faer_ndarray::FaerCholesky;
+
+        self.validate_joint_specs(
+            specs,
+            "SurvivalLocationScaleFamily direct parametric-AFT MLE",
+        )?;
+        let offsets = self.joint_block_offsets();
+        let p_total = *offsets.last().unwrap_or(&0);
+        if p_total == 0 {
+            return Err(SurvivalLocationScaleError::InvalidConfiguration {
+                reason: "direct parametric-AFT MLE has no free coefficients".to_string(),
+            }
+            .into());
+        }
+
+        // Cold-start θ from the block specs' (feasible) initial β, falling back
+        // to zeros. `parametric_aft_states_from_theta` re-validates feasibility.
+        let mut theta = Array1::<f64>::zeros(p_total);
+        for (b, spec) in specs.iter().enumerate() {
+            if let Some(beta0) = spec.initial_beta.as_ref() {
+                if beta0.len() != offsets[b + 1] - offsets[b] {
+                    return Err(SurvivalLocationScaleError::DimensionMismatch {
+                        reason: format!(
+                            "direct parametric-AFT MLE block {b} initial_beta length {} != block width {}",
+                            beta0.len(),
+                            offsets[b + 1] - offsets[b]
+                        ),
+                    }
+                    .into());
+                }
+                theta
+                    .slice_mut(s![offsets[b]..offsets[b + 1]])
+                    .assign(beta0);
+            }
+        }
+
+        let mut states = self.parametric_aft_states_from_theta(&theta, specs)?;
+        // Resync θ to any constraint projection the state builder applied.
+        for (b, state) in states.iter().enumerate() {
+            theta
+                .slice_mut(s![offsets[b]..offsets[b + 1]])
+                .assign(&state.beta);
+        }
+        let mut ll = self.log_likelihood_only(&states)?;
+        if !ll.is_finite() {
+            return Err(SurvivalLocationScaleError::NumericalFailure {
+                reason: format!(
+                    "direct parametric-AFT MLE: non-finite initial log-likelihood {ll}"
+                ),
+            }
+            .into());
+        }
+
+        // Newton iterations on −ℓ(θ).
+        for _ in 0..max_iter {
+            let (ll_now, block_gradients) =
+                self.evaluate_log_likelihood_and_block_gradients(&states)?;
+            ll = ll_now;
+            // Concatenate the block log-likelihood gradients g = ∇ℓ.
+            let mut g = Array1::<f64>::zeros(p_total);
+            if block_gradients.len() != specs.len() {
+                return Err(SurvivalLocationScaleError::DimensionMismatch {
+                    reason: format!(
+                        "direct parametric-AFT MLE gradient block count mismatch: gradients={}, specs={}",
+                        block_gradients.len(),
+                        specs.len()
+                    ),
+                }
+                .into());
+            }
+            for (b, gb) in block_gradients.iter().enumerate() {
+                if gb.len() != offsets[b + 1] - offsets[b] {
+                    return Err(SurvivalLocationScaleError::DimensionMismatch {
+                        reason: format!(
+                            "direct parametric-AFT MLE block {b} gradient length {} != block width {}",
+                            gb.len(),
+                            offsets[b + 1] - offsets[b]
+                        ),
+                    }
+                    .into());
+                }
+                g.slice_mut(s![offsets[b]..offsets[b + 1]]).assign(gb);
+            }
+            if !g.iter().all(|v| v.is_finite()) {
+                return Err(SurvivalLocationScaleError::NumericalFailure {
+                    reason: "direct parametric-AFT MLE: non-finite gradient".to_string(),
+                }
+                .into());
+            }
+            let grad_norm = g.iter().fold(0.0_f64, |acc, &v| acc.max(v.abs()));
+            if grad_norm <= grad_tol {
+                break;
+            }
+
+            // H = −∇²ℓ (positive (semi)definite near the optimum). The exact
+            // joint Hessian assembly returns it directly, symmetrized.
+            let h = self.exact_newton_joint_hessian(&states)?.ok_or_else(|| {
+                SurvivalLocationScaleError::NumericalFailure {
+                    reason: "direct parametric-AFT MLE: joint Hessian assembly failed".to_string(),
+                }
+            })?;
+            if !h.iter().all(|v| v.is_finite()) {
+                return Err(SurvivalLocationScaleError::NumericalFailure {
+                    reason: "direct parametric-AFT MLE: non-finite joint Hessian".to_string(),
+                }
+                .into());
+            }
+
+            // Newton direction δ solving H δ = g (ascent on ℓ). When H is not
+            // positive definite, escalate Levenberg damping τ·I until the
+            // Cholesky factorization succeeds, guaranteeing an ascent direction.
+            let h_scale = h
+                .diag()
+                .iter()
+                .fold(0.0_f64, |acc, &v| acc.max(v.abs()))
+                .max(1.0);
+            let mut tau = 0.0_f64;
+            let delta = loop {
+                let mut damped = h.clone();
+                if tau > 0.0 {
+                    for i in 0..p_total {
+                        damped[[i, i]] += tau;
+                    }
+                }
+                match damped.cholesky(faer::Side::Lower) {
+                    Ok(chol) => break chol.solvevec(&g),
+                    Err(_) => {
+                        tau = if tau == 0.0 {
+                            1e-8 * h_scale
+                        } else {
+                            tau * 10.0
+                        };
+                        if tau > 1e8 * h_scale {
+                            return Err(SurvivalLocationScaleError::NumericalFailure {
+                                reason:
+                                    "direct parametric-AFT MLE: Hessian not factorizable even with maximal damping"
+                                        .to_string(),
+                            }
+                            .into());
+                        }
+                    }
+                }
+            };
+            if !delta.iter().all(|v| v.is_finite()) {
+                return Err(SurvivalLocationScaleError::NumericalFailure {
+                    reason: "direct parametric-AFT MLE: non-finite Newton step".to_string(),
+                }
+                .into());
+            }
+
+            // Cap the step to keep the monotone time-warp feasible: the family's
+            // per-block feasibility barrier reports the largest α that keeps the
+            // derivative guard satisfied (only the time block constrains it).
+            let mut alpha = 1.0_f64;
+            for (b, spec_offset) in offsets.iter().take(specs.len()).enumerate() {
+                let block_delta = delta.slice(s![*spec_offset..offsets[b + 1]]).to_owned();
+                if let Some(a_max) = self.max_feasible_step_size(&states, b, &block_delta)? {
+                    alpha = alpha.min(a_max);
+                }
+            }
+
+            // Armijo backtracking on −ℓ along the (feasibility-capped) Newton
+            // ascent direction. `g·δ > 0` because δ is an ascent direction, so a
+            // sufficient-increase condition on ℓ is well posed.
+            let directional = g.dot(&delta);
+            const ARMIJO_C: f64 = 1e-4;
+            const BACKTRACK: f64 = 0.5;
+            const MIN_ALPHA: f64 = 1e-12;
+            let mut accepted: Option<(Array1<f64>, Vec<ParameterBlockState>, f64)> = None;
+            while alpha >= MIN_ALPHA {
+                let trial_theta = &theta + &(alpha * &delta);
+                if let Ok(cand_states) = self.parametric_aft_states_from_theta(&trial_theta, specs)
+                    && let Ok(cand_ll) = self.log_likelihood_only(&cand_states)
+                    && cand_ll.is_finite()
+                    && cand_ll >= ll + ARMIJO_C * alpha * directional
+                {
+                    accepted = Some((trial_theta, cand_states, cand_ll));
+                    break;
+                }
+                alpha *= BACKTRACK;
+            }
+            match accepted {
+                Some((new_theta, new_states, new_ll)) => {
+                    theta = new_theta;
+                    states = new_states;
+                    ll = new_ll;
+                }
+                // No further increase achievable along this direction: the
+                // current iterate is (numerically) stationary. Stop here.
+                None => break,
+            }
+        }
+
+        // Observed information at the MLE: the joint negative-log-likelihood
+        // Hessian. This is the conditional precision; its inverse is the
+        // covariance the caller lifts to the raw coordinate system.
+        let h_final = self.exact_newton_joint_hessian(&states)?.ok_or_else(|| {
+            SurvivalLocationScaleError::NumericalFailure {
+                reason: "direct parametric-AFT MLE: final joint Hessian assembly failed"
+                    .to_string(),
+            }
+        })?;
+        if !h_final.iter().all(|v| v.is_finite()) {
+            return Err(SurvivalLocationScaleError::NumericalFailure {
+                reason: "direct parametric-AFT MLE: non-finite final joint Hessian".to_string(),
+            }
+            .into());
+        }
+        Ok((states, ll, h_final))
+    }
+
     /// Block-diagonal-only assembly: returns the four (or three, when no
     /// link-wiggle is configured) principal diagonal blocks of the joint
     /// Hessian without ever materializing the cross blocks. Used by
@@ -7505,14 +8269,14 @@ impl SurvivalLocationScaleFamily {
             row_mask,
         )? + mxtwx(
             &self.x_time_deriv,
-            &(-&q.h_time_d * &q.dqdot_t),
+            &(&q.h_time_d * &q.dqdot_t),
             x_threshold_exit,
             row_mask,
         )?;
         if let Some(x_t_deriv) = x_threshold_deriv {
             h_ht += &mxtwx(
                 &self.x_time_deriv,
-                &(-&q.h_time_d * &q.dqdot_td),
+                &(&q.h_time_d * &q.dqdot_td),
                 x_t_deriv,
                 row_mask,
             )?;
@@ -7531,14 +8295,14 @@ impl SurvivalLocationScaleFamily {
             row_mask,
         )? + mxtwx(
             &self.x_time_deriv,
-            &(-&q.h_time_d * &q.dqdot_ls),
+            &(&q.h_time_d * &q.dqdot_ls),
             x_log_sigma_exit,
             row_mask,
         )?;
         if let Some(x_ls_deriv) = x_log_sigma_deriv {
             h_hl += &mxtwx(
                 &self.x_time_deriv,
-                &(-&q.h_time_d * &q.dqdot_lsd),
+                &(&q.h_time_d * &q.dqdot_lsd),
                 x_ls_deriv,
                 row_mask,
             )?;
@@ -7683,7 +8447,7 @@ impl SurvivalLocationScaleFamily {
 
             let h_hw = mxtwx(&self.x_time_entry, &(-&q.h_time_h0), xw_entry, row_mask)?
                 + mxtwx(&self.x_time_exit, &(-&q.h_time_h1), xw_exit, row_mask)?
-                + mxtwx(&self.x_time_deriv, &(-&q.h_time_d), xw_qdot, row_mask)?;
+                + mxtwx(&self.x_time_deriv, &q.h_time_d, xw_qdot, row_mask)?;
             assign_symmetric_block(&mut joint, offsets[0], w_offset, &h_hw);
         }
 
@@ -9969,6 +10733,111 @@ impl ExactNewtonJointHessianWorkspace for SurvivalLocationScaleExactNewtonJointH
     }
 }
 
+/// Run the direct parametric-AFT MLE for a fully reduced constant-scale model
+/// and assemble the same [`UnifiedFitResult`] the coupled path would produce.
+///
+/// Every block is unpenalized (zero ρ) — the reduced affine time-warp, the
+/// location intercept/covariate, and the constant log-σ identify the AFT MLE
+/// directly, and `survival_reduced_parametric_aft_regime` has already dropped
+/// any default parametric shrinkage ridge — so `log_lambdas`/`lambdas` are
+/// empty, the stable penalty term is zero, and the penalized objective is just
+/// `−ℓ̂`. The conditional covariance is the inverse of the observed information
+/// `H` (the joint negative-log-likelihood Hessian at the MLE), and the
+/// geometry's penalized Hessian is `H` itself — matching the exact-Newton joint
+/// geometry the coupled survival path stores (`working_weights`/`working_response`
+/// are the zero-length convention used by exact-Newton joint families). The
+/// shared [`crate::custom_family::blockwise_fit_from_parts`] assembler then
+/// computes EDF (= parameter count, since unpenalized) and the inference block
+/// exactly as for any custom-family fit.
+fn fit_reduced_parametric_aft(
+    prepared: &PreparedSurvivalLocationScaleModel,
+    options: &BlockwiseFitOptions,
+) -> Result<UnifiedFitResult, String> {
+    use crate::faer_ndarray::FaerCholesky;
+
+    let specs = &prepared.blockspecs;
+    let (states, log_likelihood, h) = prepared.family.fit_parametric_aft_direct_mle(
+        specs,
+        options.inner_max_cycles.max(1),
+        options.inner_tol.max(1e-8),
+    )?;
+
+    let p_total = h.nrows();
+    // Conditional covariance Var(θ | λ) = H⁻¹ in the reduced coordinate system.
+    // `finalize_survival_location_scale_fit` lifts it back to the raw block
+    // coordinates (time null-space expansion + leading-fixed-column padding).
+    let identity = Array2::<f64>::eye(p_total);
+    let covariance_conditional = match h.cholesky(faer::Side::Lower) {
+        Ok(chol) => {
+            let cov = chol.solve_mat(&identity);
+            if cov.iter().all(|v| v.is_finite()) {
+                // Symmetrize away round-off so the lifted covariance is exactly
+                // symmetric, as the conditional covariance must be.
+                let mut symm = cov.clone();
+                for i in 0..p_total {
+                    for j in (i + 1)..p_total {
+                        let avg = 0.5 * (cov[[i, j]] + cov[[j, i]]);
+                        symm[[i, j]] = avg;
+                        symm[[j, i]] = avg;
+                    }
+                }
+                Some(symm)
+            } else {
+                None
+            }
+        }
+        Err(_) => None,
+    };
+
+    let geometry = Some(FitGeometry {
+        penalized_hessian: h.into(),
+        working_weights: Array1::<f64>::zeros(0),
+        working_response: Array1::<f64>::zeros(0),
+    });
+
+    // The block states carry their η in the family's native row layout — the
+    // stacked `[exit; entry; deriv]` channels (`solver_design().nrows()` rows)
+    // for the time block, exactly as `refresh_all_block_etas` produces and as
+    // the family's `validate_joint_states` / `offset_channel_geometry` require.
+    // `blockwise_fit_from_parts` validates each block's `η.len()` against
+    // `spec.design.nrows()`, so present it the row-matching `solver_design()`
+    // as `design` (same coefficients, penalties, name, role — only the row
+    // count differs). All other fields are unchanged, so the assembled result
+    // is identical to the coupled path's.
+    let assembly_specs: Vec<ParameterBlockSpec> = specs
+        .iter()
+        .map(|spec| {
+            let mut s = spec.clone();
+            s.design = spec.solver_design().clone();
+            s.offset = spec.solver_offset().clone();
+            s.stacked_design = None;
+            s.stacked_offset = None;
+            s
+        })
+        .collect();
+
+    crate::custom_family::blockwise_fit_from_parts(
+        crate::custom_family::BlockwiseFitResultParts {
+            block_states: states,
+            log_likelihood,
+            log_lambdas: Array1::<f64>::zeros(0),
+            lambdas: Array1::<f64>::zeros(0),
+            covariance_conditional,
+            stable_penalty_term: 0.0,
+            // No penalties and no smoothing parameters: the reported objective
+            // is the plain negative log-likelihood at the MLE.
+            penalized_objective: -log_likelihood,
+            outer_iterations: 0,
+            outer_gradient_norm: Some(0.0),
+            inner_cycles: 0,
+            outer_converged: true,
+            geometry,
+            precomputed_edf: None,
+        },
+        &assembly_specs,
+    )
+}
+
 /// Variant that also returns the offset-channel residuals + curvatures at the
 /// converged β̂. We have to extract these *before* `finalize_survival_location_scale_fit`
 /// runs, because the location-scale finalizer empties `UnifiedFitResult::block_states`
@@ -9985,7 +10854,21 @@ fn fit_survival_location_scale_with_geometry(
 > {
     let prepared = prepare_survival_location_scale_model(&spec)?;
     let options = survival_blockwise_fit_options(&spec);
-    let fit = fit_custom_family(&prepared.family, &prepared.blockspecs, &options)?;
+    // Fully reduced constant-scale PARAMETRIC AFT regime (issue #736/#735/#721):
+    // every block is parametric and unpenalized, so REML/LAML smoothing
+    // selection is vacuous and the coupled exact-joint REML optimizer is the
+    // wrong tool — it oscillates and never certifies stationarity on this tiny
+    // unpenalized likelihood. Route directly to a damped, line-searched joint
+    // Newton MLE (converges in a handful of iterations like survreg/lifelines),
+    // then assemble the identical `UnifiedFitResult` so finalize / predict /
+    // CRPS / the `offset_channel_geometry` consumer all work unchanged. Any
+    // genuinely flexible or penalized survival LS fit keeps the full coupled
+    // path below.
+    let fit = if prepared.is_reduced_parametric_aft() {
+        fit_reduced_parametric_aft(&prepared, &options)?
+    } else {
+        fit_custom_family(&prepared.family, &prepared.blockspecs, &options)?
+    };
     // Defensive: `fit_custom_family`'s degraded-plan path (after an ARC
     // deterministic-replay stall) can return a fit whose `block_states`
     // were cleared. `offset_channel_geometry` already tolerates this case
@@ -10119,15 +11002,67 @@ pub(crate) fn fit_survival_location_scale_terms(
         .as_ref()
         .and_then(|w| w.initial_log_lambdas.clone())
         .unwrap_or_else(|| Array1::zeros(0));
-    let time_rho0 = spec
-        .time_block
-        .initial_log_lambdas
-        .clone()
-        .unwrap_or_else(|| Array1::zeros(spec.time_block.penalties.len()));
-    let layout = SurvivalLambdaLayout::new(
-        spec.time_block.penalties.len(),
+    // Outer time-warp ρ count. In the reduced constant-scale-AFT regime the
+    // time block collapses to its unpenalized affine null space (see
+    // `prepare_identified_time_block`), so it carries NO smoothing parameter and
+    // must contribute no ρ coordinate to the outer REML search — otherwise the
+    // outer optimizer spends a full inner blockwise fit per step crawling a
+    // dead-flat time-smoothing dimension until `outer_max_iter` (issue
+    // #736/#735/#721). `survival_time_rho_count` is the single source of truth
+    // shared with the inner block preparation so the two layouts always agree.
+    let constant_scale = log_sigma_boot_design.penalties.is_empty();
+    let protected_timewiggle_cols = spec.timewiggle_block.as_ref().map_or(0, |w| w.ncols);
+    let k_time = survival_time_rho_count(
+        &spec.time_block.penalties,
+        spec.time_block.design_exit.ncols(),
+        constant_scale,
+        protected_timewiggle_cols,
+    );
+    let time_rho0 = if k_time == 0 {
+        // Reduced parametric AFT: the time block is unpenalized, so any caller-
+        // supplied per-penalty time seed is irrelevant and the outer search
+        // carries no time coordinate.
+        Array1::<f64>::zeros(0)
+    } else {
+        spec.time_block
+            .initial_log_lambdas
+            .clone()
+            .unwrap_or_else(|| Array1::zeros(k_time))
+    };
+    // Reduced parametric-AFT regime (issue #736/#735/#721): when the location
+    // (and scale) carry only full-rank parametric shrinkage ridges
+    // (`nullspace_dim == 0`, e.g. the linear-term `LinearTermRidge` on `age`)
+    // and the time-warp has reduced to affine with no wiggle, those ridges are
+    // dropped — the inner `prepare_survival_location_scale_model` applies the
+    // IDENTICAL predicate to the same boot-design penalties, so the inner and
+    // outer ρ counts stay provably in lock-step. Dropping them takes the
+    // threshold/log_sigma ρ counts to 0, so the outer search carries ZERO
+    // coordinates and the fit is a single direct unpenalized parametric-AFT MLE
+    // (`fit_parametric_aft_direct_mle`) — milliseconds, and numerically the
+    // `survreg`/`lifelines` MLE — instead of crawling a flat, vacuous ρ surface.
+    let drop_parametric_ridges = survival_reduced_parametric_aft_regime(
+        &spec.time_block.penalties,
+        spec.time_block.design_exit.ncols(),
+        constant_scale,
+        protected_timewiggle_cols,
+        &threshold_boot_design.nullspace_dims,
         threshold_boot_design.penalties.len(),
+        &log_sigma_boot_design.nullspace_dims,
         log_sigma_boot_design.penalties.len(),
+        spec.linkwiggle_block.is_some(),
+    );
+    let layout = SurvivalLambdaLayout::new(
+        k_time,
+        if drop_parametric_ridges {
+            0
+        } else {
+            threshold_boot_design.penalties.len()
+        },
+        if drop_parametric_ridges {
+            0
+        } else {
+            log_sigma_boot_design.penalties.len()
+        },
         wiggle_rho0.len(),
     );
     let mut rho0 = Array1::<f64>::zeros(layout.total());
@@ -10145,6 +11080,92 @@ pub(crate) fn fit_survival_location_scale_terms(
         let range = layout.time_range();
         rho0.slice_mut(s![range.start..range.end])
             .assign(&time_rho0);
+
+        // Parametric-AFT regime: strong-smoothing seed for the time-warp
+        // penalty.
+        //
+        // When the scale block carries no penalties (a single constant σ) the
+        // residual distribution `z = (h(t) - η)/σ` is a fixed parametric shape
+        // with a single global spread, so the data identifies the baseline
+        // *only* through the affine `1 + log t` transform that IS the parametric
+        // AFT transform. The flexible deviation of the monotone I-spline
+        // time-warp `h(t)` away from its penalty nullspace (that affine
+        // baseline) is then statistically unidentified, and the REML/LAML
+        // profile in the time smoothing parameter is a long flat ridge that
+        // climbs monotonically toward strong smoothing.
+        //
+        // This unidentifiability is a property of the SCALE block alone, not of
+        // the mean. A smooth mean `~ s(z)` adds flexibility in *covariate*
+        // space — it bends η as a function of the covariates — but it carries no
+        // information about the *time* baseline shape, because the time-warp
+        // enters only through `h(t)` and is identified solely by how the event
+        // times distribute against a single global σ. So whether the mean is
+        // rigid (`~ age`) or smooth (`~ s(z)`), a constant-scale Gaussian AFT
+        // leaves the time-warp's non-affine deviation unidentified and the time
+        // ridge flat. Gating the seed on `rigid_mean` therefore wrongly excluded
+        // the smooth-mean constant-scale case (#735), whose threshold block
+        // carries penalties: it fell through to the weak default time seed and
+        // its exact-joint outer search crawled the flat time ridge forever.
+        //
+        // Seeding the weak default (`time_smooth_lambda ≈ 1e-2`) drops the
+        // inner REML search into the *interior* of that ridge, where it crawls
+        // toward the strong-smoothing boundary one short, ill-conditioned step
+        // at a time and never terminates in reasonable time (#736, #735, #721).
+        //
+        // The previous fix seeded the *interior* point ρ = 8. That did NOT cure
+        // the hang: the inner blockwise REML optimizer re-optimizes ρ_time
+        // freely from its seed against an inner per-coordinate ρ box bound of
+        // ±10 (`fit_custom_family_with_rho_prior`'s `.with_rho_bound(10.0)`).
+        // λ = exp(8) ≈ 3·10³ already sits INSIDE the "dead-flat region" that
+        // very bound exists to fence off (see the `with_rho_bound` rationale in
+        // `custom_family.rs`): with a flat REML gradient and near-singular
+        // curvature there, the optimizer wanders between ρ = 8 and the ρ = 10
+        // boundary one micro-step at a time and the retry-stall detector spins
+        // on the flat surface — producing the >200s no-iteration-log hang. A
+        // seed strictly interior to the box can never certify, because the
+        // unconstrained projected-gradient stationarity test it would need is
+        // exactly the test the flat ridge makes ill-posed.
+        //
+        // Seed instead at the inner ρ box bound itself. At the bound the
+        // box-constraint KKT condition (the REML gradient pushes further into
+        // strong smoothing, against an active bound) certifies stationarity
+        // *immediately* at iteration 0 for the time coordinate — there is no
+        // interior flat region left to wander, because the optimizer is pinned
+        // at the wall. λ = exp(10) ≈ 22k is the affine-nullspace limit (the
+        // bound's own rationale calls this "statistically indistinguishable
+        // from shrunk to nullspace"), i.e. exactly the parametric-AFT affine
+        // baseline. This is a regime-specific *initialization*, not a cap or a
+        // tolerance change: the I-spline basis dimensions are untouched, so any
+        // independent rebuild of the time basis (predictor reconstruction) is
+        // unaffected, and a genuinely flexible regime never reaches this branch.
+        //
+        // The seed is gated on `constant_scale` ONLY. The genuinely flexible
+        // time-warp regime is a smooth scale (`noise_formula = s(...)`): a
+        // varying σ lets the residual spread change with covariates, which DOES
+        // supply identifying information for a non-affine baseline, so those
+        // fits carry log_sigma penalties and keep the full weak-seed search.
+        // Smooth-mean penalties on the threshold block are still selected
+        // normally — only the TIME-WARP block's seed changes here.
+        //
+        // NOTE: reaching here with `constant_scale == true` already implies the
+        // affine reduction did NOT fire (otherwise `k_time == 0` and this whole
+        // `if layout.k_time > 0` arm is skipped — the reduced block is
+        // unpenalized and carries no ρ at all). This seed therefore only covers
+        // the residual constant-scale case where the time penalty has no affine
+        // null space to collapse onto (or a timewiggle keeps the flexibility),
+        // pinning that surviving time ρ at the strong-smoothing limit.
+        if constant_scale {
+            // ρ = 10 == the inner blockwise solver's per-coordinate ρ box bound
+            // (`custom_family.rs` `with_rho_bound(10.0)`). Seeding AT the bound
+            // (not interior, as the prior ρ = 8 seed did) makes the box
+            // constraint active from iteration 0, so outer stationarity
+            // certifies immediately instead of crawling the flat ridge.
+            const PARAMETRIC_AFT_TIME_RHO_SEED: f64 = 10.0;
+            let mut time_seed = rho0.slice_mut(s![range.start..range.end]);
+            for v in time_seed.iter_mut() {
+                *v = PARAMETRIC_AFT_TIME_RHO_SEED;
+            }
+        }
     }
     // Warm-start: inject converged ρ seeds from a previous fit if supplied. The values are
     // clamped to the outer ρ bounds (±12) so that "dead" coordinates returned at extremes
@@ -10238,11 +11259,23 @@ pub(crate) fn fit_survival_location_scale_terms(
             time_beta_hint.borrow().as_ref(),
             spec.time_block.design_exit.ncols(),
         );
+        // In the reduced parametric-AFT regime the layout carries no
+        // threshold/log_sigma ρ (`drop_parametric_ridges`), yet the boot design
+        // still carries the parametric ridge as a penalty. Passing the empty
+        // layout slice as the seed would mismatch that penalty count; instead
+        // pass `None` so the block defaults to a length-matched zero seed, which
+        // the inner `prepare_survival_location_scale_model` then drops along with
+        // the ridge. Outside the regime the layout slice length equals the
+        // design penalty count, so `Some(slice)` is exact.
         let threshold_block = build_survival_covariate_block_from_design(
             threshold_design,
             &spec.threshold_template,
             &spec.threshold_offset,
-            Some(layout.threshold_from(rho)),
+            if drop_parametric_ridges {
+                None
+            } else {
+                Some(layout.threshold_from(rho))
+            },
             filtered_initial_beta(
                 threshold_beta_hint.borrow().as_ref(),
                 match &spec.threshold_template {
@@ -10257,7 +11290,11 @@ pub(crate) fn fit_survival_location_scale_terms(
             log_sigma_design,
             &spec.log_sigma_template,
             &spec.log_sigma_offset,
-            Some(layout.log_sigma_from(rho)),
+            if drop_parametric_ridges {
+                None
+            } else {
+                Some(layout.log_sigma_from(rho))
+            },
             filtered_initial_beta(
                 log_sigma_beta_hint.borrow().as_ref(),
                 match &spec.log_sigma_template {
@@ -10302,7 +11339,28 @@ pub(crate) fn fit_survival_location_scale_terms(
                 time_monotonicity: spec.time_block.time_monotonicity,
                 penalties: spec.time_block.penalties.clone(),
                 nullspace_dims: spec.time_block.nullspace_dims.clone(),
-                initial_log_lambdas: Some(layout.time_from(rho)),
+                // `initial_log_lambdas` is the per-penalty seed for THIS block's
+                // (still un-reduced) `penalties`, validated against that list's
+                // length by `validate_time_block`. In the flexible regime the
+                // outer layout carries one time ρ per penalty, so `time_from`
+                // returns exactly `penalties.len()` entries. In the reduced
+                // constant-scale-AFT regime (`layout.k_time == 0`) the outer
+                // search carries NO time coordinate, so `time_from` is empty —
+                // but `penalties` here is the un-reduced length-`k` list (the
+                // collapse to the unpenalized affine null space happens later,
+                // inside `prepare_identified_time_block`). Emitting the empty
+                // outer slice against the un-reduced penalties would make
+                // `initial_log_lambdas.len() (0) != penalties.len() (k)` and
+                // trip the block's length-consistency check. The downstream
+                // reduction re-derives (and drops) this seed for the collapsed
+                // block, so any length-`k` value is fine here; carry the
+                // caller's original per-penalty seed to stay length-consistent
+                // with the un-reduced penalty list (issue #736/#735/#721).
+                initial_log_lambdas: if layout.k_time > 0 {
+                    Some(layout.time_from(rho))
+                } else {
+                    spec.time_block.initial_log_lambdas.clone()
+                },
                 initial_beta: time_beta,
             },
             threshold_block,
@@ -10325,10 +11383,34 @@ pub(crate) fn fit_survival_location_scale_terms(
         } else {
             crate::families::custom_family::ExactOuterDerivativeOrder::First
         };
+        // Honest per-eval work model so the route planner has a real cost
+        // signal for the exact gradient / joint-Hessian routes (#721). The
+        // survival likelihood couples every block, so a single coefficient
+        // Hessian assembly costs `n · (Σ p_b)²` (matching
+        // `joint_coupled_coefficient_hessian_cost`), and each outer
+        // coordinate (every penalty ρ, spatial log-κ, and auxiliary axis)
+        // propagates one analytic directional derivative through the inner
+        // solve. Leaving these at 0 left the planner blind and it never
+        // down-routed the heavyweight exact-joint path.
+        let n_work = data.nrows() as u64;
+        let p_total = (spec.time_block.design_exit.ncols()
+            + threshold_boot_design.design.ncols()
+            + log_sigma_boot_design.design.ncols()
+            + spec
+                .linkwiggle_block
+                .as_ref()
+                .map_or(0, |w| w.design.ncols())) as u64;
+        let hess_cost = n_work.saturating_mul(p_total.saturating_mul(p_total));
+        let grad_cost = hess_cost / 2;
+        let outer_coords =
+            (joint_setup.rho_dim() + joint_setup.log_kappa_dim() + joint_setup.auxiliary_dim())
+                .max(1) as u128;
+        let predicted_hessian_work = (hess_cost as u128).saturating_mul(outer_coords);
+        let predicted_gradient_work = (grad_cost as u128).saturating_mul(outer_coords);
         crate::families::custom_family::OuterDerivativePolicy {
             capability,
-            predicted_gradient_work: 0,
-            predicted_hessian_work: 0,
+            predicted_gradient_work,
+            predicted_hessian_work,
             // Survival location-scale consumes `outer_score_subsample` on its
             // outer-only LL, joint-Hessian, and ψ workspace paths.
             subsample_capable: true,
@@ -11723,7 +12805,7 @@ mod tests {
             initial_beta: None,
         };
         let prepared =
-            prepare_identified_time_block(&time_block, 1e-6, 0).expect("prepare time block");
+            prepare_identified_time_block(&time_block, 1e-6, 0, false).expect("prepare time block");
         assert_eq!(prepared.design_entry, design_entry);
         assert_eq!(prepared.design_exit, design_exit);
         assert_eq!(prepared.design_derivative_exit, design_derivative_exit);
@@ -11749,7 +12831,7 @@ mod tests {
         };
 
         let prepared =
-            prepare_identified_time_block(&time_block, 1e-6, 0).expect("prepare time block");
+            prepare_identified_time_block(&time_block, 1e-6, 0, false).expect("prepare time block");
         let p = time_block.design_entry.ncols();
 
         assert_eq!(
@@ -11773,6 +12855,50 @@ mod tests {
             "prepared exit design should keep the full anchored basis width"
         );
         assert_eq!(prepared.transform.z, Array2::<f64>::eye(p));
+    }
+
+    #[test]
+    fn identified_time_block_can_reduce_to_parametric_penalty_nullspace() {
+        let design_entry = array![[1.0, 0.0, 0.2], [1.0, 1.0, 0.5], [1.0, 2.0, 1.0]];
+        let design_exit = array![[1.0, 0.5, 0.3], [1.0, 1.5, 0.8], [1.0, 2.5, 1.4]];
+        let design_derivative_exit = array![[0.0, 1.0, 0.2], [0.0, 1.0, 0.3], [0.0, 1.0, 0.4]];
+        let time_block = TimeBlockInput {
+            design_entry: DesignMatrix::from(design_entry.clone()),
+            design_exit: DesignMatrix::from(design_exit.clone()),
+            design_derivative_exit: DesignMatrix::from(design_derivative_exit.clone()),
+            offset_entry: Array1::zeros(3),
+            offset_exit: Array1::zeros(3),
+            derivative_offset_exit: Array1::from_elem(3, 1e-6),
+            time_monotonicity: TimeBlockMonotonicity::EnforcedByCoordinateCone,
+            penalties: vec![array![[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 1.0]]],
+            nullspace_dims: vec![],
+            initial_log_lambdas: None,
+            initial_beta: Some(array![0.5, 0.2, 9.0]),
+        };
+
+        let prepared =
+            prepare_identified_time_block(&time_block, 1e-6, 0, true).expect("prepare time block");
+        assert_eq!(prepared.transform.z.nrows(), 3);
+        assert_eq!(prepared.transform.z.ncols(), 2);
+        assert_eq!(prepared.design_entry.ncols(), 2);
+        assert_eq!(prepared.design_exit.ncols(), 2);
+        assert_eq!(prepared.design_derivative_exit.ncols(), 2);
+        assert!(prepared.coefficient_lower_bounds.is_none());
+        // The reduced block lives on the penalty null space, so `zᵀ S z` is
+        // exactly zero: there is no curvature left to penalize. An unpenalized
+        // parametric block has no smoothing parameter, so the projected-to-zero
+        // penalties are dropped entirely — the block carries ZERO penalties and
+        // therefore contributes no ρ coordinate to the outer REML search
+        // (issue #736/#735/#721).
+        assert!(
+            prepared.penalties.is_empty(),
+            "reduced parametric time block must be unpenalized (no smoothing parameter), got {} penalties",
+            prepared.penalties.len()
+        );
+        assert!(
+            prepared.nullspace_dims.is_empty(),
+            "reduced parametric time block carries no penalty null-space bookkeeping"
+        );
     }
 
     #[test]
@@ -11800,7 +12926,7 @@ mod tests {
             initial_beta: Some(array![-0.5, 0.2, -1.5]),
         };
         let prepared =
-            prepare_identified_time_block(&time_block, 1e-6, 0).expect("prepare time block");
+            prepare_identified_time_block(&time_block, 1e-6, 0, false).expect("prepare time block");
         assert_eq!(
             prepared.coefficient_lower_bounds,
             Some(array![f64::NEG_INFINITY, 0.0, 0.0])
@@ -11846,7 +12972,7 @@ mod tests {
             initial_beta: Some(array![-0.5, 0.2, -1.5, -2.0]),
         };
         let prepared =
-            prepare_identified_time_block(&time_block, 1e-6, 1).expect("prepare time block");
+            prepare_identified_time_block(&time_block, 1e-6, 1, false).expect("prepare time block");
         assert_eq!(
             prepared.coefficient_lower_bounds,
             Some(array![f64::NEG_INFINITY, 0.0, 0.0, 0.0])
@@ -11878,7 +13004,7 @@ mod tests {
             initial_log_lambdas: None,
             initial_beta: None,
         };
-        let err = match prepare_identified_time_block(&time_block, 1e-6, 0) {
+        let err = match prepare_identified_time_block(&time_block, 1e-6, 0, false) {
             Ok(_) => panic!("offsets below the guard must be rejected"),
             Err(err) => err,
         };
@@ -12215,7 +13341,7 @@ mod tests {
             initial_beta: None,
         };
         let prepared =
-            prepare_identified_time_block(&time_block, 1e-6, 0).expect("prepare time block");
+            prepare_identified_time_block(&time_block, 1e-6, 0, false).expect("prepare time block");
         assert_eq!(prepared.design_entry, design_entry);
         assert_eq!(prepared.design_exit, design_exit);
         assert_eq!(prepared.design_derivative_exit, design_derivative_exit);

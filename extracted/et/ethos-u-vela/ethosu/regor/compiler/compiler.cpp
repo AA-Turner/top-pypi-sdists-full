@@ -190,6 +190,10 @@ bool Compiler::ParseOptions(const char *text, size_t size)
 
 bool Compiler::LoadTosa(const void *input, size_t size)
 {
+    if ( !_graphOptimiserOptions.ignoreOpList.empty() )
+    {
+        LOG_WARN("Ignoring ignore_ops for TOSA input\n");
+    }
     TosaReader::LoadGraphs(input, size, _builders);
     return !_builders.empty();
 }
@@ -202,7 +206,7 @@ bool Compiler::LoadTflite(const void *input, size_t size)
     if ( _compilerOptions.debugDatabase != !!_optDb )
         _optDb = _compilerOptions.debugDatabase ? std::make_unique<class OptimiserDatabase>(&_Db) : nullptr;
 
-    TfLiteReader::LoadGraphs(input, size, _graphs, _optDb.get());
+    TfLiteReader::LoadGraphs(input, size, _graphs, _optDb.get(), false, _graphOptimiserOptions.ignoreOpList);
     return !_graphs.empty();
 }
 
@@ -654,6 +658,12 @@ std::unique_ptr<CompiledGraph> Compiler::CompileGraph(
     {
         SetLastError(e.what());
         return nullptr;
+    }
+
+    if ( _optDb )
+    {
+        _optDb->AddAllocations(schedule->featureMapLRGraph.get());
+        _optDb->AddAllocations(schedule->stagingLRGraph.get());
     }
 
     scheduler.AllocateReadOnlyAddresses(schedule.get(), readOnlyAllocator);

@@ -1,5 +1,5 @@
 //
-// SPDX-FileCopyrightText: Copyright 2021-2025 Arm Limited and/or its affiliates <open-source-office@arm.com>
+// SPDX-FileCopyrightText: Copyright 2021-2026 Arm Limited and/or its affiliates <open-source-office@arm.com>
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -44,6 +44,7 @@ struct LRMemory
     int cascade = 0;    // Memory reserved for cascade buffers for this op at this time point
     int nonlocal = 0;   // Memory related to other ops still live across this time point
     int Used() const { return op + cascade + buffering + nonlocal; }
+    int Unbuffered() const { return op + cascade + nonlocal; }
     bool operator<(const LRMemory &b) const { return Used() < b.Used(); }
     bool operator<=(const LRMemory &b) const { return Used() <= b.Used(); }
 };
@@ -260,6 +261,7 @@ public:
     ordered_map<TensorUsage, SchedulerConnection> outputs;
     std::unique_ptr<ArchitectureOpGroup> _opGroup;
     int _opGroupKey = 0;
+    int weightDepthOffset = 0;
 
 private:
     UniqueId _uid;
@@ -385,6 +387,7 @@ public:
     void AddSubOp(std::unique_ptr<SchedulerOperation> subOp) { _subOps.push_back(std::move(subOp)); }
 
     const std::vector<std::unique_ptr<SchedulerOperation>> &SubOps() const { return _subOps; }
+    const SchedulerConnection *FinalSubOFM() const { return _subOps.empty() ? OFM() : _subOps.back()->FinalSubOFM(); }
 
     ArchitectureOpGroup *OpGroup() const
     {

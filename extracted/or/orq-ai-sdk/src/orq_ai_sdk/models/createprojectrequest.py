@@ -8,18 +8,27 @@ from typing_extensions import NotRequired, TypedDict
 
 
 class CreateProjectRequestTypedDict(TypedDict):
-    name: NotRequired[str]
+    name: str
+    r"""Project name. Names must be non-empty and at most 128 characters."""
     teams: NotRequired[List[str]]
+    r"""Team identifiers to associate with the project."""
+    description: NotRequired[str]
+    r"""Optional human-readable description, at most 500 characters."""
 
 
 class CreateProjectRequest(BaseModel):
-    name: Optional[str] = None
+    name: str
+    r"""Project name. Names must be non-empty and at most 128 characters."""
 
     teams: Optional[List[str]] = None
+    r"""Team identifiers to associate with the project."""
+
+    description: Optional[str] = None
+    r"""Optional human-readable description, at most 500 characters."""
 
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
-        optional_fields = set(["name", "teams"])
+        optional_fields = set(["teams", "description"])
         serialized = handler(self)
         m = {}
 

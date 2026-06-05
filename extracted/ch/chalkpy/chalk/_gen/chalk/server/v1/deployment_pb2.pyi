@@ -142,7 +142,16 @@ class Deployment(_message.Message):
         "customer_vcs_url",
         "display_description",
         "git_commit_message",
+        "build_options",
     )
+    class BuildOptionsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
     ID_FIELD_NUMBER: _ClassVar[int]
     ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
     STATUS_FIELD_NUMBER: _ClassVar[int]
@@ -179,6 +188,7 @@ class Deployment(_message.Message):
     CUSTOMER_VCS_URL_FIELD_NUMBER: _ClassVar[int]
     DISPLAY_DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
     GIT_COMMIT_MESSAGE_FIELD_NUMBER: _ClassVar[int]
+    BUILD_OPTIONS_FIELD_NUMBER: _ClassVar[int]
     id: str
     environment_id: str
     status: DeploymentStatus
@@ -215,6 +225,7 @@ class Deployment(_message.Message):
     customer_vcs_url: str
     display_description: str
     git_commit_message: str
+    build_options: _containers.ScalarMap[str, str]
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -253,4 +264,5 @@ class Deployment(_message.Message):
         customer_vcs_url: _Optional[str] = ...,
         display_description: _Optional[str] = ...,
         git_commit_message: _Optional[str] = ...,
+        build_options: _Optional[_Mapping[str, str]] = ...,
     ) -> None: ...

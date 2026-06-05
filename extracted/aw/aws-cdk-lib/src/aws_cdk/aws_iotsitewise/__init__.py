@@ -6823,7 +6823,7 @@ class CfnGateway(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_iotsitewise as iotsitewise
                 
-                siemens_iEProperty = iotsitewise.CfnGateway.SiemensIEProperty(
+                siemens_ie_property = iotsitewise.CfnGateway.SiemensIEProperty(
                     iot_core_thing_name="iotCoreThingName"
                 )
             '''

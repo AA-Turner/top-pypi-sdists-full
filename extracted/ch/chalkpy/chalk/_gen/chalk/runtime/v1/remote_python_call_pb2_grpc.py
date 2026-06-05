@@ -259,6 +259,11 @@ class FunctionQueueMetaServiceStub(object):
             request_serializer=chalk_dot_runtime_dot_v1_dot_remote__python__call__pb2.GetRecentCallsRequest.SerializeToString,
             response_deserializer=chalk_dot_runtime_dot_v1_dot_remote__python__call__pb2.GetRecentCallsResponse.FromString,
         )
+        self.GetCallResults = channel.unary_unary(
+            "/chalk.runtime.v1.FunctionQueueMetaService/GetCallResults",
+            request_serializer=chalk_dot_runtime_dot_v1_dot_remote__python__call__pb2.GetCallResultsRequest.SerializeToString,
+            response_deserializer=chalk_dot_runtime_dot_v1_dot_remote__python__call__pb2.GetCallResultsResponse.FromString,
+        )
         self.GetCallCount = channel.unary_unary(
             "/chalk.runtime.v1.FunctionQueueMetaService/GetCallCount",
             request_serializer=chalk_dot_runtime_dot_v1_dot_remote__python__call__pb2.GetCallCountRequest.SerializeToString,
@@ -271,6 +276,12 @@ class FunctionQueueMetaServiceServicer(object):
 
     def GetRecentCalls(self, request, context):
         """Return the most recent k calls to a function, ordered newest-first."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetCallResults(self, request, context):
+        """Return current status and accumulated result chunks for specific calls."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
@@ -288,6 +299,11 @@ def add_FunctionQueueMetaServiceServicer_to_server(servicer, server):
             servicer.GetRecentCalls,
             request_deserializer=chalk_dot_runtime_dot_v1_dot_remote__python__call__pb2.GetRecentCallsRequest.FromString,
             response_serializer=chalk_dot_runtime_dot_v1_dot_remote__python__call__pb2.GetRecentCallsResponse.SerializeToString,
+        ),
+        "GetCallResults": grpc.unary_unary_rpc_method_handler(
+            servicer.GetCallResults,
+            request_deserializer=chalk_dot_runtime_dot_v1_dot_remote__python__call__pb2.GetCallResultsRequest.FromString,
+            response_serializer=chalk_dot_runtime_dot_v1_dot_remote__python__call__pb2.GetCallResultsResponse.SerializeToString,
         ),
         "GetCallCount": grpc.unary_unary_rpc_method_handler(
             servicer.GetCallCount,
@@ -324,6 +340,35 @@ class FunctionQueueMetaService(object):
             "/chalk.runtime.v1.FunctionQueueMetaService/GetRecentCalls",
             chalk_dot_runtime_dot_v1_dot_remote__python__call__pb2.GetRecentCallsRequest.SerializeToString,
             chalk_dot_runtime_dot_v1_dot_remote__python__call__pb2.GetRecentCallsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetCallResults(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.runtime.v1.FunctionQueueMetaService/GetCallResults",
+            chalk_dot_runtime_dot_v1_dot_remote__python__call__pb2.GetCallResultsRequest.SerializeToString,
+            chalk_dot_runtime_dot_v1_dot_remote__python__call__pb2.GetCallResultsResponse.FromString,
             options,
             channel_credentials,
             insecure,

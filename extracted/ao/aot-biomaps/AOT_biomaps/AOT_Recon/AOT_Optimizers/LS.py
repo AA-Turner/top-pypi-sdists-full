@@ -13,6 +13,12 @@ import numpy as np
 from tqdm import trange
 from typing import Optional, Union, Tuple
 
+from AOT_biomaps.AOT_Recon.ReconTools import get_array_module, forward_projection, backward_projection, clamp_positive, check_stopping_criterion, calculate_step_size, build_preconditioner, apply_preconditioner
+from AOT_biomaps.AOT_Recon.ReconEnums import PreconditionerType, StopCriterionType
+from AOT_biomaps.AOT_Recon.AOT_SMatrix.SMatrix_SELL import SMatrix_SELL
+from AOT_biomaps.AOT_Recon.AOT_SMatrix.SMatrix_CSR import SMatrix_CSR
+from AOT_biomaps.AOT_Recon.AOT_SMatrix.SMatrix_DENSE import SMatrix_DENSE
+
 # Check for CuPy availability
 try:
     import cupy as cp
@@ -20,11 +26,21 @@ try:
 except ImportError:
     CUPY_AVAILABLE = False
 
-from AOT_biomaps.AOT_Recon.ReconTools import get_array_module, forward_projection, backward_projection, clamp_positive, check_stopping_criterion, calculate_step_size, axpy, build_preconditioner, apply_preconditioner
-from AOT_biomaps.AOT_Recon.ReconEnums import PreconditionerType, StopCriterionType
-from AOT_biomaps.AOT_Recon.AOT_SMatrix.SMatrix_SELL import SMatrix_SELL
-from AOT_biomaps.AOT_Recon.AOT_SMatrix.SMatrix_CSR import SMatrix_CSR
-from AOT_biomaps.AOT_Recon.AOT_SMatrix.SMatrix_DENSE import SMatrix_DENSE
+# =====================================================================
+# CuPy Kernels definition for fusion of operations (Zero-Allocation)
+# =====================================================================
+if CUPY_AVAILABLE:
+    # Fused Kernel : Update PGD + Clamp (Zero-Allocation)
+    pgd_update_kernel = cp.ElementwiseKernel(
+        'float32 lam_in, float32 g, float32 alpha',
+        'float32 lam_out',
+        '''
+        float new_val = lam_in + alpha * g;
+        lam_out = new_val > 0.0f ? new_val : 0.0f;
+        ''',
+        'pgd_update_kernel'
+    )
+
 
 def LS(
     SMatrix : Union[SMatrix_DENSE, SMatrix_CSR, SMatrix_SELL],
@@ -36,6 +52,7 @@ def LS(
     preconditioner_type: PreconditionerType = PreconditionerType.NONE,
     stop_criterion: StopCriterionType = StopCriterionType.MAX_ITERATIONS,
     stop_threshold: float = 100.0,
+    stop_window_size: int = 5,
     isSavingEachIteration: bool = True,
     isCostFunction: bool = False,
     withTumor: bool = True,
@@ -73,6 +90,7 @@ def LS(
         preconditioner_type: Type of preconditioner to use (default: NONE)
         stop_criterion: Criterion for stopping the iterations
         stop_threshold: Threshold value for the stopping criterion (for MAX_iterations, this is ignored)
+        stop_window_size: Window size (used to avoid early stop due to oscillations)
         isSavingEachIteration: If True, saves intermediate results
         isCostFunction: If True, computes and saves cost function history
         withTumor: Boolean for description only
@@ -87,6 +105,7 @@ def LS(
         - cost_history: List of cost function values (None if not requested)
     """   
     xp = get_array_module(SMatrix)
+    is_gpu = (xp.__name__ == 'cupy')
     Z = SMatrix.Z
     X = SMatrix.X
     ZX = Z * X
@@ -96,6 +115,7 @@ def LS(
 
     y_flat = xp.asarray(y.T.flatten().astype(xp.float32))
     lambda_flat = xp.full(ZX, 0.1, dtype=xp.float32)
+    residual_buffer = xp.empty_like(y_flat)
 
     preconditioner = build_preconditioner(SMatrix, preconditioner_type) if preconditioner_type != PreconditionerType.NONE else None
 
@@ -105,6 +125,8 @@ def LS(
     saved_lambda = []
     saved_indices_list = []
     cost_history = [] if isCostFunction else None
+    window_history = []
+
 
     alpha = calculate_step_size(SMatrix, eta, numIterations_stepCalculation, show_logs) if alpha == "auto" else alpha
 
@@ -113,25 +135,29 @@ def LS(
 
     for it in iterator:
         prev_lambda = lambda_flat.copy()
-        # Compute gradient: g = A^T * (A * λ - y)
         q_flat = forward_projection(SMatrix, lambda_flat)
-        r_flat = axpy(SMatrix, y_flat, q_flat, -1.0)  # r = y - A*λ
-        g_flat = backward_projection(SMatrix, r_flat)  # g = A^T * r
-
-        # Apply preconditioner to gradient: g = M^-1 * g
-        g_flat = apply_preconditioner(g_flat, preconditioner, SMatrix) if preconditioner is not None else g_flat
-
-        # Compute cost function if requested
+        xp.subtract(y_flat, q_flat, out=residual_buffer)
+ 
         if isCostFunction:
-            cost_history.append(float(0.5 * xp.sum((q_flat - y_flat)**2)))
+            cost_history.append(0.5 * float(xp.vdot(residual_buffer, residual_buffer)))
+
+        # Apply preconditioner to gradient (if asked): g = M^-1 * g with g = A^T * (y - A * λ) 
+        g_flat = apply_preconditioner(backward_projection(SMatrix, y_flat - q_flat), preconditioner, SMatrix) if preconditioner is not None else backward_projection(SMatrix, y_flat - q_flat)
 
         # Update: λ = λ + α * (M^-1 * g)
-        lambda_flat = clamp_positive(SMatrix, axpy(SMatrix, lambda_flat, g_flat, alpha))
+        if is_gpu:
+            pgd_update_kernel(lambda_flat, g_flat, float(alpha), lambda_flat)
+        else:
+            # Fallback CPU in-place
+            g_flat *= float(alpha)
+            lambda_flat += g_flat
+            np.maximum(lambda_flat, 0.0, out=lambda_flat)
 
         # Stopping Criterion
         if stop_criterion != StopCriterionType.MAX_ITERATIONS:
             ground_truth = SMatrix.experiment.OpticImage.phantom if withTumor else SMatrix.experiment.OpticImage.laser.intensity
-            isStop, val = check_stopping_criterion(SMatrix, lambda_flat, prev_lambda, stop_criterion, stop_threshold, cost_history, ground_truth)
+            gradient_for_stop = g_flat if stop_criterion == StopCriterionType.GRADIENT_NORM else None
+            isStop, val = check_stopping_criterion(SMatrix, lambda_flat, prev_lambda, stop_criterion, stop_threshold, window_size=stop_window_size, history=cost_history, ground_truth=ground_truth, gradient=gradient_for_stop, window_history=window_history)
             if show_logs and show_criterion:
                 iterator.set_postfix_str(f"{stop_criterion.name}: {val:.2e}")
             if isStop:

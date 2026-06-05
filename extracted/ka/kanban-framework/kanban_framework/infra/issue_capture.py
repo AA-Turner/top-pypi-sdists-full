@@ -8,6 +8,7 @@ import json
 import time
 import traceback
 from pathlib import Path
+from kanban_framework.infra.consts import Consts
 
 
 def _is_auto_mode(task) -> bool:
@@ -48,7 +49,7 @@ def capture_issue(fs, task, error: Exception, context: dict | None = None) -> Pa
         f"- **Task**: {task.id}",
         f"- **Phase**: {task.phase.value if hasattr(task.phase, 'value') else str(task.phase)}",
         f"- **Iteration**: {task.iteration}",
-        f"- **Mode**: {getattr(task, 'mode', 'full')}",
+        f"- **Mode**: {getattr(task, 'mode', '') or Consts.DEFAULT_MODE}",
         f"- **Time**: {ts}",
     ]
     if ctx:

@@ -17,6 +17,7 @@ from __future__ import annotations
 import ctypes
 import asyncio
 import datetime
+import enum
 import os
 import mimetypes
 import aiofiles
@@ -28,6 +29,9 @@ from ._proto import ffi_pb2 as proto_ffi
 from ._proto import participant_pb2 as proto_participant
 from ._proto.room_pb2 import (
     TrackPublishOptions,
+)
+from ._proto.room_pb2 import (
+    ConnectionQuality as ProtoConnectionQuality,
 )
 from ._proto.room_pb2 import (
     TranscriptionSegment as ProtoTranscriptionSegment,
@@ -89,10 +93,29 @@ class PublishDataTrackError(Exception):
         self.message = message
 
 
+class ConnectionQuality(enum.IntEnum):
+    """Connection quality reported for a participant."""
+
+    QUALITY_UNKNOWN = -1
+    """No connection-quality update has been reported yet (no proto equivalent)."""
+    QUALITY_POOR = ProtoConnectionQuality.QUALITY_POOR
+    QUALITY_GOOD = ProtoConnectionQuality.QUALITY_GOOD
+    QUALITY_EXCELLENT = ProtoConnectionQuality.QUALITY_EXCELLENT
+    QUALITY_LOST = ProtoConnectionQuality.QUALITY_LOST
+
+
+def _connection_quality_from_proto(value: int) -> ConnectionQuality:
+    try:
+        return ConnectionQuality(value)
+    except ValueError:
+        return ConnectionQuality.QUALITY_UNKNOWN
+
+
 class Participant(ABC):
     def __init__(self, owned_info: proto_participant.OwnedParticipant) -> None:
         self._info = owned_info.info
         self._ffi_handle = FfiHandle(owned_info.handle.id)
+        self._connection_quality = ConnectionQuality.QUALITY_UNKNOWN
 
     @property
     @abstractmethod
@@ -151,6 +174,16 @@ class Participant(ABC):
     def permissions(self) -> proto_participant.ParticipantPermission:
         """The participant's permissions within the room."""
         return self._info.permission
+
+    @property
+    def connection_quality(self) -> ConnectionQuality:
+        """The participant's most recently reported connection quality.
+
+        Returns ``ConnectionQuality.QUALITY_UNKNOWN`` until the first
+        connection-quality update is received. Updated automatically whenever a
+        ``connection_quality_changed`` event fires for this participant.
+        """
+        return self._connection_quality
 
     @property
     def disconnect_reason(
@@ -324,6 +357,7 @@ class LocalParticipant(Participant):
         method: str,
         payload: str,
         response_timeout: Optional[float] = None,
+        max_round_trip_latency: Optional[float] = None,
     ) -> str:
         """
         Initiate an RPC call to a remote participant.
@@ -333,6 +367,12 @@ class LocalParticipant(Participant):
             method (str): The method name to call
             payload (str): The method payload
             response_timeout (Optional[float]): Timeout for receiving a response after initial connection
+            max_round_trip_latency (float): The maximum amount of time it should ever take for an RPC
+                request to reach the destination and for the ACK to come back. Defaults to 7 seconds to
+                account for various relay timeouts and retries in LiveKit Cloud that occur in rare cases.
+                Most callers should not need to change this, but it can be increased to tolerate
+                high-latency networks where RPC requests are backed up behind other messages on the
+                data channel.
 
         Returns:
             str: The response payload
@@ -347,6 +387,8 @@ class LocalParticipant(Participant):
         req.perform_rpc.payload = payload
         if response_timeout is not None:
             req.perform_rpc.response_timeout_ms = int(response_timeout * 1000)
+        if max_round_trip_latency is not None:
+            req.perform_rpc.max_round_trip_latency_ms = int(max_round_trip_latency * 1000)
 
         queue = FfiClient.instance.queue.subscribe()
         try:

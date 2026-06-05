@@ -7,21 +7,22 @@ from contextlib import AbstractAsyncContextManager, nullcontext
 from typing import TYPE_CHECKING, Any, TypeVar
 
 from ._loop_affinity import assert_bound_loop
-from ._session_config import DEFAULT_MAX_CONCURRENT_RPCS
+from ._loop_bound import LoopBoundPrimitive
+from ._runtime.config import DEFAULT_MAX_CONCURRENT_RPCS
 
 _T = TypeVar("_T")
 
 if TYPE_CHECKING:
-    from ._middleware import Middleware
-    from ._middleware_chain import MiddlewareChainBuilder
-    from ._middleware_chain_host import MiddlewareChainHost
+    from ._middleware.chain import MiddlewareChainBuilder
+    from ._middleware.chain_host import MiddlewareChainHost
+    from ._middleware.core import Middleware
     from ._rpc_executor import RpcExecutor
-    from ._session_init import SessionCollaborators, WiredMiddleware
-    from ._session_transport import SessionTransport
+    from ._runtime.init import RuntimeCollaborators, WiredMiddleware
+    from ._runtime.transport import RuntimeTransport
 
 
-class ClientComposed:
-    """Mutable holder for composition state that is migrating off ``Session``."""
+class ClientComposed(LoopBoundPrimitive):
+    """Mutable holder for the client's composition state."""
 
     def __init__(
         self,
@@ -32,23 +33,23 @@ class ClientComposed:
             raise ValueError(f"max_concurrent_rpcs must be >= 1, got {max_concurrent_rpcs!r}")
         self.max_concurrent_rpcs = max_concurrent_rpcs
         self._rpc_semaphore: asyncio.Semaphore | None = None
-        # Loop-affinity guard for the lazy RPC semaphore. Captured at
-        # ``ClientLifecycle.open()`` time via :meth:`set_bound_loop` (mirroring
-        # the drain ``Condition`` / reqid ``Lock`` / refresh ``Lock`` /
-        # auth-snapshot ``Lock`` sibling primitives) and consulted by
-        # :meth:`get_rpc_semaphore` so a cross-loop call raises an actionable
-        # ``RuntimeError`` rather than reusing an ``asyncio.Semaphore`` bound
-        # to a dead loop. ``None`` is a silent no-op for standalone holders
-        # constructed without an ``open()`` (composition / unit fixtures).
-        self._bound_loop: asyncio.AbstractEventLoop | None = None
-        self._transport: SessionTransport | None = None
+        # The loop-affinity guard for the lazy RPC semaphore (``_bound_loop``)
+        # and the ``set_bound_loop`` template method come from the
+        # :class:`~notebooklm._loop_bound.LoopBoundPrimitive` base. This holder
+        # overrides :meth:`_on_loop_rebind` to discard the cached
+        # ``asyncio.Semaphore`` on a loop change so a cross-loop reopen never
+        # reuses a primitive bound to a dead loop. ``_bound_loop is None`` is a
+        # silent no-op for standalone holders constructed without an ``open()``
+        # (composition / unit fixtures).
+        self._transport: RuntimeTransport | None = None
         self._executor: RpcExecutor | None = None
         self._chain_host: MiddlewareChainHost | None = None
         self._chain_builder: MiddlewareChainBuilder | None = None
         self._middlewares: list[Middleware] | None = None
-        # Avoid a plain `.collaborators` attribute here: the ADR-014 lint
-        # reserves that name for the deleted Stage A Session accessor.
-        self._session_collaborators: SessionCollaborators | None = None
+        # Avoid a plain `.collaborators` attribute here: the ADR-0014 lint
+        # reserves that bare name so feature APIs can't grab the whole
+        # bundle.
+        self._runtime_collaborators: RuntimeCollaborators | None = None
 
     @staticmethod
     def _require_bound(attr_name: str, value: _T | None) -> _T:
@@ -57,7 +58,7 @@ class ClientComposed:
         return value
 
     @property
-    def transport(self) -> SessionTransport:
+    def transport(self) -> RuntimeTransport:
         return self._require_bound("_transport", self._transport)
 
     @property
@@ -77,10 +78,10 @@ class ClientComposed:
         return self._require_bound("_middlewares", self._middlewares)
 
     @property
-    def session_collaborators(self) -> SessionCollaborators:
-        return self._require_bound("_session_collaborators", self._session_collaborators)
+    def runtime_collaborators(self) -> RuntimeCollaborators:
+        return self._require_bound("_runtime_collaborators", self._runtime_collaborators)
 
-    def bind_transport(self, transport: SessionTransport) -> None:
+    def bind_transport(self, transport: RuntimeTransport) -> None:
         if self._transport is not None:
             raise RuntimeError("ClientComposed._transport already bound")
         self._transport = transport
@@ -101,33 +102,28 @@ class ClientComposed:
         self._chain_builder = wired.chain_builder
         self._middlewares = wired.middlewares
 
-    def bind_session_collaborators(self, collaborators: SessionCollaborators) -> None:
-        if self._session_collaborators is not None:
-            raise RuntimeError("ClientComposed._session_collaborators already bound")
-        self._session_collaborators = collaborators
+    def bind_runtime_collaborators(self, collaborators: RuntimeCollaborators) -> None:
+        if self._runtime_collaborators is not None:
+            raise RuntimeError("ClientComposed._runtime_collaborators already bound")
+        self._runtime_collaborators = collaborators
 
-    def set_bound_loop(self, loop: asyncio.AbstractEventLoop | None) -> None:
-        """Capture or clear the event-loop binding for the affinity guard.
+    def _on_loop_rebind(
+        self,
+        old: asyncio.AbstractEventLoop | None,
+        new: asyncio.AbstractEventLoop | None,
+    ) -> None:
+        """Discard the cached RPC semaphore when the bound loop changes.
 
-        Called by :meth:`ClientLifecycle.open` after it captures the running
-        loop, so :meth:`get_rpc_semaphore` can short-circuit cross-loop misuse
-        before reusing the lazily-built :attr:`_rpc_semaphore` (which binds to
-        the loop it was first constructed on). Mirrors the identically-named
-        method on :class:`TransportDrainTracker`, :class:`ReqidCounter`, and
-        :class:`AuthRefreshCoordinator`. Passing ``None`` clears the binding
-        for the next ``open()`` (which will rebind to a fresh loop).
-
-        When the loop actually changes, the cached semaphore is discarded here
-        too so this method is self-consistent even if called independently of
+        Fires from :meth:`~notebooklm._loop_bound.LoopBoundPrimitive.set_bound_loop`
+        only on a real loop change (and before ``_bound_loop`` is updated), so
+        ``set_bound_loop`` is self-consistent even if called independently of
         :meth:`reset_after_open` (e.g. directly in a test or a future caller):
         a stale semaphore bound to the old loop must never be reused after a
         rebind. The production ``open()`` path also calls
         :meth:`reset_after_open` immediately after, so the discard is
         idempotent there.
         """
-        if loop is not self._bound_loop:
-            self._rpc_semaphore = None
-        self._bound_loop = loop
+        self._rpc_semaphore = None
 
     def reset_after_open(self) -> None:
         """Discard the lazy RPC semaphore so a reopened client rebinds it.

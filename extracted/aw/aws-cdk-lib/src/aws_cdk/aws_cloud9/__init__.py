@@ -99,7 +99,7 @@ class CfnEnvironmentEC2(
         # The values are placeholders you should change.
         from aws_cdk import aws_cloud9 as cloud9
         
-        cfn_environment_eC2 = cloud9.CfnEnvironmentEC2(self, "MyCfnEnvironmentEC2",
+        cfn_environment_ec2 = cloud9.CfnEnvironmentEC2(self, "MyCfnEnvironmentEC2",
             image_id="imageId",
             instance_type="instanceType",
         
@@ -543,7 +543,7 @@ class CfnEnvironmentEC2Props:
             # The values are placeholders you should change.
             from aws_cdk import aws_cloud9 as cloud9
             
-            cfn_environment_eC2_props = cloud9.CfnEnvironmentEC2Props(
+            cfn_environment_ec2_props = cloud9.CfnEnvironmentEC2Props(
                 image_id="imageId",
                 instance_type="instanceType",
             

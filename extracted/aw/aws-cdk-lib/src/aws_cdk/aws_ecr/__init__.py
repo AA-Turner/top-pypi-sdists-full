@@ -319,6 +319,7 @@ import abc
 import builtins
 import datetime
 import enum
+import importlib as _importlib
 import typing
 
 import jsii
@@ -6501,22 +6502,17 @@ class Repository(
 
     Example::
 
-        repository = ecr.Repository(self, "TestRepository",
-            repository_name="test-agent-runtime"
-        )
+        repository = ecr.Repository(self, "TestRepository")
         
-        runtime = agentcore.Runtime(self, "MyRuntime",
-            runtime_name="my_agent",
+        runtime = agentcore.Runtime(self, "Runtime",
             agent_runtime_artifact=agentcore.AgentRuntimeArtifact.from_ecr_repository(repository, "v1.0.0")
         )
         
-        # Using default endpoint (simplest)
-        evaluation = agentcore.OnlineEvaluationConfig(self, "RuntimeEval",
-            online_evaluation_config_name="runtime_evaluation",
-            evaluators=[
-                agentcore.EvaluatorSelector.builtin(agentcore.BuiltinEvaluator.HELPFULNESS)
-            ],
-            data_source=agentcore.DataSourceConfig.from_agent_runtime_endpoint(runtime)
+        logs.MetricFilter(self, "ToolErrors",
+            log_group=runtime.application_log_group,
+            filter_pattern=logs.FilterPattern.string_value("$.tool_status", "=", "error"),
+            metric_namespace="MyApp",
+            metric_name="ToolExecutionErrors"
         )
     '''
 
@@ -6798,10 +6794,30 @@ __all__ = [
     "mixins",
 ]
 
+# Type-checking-only imports for static analyzers (pyright/mypy).
+# At runtime TYPE_CHECKING is False, preserving lazy loading.
+if typing.TYPE_CHECKING:
+    from . import mixins as mixins
+
 publication.publish()
 
-# Loading modules to ensure their types are registered with the jsii runtime library
-from . import mixins
+_SUBMODULES = {
+    "mixins",
+}
+
+def __getattr__(name: str) -> object:
+    if name in _SUBMODULES:
+        mod = _importlib.import_module(f".{name}", __name__)
+        globals()[name] = mod
+        return mod
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+def __dir__() -> "list[str]":
+    return [*__all__, *_SUBMODULES]
+
+import sys as _sys
+setattr(_sys.modules[__name__], "__getattr__", __getattr__)
+setattr(_sys.modules[__name__], "__dir__", __dir__)
 
 def _typecheckingstub__b189c1467d2bda9405aa4cabd8bab18d9bb346d049339366389c70f4216e7822(
     grantee: _IGrantable_71c4f5de,

@@ -4,6 +4,7 @@
 import grpc
 
 from chalk._gen.chalk.server.v1 import deploy_pb2 as chalk_dot_server_dot_v1_dot_deploy__pb2
+from chalk._gen.chalk.server.v1 import deployment_revision_pb2 as chalk_dot_server_dot_v1_dot_deployment__revision__pb2
 
 
 class DeployServiceStub(object):
@@ -34,6 +35,11 @@ class DeployServiceStub(object):
             "/chalk.server.v1.DeployService/ListDeployments",
             request_serializer=chalk_dot_server_dot_v1_dot_deploy__pb2.ListDeploymentsRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_deploy__pb2.ListDeploymentsResponse.FromString,
+        )
+        self.ListDeploymentRevisions = channel.unary_unary(
+            "/chalk.server.v1.DeployService/ListDeploymentRevisions",
+            request_serializer=chalk_dot_server_dot_v1_dot_deployment__revision__pb2.ListDeploymentRevisionsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_deployment__revision__pb2.ListDeploymentRevisionsResponse.FromString,
         )
         self.GetActiveDeployments = channel.unary_unary(
             "/chalk.server.v1.DeployService/GetActiveDeployments",
@@ -89,6 +95,12 @@ class DeployServiceServicer(object):
         raise NotImplementedError("Method not implemented!")
 
     def ListDeployments(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def ListDeploymentRevisions(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -152,6 +164,11 @@ def add_DeployServiceServicer_to_server(servicer, server):
             servicer.ListDeployments,
             request_deserializer=chalk_dot_server_dot_v1_dot_deploy__pb2.ListDeploymentsRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_deploy__pb2.ListDeploymentsResponse.SerializeToString,
+        ),
+        "ListDeploymentRevisions": grpc.unary_unary_rpc_method_handler(
+            servicer.ListDeploymentRevisions,
+            request_deserializer=chalk_dot_server_dot_v1_dot_deployment__revision__pb2.ListDeploymentRevisionsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_deployment__revision__pb2.ListDeploymentRevisionsResponse.SerializeToString,
         ),
         "GetActiveDeployments": grpc.unary_unary_rpc_method_handler(
             servicer.GetActiveDeployments,
@@ -298,6 +315,35 @@ class DeployService(object):
             "/chalk.server.v1.DeployService/ListDeployments",
             chalk_dot_server_dot_v1_dot_deploy__pb2.ListDeploymentsRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_deploy__pb2.ListDeploymentsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ListDeploymentRevisions(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.DeployService/ListDeploymentRevisions",
+            chalk_dot_server_dot_v1_dot_deployment__revision__pb2.ListDeploymentRevisionsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_deployment__revision__pb2.ListDeploymentRevisionsResponse.FromString,
             options,
             channel_credentials,
             insecure,

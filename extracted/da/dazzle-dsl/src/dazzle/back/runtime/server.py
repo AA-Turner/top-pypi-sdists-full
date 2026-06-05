@@ -4,7 +4,10 @@ Runtime server - creates and runs a FastAPI application from AppSpec.
 This module provides the main entry point for running a Dazzle backend application.
 """
 
+import contextlib
 import logging
+import os
+from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -151,12 +154,69 @@ class ServerConfig:
     # `docs/guides/security.md` section 3 T3 — `POST /graphql` is NOT in it.
     csrf_exempt_paths: list[str] = field(default_factory=list)
 
+    # Phase 2 (declarative CSRF §4.2): extra origins to admit even when they
+    # don't match the request Host (e.g. a same-site embedder). Threaded into
+    # `csrf.configure_csrf_for_profile` as `extra_trusted_origins`; merged with
+    # the (empty) default and de-duped.
+    csrf_trusted_origins: list[str] = field(default_factory=list)
+
     # Audit log tamper-resistance (#1197). Opt-in. Default "none" preserves
     # today's behaviour exactly — no schema change, no extra SELECT-prev-hash.
     # "hash_chain" enables a per-row sha256 chain (column `row_hash`) so a
     # tampered row breaks the chain at the modified entry. See
     # `AuditLogger.verify_chain()` for offline verification.
     audit_integrity: str = "none"  # "none" | "hash_chain"
+
+
+def _tenancy_metadata_kwargs(appspec: AppSpec) -> dict[str, Any]:
+    """Tenant-scoping kwargs for ``build_metadata`` (RLS Phase A).
+
+    Returns ``partition_key`` + ``tenant_scoped`` only under
+    ``tenancy: mode: shared_schema``; otherwise an empty dict so the
+    non-tenant ``build_metadata`` path is unchanged. An entity is
+    tenant-scoped iff it carries the partition_key field (covers both
+    framework-injected and hand-declared discriminators).
+    """
+    from dazzle.back.runtime.sa_schema import scoped_entity_names
+    from dazzle.core.ir import TenancyMode
+
+    tenancy = appspec.tenancy
+    if tenancy is None or tenancy.isolation.mode != TenancyMode.SHARED_SCHEMA:
+        return {}
+    pk = tenancy.isolation.partition_key
+    return {
+        "partition_key": pk,
+        "tenant_scoped": scoped_entity_names(appspec.domain.entities, pk),
+    }
+
+
+def _compute_rls_user_attr_names(entities: list[Any]) -> set[str]:
+    """App-wide set of ``current_user`` attrs referenced by any scope rule (Phase C).
+
+    The union of
+    :func:`~dazzle.back.runtime.predicate_compiler.collect_user_attr_refs` over
+    every scoped entity's ``access.scopes`` predicates. This is the exact set of
+    ``dazzle.user_<attr>`` GUCs the runtime must set per request so the per-verb
+    scope policies' ``current_setting('dazzle.user_<attr>', true)`` resolves.
+
+    Registered once at startup (``register_rls_user_attr_names``) so the auth
+    dependency resolves only these attrs per request without re-walking trees.
+    A ``current_user`` reference (the user's PK) contributes ``"id"``. Entities
+    without scope rules contribute nothing.
+    """
+    from dazzle.back.runtime.predicate_compiler import collect_user_attr_refs
+
+    names: set[str] = set()
+    for entity in entities:
+        access = getattr(entity, "access", None)
+        scopes = getattr(access, "scopes", None) if access is not None else None
+        if not scopes:
+            continue
+        for rule in scopes:
+            predicate = getattr(rule, "predicate", None)
+            if predicate is not None:
+                names |= collect_user_attr_refs(predicate)
+    return names
 
 
 def _maybe_configure_tracer() -> None:
@@ -263,6 +323,15 @@ class DazzleBackendApp:
 
         self._appspec = appspec
         self._entities = convert_entities(appspec.domain.entities)
+        # RLS tenancy Phase C — register the app-wide set of current_user attrs
+        # referenced by any scope rule (only under shared_schema; empty otherwise).
+        # The auth dependency resolves exactly these into dazzle.user_<attr> GUCs
+        # per request. Registered unconditionally (empty when not applicable) so a
+        # prior app instance in the same process can't leak a stale set.
+        self._rls_user_attr_names = self._compute_rls_user_attr_names_for_appspec()
+        from dazzle.back.runtime.tenant_isolation import register_rls_user_attr_names
+
+        register_rls_user_attr_names(self._rls_user_attr_names)
         self._service_specs, self._endpoint_specs = convert_surfaces_to_services(
             appspec.surfaces, appspec.domain
         )
@@ -317,6 +386,8 @@ class DazzleBackendApp:
         self._cors_origins = config.cors_origins
         # #1212 — opt-in extra CSRF-exempt paths from ServerConfig.
         self._csrf_exempt_paths = list(config.csrf_exempt_paths)
+        # Phase 2 — opt-in extra CSRF-trusted origins from ServerConfig.
+        self._csrf_trusted_origins = list(config.csrf_trusted_origins)
         # Event system (v0.18.0)
         self._event_framework: EventFramework | None = None
         # NOTE: _sitespec_data and _project_root are already set above (lines 201-203)
@@ -437,6 +508,37 @@ class DazzleBackendApp:
     # Build phases — called in order by build()
     # ------------------------------------------------------------------
 
+    @contextlib.asynccontextmanager
+    async def _lifespan(self, app: FastAPI) -> AsyncIterator[None]:
+        """Modern FastAPI lifespan replacing the deprecated ``on_event`` hooks.
+
+        Reads instance state at *startup* time (after ``build()`` has fully
+        populated ``self._db_manager`` / ``self._audit_logger`` / pool sizes),
+        so it is safe to attach at ``FastAPI(...)`` construction even though
+        those attributes are set in later build phases.
+
+        Startup: open the DB connection pool (#438), then start the audit
+        logger if one was configured. The audit logger's ``start()`` is
+        deferred to here so a running event loop is guaranteed (#1214) — Py3.12
+        removed the implicit event-loop acquisition that the prior sync
+        construction path relied on.
+
+        Shutdown: stop the audit logger (if configured), then close the pool —
+        mirroring the previous ordering (pool opens first, closes last).
+        """
+        pool_min = int(os.environ.get("DAZZLE_DB_POOL_MIN", "2"))
+        pool_max = int(os.environ.get("DAZZLE_DB_POOL_MAX", "10"))
+        assert self._db_manager is not None
+        self._db_manager.open_pool(min_size=pool_min, max_size=pool_max)
+        if self._audit_logger is not None:
+            self._audit_logger.start()
+        try:
+            yield
+        finally:
+            if self._audit_logger is not None:
+                await self._audit_logger.stop()
+            self._db_manager.close_pool()
+
     def _create_app(self) -> None:
         """Create the FastAPI app instance and apply middleware."""
         _maybe_configure_tracer()
@@ -444,6 +546,7 @@ class DazzleBackendApp:
             title=self._appspec.name,
             description=self._appspec.title or f"Dazzle Backend: {self._appspec.name}",
             version=self._appspec.version,
+            lifespan=self._lifespan,
         )
         _maybe_instrument_for_perf(self._app)
 
@@ -496,6 +599,7 @@ class DazzleBackendApp:
             self._app,
             self._security_profile,
             extra_exempt_paths=self._csrf_exempt_paths or None,
+            extra_trusted_origins=self._csrf_trusted_origins or None,
         )
 
         # GZip compression (v0.33.0) — must be added before other middleware
@@ -582,7 +686,11 @@ class DazzleBackendApp:
             logger.warning("Could not list tenants for schema migration: %s", exc)
             return
 
-        metadata = build_metadata(self._entities, surfaces=list(self._appspec.surfaces))
+        metadata = build_metadata(
+            self._entities,
+            surfaces=list(self._appspec.surfaces),
+            **_tenancy_metadata_kwargs(self._appspec),
+        )
         # Normalise Heroku-style postgres:// alias before adding driver suffix
         sa_url = add_psycopg_driver(normalise_postgres_scheme(self._database_url))
 
@@ -675,6 +783,64 @@ class DazzleBackendApp:
             "y" if len(searches) == 1 else "ies",
         )
 
+    def _compute_rls_user_attr_names_for_appspec(self) -> set[str]:
+        """The app-wide scope-attr set under ``shared_schema``, else empty (Phase C).
+
+        Gated on ``tenancy: mode: shared_schema`` (mirrors ``_apply_rls_policies``):
+        only then do per-verb scope policies exist, so only then are
+        ``dazzle.user_<attr>`` GUCs needed. Other isolation modes / non-tenant apps
+        get an empty set → the per-request bind is a no-op.
+        """
+        from dazzle.core.ir import TenancyMode
+
+        tenancy = self._appspec.tenancy
+        if tenancy is None or tenancy.isolation.mode != TenancyMode.SHARED_SCHEMA:
+            return set()
+        return _compute_rls_user_attr_names(self._entities)
+
+    def _apply_rls_policies(self, engine: Any) -> None:
+        """Apply RLS tenant fence + per-verb scope/baseline policies (Phase B + C).
+
+        Mirrors :meth:`_apply_search_indexes`: runtime-applied DDL post
+        ``create_all`` (not an Alembic migration — see the Phase B/C plans). Gated
+        on ``tenancy: mode: shared_schema``; a no-op for every other isolation
+        mode (and for non-tenant apps), so behaviour is unchanged there.
+
+        For each tenant-scoped entity it emits ``ENABLE`` + ``FORCE ROW LEVEL
+        SECURITY`` and the restrictive ``tenant_fence`` (Phase B), then:
+
+        - **scoped entity** (≥1 ``access.scopes`` rule): Phase C per-verb
+          permissive policies (``scope_select``/``scope_insert``/
+          ``scope_update``/``scope_delete``) compiled from the scope predicate
+          algebra; the permissive ``tenant_baseline`` is dropped (a verb without
+          a scope rule is denied at the DB).
+        - **tenant-flat entity** (no scope rules): Phase B's permissive
+          ``tenant_baseline`` (all verbs).
+
+        All DDL is idempotent (drop-before-create). The role DDL is **not** run
+        here (roles are cluster/deploy-level). App-layer scope filters remain in
+        force as defence-in-depth, so a skipped apply cannot leak.
+        """
+        from sqlalchemy import text as _sa_text
+
+        from dazzle.back.runtime.rls_schema import build_all_rls_ddl
+
+        # All partitioning (scoped-vs-flat, fail-loud-on-missing-fk_graph, the
+        # shared_schema / no-scoped no-op gates) now lives in build_all_rls_ddl
+        # so the dev apply, prod apply, inspect, and drift paths share one
+        # generator. Behaviour here is identical to the old inline version.
+        statements = build_all_rls_ddl(self._appspec, self._entities)
+        if not statements:
+            return
+        with engine.begin() as conn:
+            for stmt in statements:
+                conn.execute(_sa_text(stmt))
+        logger.info(
+            "Applied RLS policies (%d statement%s)",
+            len(statements),
+            "" if len(statements) == 1 else "s",
+        )
+
     def _setup_models(self) -> None:
         """Generate Pydantic models and create/update schemas from the spec."""
         self._models = generate_all_entity_models(self._entities)
@@ -686,8 +852,6 @@ class DazzleBackendApp:
 
     def _setup_database(self) -> None:
         """Initialize database backend, run migrations, create repositories."""
-        import os
-
         if not self._database_url:
             raise ValueError(
                 "database_url is required. Set DATABASE_URL environment variable "
@@ -702,25 +866,51 @@ class DazzleBackendApp:
         if may_create_schema:
             # Development/test convenience only. Production schema changes must
             # go through Alembic so broken migration state is not hidden.
+            from sqlalchemy import create_engine as _sa_create_engine
+
+            from dazzle.back.runtime.sa_schema import build_metadata
+
+            metadata = build_metadata(
+                self._entities,
+                surfaces=list(self._appspec.surfaces),
+                **_tenancy_metadata_kwargs(self._appspec),
+            )
+            # Normalise Heroku-style postgres:// alias before adding driver suffix
+            sa_url = add_psycopg_driver(normalise_postgres_scheme(self._database_url))
+            # ONE engine for both steps; disposed exactly once in the finally so
+            # create_engine is called a single time.
+            engine = _sa_create_engine(sa_url)
             try:
-                from sqlalchemy import create_engine as _sa_create_engine
-
-                from dazzle.back.runtime.sa_schema import build_metadata
-
-                metadata = build_metadata(self._entities, surfaces=list(self._appspec.surfaces))
-                # Normalise Heroku-style postgres:// alias before adding driver suffix
-                sa_url = add_psycopg_driver(normalise_postgres_scheme(self._database_url))
-                engine = _sa_create_engine(sa_url)
+                # Tolerant best-effort for dev schema conflicts ONLY: create_all
+                # + the FTS indexes. A failure here is downgraded to a WARNING
+                # and boot continues (the create-all-convenience invariant).
                 try:
                     metadata.create_all(engine)
                     # #954 cycle 2 — apply tsvector + GIN index DDL after the
                     # base schema lands. Idempotent (IF NOT EXISTS); safe to
                     # re-run on every dev boot.
                     self._apply_search_indexes(engine)
-                finally:
-                    engine.dispose()
-            except Exception as exc:
-                logger.warning("Development schema create_all failed: %s", exc)
+                except Exception as exc:
+                    logger.warning("Development schema create_all failed: %s", exc)
+
+                # RLS tenancy Phase B — apply the tenant fence + permissive
+                # baseline OUTSIDE the tolerant except above (C-1), on the SAME
+                # engine: a fence-apply failure MUST halt boot for a shared_schema
+                # app rather than be downgraded to a WARNING that lets the app
+                # serve tenant traffic fence-less. The exception propagates after
+                # being logged loudly. No-op for non-tenant / non-shared_schema
+                # apps, so it never raises for them.
+                try:
+                    self._apply_rls_policies(engine)
+                except Exception as rls_exc:
+                    logger.error(
+                        "RLS policy apply FAILED — tenant fence NOT installed; "
+                        "shared-schema tenancy is unenforced. Halting boot: %s",
+                        rls_exc,
+                    )
+                    raise
+            finally:
+                engine.dispose()
         else:
             logger.info("Skipping startup schema creation in production; Alembic owns schema.")
 
@@ -746,21 +936,9 @@ class DazzleBackendApp:
         if self._tenant_config and self._tenant_config.isolation == "schema":
             self._migrate_tenant_schemas()
 
-        # Open connection pool and register lifecycle events (#438)
-        pool_min = int(os.environ.get("DAZZLE_DB_POOL_MIN", "2"))
-        pool_max = int(os.environ.get("DAZZLE_DB_POOL_MAX", "10"))
-        db_manager = self._db_manager
-
-        assert self._app is not None
-        app = self._app
-
-        @app.on_event("startup")
-        async def _open_db_pool() -> None:
-            db_manager.open_pool(min_size=pool_min, max_size=pool_max)
-
-        @app.on_event("shutdown")
-        async def _close_db_pool() -> None:
-            db_manager.close_pool()
+        # Connection pool open/close is handled by the app lifespan
+        # (``_lifespan``), which reads ``DAZZLE_DB_POOL_MIN/MAX`` at startup
+        # time. See ``_create_app`` (#438).
 
         # Build relation loader for nested ref resolution (#272)
         from dazzle.back.runtime.relation_loader import RelationLoader, RelationRegistry
@@ -1194,27 +1372,19 @@ class DazzleBackendApp:
                 database_url=self._database_url,
                 audit_integrity=self._config.audit_integrity,
             )
-            # Defer start() to the FastAPI startup event so a running
-            # loop is guaranteed (#1214). Py3.12 removed the implicit
-            # event-loop acquisition that ``asyncio.ensure_future``
-            # previously relied on, so starting from this sync
-            # construction path raises ``RuntimeError`` when no loop
-            # is current. Mirrors the ``_open_db_pool`` pattern above.
-            assert self._app is not None
-            _audit_app = self._app
-            _audit_logger_for_events = audit_logger
-
-            @_audit_app.on_event("startup")
-            async def _start_audit_logger() -> None:
-                _audit_logger_for_events.start()
-
-            @_audit_app.on_event("shutdown")
-            async def _stop_audit_logger() -> None:
-                await _audit_logger_for_events.stop()
-
             # Keep a handle on the builder so callers (graceful shutdown,
             # in-process tests) can deterministically `drain()` the audit
             # queue instead of racing the 1s background flush timer.
+            #
+            # start()/stop() are driven by the app lifespan (``_lifespan``),
+            # not called here: start() is deferred to lifespan startup so a
+            # running event loop is guaranteed (#1214). Py3.12 removed the
+            # implicit event-loop acquisition that ``asyncio.ensure_future``
+            # previously relied on, so starting from this sync construction
+            # path raises ``RuntimeError`` when no loop is current. The
+            # lifespan reads ``self._audit_logger`` at startup time, so this
+            # assignment must precede app startup (it does — it runs at build
+            # time, well before the lifespan fires).
             self._audit_logger = audit_logger
 
         # Project route overrides — registered first for priority (v0.29.0)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: koru
-Version: 0.1.309
+Version: 0.1.312
 Summary: Closed-loop automation across semcod/* repositories.
 Author: Semcod
 Author-email: Tom Sapletta <tom@sapletta.com>
@@ -15,6 +15,7 @@ Classifier: Operating System :: OS Independent
 Requires-Python: >=3.12
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: gillm>=0.1.9
 Requires-Dist: pyyaml<7.0,>=6.0
 Requires-Dist: rich>=14.3.4
 Provides-Extra: watch
@@ -27,6 +28,7 @@ Provides-Extra: observe
 Requires-Dist: mss<11.0,>=9.0; extra == "observe"
 Requires-Dist: websockets<17.0,>=12.0; extra == "observe"
 Provides-Extra: dev
+Requires-Dist: gillm>=0.1.9; extra == "dev"
 Requires-Dist: pytest<10.0,>=8.0; extra == "dev"
 Requires-Dist: pytest-cov<8.0,>=5.0; extra == "dev"
 Requires-Dist: pytest-rerunfailures<17.0,>=14.0; extra == "dev"
@@ -52,6 +54,10 @@ Requires-Dist: instructor<2.0,>=1.6; extra == "agent"
 Requires-Dist: litellm<2.0,>=1.51; extra == "agent"
 Requires-Dist: openai<3.0,>=1.54; extra == "agent"
 Requires-Dist: tiktoken<1.0,>=0.8; extra == "agent"
+Provides-Extra: fullm
+Requires-Dist: fullm>=0.1.22; extra == "fullm"
+Provides-Extra: sllm
+Requires-Dist: fullm>=0.1.22; extra == "sllm"
 Provides-Extra: obs
 Requires-Dist: nfo<1.0,>=0.2.22; extra == "obs"
 Requires-Dist: opentelemetry-exporter-otlp<2.0,>=1.28; extra == "obs"
@@ -73,6 +79,7 @@ Provides-Extra: all
 Requires-Dist: apscheduler<4.0,>=3.10; extra == "all"
 Requires-Dist: arq<1.0,>=0.26; extra == "all"
 Requires-Dist: fastapi<1.0,>=0.115; extra == "all"
+Requires-Dist: gillm>=0.1.9; extra == "all"
 Requires-Dist: hypothesis<7.0,>=6.112; extra == "all"
 Requires-Dist: httpx<1.0,>=0.27; extra == "all"
 Requires-Dist: import-linter<3.0,>=2.0; extra == "all"
@@ -99,6 +106,7 @@ Requires-Dist: pyupgrade<4.0,>=3.17; extra == "all"
 Requires-Dist: redis<8.0,>=5.1; extra == "all"
 Requires-Dist: refurb<3.0,>=2.0; extra == "all"
 Requires-Dist: ruff<0.16,>=0.11; extra == "all"
+Requires-Dist: fullm>=0.1.22; extra == "all"
 Requires-Dist: sentry-sdk<3.0,>=2.18; extra == "all"
 Requires-Dist: structlog<26.0,>=24.4; extra == "all"
 Requires-Dist: tiktoken<1.0,>=0.8; extra == "all"
@@ -120,13 +128,13 @@ Dynamic: license-file
 
 ## AI Cost Tracking
 
-![PyPI](https://img.shields.io/badge/pypi-costs-blue) ![Version](https://img.shields.io/badge/version-0.1.309-blue) ![Python](https://img.shields.io/badge/python-3.9+-blue) ![License](https://img.shields.io/badge/license-Apache--2.0-green)
-![AI Cost](https://img.shields.io/badge/AI%20Cost-$28.91-orange) ![Human Time](https://img.shields.io/badge/Human%20Time-132.8h-blue) ![Model](https://img.shields.io/badge/Model-openrouter%2Fqwen%2Fqwen3--coder--next-lightgrey)
+![PyPI](https://img.shields.io/badge/pypi-costs-blue) ![Version](https://img.shields.io/badge/version-0.1.312-blue) ![Python](https://img.shields.io/badge/python-3.9+-blue) ![License](https://img.shields.io/badge/license-Apache--2.0-green)
+![AI Cost](https://img.shields.io/badge/AI%20Cost-$34.46-orange) ![Human Time](https://img.shields.io/badge/Human%20Time-139.5h-blue) ![Model](https://img.shields.io/badge/Model-openrouter%2Fqwen%2Fqwen3--coder--next-lightgrey)
 
-- 🤖 **LLM usage:** $28.9099 (410 commits)
-- 👤 **Human dev:** ~$13275 (132.8h @ $100/h, 30min dedup)
+- 🤖 **LLM usage:** $34.4633 (417 commits)
+- 👤 **Human dev:** ~$13950 (139.5h @ $100/h, 30min dedup)
 
-Generated on 2026-06-02 using [openrouter/qwen/qwen3-coder-next](https://openrouter.ai/qwen/qwen3-coder-next)
+Generated on 2026-06-04 using [openrouter/qwen/qwen3-coder-next](https://openrouter.ai/qwen/qwen3-coder-next)
 
 ---
 
@@ -149,7 +157,7 @@ A meta-orchestrator that coordinates **LLM-augmented refactor tools** with
 ├──────────┼──────────┼──────────┼──────────┼─────────┼──────────┤
 │ redup    │ planfile │ Windsurf │ regix    │ healing │ pyqual   │
 │ regix    │ tickets  │ Cursor   │ pytest   │ webhook │ metrics  │
-│ TestQL   │ Promet.  │ aider    │ TestQL   │ retry   │dashboards│
+│ TestQL   │ Promet.  │ SLLM     │ TestQL   │ retry   │dashboards│
 │ Probe    │ Alertmgr │ vallm    │ vallm    │         │          │
 └──────────┴──────────┴──────────┴──────────┴─────────┴──────────┘
         ↑                                                  │
@@ -173,7 +181,7 @@ A meta-orchestrator that coordinates **LLM-augmented refactor tools** with
 cd /path/to/your/project
 pip install koru
 koru --init                # 1. set up .planfile/ + .koru/ + .gitignore
-koru                       # 2. print the LLM brief (paste into Cascade/Cursor/aider)
+koru                       # 2. print the LLM brief (paste into Cascade/Cursor/SLLM)
 koru --queue --loop        # 3. drain the queue (the agent works on each ticket)
 ```
 
@@ -288,6 +296,8 @@ pip install "koru[observe]"  # full local observation stack (vision + mesh)
 pip install "koru[dev]"      # tests, lint, typing, local quality tooling
 pip install "koru[api]"      # FastAPI healing webhook service
 pip install "koru[agent]"    # LLM / structured-output integrations
+pip install "koru[fullm]"    # fullm-backed local LLM helpers
+pip install "koru[sllm]"     # compatibility extra for fullm-backed SLLM flows
 pip install "koru[obs]"      # tracing, Sentry, structured logging
 pip install "koru[queue]"    # optional Redis/scheduler queue adapters
 pip install "koru[quality]"  # deeper refactor quality gates
@@ -321,6 +331,30 @@ with `--emit-events human`). In `jsonl` mode, incidental status lines go to
 `QueueIteration`, `DiagnosticsCompleted`, `WupHealthChanged`,
 `PostRunVerifyCompleted`, `PostRunVerifyIdeCompleted`, `QueueStaleReleased`,
 `AutopilotDecision`, `CycleCompleted`, and `AutonomousStopped`.
+
+### Autopilot command debug (JSONL)
+
+For command-level debugging in the IDE control path, use the same JSONL contract
+on `koru autopilot` commands:
+
+```bash
+koru autopilot --log-format jsonl status --explain
+koru autopilot --log-format jsonl drive --ide cursor "zrob refaktor"
+koru autopilot --log-format jsonl handoff --project . --ide cursor
+koru autopilot --log-format jsonl manage --ide cursor
+```
+
+`jsonl` events are written to stderr and include standard fields:
+
+- `ts`
+- `corr`
+- `component`
+- `level`
+- `action`
+- `result`
+- `rc`
+
+This contract is now shared across `drive`, `status`, `handoff`, and `manage`.
 
 ### Post-run verify (closed loop after `done`)
 
@@ -507,7 +541,7 @@ Natural-language intake and housekeeping are built in:
 
 ```bash
 koru task "Dodaj feature importu raportów"
-koru agent --list          # show Windsurf/Cursor/Claude Code/aider/OpenRouter lanes
+koru agent --list          # show Windsurf/Cursor/SLLM/OpenRouter lanes
 koru agent                 # print and save the current LLM handoff prompt
 koru agent --launch        # launch the best available CLI agent when possible
 koru scan                  # auto-generate tickets from repo signals (TODOs, pytest errors)
@@ -967,7 +1001,7 @@ koru artefacts elsewhere, please open an issue.
 
 ## LLM agent contract — koru as the gate
 
-When an LLM agent (Cascade, Cursor, aider, claude-code, local model, …)
+When an LLM agent (Cascade, Cursor, SLLM shell client, local model, ...)
 drives a koru-managed project, it must **read its instructions from
 koru, not from the human chat**.
 
@@ -1128,11 +1162,13 @@ task quality:semcod:planfile
 
 That command is intentionally LLM-free. It:
 
-1. runs `koru scan --apply --semcod-artifacts`;
-2. detects configured `semcod/*` tools (`wup`, `testql`, `regix`, `redup`,
-   `sumr/sumd`, `doql`, `redsl`, plus the rest surfaced in the Koru brief);
-3. runs only the gates that are both installed and configured in the project;
-4. uses `scripts/koru-gate-capture.py` to create or update deduplicated
+1. runs `metrun scan` when installed (writes `project/metrun.toon.yaml` by default);
+2. runs `pfix diagnose --json --output .pfix/diagnose.json`;
+3. runs `koru scan --apply --semcod-artifacts`;
+4. runs configured `semcod/*` gates (`wup`, `testql`, `regix`, `redup`,
+   `sumr/sumd`, `doql`, `redsl`, plus the rest surfaced in the Koru brief)
+   when installed and configured in the project;
+5. uses `scripts/koru-gate-capture.py` to create or update deduplicated
    `planfile` tickets marked with `[gate-finding:<hash>]`.
 
 Useful variants:
@@ -1402,8 +1438,7 @@ The full documentation lives in [`docs/`](./docs/):
   - [`rebuild/`](./docs/llm-tools/rebuild/) — code evolution intelligence (git history walker)
   - [`mdflow/`](./docs/llm-tools/mdflow/) — markdown dependency analyzer
   - [`metrun/`](./docs/llm-tools/metrun/) — execution intelligence + bottleneck detection
-  - [`aider/`](./docs/llm-tools/aider/) — pair-programming agent
-  - [`claude-code/`](./docs/llm-tools/claude-code/) — Anthropic agent
+  - [`sllm`](../sllm/) — shell LLM clients (`aider`, `claude-code`, Codex, Gemini, Qwen, OpenCode, Devin)
   - [`cursor/`](./docs/llm-tools/cursor/) — Cursor IDE setup
   - [`testql/`](./docs/llm-tools/testql/) — declarative HTTP tests
 

@@ -414,7 +414,7 @@ load_balanced_fargate_service = ecs_patterns.ApplicationLoadBalancedFargateServi
     ssl_policy=SslPolicy.RECOMMENDED,
     domain_name="api.example.com",
     domain_zone=domain_zone,
-    redirect_hTTP=True,
+    redirect_http=True,
     task_image_options=ecsPatterns.ApplicationLoadBalancedTaskImageOptions(
         image=ecs.ContainerImage.from_registry("amazon/amazon-ecs-sample")
     )
@@ -1906,7 +1906,7 @@ class ApplicationLoadBalancedServiceBaseProps:
                 desired_count=123,
                 domain_name="domainName",
                 domain_zone=hosted_zone,
-                enable_eCSManaged_tags=False,
+                enable_ecs_managed_tags=False,
                 enable_execute_command=False,
                 health_check_grace_period=cdk.Duration.minutes(30),
                 idle_timeout=cdk.Duration.minutes(30),
@@ -1922,7 +1922,7 @@ class ApplicationLoadBalancedServiceBaseProps:
                 protocol_version=elbv2.ApplicationProtocolVersion.GRPC,
                 public_load_balancer=False,
                 record_type=ecs_patterns.ApplicationLoadBalancedServiceRecordType.ALIAS,
-                redirect_hTTP=False,
+                redirect_http=False,
                 service_name="serviceName",
                 ssl_policy=elbv2.SslPolicy.RECOMMENDED_TLS,
                 target_protocol=elbv2.ApplicationProtocol.HTTP,
@@ -3439,7 +3439,7 @@ class ApplicationMultipleTargetGroupsServiceBaseProps:
                 ),
                 cluster=cluster,
                 desired_count=123,
-                enable_eCSManaged_tags=False,
+                enable_ecs_managed_tags=False,
                 enable_execute_command=False,
                 health_check_grace_period=cdk.Duration.minutes(30),
                 load_balancers=[ecs_patterns.ApplicationLoadBalancerProps(
@@ -4440,7 +4440,7 @@ class NetworkLoadBalancedServiceBaseProps:
                 desired_count=123,
                 domain_name="domainName",
                 domain_zone=hosted_zone,
-                enable_eCSManaged_tags=False,
+                enable_ecs_managed_tags=False,
                 enable_execute_command=False,
                 health_check_grace_period=cdk.Duration.minutes(30),
                 ip_address_type=elbv2.IpAddressType.IPV4,
@@ -5760,7 +5760,7 @@ class NetworkMultipleTargetGroupsServiceBaseProps:
                 ),
                 cluster=cluster,
                 desired_count=123,
-                enable_eCSManaged_tags=False,
+                enable_ecs_managed_tags=False,
                 enable_execute_command=False,
                 health_check_grace_period=cdk.Duration.minutes(30),
                 load_balancers=[ecs_patterns.NetworkLoadBalancerProps(
@@ -6420,7 +6420,7 @@ class QueueProcessingServiceBaseProps:
                     type=ecs.DeploymentControllerType.ECS
                 ),
                 disable_cpu_based_scaling=False,
-                enable_eCSManaged_tags=False,
+                enable_ecs_managed_tags=False,
                 enable_execute_command=False,
                 enable_logging=False,
                 environment={

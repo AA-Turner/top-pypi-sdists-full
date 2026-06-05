@@ -23,23 +23,55 @@ class Filesystem:
         """Find the kanban skill directory (SKILL.md, agents, rules, etc).
 
         Works both pip-installed and from source.
+        Resolution order:
+        1. kanban_framework/_skill/ (pip-installed bundle)
+        2. parent of kanban_framework/ (source checkout)
+        3. importlib.resources fallback
+        4. Best available: bundled dir with most content, or parent
         """
+        import logging
+        _log = logging.getLogger("kanban")
+
         pkg_dir = Path(__file__).resolve().parent.parent  # kanban_framework/
-        # Pip-installed: skill files bundled in kanban_framework/_skill/
+        candidates: list[tuple[Path, str]] = []
+
+        # 1. Pip-installed: skill files bundled in kanban_framework/_skill/
         bundled = pkg_dir / "_skill"
         if (bundled / "SKILL.md").is_file():
             return bundled
-        # Source install: walk up from kanban_framework/ to kanban skill dir
+        candidates.append((bundled, "bundled"))
+
+        # 2. Source install: walk up from kanban_framework/ to kanban skill dir
         skill_dir = pkg_dir.parent  # .claude/skills/kanban/
         if (skill_dir / "SKILL.md").is_file():
             return skill_dir
-        # Last resort: try importlib.resources
+        candidates.append((skill_dir, "parent"))
+
+        # 3. importlib.resources fallback
         try:
             from importlib import resources
-            return Path(str(resources.files("kanban_framework") / "_skill"))
-        except Exception:
-            pass
-        return bundled if bundled.is_dir() else skill_dir
+            res_path = Path(str(resources.files("kanban_framework") / "_skill"))
+            if (res_path / "SKILL.md").is_file():
+                return res_path
+            candidates.append((res_path, "importlib"))
+        except Exception as exc:
+            _log.warning("find_skill_dir: importlib.resources failed: %s", exc)
+
+        # 4. Best available: pick the candidate with most subdirectories
+        best = bundled
+        best_score = -1
+        for path, label in candidates:
+            if not path.is_dir():
+                continue
+            score = sum(1 for c in path.iterdir() if c.is_dir() or c.is_file())
+            _log.warning("find_skill_dir: candidate '%s' = %s (score=%d, has_SKILL.md=%s)",
+                         label, path, score, (path / "SKILL.md").is_file())
+            if score > best_score:
+                best_score = score
+                best = path
+
+        _log.warning("find_skill_dir: no candidate has SKILL.md, returning best=%s", best)
+        return best
 
     @staticmethod
     def find_project_root() -> Path:

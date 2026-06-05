@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from notebooklm import _artifact_downloads as artifact_downloads
+from notebooklm._artifact import downloads as artifact_downloads
 from notebooklm._artifacts import ArtifactsAPI
 from notebooklm.types import (
     ArtifactDownloadError,
@@ -447,9 +447,9 @@ class TestMindMapGeneration:
         result = await api.generate_mind_map("nb_123")
 
         assert result is not None
-        assert "mind_map" in result
+        assert result.mind_map is not None
         # note_id is from the explicit CREATE_NOTE call.
-        assert result["note_id"] == "created_note_123"
+        assert result.note_id == "created_note_123"
 
     @pytest.mark.asyncio
     async def test_generate_mind_map_with_dict(self, mock_artifacts_api):
@@ -479,9 +479,9 @@ class TestMindMapGeneration:
         result = await api.generate_mind_map("nb_123")
 
         assert result is not None
-        assert result["mind_map"]["nodes"][0]["id"] == "1"
+        assert result.mind_map["nodes"][0]["id"] == "1"
         # note_id is from the explicit CREATE_NOTE call.
-        assert result["note_id"] == "created_note_123"
+        assert result.note_id == "created_note_123"
 
     @pytest.mark.asyncio
     async def test_generate_mind_map_empty_result(self, mock_artifacts_api):
@@ -494,15 +494,15 @@ class TestMindMapGeneration:
 
         result = await api.generate_mind_map("nb_123")
 
-        assert result["mind_map"] is None
-        assert result["note_id"] is None
+        assert result.mind_map is None
+        assert result.note_id is None
 
 
 class TestDownloadUrl:
     """Test _download_url helper method."""
 
     @pytest.mark.asyncio
-    async def test_download_url_direct(self, mock_artifacts_api):
+    async def test_download_url_direct(self, mock_artifacts_api, monkeypatch):
         """Test direct URL download using streaming."""
         api, mock_core = mock_artifacts_api
 
@@ -530,23 +530,24 @@ class TestDownloadUrl:
             mock_client.__aexit__ = AsyncMock(return_value=None)
 
             mock_cookies = MagicMock()
-            with (
-                patch.object(real_httpx, "AsyncClient", return_value=mock_client),
-                patch(
-                    "notebooklm._artifact_downloads.load_httpx_cookies", return_value=mock_cookies
-                ),
-            ):
+            fake_load_cookies = MagicMock(return_value=mock_cookies)
+            # Object-form patch against the locally-imported ``downloads``
+            # module seam (ADR-0007: no string-target patches into private
+            # internals). ``_load_httpx_cookies`` reads this module global.
+            monkeypatch.setattr(artifact_downloads, "load_httpx_cookies", fake_load_cookies)
+            with patch.object(real_httpx, "AsyncClient", return_value=mock_client):
                 result = await api._download_url(
                     "https://storage.googleapis.com/file.mp4", output_path
                 )
 
             assert result == output_path
+            fake_load_cookies.assert_called_once()
             # Verify file was written with streaming content
             with open(output_path, "rb") as f:
                 assert f.read() == content
 
     @pytest.mark.asyncio
-    async def test_download_url_empty_response_raises(self, mock_artifacts_api):
+    async def test_download_url_empty_response_raises(self, mock_artifacts_api, monkeypatch):
         """Test that a 0-byte download raises ArtifactDownloadError."""
         api, mock_core = mock_artifacts_api
 
@@ -573,15 +574,19 @@ class TestDownloadUrl:
             mock_client.__aexit__ = AsyncMock(return_value=None)
 
             mock_cookies = MagicMock()
+            fake_load_cookies = MagicMock(return_value=mock_cookies)
+            # Object-form patch against the locally-imported ``downloads``
+            # module seam (ADR-0007: no string-target patches into private
+            # internals). ``_load_httpx_cookies`` reads this module global.
+            monkeypatch.setattr(artifact_downloads, "load_httpx_cookies", fake_load_cookies)
             with (
                 patch.object(real_httpx, "AsyncClient", return_value=mock_client),
-                patch(
-                    "notebooklm._artifact_downloads.load_httpx_cookies", return_value=mock_cookies
-                ),
                 pytest.raises(ArtifactDownloadError, match="0 bytes"),
             ):
                 await api._download_url("https://storage.googleapis.com/file.mp4", output_path)
 
+            # The download seam was reached before the 0-byte guard fired.
+            fake_load_cookies.assert_called_once()
             # Verify no file was left behind
             assert not os.path.exists(output_path)
 
@@ -862,8 +867,8 @@ class TestStoragePathEncapsulation:
     """
 
     @pytest.mark.asyncio
-    async def test_download_url_uses_constructor_storage_path(self, tmp_path):
-        from notebooklm._artifact_downloads import ArtifactDownloadService
+    async def test_download_url_uses_constructor_storage_path(self, tmp_path, monkeypatch):
+        from notebooklm._artifact.downloads import ArtifactDownloadService
 
         sentinel = tmp_path / "sentinel_storage.json"
         # MagicMock collaborators are inert — the service must read the
@@ -888,10 +893,10 @@ class TestStoragePathEncapsulation:
             captured.append(path)
             raise _StopAfterCapture
 
-        with (
-            patch("notebooklm._artifact_downloads.load_httpx_cookies", new=recording),
-            pytest.raises(_StopAfterCapture),
-        ):
+        # Object-form patch against the locally-imported ``downloads`` module
+        # seam (ADR-0007: no string-target patches into private internals).
+        monkeypatch.setattr(artifact_downloads, "load_httpx_cookies", recording)
+        with pytest.raises(_StopAfterCapture):
             await service.download_url(
                 "https://storage.googleapis.com/x.bin", str(tmp_path / "out.bin")
             )
@@ -899,8 +904,8 @@ class TestStoragePathEncapsulation:
         assert captured == [sentinel]
 
     @pytest.mark.asyncio
-    async def test_download_urls_batch_uses_constructor_storage_path(self, tmp_path):
-        from notebooklm._artifact_downloads import ArtifactDownloadService
+    async def test_download_urls_batch_uses_constructor_storage_path(self, tmp_path, monkeypatch):
+        from notebooklm._artifact.downloads import ArtifactDownloadService
 
         sentinel = tmp_path / "sentinel_storage.json"
         runtime = MagicMock()
@@ -919,7 +924,9 @@ class TestStoragePathEncapsulation:
             captured.append(path)
             return {}
 
-        with patch("notebooklm._artifact_downloads.load_httpx_cookies", new=recording):
-            await service.download_urls_batch([])
+        # Object-form patch against the locally-imported ``downloads`` module
+        # seam (ADR-0007: no string-target patches into private internals).
+        monkeypatch.setattr(artifact_downloads, "load_httpx_cookies", recording)
+        await service.download_urls_batch([])
 
         assert captured == [sentinel]

@@ -1,26 +1,24 @@
 Metadata-Version: 2.4
 Name: gs_quant
-Version: 1.6.35
+Version: 2.0.0
 Summary: Goldman Sachs Quant
 Author-email: Goldman Sachs <developer@gs.com>
 License: Apache-2.0
 Project-URL: Homepage, https://marquee.gs.com
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Operating System :: OS Independent
 Classifier: License :: OSI Approved :: Apache Software License
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
 License-File: NOTICE.txt
 Requires-Dist: aenum
 Requires-Dist: backoff
-Requires-Dist: backports.zoneinfo; python_version < "3.9"
 Requires-Dist: cachetools
 Requires-Dist: certifi
 Requires-Dist: dataclasses_json
@@ -40,10 +38,9 @@ Requires-Dist: requests
 Requires-Dist: httpx>=0.28.1
 Requires-Dist: scipy>=1.2.0
 Requires-Dist: statsmodels>=0.13.0
+Requires-Dist: pyyaml
 Requires-Dist: tqdm
 Requires-Dist: websockets
-Provides-Extra: turbo
-Requires-Dist: quant-extensions; extra == "turbo"
 Provides-Extra: notebook
 Requires-Dist: jupyter; extra == "notebook"
 Requires-Dist: matplotlib; extra == "notebook"
@@ -73,6 +70,14 @@ Requires-Dist: pytest-cov; extra == "develop"
 Requires-Dist: pytest-mock; extra == "develop"
 Requires-Dist: pytest-order; extra == "develop"
 Requires-Dist: testfixtures; extra == "develop"
+Provides-Extra: mcp
+Requires-Dist: fastmcp>=3.0; extra == "mcp"
+Requires-Dist: python-dotenv; extra == "mcp"
+Requires-Dist: uvicorn>=0.47; extra == "mcp"
+Requires-Dist: typer>=0.25; extra == "mcp"
+Requires-Dist: prompt_toolkit; extra == "mcp"
+Requires-Dist: rich; extra == "mcp"
+Requires-Dist: pydantic; extra == "mcp"
 Dynamic: license-file
 
 # GS Quant

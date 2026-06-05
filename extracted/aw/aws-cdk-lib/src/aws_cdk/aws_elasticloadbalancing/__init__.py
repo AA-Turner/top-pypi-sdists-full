@@ -1186,7 +1186,7 @@ class CfnLoadBalancer(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_elasticloadbalancing as elb
                 
-                l_bCookie_stickiness_policy_property = elb.CfnLoadBalancer.LBCookieStickinessPolicyProperty(
+                l_b_cookie_stickiness_policy_property = elb.CfnLoadBalancer.LBCookieStickinessPolicyProperty(
                     cookie_expiration_period="cookieExpirationPeriod",
                     policy_name="policyName"
                 )

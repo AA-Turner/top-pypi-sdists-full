@@ -118,7 +118,7 @@ class CfnDBCluster(
         # The values are placeholders you should change.
         from aws_cdk import aws_neptune as neptune
         
-        cfn_dBCluster = neptune.CfnDBCluster(self, "MyCfnDBCluster",
+        cfn_db_cluster = neptune.CfnDBCluster(self, "MyCfnDBCluster",
             associated_roles=[neptune.CfnDBCluster.DBClusterRoleProperty(
                 role_arn="roleArn",
         
@@ -771,7 +771,7 @@ class CfnDBCluster(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_neptune as neptune
                 
-                d_bCluster_role_property = neptune.CfnDBCluster.DBClusterRoleProperty(
+                d_b_cluster_role_property = neptune.CfnDBCluster.DBClusterRoleProperty(
                     role_arn="roleArn",
                 
                     # the properties below are optional
@@ -921,7 +921,7 @@ class CfnDBClusterParameterGroup(
         
         # parameters: Any
         
-        cfn_dBCluster_parameter_group = neptune.CfnDBClusterParameterGroup(self, "MyCfnDBClusterParameterGroup",
+        cfn_db_cluster_parameter_group = neptune.CfnDBClusterParameterGroup(self, "MyCfnDBClusterParameterGroup",
             description="description",
             family="family",
             parameters=parameters,
@@ -1143,7 +1143,7 @@ class CfnDBClusterParameterGroupProps:
             
             # parameters: Any
             
-            cfn_dBCluster_parameter_group_props = neptune.CfnDBClusterParameterGroupProps(
+            cfn_db_cluster_parameter_group_props = neptune.CfnDBClusterParameterGroupProps(
                 description="description",
                 family="family",
                 parameters=parameters,
@@ -1336,7 +1336,7 @@ class CfnDBClusterProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_neptune as neptune
             
-            cfn_dBCluster_props = neptune.CfnDBClusterProps(
+            cfn_db_cluster_props = neptune.CfnDBClusterProps(
                 associated_roles=[neptune.CfnDBCluster.DBClusterRoleProperty(
                     role_arn="roleArn",
             
@@ -1811,7 +1811,7 @@ class CfnDBInstance(
         # The values are placeholders you should change.
         from aws_cdk import aws_neptune as neptune
         
-        cfn_dBInstance = neptune.CfnDBInstance(self, "MyCfnDBInstance",
+        cfn_db_instance = neptune.CfnDBInstance(self, "MyCfnDBInstance",
             db_instance_class="dbInstanceClass",
         
             # the properties below are optional
@@ -2214,7 +2214,7 @@ class CfnDBInstanceProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_neptune as neptune
             
-            cfn_dBInstance_props = neptune.CfnDBInstanceProps(
+            cfn_db_instance_props = neptune.CfnDBInstanceProps(
                 db_instance_class="dbInstanceClass",
             
                 # the properties below are optional
@@ -2457,7 +2457,7 @@ class CfnDBParameterGroup(
         
         # parameters: Any
         
-        cfn_dBParameter_group = neptune.CfnDBParameterGroup(self, "MyCfnDBParameterGroup",
+        cfn_db_parameter_group = neptune.CfnDBParameterGroup(self, "MyCfnDBParameterGroup",
             description="description",
             family="family",
             parameters=parameters,
@@ -2712,7 +2712,7 @@ class CfnDBParameterGroupProps:
             
             # parameters: Any
             
-            cfn_dBParameter_group_props = neptune.CfnDBParameterGroupProps(
+            cfn_db_parameter_group_props = neptune.CfnDBParameterGroupProps(
                 description="description",
                 family="family",
                 parameters=parameters,
@@ -2827,7 +2827,7 @@ class CfnDBSubnetGroup(
         # The values are placeholders you should change.
         from aws_cdk import aws_neptune as neptune
         
-        cfn_dBSubnet_group = neptune.CfnDBSubnetGroup(self, "MyCfnDBSubnetGroup",
+        cfn_db_subnet_group = neptune.CfnDBSubnetGroup(self, "MyCfnDBSubnetGroup",
             db_subnet_group_description="dbSubnetGroupDescription",
             subnet_ids=["subnetIds"],
         
@@ -3025,7 +3025,7 @@ class CfnDBSubnetGroupProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_neptune as neptune
             
-            cfn_dBSubnet_group_props = neptune.CfnDBSubnetGroupProps(
+            cfn_db_subnet_group_props = neptune.CfnDBSubnetGroupProps(
                 db_subnet_group_description="dbSubnetGroupDescription",
                 subnet_ids=["subnetIds"],
             

@@ -7,7 +7,7 @@ use anyhow::{Context, Result};
 use itertools::Itertools;
 use prek_consts::CONFIG_FILENAMES;
 
-use crate::cli::reporter::HookRunReporter;
+use crate::cli::run::HookRunReporter;
 use crate::cli::run::{
     CollectOptions, FileTagCache, FileTagFilter, HookFileFilter, ProjectFiles, collect_run_input,
 };
@@ -63,6 +63,7 @@ impl MetaHook {
                 id: "check-hooks-apply".to_string(),
                 name: "Check hooks apply".to_string(),
                 priority: None,
+                groups: None,
                 options: HookOptions {
                     files: Some(config_file_glob),
                     ..Default::default()
@@ -72,6 +73,7 @@ impl MetaHook {
                 id: "check-useless-excludes".to_string(),
                 name: "Check useless excludes".to_string(),
                 priority: None,
+                groups: None,
                 options: HookOptions {
                     files: Some(config_file_glob),
                     ..Default::default()
@@ -81,6 +83,7 @@ impl MetaHook {
                 id: "identity".to_string(),
                 name: "identity".to_string(),
                 priority: None,
+                groups: None,
                 options: HookOptions {
                     verbose: Some(true),
                     ..Default::default()

@@ -1,23 +1,23 @@
 """Unit tests for ``ChatAPI.save_answer_as_note`` (Phase 6, issue #660).
 
-Saved-chat ownership moved from ``NotesAPI.create_from_chat`` to
-``ChatAPI.save_answer_as_note`` in refactor-history.md Step 8 / ADR-013. The
-``NotesAPI.create_from_chat`` forwarder still exists (deprecated, pure
-delegate) but the encoder + title-derivation semantics now live here.
+Saved-chat ownership moved from the former ``NotesAPI.create_from_chat``
+forwarder to ``ChatAPI.save_answer_as_note`` in refactor-history.md Step 8 /
+ADR-0013; the forwarder was removed in v0.7.0 and the encoder +
+title-derivation semantics now live here.
 
 These tests pin:
 
 * the empty-references guard (raises ``ValueError``, mirroring the
-  v0.4.1 ``NotesAPI.create_from_chat`` contract),
+  original saved-from-chat contract),
 * the default-title derivation (derived from ``ask_result.answer`` —
   ``AskResult`` has no ``question`` field today),
 * the explicit-title override path,
 * the 7-element CREATE_NOTE params payload + ``[2]`` mode flag,
 * the malformed-response failure mode.
 
-Wave 8 of the session-decoupling plan (ADR-014 Rule 2 Corollary): the
+Wave 8 of the session-decoupling plan (ADR-0014 Rule 2 Corollary): the
 chat-local ``ChatRuntime`` Protocol was deleted; ``ChatAPI`` takes its
-four direct collaborators (RpcCaller, SessionTransport, ReqidCounter,
+four direct collaborators (RpcCaller, RuntimeTransport, ReqidCounter,
 LoopGuard) by keyword argument. ``save_answer_as_note`` only touches
 the ``rpc`` collaborator, so the other three are mocked without specs.
 """
@@ -29,7 +29,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from notebooklm._chat import ChatAPI
-from notebooklm._session_contracts import RpcCaller
+from notebooklm._runtime.contracts import RpcCaller
 from notebooklm.rpc import RPCMethod
 from notebooklm.types import AskResult, ChatReference
 
@@ -40,7 +40,7 @@ def mock_rpc() -> MagicMock:
 
     ``save_answer_as_note`` only calls ``rpc.rpc_call`` — no transport /
     reqid / loop-guard surface is exercised. The ``AsyncMock`` is wired
-    into the ``MagicMock(spec=...)`` via its constructor so the ADR-007
+    into the ``MagicMock(spec=...)`` via its constructor so the ADR-0007
     meta-lint stays clean (no post-hoc attribute assignment).
     """
     return MagicMock(spec=RpcCaller, rpc_call=AsyncMock())
@@ -55,7 +55,7 @@ def chat_api(mock_rpc: MagicMock) -> ChatAPI:
     ``ChatAPI.__init__`` does not try to wrap ``rpc``; the
     ``NotebookSourceIdProvider`` protocol surface is small enough that
     a ``MagicMock`` with a single async stub satisfies it without
-    falling into ADR-007's forbidden-attribute-assignment lint
+    falling into ADR-0007's forbidden-attribute-assignment lint
     (the stub is passed via constructor injection).
     """
     notebooks = MagicMock(get_source_ids=AsyncMock(return_value=[]))

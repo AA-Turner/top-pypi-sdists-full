@@ -64,6 +64,7 @@ from esphome_device_builder.controllers.remote_build.peer_link_client import (
     _DownloadArtifactsState,
     _extract_receiver_esphome_version,
     drive_initiator_round_trip,
+    one_shot,
     preview_pair,
     request_pair,
 )
@@ -119,6 +120,21 @@ def bound_unused_tcp_port() -> Iterator[int]:
         yield sock.getsockname()[1]
 
 
+@pytest.fixture
+def fast_unreachable_connect(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Shorten the one-shot connect budget so unreachable-receiver tests fail fast."""
+    # A bound-but-unlistened port RSTs instantly on Linux but BSD/macOS drops
+    # the SYN, so the connect hangs to the 10s budget; a timeout and a refusal
+    # both surface as PeerLinkClientError("...failed") / UNAVAILABLE.
+    real = one_shot.drive_initiator_round_trip
+
+    async def _fast(**kwargs: Any) -> Any:
+        kwargs.setdefault("timeout_seconds", 0.5)
+        return await real(**kwargs)
+
+    monkeypatch.setattr(one_shot, "drive_initiator_round_trip", _fast)
+
+
 def _make_controller(*, config_dir: Path) -> RemoteBuildController:
     return make_remote_build_controller(config_dir=config_dir)
 
@@ -155,6 +171,9 @@ async def receiver_server(
             identity.public_bytes,
         )
     finally:
+        # Stop any connected offloaders before closing the server,
+        # else an open peer-link Noise WS hangs server.close().
+        await _stop_created_offloaders()
         await server.close()
         await handles.stop()
 
@@ -208,6 +227,7 @@ async def test_preview_pair_does_not_persist_state_on_receiver(
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.usefixtures("fast_unreachable_connect")
 async def test_preview_pair_connection_refused_raises_client_error(
     tmp_path: Path,
     bound_unused_tcp_port: int,
@@ -686,6 +706,31 @@ def offloader_controller_dir(tmp_path: Path) -> Path:
     return offloader_dir
 
 
+_CREATED_OFFLOADERS: list[OffloaderController] = []
+
+
+async def _stop_created_offloaders() -> None:
+    """Stop + drain every offloader built via _make_offloader_controller."""
+    while _CREATED_OFFLOADERS:
+        await _CREATED_OFFLOADERS.pop().stop()
+
+
+@pytest.fixture(autouse=True)
+async def _drain_offloaders() -> AsyncGenerator[None, None]:
+    """
+    Stop every _make_offloader_controller offloader at teardown.
+
+    The pair flow leaves live peer-link clients / pair-status
+    listeners (and, post-pair, an open Noise WS to the receiver);
+    an open connection hangs ``receiver_server``'s ``server.close()``.
+    """
+    _CREATED_OFFLOADERS.clear()
+    try:
+        yield
+    finally:
+        await _stop_created_offloaders()
+
+
 def _make_offloader_controller(*, config_dir: Path) -> OffloaderController:
     db = MagicMock()
     db.devices = MagicMock()
@@ -694,7 +739,9 @@ def _make_offloader_controller(*, config_dir: Path) -> OffloaderController:
     db.settings = MagicMock()
     db.settings.config_dir = config_dir
     db.peer_link_identity_store = PeerLinkIdentityStore(config_dir)
-    return OffloaderController(db)
+    controller = OffloaderController(db)
+    _CREATED_OFFLOADERS.append(controller)
+    return controller
 
 
 async def _saved_pairings(offloader: OffloaderController) -> list[StoredPairing]:
@@ -733,6 +780,7 @@ async def test_controller_preview_pair_returns_receiver_pin(
     assert await _saved_pairings(offloader) == []
 
 
+@pytest.mark.usefixtures("fast_unreachable_connect")
 async def test_controller_preview_pair_unavailable_on_unreachable_receiver(
     offloader_controller_dir: Path,
     bound_unused_tcp_port: int,
@@ -830,6 +878,7 @@ async def test_controller_request_pair_closed_window_raises_no_pairing_window(
     assert exc.value.code == ErrorCode.NO_PAIRING_WINDOW
 
 
+@pytest.mark.usefixtures("fast_unreachable_connect")
 async def test_controller_request_pair_unavailable_on_unreachable_receiver(
     offloader_controller_dir: Path,
     bound_unused_tcp_port: int,
@@ -1782,6 +1831,67 @@ async def test_request_pair_clears_offloader_alert_for_same_receiver(
     if listener is not None:
         listener.cancel()
         await asyncio.gather(listener, return_exceptions=True)
+
+
+async def test_request_pair_approved_preserves_operator_enabled_and_version(
+    offloader_controller_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Re-pair to APPROVED preserves operator ``enabled`` toggle + version."""
+    offloader = _make_offloader_controller(config_dir=offloader_controller_dir)
+    offloader._db.bus = MagicMock()
+    pubkey = b"\x44" * 32
+    pin = hashlib.sha256(pubkey).hexdigest()
+
+    # Operator previously paired this receiver, disabled transparent
+    # install for it, and a session-open captured its version.
+    offloader.state.pairings[pin] = _stub_pairing(
+        receiver_hostname="rcv.local",
+        receiver_port=6055,
+        pin_sha256=pin,
+        static_x25519_pub=pubkey,
+        status=PeerStatus.APPROVED,
+    )
+    offloader.state.pairings[pin].enabled = False
+    offloader.state.pairings[pin].esphome_version = "2025.5.0"
+
+    async def _fake_request_pair(**_: object) -> RequestPairResult:
+        return RequestPairResult(
+            status=IntentResponse.APPROVED,
+            pin_sha256=pin,
+            remote_static_pub=pubkey,
+        )
+
+    monkeypatch.setattr(
+        "esphome_device_builder.controllers.remote_build.pair_commands.peer_link_request_pair",
+        _fake_request_pair,
+    )
+    fake_identity = MagicMock()
+    fake_identity.private_bytes = b"\x00" * 32
+    fake_dashboard = MagicMock()
+    fake_dashboard.dashboard_id = "dashboard-stub"
+
+    async def _fake_load_offloader_identities(
+        _fi: MagicMock = fake_identity, _fd: MagicMock = fake_dashboard
+    ) -> tuple[MagicMock, MagicMock]:
+        return _fi, _fd
+
+    monkeypatch.setattr(
+        offloader, "_load_offloader_identities_async", _fake_load_offloader_identities
+    )
+    monkeypatch.setattr(offloader, "_spawn_peer_link_client", MagicMock())
+
+    summary = await offloader.request_pair(
+        hostname="rcv.local",
+        port=6055,
+        pin_sha256=pin,
+        receiver_label="lab-pc",
+        offloader_label="off",
+    )
+
+    assert summary.status is PeerStatus.APPROVED
+    refreshed = offloader.state.pairings[pin]
+    assert refreshed.enabled is False
+    assert refreshed.esphome_version == "2025.5.0"
 
 
 async def test_unpair_does_not_fire_event_when_nothing_to_remove(

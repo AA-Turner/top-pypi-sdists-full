@@ -15,6 +15,7 @@ class _Consts:
     KNOWLEDGE_LOG: str = "knowledge-log.md"  # legacy; new system uses knowledge/
     KNOWLEDGE_DIR: str = "knowledge"
     OUTPUT_DIR_DEFAULT: str = "src"
+    DEFAULT_MODE: str = "lightweight"
 
 
 Consts = _Consts()

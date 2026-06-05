@@ -1649,6 +1649,7 @@ import abc
 import builtins
 import datetime
 import enum
+import importlib as _importlib
 import typing
 
 import jsii
@@ -19743,7 +19744,7 @@ class CfnResponseHeadersPolicy(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_cloudfront as cloudfront
                 
-                x_sSProtection_property = cloudfront.CfnResponseHeadersPolicy.XSSProtectionProperty(
+                x_ss_protection_property = cloudfront.CfnResponseHeadersPolicy.XSSProtectionProperty(
                     override=False,
                     protection=False,
                 
@@ -24762,7 +24763,7 @@ class InlineImportSource(
             follow_symlinks=cdk.SymlinkFollowMode.NEVER,
             ignore_mode=cdk.IgnoreMode.GLOB,
             readers=[grantable],
-            source_kMSKey=key_ref
+            source_kms_key=key_ref
         )
     '''
 
@@ -29284,7 +29285,7 @@ class S3ImportSource(
             follow_symlinks=cdk.SymlinkFollowMode.NEVER,
             ignore_mode=cdk.IgnoreMode.GLOB,
             readers=[grantable],
-            source_kMSKey=key_ref
+            source_kms_key=key_ref
         )
     '''
 
@@ -29915,7 +29916,7 @@ class SourceConfiguration:
                     domain_name="domainName",
             
                     # the properties below are optional
-                    allowed_origin_sSLVersions=[cloudfront.OriginSslPolicy.SSL_V3],
+                    allowed_origin_ssl_versions=[cloudfront.OriginSslPolicy.SSL_V3],
                     http_port=123,
                     https_port=123,
                     origin_headers={
@@ -29932,7 +29933,7 @@ class SourceConfiguration:
                     domain_name="domainName",
             
                     # the properties below are optional
-                    allowed_origin_sSLVersions=[cloudfront.OriginSslPolicy.SSL_V3],
+                    allowed_origin_ssl_versions=[cloudfront.OriginSslPolicy.SSL_V3],
                     http_port=123,
                     https_port=123,
                     origin_headers={
@@ -31029,7 +31030,7 @@ class AssetImportSource(
             follow_symlinks=cdk.SymlinkFollowMode.NEVER,
             ignore_mode=cdk.IgnoreMode.GLOB,
             readers=[grantable],
-            source_kMSKey=key_ref
+            source_kms_key=key_ref
         )
     '''
 
@@ -33247,10 +33248,30 @@ __all__ = [
     "experimental",
 ]
 
+# Type-checking-only imports for static analyzers (pyright/mypy).
+# At runtime TYPE_CHECKING is False, preserving lazy loading.
+if typing.TYPE_CHECKING:
+    from . import experimental as experimental
+
 publication.publish()
 
-# Loading modules to ensure their types are registered with the jsii runtime library
-from . import experimental
+_SUBMODULES = {
+    "experimental",
+}
+
+def __getattr__(name: str) -> object:
+    if name in _SUBMODULES:
+        mod = _importlib.import_module(f".{name}", __name__)
+        globals()[name] = mod
+        return mod
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+def __dir__() -> "list[str]":
+    return [*__all__, *_SUBMODULES]
+
+import sys as _sys
+setattr(_sys.modules[__name__], "__getattr__", __getattr__)
+setattr(_sys.modules[__name__], "__dir__", __dir__)
 
 def _typecheckingstub__65772d6db92564a1181169ceb316d515431097e5d91750c338502393dc09f916(
     *,

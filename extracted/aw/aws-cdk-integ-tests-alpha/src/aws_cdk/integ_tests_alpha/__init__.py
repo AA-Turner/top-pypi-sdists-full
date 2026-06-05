@@ -477,6 +477,23 @@ invoke = integ.assertions.invoke_function(
 )
 ```
 
+#### Provider Log Level
+
+By default, the assertion provider lambda function has its log level set to `FATAL`.
+If you need to debug assertion failures, you can increase the log level by setting
+`providerLogLevel` on the `IntegTest` construct:
+
+```python
+# app: App
+# stack: Stack
+
+
+integ = IntegTest(app, "IntegTest",
+    test_cases=[stack],
+    provider_log_level=lambda_.ApplicationLogLevel.INFO
+)
+```
+
 #### Make an AWS API Call
 
 In this example there is a StepFunctions state machine that is executed
@@ -611,6 +628,7 @@ def check_type(argname: str, value: object, expected_type: typing.Any) -> typing
 from ._jsii import *
 
 import aws_cdk as _aws_cdk_ceddda9d
+import aws_cdk.aws_lambda as _aws_cdk_aws_lambda_ceddda9d
 import aws_cdk.aws_logs as _aws_cdk_aws_logs_ceddda9d
 import aws_cdk.cloud_assembly_schema as _aws_cdk_cloud_assembly_schema_ceddda9d
 import constructs as _constructs_77d1e7e8
@@ -1020,11 +1038,13 @@ class AssertionsProvider(
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         import aws_cdk.integ_tests_alpha as integ_tests_alpha
+        from aws_cdk import aws_lambda as lambda_
         from aws_cdk import aws_logs as logs
         
         assertions_provider = integ_tests_alpha.AssertionsProvider(self, "MyAssertionsProvider",
             handler="handler",
             log_retention=logs.RetentionDays.ONE_DAY,
+            provider_log_level=lambda_.ApplicationLogLevel.INFO,
             uuid="uuid"
         )
     '''
@@ -1037,6 +1057,7 @@ class AssertionsProvider(
         uuid: typing.Optional[builtins.str] = None,
         handler: typing.Optional[builtins.str] = None,
         log_retention: typing.Optional["_aws_cdk_aws_logs_ceddda9d.RetentionDays"] = None,
+        provider_log_level: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel"] = None,
     ) -> None:
         '''
         :param scope: -
@@ -1044,6 +1065,7 @@ class AssertionsProvider(
         :param uuid: (experimental) This determines the uniqueness of each AssertionsProvider. You should only need to provide something different here if you *know* that you need a separate provider Default: - the default uuid is used
         :param handler: (experimental) The handler to use for the lambda function. Default: index.handler
         :param log_retention: (experimental) How long, in days, the log contents will be retained. Default: - no retention days specified
+        :param provider_log_level: (experimental) The log level of the provider lambda function. Default: ApplicationLogLevel.FATAL
 
         :stability: experimental
         '''
@@ -1052,7 +1074,10 @@ class AssertionsProvider(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = AssertionsProviderProps(
-            uuid=uuid, handler=handler, log_retention=log_retention
+            uuid=uuid,
+            handler=handler,
+            log_retention=log_retention,
+            provider_log_level=provider_log_level,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -1152,237 +1177,6 @@ class AssertionsProvider(
         :stability: experimental
         '''
         return typing.cast(builtins.str, jsii.get(self, "serviceToken"))
-
-
-@jsii.data_type(
-    jsii_type="@aws-cdk/integ-tests-alpha.AwsApiCallOptions",
-    jsii_struct_bases=[],
-    name_mapping={
-        "api": "api",
-        "service": "service",
-        "output_paths": "outputPaths",
-        "parameters": "parameters",
-    },
-)
-class AwsApiCallOptions:
-    def __init__(
-        self,
-        *,
-        api: builtins.str,
-        service: builtins.str,
-        output_paths: typing.Optional[typing.Sequence[builtins.str]] = None,
-        parameters: typing.Any = None,
-    ) -> None:
-        '''(experimental) Options to perform an AWS JavaScript V2 API call.
-
-        :param api: (experimental) The api call to make, i.e. getBucketLifecycle.
-        :param service: (experimental) The AWS service, i.e. S3.
-        :param output_paths: (experimental) Restrict the data returned by the API call to specific paths in the API response. Use this to limit the data returned by the custom resource if working with API calls that could potentially result in custom response objects exceeding the hard limit of 4096 bytes. Default: - return all data
-        :param parameters: (experimental) Any parameters to pass to the api call. Default: - no parameters
-
-        :stability: experimental
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            import aws_cdk.integ_tests_alpha as integ_tests_alpha
-            
-            # parameters: Any
-            
-            aws_api_call_options = integ_tests_alpha.AwsApiCallOptions(
-                api="api",
-                service="service",
-            
-                # the properties below are optional
-                output_paths=["outputPaths"],
-                parameters=parameters
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1bb3bfb6e039f1770b7357b50e700e5397b1fe0af7e9bda38fcf799b232ae6b1)
-            check_type(argname="argument api", value=api, expected_type=type_hints["api"])
-            check_type(argname="argument service", value=service, expected_type=type_hints["service"])
-            check_type(argname="argument output_paths", value=output_paths, expected_type=type_hints["output_paths"])
-            check_type(argname="argument parameters", value=parameters, expected_type=type_hints["parameters"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "api": api,
-            "service": service,
-        }
-        if output_paths is not None:
-            self._values["output_paths"] = output_paths
-        if parameters is not None:
-            self._values["parameters"] = parameters
-
-    @builtins.property
-    def api(self) -> builtins.str:
-        '''(experimental) The api call to make, i.e. getBucketLifecycle.
-
-        :stability: experimental
-        '''
-        result = self._values.get("api")
-        assert result is not None, "Required property 'api' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def service(self) -> builtins.str:
-        '''(experimental) The AWS service, i.e. S3.
-
-        :stability: experimental
-        '''
-        result = self._values.get("service")
-        assert result is not None, "Required property 'service' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def output_paths(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''(experimental) Restrict the data returned by the API call to specific paths in the API response.
-
-        Use this to limit the data returned by the custom
-        resource if working with API calls that could potentially result in custom
-        response objects exceeding the hard limit of 4096 bytes.
-
-        :default: - return all data
-
-        :stability: experimental
-        '''
-        result = self._values.get("output_paths")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def parameters(self) -> typing.Any:
-        '''(experimental) Any parameters to pass to the api call.
-
-        :default: - no parameters
-
-        :stability: experimental
-        '''
-        result = self._values.get("parameters")
-        return typing.cast(typing.Any, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "AwsApiCallOptions(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="@aws-cdk/integ-tests-alpha.AwsApiCallProps",
-    jsii_struct_bases=[AwsApiCallOptions],
-    name_mapping={
-        "api": "api",
-        "service": "service",
-        "output_paths": "outputPaths",
-        "parameters": "parameters",
-    },
-)
-class AwsApiCallProps(AwsApiCallOptions):
-    def __init__(
-        self,
-        *,
-        api: builtins.str,
-        service: builtins.str,
-        output_paths: typing.Optional[typing.Sequence[builtins.str]] = None,
-        parameters: typing.Any = None,
-    ) -> None:
-        '''(experimental) Construct that creates a custom resource that will perform a query using the AWS SDK.
-
-        :param api: (experimental) The api call to make, i.e. getBucketLifecycle.
-        :param service: (experimental) The AWS service, i.e. S3.
-        :param output_paths: (experimental) Restrict the data returned by the API call to specific paths in the API response. Use this to limit the data returned by the custom resource if working with API calls that could potentially result in custom response objects exceeding the hard limit of 4096 bytes. Default: - return all data
-        :param parameters: (experimental) Any parameters to pass to the api call. Default: - no parameters
-
-        :stability: experimental
-        :exampleMetadata: infused
-
-        Example::
-
-            # my_app_stack: Stack
-            
-            
-            AwsApiCall(my_app_stack, "GetObject",
-                service="S3",
-                api="getObject"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9667093e2c183b6409c654dfeddf1ba9117d05548446571b59e368fb53b52357)
-            check_type(argname="argument api", value=api, expected_type=type_hints["api"])
-            check_type(argname="argument service", value=service, expected_type=type_hints["service"])
-            check_type(argname="argument output_paths", value=output_paths, expected_type=type_hints["output_paths"])
-            check_type(argname="argument parameters", value=parameters, expected_type=type_hints["parameters"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "api": api,
-            "service": service,
-        }
-        if output_paths is not None:
-            self._values["output_paths"] = output_paths
-        if parameters is not None:
-            self._values["parameters"] = parameters
-
-    @builtins.property
-    def api(self) -> builtins.str:
-        '''(experimental) The api call to make, i.e. getBucketLifecycle.
-
-        :stability: experimental
-        '''
-        result = self._values.get("api")
-        assert result is not None, "Required property 'api' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def service(self) -> builtins.str:
-        '''(experimental) The AWS service, i.e. S3.
-
-        :stability: experimental
-        '''
-        result = self._values.get("service")
-        assert result is not None, "Required property 'service' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def output_paths(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''(experimental) Restrict the data returned by the API call to specific paths in the API response.
-
-        Use this to limit the data returned by the custom
-        resource if working with API calls that could potentially result in custom
-        response objects exceeding the hard limit of 4096 bytes.
-
-        :default: - return all data
-
-        :stability: experimental
-        '''
-        result = self._values.get("output_paths")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def parameters(self) -> typing.Any:
-        '''(experimental) Any parameters to pass to the api call.
-
-        :default: - no parameters
-
-        :stability: experimental
-        '''
-        result = self._values.get("parameters")
-        return typing.cast(typing.Any, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "AwsApiCallProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
 
 
 @jsii.data_type(
@@ -1603,6 +1397,7 @@ class EqualsAssertion(
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         import aws_cdk.integ_tests_alpha as integ_tests_alpha
+        from aws_cdk import aws_lambda as lambda_
         
         # actual_result: integ_tests_alpha.ActualResult
         # expected_result: integ_tests_alpha.ExpectedResult
@@ -1612,7 +1407,8 @@ class EqualsAssertion(
             expected=expected_result,
         
             # the properties below are optional
-            fail_deployment=False
+            fail_deployment=False,
+            provider_log_level=lambda_.ApplicationLogLevel.INFO
         )
     '''
 
@@ -1624,6 +1420,7 @@ class EqualsAssertion(
         actual: "ActualResult",
         expected: "ExpectedResult",
         fail_deployment: typing.Optional[builtins.bool] = None,
+        provider_log_level: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel"] = None,
     ) -> None:
         '''
         :param scope: -
@@ -1631,6 +1428,7 @@ class EqualsAssertion(
         :param actual: (experimental) The actual results to compare.
         :param expected: (experimental) The expected result to assert.
         :param fail_deployment: (experimental) Set this to true if a failed assertion should result in a CloudFormation deployment failure. This is only necessary if assertions are being executed outside of ``integ-runner``. Default: false
+        :param provider_log_level: (experimental) The log level of the provider lambda function. Default: ApplicationLogLevel.FATAL
 
         :stability: experimental
         '''
@@ -1639,7 +1437,10 @@ class EqualsAssertion(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = EqualsAssertionProps(
-            actual=actual, expected=expected, fail_deployment=fail_deployment
+            actual=actual,
+            expected=expected,
+            fail_deployment=fail_deployment,
+            provider_log_level=provider_log_level,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -1652,107 +1453,6 @@ class EqualsAssertion(
         :stability: experimental
         '''
         return typing.cast(builtins.str, jsii.get(self, "result"))
-
-
-@jsii.data_type(
-    jsii_type="@aws-cdk/integ-tests-alpha.EqualsAssertionProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "actual": "actual",
-        "expected": "expected",
-        "fail_deployment": "failDeployment",
-    },
-)
-class EqualsAssertionProps:
-    def __init__(
-        self,
-        *,
-        actual: "ActualResult",
-        expected: "ExpectedResult",
-        fail_deployment: typing.Optional[builtins.bool] = None,
-    ) -> None:
-        '''(experimental) Options for an EqualsAssertion.
-
-        :param actual: (experimental) The actual results to compare.
-        :param expected: (experimental) The expected result to assert.
-        :param fail_deployment: (experimental) Set this to true if a failed assertion should result in a CloudFormation deployment failure. This is only necessary if assertions are being executed outside of ``integ-runner``. Default: false
-
-        :stability: experimental
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            import aws_cdk.integ_tests_alpha as integ_tests_alpha
-            
-            # actual_result: integ_tests_alpha.ActualResult
-            # expected_result: integ_tests_alpha.ExpectedResult
-            
-            equals_assertion_props = integ_tests_alpha.EqualsAssertionProps(
-                actual=actual_result,
-                expected=expected_result,
-            
-                # the properties below are optional
-                fail_deployment=False
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__58af14cdbf1ae6af7373273fada4bab47f80572e2dc79fc8406588336d4cd06a)
-            check_type(argname="argument actual", value=actual, expected_type=type_hints["actual"])
-            check_type(argname="argument expected", value=expected, expected_type=type_hints["expected"])
-            check_type(argname="argument fail_deployment", value=fail_deployment, expected_type=type_hints["fail_deployment"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "actual": actual,
-            "expected": expected,
-        }
-        if fail_deployment is not None:
-            self._values["fail_deployment"] = fail_deployment
-
-    @builtins.property
-    def actual(self) -> "ActualResult":
-        '''(experimental) The actual results to compare.
-
-        :stability: experimental
-        '''
-        result = self._values.get("actual")
-        assert result is not None, "Required property 'actual' is missing"
-        return typing.cast("ActualResult", result)
-
-    @builtins.property
-    def expected(self) -> "ExpectedResult":
-        '''(experimental) The expected result to assert.
-
-        :stability: experimental
-        '''
-        result = self._values.get("expected")
-        assert result is not None, "Required property 'expected' is missing"
-        return typing.cast("ExpectedResult", result)
-
-    @builtins.property
-    def fail_deployment(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Set this to true if a failed assertion should result in a CloudFormation deployment failure.
-
-        This is only necessary if assertions are being
-        executed outside of ``integ-runner``.
-
-        :default: false
-
-        :stability: experimental
-        '''
-        result = self._values.get("fail_deployment")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "EqualsAssertionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
 
 
 class ExpectedResult(
@@ -2602,6 +2302,7 @@ class IApiCall(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
         backoff_rate: typing.Optional[jsii.Number] = None,
         interval: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         total_timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        provider_log_level: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel"] = None,
     ) -> "IApiCall":
         '''(experimental) Wait for the IApiCall to return the expected response.
 
@@ -2611,6 +2312,7 @@ class IApiCall(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
         :param backoff_rate: (experimental) Backoff between attempts. This is the multiplier by which the retry interval increases after each retry attempt. By default there is no backoff. Each retry will wait the amount of time specified by ``interval``. Default: 1 (no backoff)
         :param interval: (experimental) The interval (number of seconds) to wait between attempts. Default: Duration.seconds(5)
         :param total_timeout: (experimental) The total time that the state machine will wait for a successful response. Default: Duration.minutes(30)
+        :param provider_log_level: (experimental) The log level of the provider lambda function. Default: ApplicationLogLevel.FATAL
 
         :stability: experimental
 
@@ -2793,6 +2495,7 @@ class _IApiCallProxy(
         backoff_rate: typing.Optional[jsii.Number] = None,
         interval: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         total_timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        provider_log_level: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel"] = None,
     ) -> "IApiCall":
         '''(experimental) Wait for the IApiCall to return the expected response.
 
@@ -2802,6 +2505,7 @@ class _IApiCallProxy(
         :param backoff_rate: (experimental) Backoff between attempts. This is the multiplier by which the retry interval increases after each retry attempt. By default there is no backoff. Each retry will wait the amount of time specified by ``interval``. Default: 1 (no backoff)
         :param interval: (experimental) The interval (number of seconds) to wait between attempts. Default: Duration.seconds(5)
         :param total_timeout: (experimental) The total time that the state machine will wait for a successful response. Default: Duration.minutes(30)
+        :param provider_log_level: (experimental) The log level of the provider lambda function. Default: ApplicationLogLevel.FATAL
 
         :stability: experimental
 
@@ -2815,7 +2519,10 @@ class _IApiCallProxy(
             }).wait_for_assertions()
         '''
         options = WaiterStateMachineOptions(
-            backoff_rate=backoff_rate, interval=interval, total_timeout=total_timeout
+            backoff_rate=backoff_rate,
+            interval=interval,
+            total_timeout=total_timeout,
+            provider_log_level=provider_log_level,
         )
 
         return typing.cast("IApiCall", jsii.invoke(self, "waitForAssertions", [options]))
@@ -3210,12 +2917,14 @@ class IntegTest(
         test_cases: typing.Sequence["_aws_cdk_ceddda9d.Stack"],
         assertion_stack: typing.Optional["_aws_cdk_ceddda9d.Stack"] = None,
         enable_lookups: typing.Optional[builtins.bool] = None,
+        allow_delete_failures: typing.Optional[builtins.bool] = None,
         allow_destroy: typing.Optional[typing.Sequence[builtins.str]] = None,
         cdk_command_options: typing.Optional[typing.Union["_aws_cdk_cloud_assembly_schema_ceddda9d.CdkCommands", typing.Dict[builtins.str, typing.Any]]] = None,
         diff_assets: typing.Optional[builtins.bool] = None,
         hooks: typing.Optional[typing.Union["_aws_cdk_cloud_assembly_schema_ceddda9d.Hooks", typing.Dict[builtins.str, typing.Any]]] = None,
         regions: typing.Optional[typing.Sequence[builtins.str]] = None,
         stack_update_workflow: typing.Optional[builtins.bool] = None,
+        provider_log_level: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel"] = None,
     ) -> None:
         '''
         :param scope: -
@@ -3223,12 +2932,14 @@ class IntegTest(
         :param test_cases: (experimental) List of test cases that make up this test.
         :param assertion_stack: (experimental) Specify a stack to use for assertions. Default: - a stack is created for you
         :param enable_lookups: (experimental) Enable lookups for this test. If lookups are enabled then ``stackUpdateWorkflow`` must be set to false. Lookups should only be enabled when you are explicitly testing lookups. Default: false
+        :param allow_delete_failures: Whether to allow resources that fail to delete during a stack update. When false, the test will fail if CloudFormation skips deleting a resource during a stack update. When true, only a warning is printed. Default: false
         :param allow_destroy: List of CloudFormation resource types in this stack that can be destroyed as part of an update without failing the test. This list should only include resources that for this specific integration test we are sure will not cause errors or an outage if destroyed. For example, maybe we know that a new resource will be created first before the old resource is destroyed which prevents any outage. e.g. ['AWS::IAM::Role'] Default: - do not allow destruction of any resources on update
         :param cdk_command_options: Additional options to use for each CDK command. Default: - runner default options
         :param diff_assets: Whether or not to include asset hashes in the diff Asset hashes can introduces a lot of unneccessary noise into tests, but there are some cases where asset hashes *should* be included. For example any tests involving custom resources or bundling Default: false
         :param hooks: Additional commands to run at predefined points in the test workflow. e.g. { postDeploy: ['yarn', 'test'] } Default: - no hooks
         :param regions: Limit deployment to these regions. Default: - can run in any region
         :param stack_update_workflow: Run update workflow on this test case This should only be set to false to test scenarios that are not possible to test as part of the update workflow. Default: true
+        :param provider_log_level: (experimental) The log level of the provider lambda function. Default: ApplicationLogLevel.FATAL
 
         :stability: experimental
         '''
@@ -3240,12 +2951,14 @@ class IntegTest(
             test_cases=test_cases,
             assertion_stack=assertion_stack,
             enable_lookups=enable_lookups,
+            allow_delete_failures=allow_delete_failures,
             allow_destroy=allow_destroy,
             cdk_command_options=cdk_command_options,
             diff_assets=diff_assets,
             hooks=hooks,
             regions=regions,
             stack_update_workflow=stack_update_workflow,
+            provider_log_level=provider_log_level,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -3280,6 +2993,7 @@ class IntegTestCase(
         # The values are placeholders you should change.
         import aws_cdk.integ_tests_alpha as integ_tests_alpha
         import aws_cdk as cdk
+        from aws_cdk import aws_lambda as lambda_
         from aws_cdk import cloud_assembly_schema
         
         # stack: cdk.Stack
@@ -3288,6 +3002,7 @@ class IntegTestCase(
             stacks=[stack],
         
             # the properties below are optional
+            allow_delete_failures=False,
             allow_destroy=["allowDestroy"],
             assertion_stack=stack,
             cdk_command_options=CdkCommands(
@@ -3381,6 +3096,7 @@ class IntegTestCase(
                 pre_deploy=["preDeploy"],
                 pre_destroy=["preDestroy"]
             ),
+            provider_log_level=lambda_.ApplicationLogLevel.INFO,
             regions=["regions"],
             stack_update_workflow=False
         )
@@ -3393,24 +3109,28 @@ class IntegTestCase(
         *,
         stacks: typing.Sequence["_aws_cdk_ceddda9d.Stack"],
         assertion_stack: typing.Optional["_aws_cdk_ceddda9d.Stack"] = None,
+        allow_delete_failures: typing.Optional[builtins.bool] = None,
         allow_destroy: typing.Optional[typing.Sequence[builtins.str]] = None,
         cdk_command_options: typing.Optional[typing.Union["_aws_cdk_cloud_assembly_schema_ceddda9d.CdkCommands", typing.Dict[builtins.str, typing.Any]]] = None,
         diff_assets: typing.Optional[builtins.bool] = None,
         hooks: typing.Optional[typing.Union["_aws_cdk_cloud_assembly_schema_ceddda9d.Hooks", typing.Dict[builtins.str, typing.Any]]] = None,
         regions: typing.Optional[typing.Sequence[builtins.str]] = None,
         stack_update_workflow: typing.Optional[builtins.bool] = None,
+        provider_log_level: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel"] = None,
     ) -> None:
         '''
         :param scope: -
         :param id: -
         :param stacks: (experimental) Stacks to be deployed during the test.
         :param assertion_stack: (experimental) Specify a stack to use for assertions. Default: - a stack is created for you
+        :param allow_delete_failures: Whether to allow resources that fail to delete during a stack update. When false, the test will fail if CloudFormation skips deleting a resource during a stack update. When true, only a warning is printed. Default: false
         :param allow_destroy: List of CloudFormation resource types in this stack that can be destroyed as part of an update without failing the test. This list should only include resources that for this specific integration test we are sure will not cause errors or an outage if destroyed. For example, maybe we know that a new resource will be created first before the old resource is destroyed which prevents any outage. e.g. ['AWS::IAM::Role'] Default: - do not allow destruction of any resources on update
         :param cdk_command_options: Additional options to use for each CDK command. Default: - runner default options
         :param diff_assets: Whether or not to include asset hashes in the diff Asset hashes can introduces a lot of unneccessary noise into tests, but there are some cases where asset hashes *should* be included. For example any tests involving custom resources or bundling Default: false
         :param hooks: Additional commands to run at predefined points in the test workflow. e.g. { postDeploy: ['yarn', 'test'] } Default: - no hooks
         :param regions: Limit deployment to these regions. Default: - can run in any region
         :param stack_update_workflow: Run update workflow on this test case This should only be set to false to test scenarios that are not possible to test as part of the update workflow. Default: true
+        :param provider_log_level: (experimental) The log level of the provider lambda function. Default: ApplicationLogLevel.FATAL
 
         :stability: experimental
         '''
@@ -3421,12 +3141,14 @@ class IntegTestCase(
         props = IntegTestCaseProps(
             stacks=stacks,
             assertion_stack=assertion_stack,
+            allow_delete_failures=allow_delete_failures,
             allow_destroy=allow_destroy,
             cdk_command_options=cdk_command_options,
             diff_assets=diff_assets,
             hooks=hooks,
             regions=regions,
             stack_update_workflow=stack_update_workflow,
+            provider_log_level=provider_log_level,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -3451,292 +3173,6 @@ class IntegTestCase(
         :stability: experimental
         '''
         return typing.cast("_aws_cdk_cloud_assembly_schema_ceddda9d.IntegManifest", jsii.get(self, "manifest"))
-
-
-@jsii.data_type(
-    jsii_type="@aws-cdk/integ-tests-alpha.IntegTestCaseProps",
-    jsii_struct_bases=[_aws_cdk_cloud_assembly_schema_ceddda9d.TestOptions],
-    name_mapping={
-        "allow_destroy": "allowDestroy",
-        "cdk_command_options": "cdkCommandOptions",
-        "diff_assets": "diffAssets",
-        "hooks": "hooks",
-        "regions": "regions",
-        "stack_update_workflow": "stackUpdateWorkflow",
-        "stacks": "stacks",
-        "assertion_stack": "assertionStack",
-    },
-)
-class IntegTestCaseProps(_aws_cdk_cloud_assembly_schema_ceddda9d.TestOptions):
-    def __init__(
-        self,
-        *,
-        allow_destroy: typing.Optional[typing.Sequence[builtins.str]] = None,
-        cdk_command_options: typing.Optional[typing.Union["_aws_cdk_cloud_assembly_schema_ceddda9d.CdkCommands", typing.Dict[builtins.str, typing.Any]]] = None,
-        diff_assets: typing.Optional[builtins.bool] = None,
-        hooks: typing.Optional[typing.Union["_aws_cdk_cloud_assembly_schema_ceddda9d.Hooks", typing.Dict[builtins.str, typing.Any]]] = None,
-        regions: typing.Optional[typing.Sequence[builtins.str]] = None,
-        stack_update_workflow: typing.Optional[builtins.bool] = None,
-        stacks: typing.Sequence["_aws_cdk_ceddda9d.Stack"],
-        assertion_stack: typing.Optional["_aws_cdk_ceddda9d.Stack"] = None,
-    ) -> None:
-        '''(experimental) Properties of an integration test case.
-
-        :param allow_destroy: List of CloudFormation resource types in this stack that can be destroyed as part of an update without failing the test. This list should only include resources that for this specific integration test we are sure will not cause errors or an outage if destroyed. For example, maybe we know that a new resource will be created first before the old resource is destroyed which prevents any outage. e.g. ['AWS::IAM::Role'] Default: - do not allow destruction of any resources on update
-        :param cdk_command_options: Additional options to use for each CDK command. Default: - runner default options
-        :param diff_assets: Whether or not to include asset hashes in the diff Asset hashes can introduces a lot of unneccessary noise into tests, but there are some cases where asset hashes *should* be included. For example any tests involving custom resources or bundling Default: false
-        :param hooks: Additional commands to run at predefined points in the test workflow. e.g. { postDeploy: ['yarn', 'test'] } Default: - no hooks
-        :param regions: Limit deployment to these regions. Default: - can run in any region
-        :param stack_update_workflow: Run update workflow on this test case This should only be set to false to test scenarios that are not possible to test as part of the update workflow. Default: true
-        :param stacks: (experimental) Stacks to be deployed during the test.
-        :param assertion_stack: (experimental) Specify a stack to use for assertions. Default: - a stack is created for you
-
-        :stability: experimental
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            from aws_cdk.cloud_assembly_schema import CdkCommands, DeployCommand, DeployOptions, DestroyCommand, DestroyOptions, Hooks
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            import aws_cdk.integ_tests_alpha as integ_tests_alpha
-            import aws_cdk as cdk
-            from aws_cdk import cloud_assembly_schema
-            
-            # stack: cdk.Stack
-            
-            integ_test_case_props = integ_tests_alpha.IntegTestCaseProps(
-                stacks=[stack],
-            
-                # the properties below are optional
-                allow_destroy=["allowDestroy"],
-                assertion_stack=stack,
-                cdk_command_options=CdkCommands(
-                    deploy=DeployCommand(
-                        args=DeployOptions(
-                            all=False,
-                            app="app",
-                            asset_metadata=False,
-                            ca_bundle_path="caBundlePath",
-                            change_set_name="changeSetName",
-                            ci=False,
-                            color=False,
-                            concurrency=123,
-                            context={
-                                "context_key": "context"
-                            },
-                            debug=False,
-                            ec2_creds=False,
-                            exclusively=False,
-                            execute=False,
-                            force=False,
-                            ignore_errors=False,
-                            json=False,
-                            lookups=False,
-                            notices=False,
-                            notification_arns=["notificationArns"],
-                            output="output",
-                            outputs_file="outputsFile",
-                            parameters={
-                                "parameters_key": "parameters"
-                            },
-                            path_metadata=False,
-                            profile="profile",
-                            proxy="proxy",
-                            require_approval=cloud_assembly_schema.RequireApproval.NEVER,
-                            reuse_assets=["reuseAssets"],
-                            role_arn="roleArn",
-                            rollback=False,
-                            stacks=["stacks"],
-                            staging=False,
-                            strict=False,
-                            toolkit_stack_name="toolkitStackName",
-                            trace=False,
-                            use_previous_parameters=False,
-                            verbose=False,
-                            version_reporting=False
-                        ),
-                        enabled=False,
-                        expected_message="expectedMessage",
-                        expect_error=False
-                    ),
-                    destroy=DestroyCommand(
-                        args=DestroyOptions(
-                            all=False,
-                            app="app",
-                            asset_metadata=False,
-                            ca_bundle_path="caBundlePath",
-                            color=False,
-                            context={
-                                "context_key": "context"
-                            },
-                            debug=False,
-                            ec2_creds=False,
-                            exclusively=False,
-                            force=False,
-                            ignore_errors=False,
-                            json=False,
-                            lookups=False,
-                            notices=False,
-                            output="output",
-                            path_metadata=False,
-                            profile="profile",
-                            proxy="proxy",
-                            role_arn="roleArn",
-                            stacks=["stacks"],
-                            staging=False,
-                            strict=False,
-                            trace=False,
-                            verbose=False,
-                            version_reporting=False
-                        ),
-                        enabled=False,
-                        expected_message="expectedMessage",
-                        expect_error=False
-                    )
-                ),
-                diff_assets=False,
-                hooks=Hooks(
-                    post_deploy=["postDeploy"],
-                    post_destroy=["postDestroy"],
-                    pre_deploy=["preDeploy"],
-                    pre_destroy=["preDestroy"]
-                ),
-                regions=["regions"],
-                stack_update_workflow=False
-            )
-        '''
-        if isinstance(cdk_command_options, dict):
-            cdk_command_options = _aws_cdk_cloud_assembly_schema_ceddda9d.CdkCommands(**cdk_command_options)
-        if isinstance(hooks, dict):
-            hooks = _aws_cdk_cloud_assembly_schema_ceddda9d.Hooks(**hooks)
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5f36706ce503fa92c9baffb37b25208bc4e61071c2af78b1cf526c1916f483b6)
-            check_type(argname="argument allow_destroy", value=allow_destroy, expected_type=type_hints["allow_destroy"])
-            check_type(argname="argument cdk_command_options", value=cdk_command_options, expected_type=type_hints["cdk_command_options"])
-            check_type(argname="argument diff_assets", value=diff_assets, expected_type=type_hints["diff_assets"])
-            check_type(argname="argument hooks", value=hooks, expected_type=type_hints["hooks"])
-            check_type(argname="argument regions", value=regions, expected_type=type_hints["regions"])
-            check_type(argname="argument stack_update_workflow", value=stack_update_workflow, expected_type=type_hints["stack_update_workflow"])
-            check_type(argname="argument stacks", value=stacks, expected_type=type_hints["stacks"])
-            check_type(argname="argument assertion_stack", value=assertion_stack, expected_type=type_hints["assertion_stack"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "stacks": stacks,
-        }
-        if allow_destroy is not None:
-            self._values["allow_destroy"] = allow_destroy
-        if cdk_command_options is not None:
-            self._values["cdk_command_options"] = cdk_command_options
-        if diff_assets is not None:
-            self._values["diff_assets"] = diff_assets
-        if hooks is not None:
-            self._values["hooks"] = hooks
-        if regions is not None:
-            self._values["regions"] = regions
-        if stack_update_workflow is not None:
-            self._values["stack_update_workflow"] = stack_update_workflow
-        if assertion_stack is not None:
-            self._values["assertion_stack"] = assertion_stack
-
-    @builtins.property
-    def allow_destroy(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''List of CloudFormation resource types in this stack that can be destroyed as part of an update without failing the test.
-
-        This list should only include resources that for this specific
-        integration test we are sure will not cause errors or an outage if
-        destroyed. For example, maybe we know that a new resource will be created
-        first before the old resource is destroyed which prevents any outage.
-
-        e.g. ['AWS::IAM::Role']
-
-        :default: - do not allow destruction of any resources on update
-        '''
-        result = self._values.get("allow_destroy")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def cdk_command_options(
-        self,
-    ) -> typing.Optional["_aws_cdk_cloud_assembly_schema_ceddda9d.CdkCommands"]:
-        '''Additional options to use for each CDK command.
-
-        :default: - runner default options
-        '''
-        result = self._values.get("cdk_command_options")
-        return typing.cast(typing.Optional["_aws_cdk_cloud_assembly_schema_ceddda9d.CdkCommands"], result)
-
-    @builtins.property
-    def diff_assets(self) -> typing.Optional[builtins.bool]:
-        '''Whether or not to include asset hashes in the diff Asset hashes can introduces a lot of unneccessary noise into tests, but there are some cases where asset hashes *should* be included.
-
-        For example
-        any tests involving custom resources or bundling
-
-        :default: false
-        '''
-        result = self._values.get("diff_assets")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def hooks(self) -> typing.Optional["_aws_cdk_cloud_assembly_schema_ceddda9d.Hooks"]:
-        '''Additional commands to run at predefined points in the test workflow.
-
-        e.g. { postDeploy: ['yarn', 'test'] }
-
-        :default: - no hooks
-        '''
-        result = self._values.get("hooks")
-        return typing.cast(typing.Optional["_aws_cdk_cloud_assembly_schema_ceddda9d.Hooks"], result)
-
-    @builtins.property
-    def regions(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Limit deployment to these regions.
-
-        :default: - can run in any region
-        '''
-        result = self._values.get("regions")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def stack_update_workflow(self) -> typing.Optional[builtins.bool]:
-        '''Run update workflow on this test case This should only be set to false to test scenarios that are not possible to test as part of the update workflow.
-
-        :default: true
-        '''
-        result = self._values.get("stack_update_workflow")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def stacks(self) -> typing.List["_aws_cdk_ceddda9d.Stack"]:
-        '''(experimental) Stacks to be deployed during the test.
-
-        :stability: experimental
-        '''
-        result = self._values.get("stacks")
-        assert result is not None, "Required property 'stacks' is missing"
-        return typing.cast(typing.List["_aws_cdk_ceddda9d.Stack"], result)
-
-    @builtins.property
-    def assertion_stack(self) -> typing.Optional["_aws_cdk_ceddda9d.Stack"]:
-        '''(experimental) Specify a stack to use for assertions.
-
-        :default: - a stack is created for you
-
-        :stability: experimental
-        '''
-        result = self._values.get("assertion_stack")
-        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Stack"], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "IntegTestCaseProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
 
 
 class IntegTestCaseStack(
@@ -3770,6 +3206,7 @@ class IntegTestCaseStack(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
+        allow_delete_failures: typing.Optional[builtins.bool] = None,
         allow_destroy: typing.Optional[typing.Sequence[builtins.str]] = None,
         cdk_command_options: typing.Optional[typing.Union["_aws_cdk_cloud_assembly_schema_ceddda9d.CdkCommands", typing.Dict[builtins.str, typing.Any]]] = None,
         diff_assets: typing.Optional[builtins.bool] = None,
@@ -3792,6 +3229,7 @@ class IntegTestCaseStack(
         '''
         :param scope: -
         :param id: -
+        :param allow_delete_failures: Whether to allow resources that fail to delete during a stack update. When false, the test will fail if CloudFormation skips deleting a resource during a stack update. When true, only a warning is printed. Default: false
         :param allow_destroy: List of CloudFormation resource types in this stack that can be destroyed as part of an update without failing the test. This list should only include resources that for this specific integration test we are sure will not cause errors or an outage if destroyed. For example, maybe we know that a new resource will be created first before the old resource is destroyed which prevents any outage. e.g. ['AWS::IAM::Role'] Default: - do not allow destruction of any resources on update
         :param cdk_command_options: Additional options to use for each CDK command. Default: - runner default options
         :param diff_assets: Whether or not to include asset hashes in the diff Asset hashes can introduces a lot of unneccessary noise into tests, but there are some cases where asset hashes *should* be included. For example any tests involving custom resources or bundling Default: false
@@ -3818,6 +3256,7 @@ class IntegTestCaseStack(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = IntegTestCaseStackProps(
+            allow_delete_failures=allow_delete_failures,
             allow_destroy=allow_destroy,
             cdk_command_options=cdk_command_options,
             diff_assets=diff_assets,
@@ -3871,6 +3310,7 @@ class IntegTestCaseStack(
         _aws_cdk_ceddda9d.StackProps,
     ],
     name_mapping={
+        "allow_delete_failures": "allowDeleteFailures",
         "allow_destroy": "allowDestroy",
         "cdk_command_options": "cdkCommandOptions",
         "diff_assets": "diffAssets",
@@ -3898,6 +3338,7 @@ class IntegTestCaseStackProps(
     def __init__(
         self,
         *,
+        allow_delete_failures: typing.Optional[builtins.bool] = None,
         allow_destroy: typing.Optional[typing.Sequence[builtins.str]] = None,
         cdk_command_options: typing.Optional[typing.Union["_aws_cdk_cloud_assembly_schema_ceddda9d.CdkCommands", typing.Dict[builtins.str, typing.Any]]] = None,
         diff_assets: typing.Optional[builtins.bool] = None,
@@ -3919,6 +3360,7 @@ class IntegTestCaseStackProps(
     ) -> None:
         '''(experimental) Properties of an integration test case stack.
 
+        :param allow_delete_failures: Whether to allow resources that fail to delete during a stack update. When false, the test will fail if CloudFormation skips deleting a resource during a stack update. When true, only a warning is printed. Default: false
         :param allow_destroy: List of CloudFormation resource types in this stack that can be destroyed as part of an update without failing the test. This list should only include resources that for this specific integration test we are sure will not cause errors or an outage if destroyed. For example, maybe we know that a new resource will be created first before the old resource is destroyed which prevents any outage. e.g. ['AWS::IAM::Role'] Default: - do not allow destruction of any resources on update
         :param cdk_command_options: Additional options to use for each CDK command. Default: - runner default options
         :param diff_assets: Whether or not to include asset hashes in the diff Asset hashes can introduces a lot of unneccessary noise into tests, but there are some cases where asset hashes *should* be included. For example any tests involving custom resources or bundling Default: false
@@ -3960,6 +3402,7 @@ class IntegTestCaseStackProps(
             env = _aws_cdk_ceddda9d.Environment(**env)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__59edf2938a92df2253021d942b03a0fa818705ff3df6920854079be734c3e175)
+            check_type(argname="argument allow_delete_failures", value=allow_delete_failures, expected_type=type_hints["allow_delete_failures"])
             check_type(argname="argument allow_destroy", value=allow_destroy, expected_type=type_hints["allow_destroy"])
             check_type(argname="argument cdk_command_options", value=cdk_command_options, expected_type=type_hints["cdk_command_options"])
             check_type(argname="argument diff_assets", value=diff_assets, expected_type=type_hints["diff_assets"])
@@ -3979,6 +3422,8 @@ class IntegTestCaseStackProps(
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument termination_protection", value=termination_protection, expected_type=type_hints["termination_protection"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if allow_delete_failures is not None:
+            self._values["allow_delete_failures"] = allow_delete_failures
         if allow_destroy is not None:
             self._values["allow_destroy"] = allow_destroy
         if cdk_command_options is not None:
@@ -4015,6 +3460,18 @@ class IntegTestCaseStackProps(
             self._values["tags"] = tags
         if termination_protection is not None:
             self._values["termination_protection"] = termination_protection
+
+    @builtins.property
+    def allow_delete_failures(self) -> typing.Optional[builtins.bool]:
+        '''Whether to allow resources that fail to delete during a stack update.
+
+        When false, the test will fail if CloudFormation skips deleting a resource
+        during a stack update. When true, only a warning is printed.
+
+        :default: false
+        '''
+        result = self._values.get("allow_delete_failures")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def allow_destroy(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -4300,228 +3757,6 @@ class IntegTestCaseStackProps(
         )
 
 
-@jsii.data_type(
-    jsii_type="@aws-cdk/integ-tests-alpha.IntegTestProps",
-    jsii_struct_bases=[_aws_cdk_cloud_assembly_schema_ceddda9d.TestOptions],
-    name_mapping={
-        "allow_destroy": "allowDestroy",
-        "cdk_command_options": "cdkCommandOptions",
-        "diff_assets": "diffAssets",
-        "hooks": "hooks",
-        "regions": "regions",
-        "stack_update_workflow": "stackUpdateWorkflow",
-        "test_cases": "testCases",
-        "assertion_stack": "assertionStack",
-        "enable_lookups": "enableLookups",
-    },
-)
-class IntegTestProps(_aws_cdk_cloud_assembly_schema_ceddda9d.TestOptions):
-    def __init__(
-        self,
-        *,
-        allow_destroy: typing.Optional[typing.Sequence[builtins.str]] = None,
-        cdk_command_options: typing.Optional[typing.Union["_aws_cdk_cloud_assembly_schema_ceddda9d.CdkCommands", typing.Dict[builtins.str, typing.Any]]] = None,
-        diff_assets: typing.Optional[builtins.bool] = None,
-        hooks: typing.Optional[typing.Union["_aws_cdk_cloud_assembly_schema_ceddda9d.Hooks", typing.Dict[builtins.str, typing.Any]]] = None,
-        regions: typing.Optional[typing.Sequence[builtins.str]] = None,
-        stack_update_workflow: typing.Optional[builtins.bool] = None,
-        test_cases: typing.Sequence["_aws_cdk_ceddda9d.Stack"],
-        assertion_stack: typing.Optional["_aws_cdk_ceddda9d.Stack"] = None,
-        enable_lookups: typing.Optional[builtins.bool] = None,
-    ) -> None:
-        '''(experimental) Integration test properties.
-
-        :param allow_destroy: List of CloudFormation resource types in this stack that can be destroyed as part of an update without failing the test. This list should only include resources that for this specific integration test we are sure will not cause errors or an outage if destroyed. For example, maybe we know that a new resource will be created first before the old resource is destroyed which prevents any outage. e.g. ['AWS::IAM::Role'] Default: - do not allow destruction of any resources on update
-        :param cdk_command_options: Additional options to use for each CDK command. Default: - runner default options
-        :param diff_assets: Whether or not to include asset hashes in the diff Asset hashes can introduces a lot of unneccessary noise into tests, but there are some cases where asset hashes *should* be included. For example any tests involving custom resources or bundling Default: false
-        :param hooks: Additional commands to run at predefined points in the test workflow. e.g. { postDeploy: ['yarn', 'test'] } Default: - no hooks
-        :param regions: Limit deployment to these regions. Default: - can run in any region
-        :param stack_update_workflow: Run update workflow on this test case This should only be set to false to test scenarios that are not possible to test as part of the update workflow. Default: true
-        :param test_cases: (experimental) List of test cases that make up this test.
-        :param assertion_stack: (experimental) Specify a stack to use for assertions. Default: - a stack is created for you
-        :param enable_lookups: (experimental) Enable lookups for this test. If lookups are enabled then ``stackUpdateWorkflow`` must be set to false. Lookups should only be enabled when you are explicitly testing lookups. Default: false
-
-        :stability: experimental
-        :exampleMetadata: infused
-
-        Example::
-
-            # app: App
-            # stack: Stack
-            # sm: IStateMachine
-            
-            
-            test_case = IntegTest(app, "IntegTest",
-                test_cases=[stack]
-            )
-            
-            # Start an execution
-            start = test_case.assertions.aws_api_call("StepFunctions", "startExecution", {
-                "state_machine_arn": sm.state_machine_arn
-            })
-            
-            # describe the results of the execution
-            describe = test_case.assertions.aws_api_call("StepFunctions", "describeExecution", {
-                "execution_arn": start.get_att_string("executionArn")
-            })
-            
-            # assert the results
-            describe.expect(ExpectedResult.object_like({
-                "status": "SUCCEEDED"
-            }))
-        '''
-        if isinstance(cdk_command_options, dict):
-            cdk_command_options = _aws_cdk_cloud_assembly_schema_ceddda9d.CdkCommands(**cdk_command_options)
-        if isinstance(hooks, dict):
-            hooks = _aws_cdk_cloud_assembly_schema_ceddda9d.Hooks(**hooks)
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7a2013546a0269b479331ed4cdfd706a8b20bf18d5f45e074d56ae77eb9b6dd4)
-            check_type(argname="argument allow_destroy", value=allow_destroy, expected_type=type_hints["allow_destroy"])
-            check_type(argname="argument cdk_command_options", value=cdk_command_options, expected_type=type_hints["cdk_command_options"])
-            check_type(argname="argument diff_assets", value=diff_assets, expected_type=type_hints["diff_assets"])
-            check_type(argname="argument hooks", value=hooks, expected_type=type_hints["hooks"])
-            check_type(argname="argument regions", value=regions, expected_type=type_hints["regions"])
-            check_type(argname="argument stack_update_workflow", value=stack_update_workflow, expected_type=type_hints["stack_update_workflow"])
-            check_type(argname="argument test_cases", value=test_cases, expected_type=type_hints["test_cases"])
-            check_type(argname="argument assertion_stack", value=assertion_stack, expected_type=type_hints["assertion_stack"])
-            check_type(argname="argument enable_lookups", value=enable_lookups, expected_type=type_hints["enable_lookups"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "test_cases": test_cases,
-        }
-        if allow_destroy is not None:
-            self._values["allow_destroy"] = allow_destroy
-        if cdk_command_options is not None:
-            self._values["cdk_command_options"] = cdk_command_options
-        if diff_assets is not None:
-            self._values["diff_assets"] = diff_assets
-        if hooks is not None:
-            self._values["hooks"] = hooks
-        if regions is not None:
-            self._values["regions"] = regions
-        if stack_update_workflow is not None:
-            self._values["stack_update_workflow"] = stack_update_workflow
-        if assertion_stack is not None:
-            self._values["assertion_stack"] = assertion_stack
-        if enable_lookups is not None:
-            self._values["enable_lookups"] = enable_lookups
-
-    @builtins.property
-    def allow_destroy(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''List of CloudFormation resource types in this stack that can be destroyed as part of an update without failing the test.
-
-        This list should only include resources that for this specific
-        integration test we are sure will not cause errors or an outage if
-        destroyed. For example, maybe we know that a new resource will be created
-        first before the old resource is destroyed which prevents any outage.
-
-        e.g. ['AWS::IAM::Role']
-
-        :default: - do not allow destruction of any resources on update
-        '''
-        result = self._values.get("allow_destroy")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def cdk_command_options(
-        self,
-    ) -> typing.Optional["_aws_cdk_cloud_assembly_schema_ceddda9d.CdkCommands"]:
-        '''Additional options to use for each CDK command.
-
-        :default: - runner default options
-        '''
-        result = self._values.get("cdk_command_options")
-        return typing.cast(typing.Optional["_aws_cdk_cloud_assembly_schema_ceddda9d.CdkCommands"], result)
-
-    @builtins.property
-    def diff_assets(self) -> typing.Optional[builtins.bool]:
-        '''Whether or not to include asset hashes in the diff Asset hashes can introduces a lot of unneccessary noise into tests, but there are some cases where asset hashes *should* be included.
-
-        For example
-        any tests involving custom resources or bundling
-
-        :default: false
-        '''
-        result = self._values.get("diff_assets")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def hooks(self) -> typing.Optional["_aws_cdk_cloud_assembly_schema_ceddda9d.Hooks"]:
-        '''Additional commands to run at predefined points in the test workflow.
-
-        e.g. { postDeploy: ['yarn', 'test'] }
-
-        :default: - no hooks
-        '''
-        result = self._values.get("hooks")
-        return typing.cast(typing.Optional["_aws_cdk_cloud_assembly_schema_ceddda9d.Hooks"], result)
-
-    @builtins.property
-    def regions(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Limit deployment to these regions.
-
-        :default: - can run in any region
-        '''
-        result = self._values.get("regions")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def stack_update_workflow(self) -> typing.Optional[builtins.bool]:
-        '''Run update workflow on this test case This should only be set to false to test scenarios that are not possible to test as part of the update workflow.
-
-        :default: true
-        '''
-        result = self._values.get("stack_update_workflow")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def test_cases(self) -> typing.List["_aws_cdk_ceddda9d.Stack"]:
-        '''(experimental) List of test cases that make up this test.
-
-        :stability: experimental
-        '''
-        result = self._values.get("test_cases")
-        assert result is not None, "Required property 'test_cases' is missing"
-        return typing.cast(typing.List["_aws_cdk_ceddda9d.Stack"], result)
-
-    @builtins.property
-    def assertion_stack(self) -> typing.Optional["_aws_cdk_ceddda9d.Stack"]:
-        '''(experimental) Specify a stack to use for assertions.
-
-        :default: - a stack is created for you
-
-        :stability: experimental
-        '''
-        result = self._values.get("assertion_stack")
-        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Stack"], result)
-
-    @builtins.property
-    def enable_lookups(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Enable lookups for this test.
-
-        If lookups are enabled
-        then ``stackUpdateWorkflow`` must be set to false.
-        Lookups should only be enabled when you are explicitly testing
-        lookups.
-
-        :default: false
-
-        :stability: experimental
-        '''
-        result = self._values.get("enable_lookups")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "IntegTestProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 @jsii.enum(jsii_type="@aws-cdk/integ-tests-alpha.InvocationType")
 class InvocationType(enum.Enum):
     '''(experimental) The type of invocation.
@@ -4590,84 +3825,6 @@ class InvocationType(enum.Enum):
 
     :stability: experimental
     '''
-
-
-@jsii.data_type(
-    jsii_type="@aws-cdk/integ-tests-alpha.LambdaFunctionProviderProps",
-    jsii_struct_bases=[],
-    name_mapping={"handler": "handler", "log_retention": "logRetention"},
-)
-class LambdaFunctionProviderProps:
-    def __init__(
-        self,
-        *,
-        handler: typing.Optional[builtins.str] = None,
-        log_retention: typing.Optional["_aws_cdk_aws_logs_ceddda9d.RetentionDays"] = None,
-    ) -> None:
-        '''(experimental) Properties for a lambda function provider.
-
-        :param handler: (experimental) The handler to use for the lambda function. Default: index.handler
-        :param log_retention: (experimental) How long, in days, the log contents will be retained. Default: - no retention days specified
-
-        :stability: experimental
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            import aws_cdk.integ_tests_alpha as integ_tests_alpha
-            from aws_cdk import aws_logs as logs
-            
-            lambda_function_provider_props = integ_tests_alpha.LambdaFunctionProviderProps(
-                handler="handler",
-                log_retention=logs.RetentionDays.ONE_DAY
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c38d440a6e46009e1964a16dca6cca6a65cee4a96c1e4ec4505f3cc068bc45c1)
-            check_type(argname="argument handler", value=handler, expected_type=type_hints["handler"])
-            check_type(argname="argument log_retention", value=log_retention, expected_type=type_hints["log_retention"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if handler is not None:
-            self._values["handler"] = handler
-        if log_retention is not None:
-            self._values["log_retention"] = log_retention
-
-    @builtins.property
-    def handler(self) -> typing.Optional[builtins.str]:
-        '''(experimental) The handler to use for the lambda function.
-
-        :default: index.handler
-
-        :stability: experimental
-        '''
-        result = self._values.get("handler")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def log_retention(
-        self,
-    ) -> typing.Optional["_aws_cdk_aws_logs_ceddda9d.RetentionDays"]:
-        '''(experimental) How long, in days, the log contents will be retained.
-
-        :default: - no retention days specified
-
-        :stability: experimental
-        '''
-        result = self._values.get("log_retention")
-        return typing.cast(typing.Optional["_aws_cdk_aws_logs_ceddda9d.RetentionDays"], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "LambdaFunctionProviderProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
 
 
 @jsii.data_type(
@@ -4924,6 +4081,67 @@ class _MatchProxy(Match):
 typing.cast(typing.Any, Match).__jsii_proxy_class__ = lambda : _MatchProxy
 
 
+@jsii.data_type(
+    jsii_type="@aws-cdk/integ-tests-alpha.ProviderOptions",
+    jsii_struct_bases=[],
+    name_mapping={"provider_log_level": "providerLogLevel"},
+)
+class ProviderOptions:
+    def __init__(
+        self,
+        *,
+        provider_log_level: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel"] = None,
+    ) -> None:
+        '''(experimental) Shared options for configuring the assertion provider lambda function.
+
+        :param provider_log_level: (experimental) The log level of the provider lambda function. Default: ApplicationLogLevel.FATAL
+
+        :stability: experimental
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.integ_tests_alpha as integ_tests_alpha
+            from aws_cdk import aws_lambda as lambda_
+            
+            provider_options = integ_tests_alpha.ProviderOptions(
+                provider_log_level=lambda_.ApplicationLogLevel.INFO
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7916bcb8e7183f4e6ab3838f2b86b4872a8e034022780244121e291e3385cd0a)
+            check_type(argname="argument provider_log_level", value=provider_log_level, expected_type=type_hints["provider_log_level"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if provider_log_level is not None:
+            self._values["provider_log_level"] = provider_log_level
+
+    @builtins.property
+    def provider_log_level(
+        self,
+    ) -> typing.Optional["_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel"]:
+        '''(experimental) The log level of the provider lambda function.
+
+        :default: ApplicationLogLevel.FATAL
+
+        :stability: experimental
+        '''
+        result = self._values.get("provider_log_level")
+        return typing.cast(typing.Optional["_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ProviderOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.enum(jsii_type="@aws-cdk/integ-tests-alpha.Status")
 class Status(enum.Enum):
     '''(experimental) The status of the assertion.
@@ -4980,10 +4198,12 @@ class WaiterStateMachine(
         # The values are placeholders you should change.
         import aws_cdk.integ_tests_alpha as integ_tests_alpha
         import aws_cdk as cdk
+        from aws_cdk import aws_lambda as lambda_
         
         waiter_state_machine = integ_tests_alpha.WaiterStateMachine(self, "MyWaiterStateMachine",
             backoff_rate=123,
             interval=cdk.Duration.minutes(30),
+            provider_log_level=lambda_.ApplicationLogLevel.INFO,
             total_timeout=cdk.Duration.minutes(30)
         )
     '''
@@ -4996,6 +4216,7 @@ class WaiterStateMachine(
         backoff_rate: typing.Optional[jsii.Number] = None,
         interval: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         total_timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        provider_log_level: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel"] = None,
     ) -> None:
         '''
         :param scope: -
@@ -5003,6 +4224,7 @@ class WaiterStateMachine(
         :param backoff_rate: (experimental) Backoff between attempts. This is the multiplier by which the retry interval increases after each retry attempt. By default there is no backoff. Each retry will wait the amount of time specified by ``interval``. Default: 1 (no backoff)
         :param interval: (experimental) The interval (number of seconds) to wait between attempts. Default: Duration.seconds(5)
         :param total_timeout: (experimental) The total time that the state machine will wait for a successful response. Default: Duration.minutes(30)
+        :param provider_log_level: (experimental) The log level of the provider lambda function. Default: ApplicationLogLevel.FATAL
 
         :stability: experimental
         '''
@@ -5011,7 +4233,10 @@ class WaiterStateMachine(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = WaiterStateMachineProps(
-            backoff_rate=backoff_rate, interval=interval, total_timeout=total_timeout
+            backoff_rate=backoff_rate,
+            interval=interval,
+            total_timeout=total_timeout,
+            provider_log_level=provider_log_level,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -5046,23 +4271,26 @@ class WaiterStateMachine(
 
 @jsii.data_type(
     jsii_type="@aws-cdk/integ-tests-alpha.WaiterStateMachineOptions",
-    jsii_struct_bases=[],
+    jsii_struct_bases=[ProviderOptions],
     name_mapping={
+        "provider_log_level": "providerLogLevel",
         "backoff_rate": "backoffRate",
         "interval": "interval",
         "total_timeout": "totalTimeout",
     },
 )
-class WaiterStateMachineOptions:
+class WaiterStateMachineOptions(ProviderOptions):
     def __init__(
         self,
         *,
+        provider_log_level: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel"] = None,
         backoff_rate: typing.Optional[jsii.Number] = None,
         interval: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         total_timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
     ) -> None:
         '''(experimental) Options for creating a WaiterStateMachine.
 
+        :param provider_log_level: (experimental) The log level of the provider lambda function. Default: ApplicationLogLevel.FATAL
         :param backoff_rate: (experimental) Backoff between attempts. This is the multiplier by which the retry interval increases after each retry attempt. By default there is no backoff. Each retry will wait the amount of time specified by ``interval``. Default: 1 (no backoff)
         :param interval: (experimental) The interval (number of seconds) to wait between attempts. Default: Duration.seconds(5)
         :param total_timeout: (experimental) The total time that the state machine will wait for a successful response. Default: Duration.minutes(30)
@@ -5186,16 +4414,32 @@ class WaiterStateMachineOptions:
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__121fca5df71218eb18c08109872208325ee23307067d82bcba84288b6feccd22)
+            check_type(argname="argument provider_log_level", value=provider_log_level, expected_type=type_hints["provider_log_level"])
             check_type(argname="argument backoff_rate", value=backoff_rate, expected_type=type_hints["backoff_rate"])
             check_type(argname="argument interval", value=interval, expected_type=type_hints["interval"])
             check_type(argname="argument total_timeout", value=total_timeout, expected_type=type_hints["total_timeout"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if provider_log_level is not None:
+            self._values["provider_log_level"] = provider_log_level
         if backoff_rate is not None:
             self._values["backoff_rate"] = backoff_rate
         if interval is not None:
             self._values["interval"] = interval
         if total_timeout is not None:
             self._values["total_timeout"] = total_timeout
+
+    @builtins.property
+    def provider_log_level(
+        self,
+    ) -> typing.Optional["_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel"]:
+        '''(experimental) The log level of the provider lambda function.
+
+        :default: ApplicationLogLevel.FATAL
+
+        :stability: experimental
+        '''
+        result = self._values.get("provider_log_level")
+        return typing.cast(typing.Optional["_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel"], result)
 
     @builtins.property
     def backoff_rate(self) -> typing.Optional[jsii.Number]:
@@ -5252,6 +4496,7 @@ class WaiterStateMachineOptions:
     jsii_type="@aws-cdk/integ-tests-alpha.WaiterStateMachineProps",
     jsii_struct_bases=[WaiterStateMachineOptions],
     name_mapping={
+        "provider_log_level": "providerLogLevel",
         "backoff_rate": "backoffRate",
         "interval": "interval",
         "total_timeout": "totalTimeout",
@@ -5261,12 +4506,14 @@ class WaiterStateMachineProps(WaiterStateMachineOptions):
     def __init__(
         self,
         *,
+        provider_log_level: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel"] = None,
         backoff_rate: typing.Optional[jsii.Number] = None,
         interval: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         total_timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
     ) -> None:
         '''(experimental) Props for creating a WaiterStateMachine.
 
+        :param provider_log_level: (experimental) The log level of the provider lambda function. Default: ApplicationLogLevel.FATAL
         :param backoff_rate: (experimental) Backoff between attempts. This is the multiplier by which the retry interval increases after each retry attempt. By default there is no backoff. Each retry will wait the amount of time specified by ``interval``. Default: 1 (no backoff)
         :param interval: (experimental) The interval (number of seconds) to wait between attempts. Default: Duration.seconds(5)
         :param total_timeout: (experimental) The total time that the state machine will wait for a successful response. Default: Duration.minutes(30)
@@ -5280,25 +4527,43 @@ class WaiterStateMachineProps(WaiterStateMachineOptions):
             # The values are placeholders you should change.
             import aws_cdk.integ_tests_alpha as integ_tests_alpha
             import aws_cdk as cdk
+            from aws_cdk import aws_lambda as lambda_
             
             waiter_state_machine_props = integ_tests_alpha.WaiterStateMachineProps(
                 backoff_rate=123,
                 interval=cdk.Duration.minutes(30),
+                provider_log_level=lambda_.ApplicationLogLevel.INFO,
                 total_timeout=cdk.Duration.minutes(30)
             )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0e828ea92e322e9108a7c287fff81908fdb3933543431b12a3a1c1252a39520e)
+            check_type(argname="argument provider_log_level", value=provider_log_level, expected_type=type_hints["provider_log_level"])
             check_type(argname="argument backoff_rate", value=backoff_rate, expected_type=type_hints["backoff_rate"])
             check_type(argname="argument interval", value=interval, expected_type=type_hints["interval"])
             check_type(argname="argument total_timeout", value=total_timeout, expected_type=type_hints["total_timeout"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if provider_log_level is not None:
+            self._values["provider_log_level"] = provider_log_level
         if backoff_rate is not None:
             self._values["backoff_rate"] = backoff_rate
         if interval is not None:
             self._values["interval"] = interval
         if total_timeout is not None:
             self._values["total_timeout"] = total_timeout
+
+    @builtins.property
+    def provider_log_level(
+        self,
+    ) -> typing.Optional["_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel"]:
+        '''(experimental) The log level of the provider lambda function.
+
+        :default: ApplicationLogLevel.FATAL
+
+        :stability: experimental
+        '''
+        result = self._values.get("provider_log_level")
+        return typing.cast(typing.Optional["_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel"], result)
 
     @builtins.property
     def backoff_rate(self) -> typing.Optional[jsii.Number]:
@@ -5470,6 +4735,7 @@ class ApiCallBase(
         backoff_rate: typing.Optional[jsii.Number] = None,
         interval: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         total_timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        provider_log_level: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel"] = None,
     ) -> "IApiCall":
         '''(experimental) Wait for the IApiCall to return the expected response.
 
@@ -5479,6 +4745,7 @@ class ApiCallBase(
         :param backoff_rate: (experimental) Backoff between attempts. This is the multiplier by which the retry interval increases after each retry attempt. By default there is no backoff. Each retry will wait the amount of time specified by ``interval``. Default: 1 (no backoff)
         :param interval: (experimental) The interval (number of seconds) to wait between attempts. Default: Duration.seconds(5)
         :param total_timeout: (experimental) The total time that the state machine will wait for a successful response. Default: Duration.minutes(30)
+        :param provider_log_level: (experimental) The log level of the provider lambda function. Default: ApplicationLogLevel.FATAL
 
         :stability: experimental
         '''
@@ -5601,6 +4868,7 @@ class _ApiCallBaseProxy(ApiCallBase):
         backoff_rate: typing.Optional[jsii.Number] = None,
         interval: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         total_timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        provider_log_level: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel"] = None,
     ) -> "IApiCall":
         '''(experimental) Wait for the IApiCall to return the expected response.
 
@@ -5610,11 +4878,15 @@ class _ApiCallBaseProxy(ApiCallBase):
         :param backoff_rate: (experimental) Backoff between attempts. This is the multiplier by which the retry interval increases after each retry attempt. By default there is no backoff. Each retry will wait the amount of time specified by ``interval``. Default: 1 (no backoff)
         :param interval: (experimental) The interval (number of seconds) to wait between attempts. Default: Duration.seconds(5)
         :param total_timeout: (experimental) The total time that the state machine will wait for a successful response. Default: Duration.minutes(30)
+        :param provider_log_level: (experimental) The log level of the provider lambda function. Default: ApplicationLogLevel.FATAL
 
         :stability: experimental
         '''
         options = WaiterStateMachineOptions(
-            backoff_rate=backoff_rate, interval=interval, total_timeout=total_timeout
+            backoff_rate=backoff_rate,
+            interval=interval,
+            total_timeout=total_timeout,
+            provider_log_level=provider_log_level,
         )
 
         return typing.cast("IApiCall", jsii.invoke(self, "waitForAssertions", [options]))
@@ -5641,108 +4913,6 @@ class _ApiCallBaseProxy(ApiCallBase):
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
 typing.cast(typing.Any, ApiCallBase).__jsii_proxy_class__ = lambda : _ApiCallBaseProxy
-
-
-@jsii.data_type(
-    jsii_type="@aws-cdk/integ-tests-alpha.AssertionsProviderProps",
-    jsii_struct_bases=[LambdaFunctionProviderProps],
-    name_mapping={
-        "handler": "handler",
-        "log_retention": "logRetention",
-        "uuid": "uuid",
-    },
-)
-class AssertionsProviderProps(LambdaFunctionProviderProps):
-    def __init__(
-        self,
-        *,
-        handler: typing.Optional[builtins.str] = None,
-        log_retention: typing.Optional["_aws_cdk_aws_logs_ceddda9d.RetentionDays"] = None,
-        uuid: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''(experimental) Properties for defining an AssertionsProvider.
-
-        :param handler: (experimental) The handler to use for the lambda function. Default: index.handler
-        :param log_retention: (experimental) How long, in days, the log contents will be retained. Default: - no retention days specified
-        :param uuid: (experimental) This determines the uniqueness of each AssertionsProvider. You should only need to provide something different here if you *know* that you need a separate provider Default: - the default uuid is used
-
-        :stability: experimental
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            import aws_cdk.integ_tests_alpha as integ_tests_alpha
-            from aws_cdk import aws_logs as logs
-            
-            assertions_provider_props = integ_tests_alpha.AssertionsProviderProps(
-                handler="handler",
-                log_retention=logs.RetentionDays.ONE_DAY,
-                uuid="uuid"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2c5e060905b379d8af8619d5ea408511fba77814517c07abbda12acf1dbe165b)
-            check_type(argname="argument handler", value=handler, expected_type=type_hints["handler"])
-            check_type(argname="argument log_retention", value=log_retention, expected_type=type_hints["log_retention"])
-            check_type(argname="argument uuid", value=uuid, expected_type=type_hints["uuid"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if handler is not None:
-            self._values["handler"] = handler
-        if log_retention is not None:
-            self._values["log_retention"] = log_retention
-        if uuid is not None:
-            self._values["uuid"] = uuid
-
-    @builtins.property
-    def handler(self) -> typing.Optional[builtins.str]:
-        '''(experimental) The handler to use for the lambda function.
-
-        :default: index.handler
-
-        :stability: experimental
-        '''
-        result = self._values.get("handler")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def log_retention(
-        self,
-    ) -> typing.Optional["_aws_cdk_aws_logs_ceddda9d.RetentionDays"]:
-        '''(experimental) How long, in days, the log contents will be retained.
-
-        :default: - no retention days specified
-
-        :stability: experimental
-        '''
-        result = self._values.get("log_retention")
-        return typing.cast(typing.Optional["_aws_cdk_aws_logs_ceddda9d.RetentionDays"], result)
-
-    @builtins.property
-    def uuid(self) -> typing.Optional[builtins.str]:
-        '''(experimental) This determines the uniqueness of each AssertionsProvider.
-
-        You should only need to provide something different here if you
-        *know* that you need a separate provider
-
-        :default: - the default uuid is used
-
-        :stability: experimental
-        '''
-        result = self._values.get("uuid")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "AssertionsProviderProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
 
 
 class AwsApiCall(
@@ -5778,6 +4948,7 @@ class AwsApiCall(
         service: builtins.str,
         output_paths: typing.Optional[typing.Sequence[builtins.str]] = None,
         parameters: typing.Any = None,
+        provider_log_level: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel"] = None,
     ) -> None:
         '''
         :param scope: -
@@ -5786,6 +4957,7 @@ class AwsApiCall(
         :param service: (experimental) The AWS service, i.e. S3.
         :param output_paths: (experimental) Restrict the data returned by the API call to specific paths in the API response. Use this to limit the data returned by the custom resource if working with API calls that could potentially result in custom response objects exceeding the hard limit of 4096 bytes. Default: - return all data
         :param parameters: (experimental) Any parameters to pass to the api call. Default: - no parameters
+        :param provider_log_level: (experimental) The log level of the provider lambda function. Default: ApplicationLogLevel.FATAL
 
         :stability: experimental
         '''
@@ -5794,7 +4966,11 @@ class AwsApiCall(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = AwsApiCallProps(
-            api=api, service=service, output_paths=output_paths, parameters=parameters
+            api=api,
+            service=service,
+            output_paths=output_paths,
+            parameters=parameters,
+            provider_log_level=provider_log_level,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -5832,6 +5008,7 @@ class AwsApiCall(
         backoff_rate: typing.Optional[jsii.Number] = None,
         interval: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         total_timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        provider_log_level: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel"] = None,
     ) -> "IApiCall":
         '''(experimental) Wait for the IApiCall to return the expected response.
 
@@ -5841,11 +5018,15 @@ class AwsApiCall(
         :param backoff_rate: (experimental) Backoff between attempts. This is the multiplier by which the retry interval increases after each retry attempt. By default there is no backoff. Each retry will wait the amount of time specified by ``interval``. Default: 1 (no backoff)
         :param interval: (experimental) The interval (number of seconds) to wait between attempts. Default: Duration.seconds(5)
         :param total_timeout: (experimental) The total time that the state machine will wait for a successful response. Default: Duration.minutes(30)
+        :param provider_log_level: (experimental) The log level of the provider lambda function. Default: ApplicationLogLevel.FATAL
 
         :stability: experimental
         '''
         options = WaiterStateMachineOptions(
-            backoff_rate=backoff_rate, interval=interval, total_timeout=total_timeout
+            backoff_rate=backoff_rate,
+            interval=interval,
+            total_timeout=total_timeout,
+            provider_log_level=provider_log_level,
         )
 
         return typing.cast("IApiCall", jsii.invoke(self, "waitForAssertions", [options]))
@@ -5900,6 +5081,399 @@ class AwsApiCall(
         jsii.set(self, "waiterProvider", value) # pyright: ignore[reportArgumentType]
 
 
+@jsii.data_type(
+    jsii_type="@aws-cdk/integ-tests-alpha.AwsApiCallOptions",
+    jsii_struct_bases=[ProviderOptions],
+    name_mapping={
+        "provider_log_level": "providerLogLevel",
+        "api": "api",
+        "service": "service",
+        "output_paths": "outputPaths",
+        "parameters": "parameters",
+    },
+)
+class AwsApiCallOptions(ProviderOptions):
+    def __init__(
+        self,
+        *,
+        provider_log_level: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel"] = None,
+        api: builtins.str,
+        service: builtins.str,
+        output_paths: typing.Optional[typing.Sequence[builtins.str]] = None,
+        parameters: typing.Any = None,
+    ) -> None:
+        '''(experimental) Options to perform an AWS JavaScript V2 API call.
+
+        :param provider_log_level: (experimental) The log level of the provider lambda function. Default: ApplicationLogLevel.FATAL
+        :param api: (experimental) The api call to make, i.e. getBucketLifecycle.
+        :param service: (experimental) The AWS service, i.e. S3.
+        :param output_paths: (experimental) Restrict the data returned by the API call to specific paths in the API response. Use this to limit the data returned by the custom resource if working with API calls that could potentially result in custom response objects exceeding the hard limit of 4096 bytes. Default: - return all data
+        :param parameters: (experimental) Any parameters to pass to the api call. Default: - no parameters
+
+        :stability: experimental
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.integ_tests_alpha as integ_tests_alpha
+            from aws_cdk import aws_lambda as lambda_
+            
+            # parameters: Any
+            
+            aws_api_call_options = integ_tests_alpha.AwsApiCallOptions(
+                api="api",
+                service="service",
+            
+                # the properties below are optional
+                output_paths=["outputPaths"],
+                parameters=parameters,
+                provider_log_level=lambda_.ApplicationLogLevel.INFO
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1bb3bfb6e039f1770b7357b50e700e5397b1fe0af7e9bda38fcf799b232ae6b1)
+            check_type(argname="argument provider_log_level", value=provider_log_level, expected_type=type_hints["provider_log_level"])
+            check_type(argname="argument api", value=api, expected_type=type_hints["api"])
+            check_type(argname="argument service", value=service, expected_type=type_hints["service"])
+            check_type(argname="argument output_paths", value=output_paths, expected_type=type_hints["output_paths"])
+            check_type(argname="argument parameters", value=parameters, expected_type=type_hints["parameters"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "api": api,
+            "service": service,
+        }
+        if provider_log_level is not None:
+            self._values["provider_log_level"] = provider_log_level
+        if output_paths is not None:
+            self._values["output_paths"] = output_paths
+        if parameters is not None:
+            self._values["parameters"] = parameters
+
+    @builtins.property
+    def provider_log_level(
+        self,
+    ) -> typing.Optional["_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel"]:
+        '''(experimental) The log level of the provider lambda function.
+
+        :default: ApplicationLogLevel.FATAL
+
+        :stability: experimental
+        '''
+        result = self._values.get("provider_log_level")
+        return typing.cast(typing.Optional["_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel"], result)
+
+    @builtins.property
+    def api(self) -> builtins.str:
+        '''(experimental) The api call to make, i.e. getBucketLifecycle.
+
+        :stability: experimental
+        '''
+        result = self._values.get("api")
+        assert result is not None, "Required property 'api' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def service(self) -> builtins.str:
+        '''(experimental) The AWS service, i.e. S3.
+
+        :stability: experimental
+        '''
+        result = self._values.get("service")
+        assert result is not None, "Required property 'service' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def output_paths(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) Restrict the data returned by the API call to specific paths in the API response.
+
+        Use this to limit the data returned by the custom
+        resource if working with API calls that could potentially result in custom
+        response objects exceeding the hard limit of 4096 bytes.
+
+        :default: - return all data
+
+        :stability: experimental
+        '''
+        result = self._values.get("output_paths")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def parameters(self) -> typing.Any:
+        '''(experimental) Any parameters to pass to the api call.
+
+        :default: - no parameters
+
+        :stability: experimental
+        '''
+        result = self._values.get("parameters")
+        return typing.cast(typing.Any, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AwsApiCallOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/integ-tests-alpha.AwsApiCallProps",
+    jsii_struct_bases=[AwsApiCallOptions],
+    name_mapping={
+        "provider_log_level": "providerLogLevel",
+        "api": "api",
+        "service": "service",
+        "output_paths": "outputPaths",
+        "parameters": "parameters",
+    },
+)
+class AwsApiCallProps(AwsApiCallOptions):
+    def __init__(
+        self,
+        *,
+        provider_log_level: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel"] = None,
+        api: builtins.str,
+        service: builtins.str,
+        output_paths: typing.Optional[typing.Sequence[builtins.str]] = None,
+        parameters: typing.Any = None,
+    ) -> None:
+        '''(experimental) Construct that creates a custom resource that will perform a query using the AWS SDK.
+
+        :param provider_log_level: (experimental) The log level of the provider lambda function. Default: ApplicationLogLevel.FATAL
+        :param api: (experimental) The api call to make, i.e. getBucketLifecycle.
+        :param service: (experimental) The AWS service, i.e. S3.
+        :param output_paths: (experimental) Restrict the data returned by the API call to specific paths in the API response. Use this to limit the data returned by the custom resource if working with API calls that could potentially result in custom response objects exceeding the hard limit of 4096 bytes. Default: - return all data
+        :param parameters: (experimental) Any parameters to pass to the api call. Default: - no parameters
+
+        :stability: experimental
+        :exampleMetadata: infused
+
+        Example::
+
+            # my_app_stack: Stack
+            
+            
+            AwsApiCall(my_app_stack, "GetObject",
+                service="S3",
+                api="getObject"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9667093e2c183b6409c654dfeddf1ba9117d05548446571b59e368fb53b52357)
+            check_type(argname="argument provider_log_level", value=provider_log_level, expected_type=type_hints["provider_log_level"])
+            check_type(argname="argument api", value=api, expected_type=type_hints["api"])
+            check_type(argname="argument service", value=service, expected_type=type_hints["service"])
+            check_type(argname="argument output_paths", value=output_paths, expected_type=type_hints["output_paths"])
+            check_type(argname="argument parameters", value=parameters, expected_type=type_hints["parameters"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "api": api,
+            "service": service,
+        }
+        if provider_log_level is not None:
+            self._values["provider_log_level"] = provider_log_level
+        if output_paths is not None:
+            self._values["output_paths"] = output_paths
+        if parameters is not None:
+            self._values["parameters"] = parameters
+
+    @builtins.property
+    def provider_log_level(
+        self,
+    ) -> typing.Optional["_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel"]:
+        '''(experimental) The log level of the provider lambda function.
+
+        :default: ApplicationLogLevel.FATAL
+
+        :stability: experimental
+        '''
+        result = self._values.get("provider_log_level")
+        return typing.cast(typing.Optional["_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel"], result)
+
+    @builtins.property
+    def api(self) -> builtins.str:
+        '''(experimental) The api call to make, i.e. getBucketLifecycle.
+
+        :stability: experimental
+        '''
+        result = self._values.get("api")
+        assert result is not None, "Required property 'api' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def service(self) -> builtins.str:
+        '''(experimental) The AWS service, i.e. S3.
+
+        :stability: experimental
+        '''
+        result = self._values.get("service")
+        assert result is not None, "Required property 'service' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def output_paths(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) Restrict the data returned by the API call to specific paths in the API response.
+
+        Use this to limit the data returned by the custom
+        resource if working with API calls that could potentially result in custom
+        response objects exceeding the hard limit of 4096 bytes.
+
+        :default: - return all data
+
+        :stability: experimental
+        '''
+        result = self._values.get("output_paths")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def parameters(self) -> typing.Any:
+        '''(experimental) Any parameters to pass to the api call.
+
+        :default: - no parameters
+
+        :stability: experimental
+        '''
+        result = self._values.get("parameters")
+        return typing.cast(typing.Any, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AwsApiCallProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/integ-tests-alpha.EqualsAssertionProps",
+    jsii_struct_bases=[ProviderOptions],
+    name_mapping={
+        "provider_log_level": "providerLogLevel",
+        "actual": "actual",
+        "expected": "expected",
+        "fail_deployment": "failDeployment",
+    },
+)
+class EqualsAssertionProps(ProviderOptions):
+    def __init__(
+        self,
+        *,
+        provider_log_level: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel"] = None,
+        actual: "ActualResult",
+        expected: "ExpectedResult",
+        fail_deployment: typing.Optional[builtins.bool] = None,
+    ) -> None:
+        '''(experimental) Options for an EqualsAssertion.
+
+        :param provider_log_level: (experimental) The log level of the provider lambda function. Default: ApplicationLogLevel.FATAL
+        :param actual: (experimental) The actual results to compare.
+        :param expected: (experimental) The expected result to assert.
+        :param fail_deployment: (experimental) Set this to true if a failed assertion should result in a CloudFormation deployment failure. This is only necessary if assertions are being executed outside of ``integ-runner``. Default: false
+
+        :stability: experimental
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.integ_tests_alpha as integ_tests_alpha
+            from aws_cdk import aws_lambda as lambda_
+            
+            # actual_result: integ_tests_alpha.ActualResult
+            # expected_result: integ_tests_alpha.ExpectedResult
+            
+            equals_assertion_props = integ_tests_alpha.EqualsAssertionProps(
+                actual=actual_result,
+                expected=expected_result,
+            
+                # the properties below are optional
+                fail_deployment=False,
+                provider_log_level=lambda_.ApplicationLogLevel.INFO
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__58af14cdbf1ae6af7373273fada4bab47f80572e2dc79fc8406588336d4cd06a)
+            check_type(argname="argument provider_log_level", value=provider_log_level, expected_type=type_hints["provider_log_level"])
+            check_type(argname="argument actual", value=actual, expected_type=type_hints["actual"])
+            check_type(argname="argument expected", value=expected, expected_type=type_hints["expected"])
+            check_type(argname="argument fail_deployment", value=fail_deployment, expected_type=type_hints["fail_deployment"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "actual": actual,
+            "expected": expected,
+        }
+        if provider_log_level is not None:
+            self._values["provider_log_level"] = provider_log_level
+        if fail_deployment is not None:
+            self._values["fail_deployment"] = fail_deployment
+
+    @builtins.property
+    def provider_log_level(
+        self,
+    ) -> typing.Optional["_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel"]:
+        '''(experimental) The log level of the provider lambda function.
+
+        :default: ApplicationLogLevel.FATAL
+
+        :stability: experimental
+        '''
+        result = self._values.get("provider_log_level")
+        return typing.cast(typing.Optional["_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel"], result)
+
+    @builtins.property
+    def actual(self) -> "ActualResult":
+        '''(experimental) The actual results to compare.
+
+        :stability: experimental
+        '''
+        result = self._values.get("actual")
+        assert result is not None, "Required property 'actual' is missing"
+        return typing.cast("ActualResult", result)
+
+    @builtins.property
+    def expected(self) -> "ExpectedResult":
+        '''(experimental) The expected result to assert.
+
+        :stability: experimental
+        '''
+        result = self._values.get("expected")
+        assert result is not None, "Required property 'expected' is missing"
+        return typing.cast("ExpectedResult", result)
+
+    @builtins.property
+    def fail_deployment(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Set this to true if a failed assertion should result in a CloudFormation deployment failure.
+
+        This is only necessary if assertions are being
+        executed outside of ``integ-runner``.
+
+        :default: false
+
+        :stability: experimental
+        '''
+        result = self._values.get("fail_deployment")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "EqualsAssertionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 class HttpApiCall(
     ApiCallBase,
     metaclass=jsii.JSIIMeta,
@@ -5927,12 +5501,14 @@ class HttpApiCall(
         *,
         url: builtins.str,
         fetch_options: typing.Optional[typing.Union["FetchOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        provider_log_level: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel"] = None,
     ) -> None:
         '''
         :param scope: -
         :param id: -
         :param url: (experimental) The url to fetch.
         :param fetch_options: (experimental) Options for fetch.
+        :param provider_log_level: (experimental) The log level of the provider lambda function. Default: ApplicationLogLevel.FATAL
 
         :stability: experimental
         '''
@@ -5940,7 +5516,9 @@ class HttpApiCall(
             type_hints = typing.get_type_hints(_typecheckingstub__0209121e751279aa416df5a16ee8548cf444948c1d390c4c88c07eb8c6b1c58a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = HttpCallProps(url=url, fetch_options=fetch_options)
+        props = HttpCallProps(
+            url=url, fetch_options=fetch_options, provider_log_level=provider_log_level
+        )
 
         jsii.create(self.__class__, self, [scope, id, props])
 
@@ -5977,6 +5555,7 @@ class HttpApiCall(
         backoff_rate: typing.Optional[jsii.Number] = None,
         interval: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         total_timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        provider_log_level: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel"] = None,
     ) -> "IApiCall":
         '''(experimental) Wait for the IApiCall to return the expected response.
 
@@ -5986,11 +5565,15 @@ class HttpApiCall(
         :param backoff_rate: (experimental) Backoff between attempts. This is the multiplier by which the retry interval increases after each retry attempt. By default there is no backoff. Each retry will wait the amount of time specified by ``interval``. Default: 1 (no backoff)
         :param interval: (experimental) The interval (number of seconds) to wait between attempts. Default: Duration.seconds(5)
         :param total_timeout: (experimental) The total time that the state machine will wait for a successful response. Default: Duration.minutes(30)
+        :param provider_log_level: (experimental) The log level of the provider lambda function. Default: ApplicationLogLevel.FATAL
 
         :stability: experimental
         '''
         options = WaiterStateMachineOptions(
-            backoff_rate=backoff_rate, interval=interval, total_timeout=total_timeout
+            backoff_rate=backoff_rate,
+            interval=interval,
+            total_timeout=total_timeout,
+            provider_log_level=provider_log_level,
         )
 
         return typing.cast("IApiCall", jsii.invoke(self, "waitForAssertions", [options]))
@@ -6018,20 +5601,26 @@ class HttpApiCall(
 
 @jsii.data_type(
     jsii_type="@aws-cdk/integ-tests-alpha.HttpCallProps",
-    jsii_struct_bases=[HttpRequestParameters],
-    name_mapping={"url": "url", "fetch_options": "fetchOptions"},
+    jsii_struct_bases=[HttpRequestParameters, ProviderOptions],
+    name_mapping={
+        "url": "url",
+        "fetch_options": "fetchOptions",
+        "provider_log_level": "providerLogLevel",
+    },
 )
-class HttpCallProps(HttpRequestParameters):
+class HttpCallProps(HttpRequestParameters, ProviderOptions):
     def __init__(
         self,
         *,
         url: builtins.str,
         fetch_options: typing.Optional[typing.Union["FetchOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        provider_log_level: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel"] = None,
     ) -> None:
         '''(experimental) Options for creating an HttpApiCall provider.
 
         :param url: (experimental) The url to fetch.
         :param fetch_options: (experimental) Options for fetch.
+        :param provider_log_level: (experimental) The log level of the provider lambda function. Default: ApplicationLogLevel.FATAL
 
         :stability: experimental
         :exampleMetadata: infused
@@ -6051,11 +5640,14 @@ class HttpCallProps(HttpRequestParameters):
             type_hints = typing.get_type_hints(_typecheckingstub__1f4a71f13aa64d1306c572e9f98559d007cead2ee1c483183f46e1dad96274fd)
             check_type(argname="argument url", value=url, expected_type=type_hints["url"])
             check_type(argname="argument fetch_options", value=fetch_options, expected_type=type_hints["fetch_options"])
+            check_type(argname="argument provider_log_level", value=provider_log_level, expected_type=type_hints["provider_log_level"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "url": url,
         }
         if fetch_options is not None:
             self._values["fetch_options"] = fetch_options
+        if provider_log_level is not None:
+            self._values["provider_log_level"] = provider_log_level
 
     @builtins.property
     def url(self) -> builtins.str:
@@ -6076,6 +5668,19 @@ class HttpCallProps(HttpRequestParameters):
         result = self._values.get("fetch_options")
         return typing.cast(typing.Optional["FetchOptions"], result)
 
+    @builtins.property
+    def provider_log_level(
+        self,
+    ) -> typing.Optional["_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel"]:
+        '''(experimental) The log level of the provider lambda function.
+
+        :default: ApplicationLogLevel.FATAL
+
+        :stability: experimental
+        '''
+        result = self._values.get("provider_log_level")
+        return typing.cast(typing.Optional["_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel"], result)
+
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -6084,6 +5689,703 @@ class HttpCallProps(HttpRequestParameters):
 
     def __repr__(self) -> str:
         return "HttpCallProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/integ-tests-alpha.IntegTestCaseProps",
+    jsii_struct_bases=[
+        _aws_cdk_cloud_assembly_schema_ceddda9d.TestOptions, ProviderOptions
+    ],
+    name_mapping={
+        "allow_delete_failures": "allowDeleteFailures",
+        "allow_destroy": "allowDestroy",
+        "cdk_command_options": "cdkCommandOptions",
+        "diff_assets": "diffAssets",
+        "hooks": "hooks",
+        "regions": "regions",
+        "stack_update_workflow": "stackUpdateWorkflow",
+        "provider_log_level": "providerLogLevel",
+        "stacks": "stacks",
+        "assertion_stack": "assertionStack",
+    },
+)
+class IntegTestCaseProps(
+    _aws_cdk_cloud_assembly_schema_ceddda9d.TestOptions,
+    ProviderOptions,
+):
+    def __init__(
+        self,
+        *,
+        allow_delete_failures: typing.Optional[builtins.bool] = None,
+        allow_destroy: typing.Optional[typing.Sequence[builtins.str]] = None,
+        cdk_command_options: typing.Optional[typing.Union["_aws_cdk_cloud_assembly_schema_ceddda9d.CdkCommands", typing.Dict[builtins.str, typing.Any]]] = None,
+        diff_assets: typing.Optional[builtins.bool] = None,
+        hooks: typing.Optional[typing.Union["_aws_cdk_cloud_assembly_schema_ceddda9d.Hooks", typing.Dict[builtins.str, typing.Any]]] = None,
+        regions: typing.Optional[typing.Sequence[builtins.str]] = None,
+        stack_update_workflow: typing.Optional[builtins.bool] = None,
+        provider_log_level: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel"] = None,
+        stacks: typing.Sequence["_aws_cdk_ceddda9d.Stack"],
+        assertion_stack: typing.Optional["_aws_cdk_ceddda9d.Stack"] = None,
+    ) -> None:
+        '''(experimental) Properties of an integration test case.
+
+        :param allow_delete_failures: Whether to allow resources that fail to delete during a stack update. When false, the test will fail if CloudFormation skips deleting a resource during a stack update. When true, only a warning is printed. Default: false
+        :param allow_destroy: List of CloudFormation resource types in this stack that can be destroyed as part of an update without failing the test. This list should only include resources that for this specific integration test we are sure will not cause errors or an outage if destroyed. For example, maybe we know that a new resource will be created first before the old resource is destroyed which prevents any outage. e.g. ['AWS::IAM::Role'] Default: - do not allow destruction of any resources on update
+        :param cdk_command_options: Additional options to use for each CDK command. Default: - runner default options
+        :param diff_assets: Whether or not to include asset hashes in the diff Asset hashes can introduces a lot of unneccessary noise into tests, but there are some cases where asset hashes *should* be included. For example any tests involving custom resources or bundling Default: false
+        :param hooks: Additional commands to run at predefined points in the test workflow. e.g. { postDeploy: ['yarn', 'test'] } Default: - no hooks
+        :param regions: Limit deployment to these regions. Default: - can run in any region
+        :param stack_update_workflow: Run update workflow on this test case This should only be set to false to test scenarios that are not possible to test as part of the update workflow. Default: true
+        :param provider_log_level: (experimental) The log level of the provider lambda function. Default: ApplicationLogLevel.FATAL
+        :param stacks: (experimental) Stacks to be deployed during the test.
+        :param assertion_stack: (experimental) Specify a stack to use for assertions. Default: - a stack is created for you
+
+        :stability: experimental
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk.cloud_assembly_schema import CdkCommands, DeployCommand, DeployOptions, DestroyCommand, DestroyOptions, Hooks
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.integ_tests_alpha as integ_tests_alpha
+            import aws_cdk as cdk
+            from aws_cdk import aws_lambda as lambda_
+            from aws_cdk import cloud_assembly_schema
+            
+            # stack: cdk.Stack
+            
+            integ_test_case_props = integ_tests_alpha.IntegTestCaseProps(
+                stacks=[stack],
+            
+                # the properties below are optional
+                allow_delete_failures=False,
+                allow_destroy=["allowDestroy"],
+                assertion_stack=stack,
+                cdk_command_options=CdkCommands(
+                    deploy=DeployCommand(
+                        args=DeployOptions(
+                            all=False,
+                            app="app",
+                            asset_metadata=False,
+                            ca_bundle_path="caBundlePath",
+                            change_set_name="changeSetName",
+                            ci=False,
+                            color=False,
+                            concurrency=123,
+                            context={
+                                "context_key": "context"
+                            },
+                            debug=False,
+                            ec2_creds=False,
+                            exclusively=False,
+                            execute=False,
+                            force=False,
+                            ignore_errors=False,
+                            json=False,
+                            lookups=False,
+                            notices=False,
+                            notification_arns=["notificationArns"],
+                            output="output",
+                            outputs_file="outputsFile",
+                            parameters={
+                                "parameters_key": "parameters"
+                            },
+                            path_metadata=False,
+                            profile="profile",
+                            proxy="proxy",
+                            require_approval=cloud_assembly_schema.RequireApproval.NEVER,
+                            reuse_assets=["reuseAssets"],
+                            role_arn="roleArn",
+                            rollback=False,
+                            stacks=["stacks"],
+                            staging=False,
+                            strict=False,
+                            toolkit_stack_name="toolkitStackName",
+                            trace=False,
+                            use_previous_parameters=False,
+                            verbose=False,
+                            version_reporting=False
+                        ),
+                        enabled=False,
+                        expected_message="expectedMessage",
+                        expect_error=False
+                    ),
+                    destroy=DestroyCommand(
+                        args=DestroyOptions(
+                            all=False,
+                            app="app",
+                            asset_metadata=False,
+                            ca_bundle_path="caBundlePath",
+                            color=False,
+                            context={
+                                "context_key": "context"
+                            },
+                            debug=False,
+                            ec2_creds=False,
+                            exclusively=False,
+                            force=False,
+                            ignore_errors=False,
+                            json=False,
+                            lookups=False,
+                            notices=False,
+                            output="output",
+                            path_metadata=False,
+                            profile="profile",
+                            proxy="proxy",
+                            role_arn="roleArn",
+                            stacks=["stacks"],
+                            staging=False,
+                            strict=False,
+                            trace=False,
+                            verbose=False,
+                            version_reporting=False
+                        ),
+                        enabled=False,
+                        expected_message="expectedMessage",
+                        expect_error=False
+                    )
+                ),
+                diff_assets=False,
+                hooks=Hooks(
+                    post_deploy=["postDeploy"],
+                    post_destroy=["postDestroy"],
+                    pre_deploy=["preDeploy"],
+                    pre_destroy=["preDestroy"]
+                ),
+                provider_log_level=lambda_.ApplicationLogLevel.INFO,
+                regions=["regions"],
+                stack_update_workflow=False
+            )
+        '''
+        if isinstance(cdk_command_options, dict):
+            cdk_command_options = _aws_cdk_cloud_assembly_schema_ceddda9d.CdkCommands(**cdk_command_options)
+        if isinstance(hooks, dict):
+            hooks = _aws_cdk_cloud_assembly_schema_ceddda9d.Hooks(**hooks)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5f36706ce503fa92c9baffb37b25208bc4e61071c2af78b1cf526c1916f483b6)
+            check_type(argname="argument allow_delete_failures", value=allow_delete_failures, expected_type=type_hints["allow_delete_failures"])
+            check_type(argname="argument allow_destroy", value=allow_destroy, expected_type=type_hints["allow_destroy"])
+            check_type(argname="argument cdk_command_options", value=cdk_command_options, expected_type=type_hints["cdk_command_options"])
+            check_type(argname="argument diff_assets", value=diff_assets, expected_type=type_hints["diff_assets"])
+            check_type(argname="argument hooks", value=hooks, expected_type=type_hints["hooks"])
+            check_type(argname="argument regions", value=regions, expected_type=type_hints["regions"])
+            check_type(argname="argument stack_update_workflow", value=stack_update_workflow, expected_type=type_hints["stack_update_workflow"])
+            check_type(argname="argument provider_log_level", value=provider_log_level, expected_type=type_hints["provider_log_level"])
+            check_type(argname="argument stacks", value=stacks, expected_type=type_hints["stacks"])
+            check_type(argname="argument assertion_stack", value=assertion_stack, expected_type=type_hints["assertion_stack"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "stacks": stacks,
+        }
+        if allow_delete_failures is not None:
+            self._values["allow_delete_failures"] = allow_delete_failures
+        if allow_destroy is not None:
+            self._values["allow_destroy"] = allow_destroy
+        if cdk_command_options is not None:
+            self._values["cdk_command_options"] = cdk_command_options
+        if diff_assets is not None:
+            self._values["diff_assets"] = diff_assets
+        if hooks is not None:
+            self._values["hooks"] = hooks
+        if regions is not None:
+            self._values["regions"] = regions
+        if stack_update_workflow is not None:
+            self._values["stack_update_workflow"] = stack_update_workflow
+        if provider_log_level is not None:
+            self._values["provider_log_level"] = provider_log_level
+        if assertion_stack is not None:
+            self._values["assertion_stack"] = assertion_stack
+
+    @builtins.property
+    def allow_delete_failures(self) -> typing.Optional[builtins.bool]:
+        '''Whether to allow resources that fail to delete during a stack update.
+
+        When false, the test will fail if CloudFormation skips deleting a resource
+        during a stack update. When true, only a warning is printed.
+
+        :default: false
+        '''
+        result = self._values.get("allow_delete_failures")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def allow_destroy(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''List of CloudFormation resource types in this stack that can be destroyed as part of an update without failing the test.
+
+        This list should only include resources that for this specific
+        integration test we are sure will not cause errors or an outage if
+        destroyed. For example, maybe we know that a new resource will be created
+        first before the old resource is destroyed which prevents any outage.
+
+        e.g. ['AWS::IAM::Role']
+
+        :default: - do not allow destruction of any resources on update
+        '''
+        result = self._values.get("allow_destroy")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def cdk_command_options(
+        self,
+    ) -> typing.Optional["_aws_cdk_cloud_assembly_schema_ceddda9d.CdkCommands"]:
+        '''Additional options to use for each CDK command.
+
+        :default: - runner default options
+        '''
+        result = self._values.get("cdk_command_options")
+        return typing.cast(typing.Optional["_aws_cdk_cloud_assembly_schema_ceddda9d.CdkCommands"], result)
+
+    @builtins.property
+    def diff_assets(self) -> typing.Optional[builtins.bool]:
+        '''Whether or not to include asset hashes in the diff Asset hashes can introduces a lot of unneccessary noise into tests, but there are some cases where asset hashes *should* be included.
+
+        For example
+        any tests involving custom resources or bundling
+
+        :default: false
+        '''
+        result = self._values.get("diff_assets")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def hooks(self) -> typing.Optional["_aws_cdk_cloud_assembly_schema_ceddda9d.Hooks"]:
+        '''Additional commands to run at predefined points in the test workflow.
+
+        e.g. { postDeploy: ['yarn', 'test'] }
+
+        :default: - no hooks
+        '''
+        result = self._values.get("hooks")
+        return typing.cast(typing.Optional["_aws_cdk_cloud_assembly_schema_ceddda9d.Hooks"], result)
+
+    @builtins.property
+    def regions(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Limit deployment to these regions.
+
+        :default: - can run in any region
+        '''
+        result = self._values.get("regions")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def stack_update_workflow(self) -> typing.Optional[builtins.bool]:
+        '''Run update workflow on this test case This should only be set to false to test scenarios that are not possible to test as part of the update workflow.
+
+        :default: true
+        '''
+        result = self._values.get("stack_update_workflow")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def provider_log_level(
+        self,
+    ) -> typing.Optional["_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel"]:
+        '''(experimental) The log level of the provider lambda function.
+
+        :default: ApplicationLogLevel.FATAL
+
+        :stability: experimental
+        '''
+        result = self._values.get("provider_log_level")
+        return typing.cast(typing.Optional["_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel"], result)
+
+    @builtins.property
+    def stacks(self) -> typing.List["_aws_cdk_ceddda9d.Stack"]:
+        '''(experimental) Stacks to be deployed during the test.
+
+        :stability: experimental
+        '''
+        result = self._values.get("stacks")
+        assert result is not None, "Required property 'stacks' is missing"
+        return typing.cast(typing.List["_aws_cdk_ceddda9d.Stack"], result)
+
+    @builtins.property
+    def assertion_stack(self) -> typing.Optional["_aws_cdk_ceddda9d.Stack"]:
+        '''(experimental) Specify a stack to use for assertions.
+
+        :default: - a stack is created for you
+
+        :stability: experimental
+        '''
+        result = self._values.get("assertion_stack")
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Stack"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "IntegTestCaseProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/integ-tests-alpha.IntegTestProps",
+    jsii_struct_bases=[
+        _aws_cdk_cloud_assembly_schema_ceddda9d.TestOptions, ProviderOptions
+    ],
+    name_mapping={
+        "allow_delete_failures": "allowDeleteFailures",
+        "allow_destroy": "allowDestroy",
+        "cdk_command_options": "cdkCommandOptions",
+        "diff_assets": "diffAssets",
+        "hooks": "hooks",
+        "regions": "regions",
+        "stack_update_workflow": "stackUpdateWorkflow",
+        "provider_log_level": "providerLogLevel",
+        "test_cases": "testCases",
+        "assertion_stack": "assertionStack",
+        "enable_lookups": "enableLookups",
+    },
+)
+class IntegTestProps(
+    _aws_cdk_cloud_assembly_schema_ceddda9d.TestOptions,
+    ProviderOptions,
+):
+    def __init__(
+        self,
+        *,
+        allow_delete_failures: typing.Optional[builtins.bool] = None,
+        allow_destroy: typing.Optional[typing.Sequence[builtins.str]] = None,
+        cdk_command_options: typing.Optional[typing.Union["_aws_cdk_cloud_assembly_schema_ceddda9d.CdkCommands", typing.Dict[builtins.str, typing.Any]]] = None,
+        diff_assets: typing.Optional[builtins.bool] = None,
+        hooks: typing.Optional[typing.Union["_aws_cdk_cloud_assembly_schema_ceddda9d.Hooks", typing.Dict[builtins.str, typing.Any]]] = None,
+        regions: typing.Optional[typing.Sequence[builtins.str]] = None,
+        stack_update_workflow: typing.Optional[builtins.bool] = None,
+        provider_log_level: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel"] = None,
+        test_cases: typing.Sequence["_aws_cdk_ceddda9d.Stack"],
+        assertion_stack: typing.Optional["_aws_cdk_ceddda9d.Stack"] = None,
+        enable_lookups: typing.Optional[builtins.bool] = None,
+    ) -> None:
+        '''(experimental) Integration test properties.
+
+        :param allow_delete_failures: Whether to allow resources that fail to delete during a stack update. When false, the test will fail if CloudFormation skips deleting a resource during a stack update. When true, only a warning is printed. Default: false
+        :param allow_destroy: List of CloudFormation resource types in this stack that can be destroyed as part of an update without failing the test. This list should only include resources that for this specific integration test we are sure will not cause errors or an outage if destroyed. For example, maybe we know that a new resource will be created first before the old resource is destroyed which prevents any outage. e.g. ['AWS::IAM::Role'] Default: - do not allow destruction of any resources on update
+        :param cdk_command_options: Additional options to use for each CDK command. Default: - runner default options
+        :param diff_assets: Whether or not to include asset hashes in the diff Asset hashes can introduces a lot of unneccessary noise into tests, but there are some cases where asset hashes *should* be included. For example any tests involving custom resources or bundling Default: false
+        :param hooks: Additional commands to run at predefined points in the test workflow. e.g. { postDeploy: ['yarn', 'test'] } Default: - no hooks
+        :param regions: Limit deployment to these regions. Default: - can run in any region
+        :param stack_update_workflow: Run update workflow on this test case This should only be set to false to test scenarios that are not possible to test as part of the update workflow. Default: true
+        :param provider_log_level: (experimental) The log level of the provider lambda function. Default: ApplicationLogLevel.FATAL
+        :param test_cases: (experimental) List of test cases that make up this test.
+        :param assertion_stack: (experimental) Specify a stack to use for assertions. Default: - a stack is created for you
+        :param enable_lookups: (experimental) Enable lookups for this test. If lookups are enabled then ``stackUpdateWorkflow`` must be set to false. Lookups should only be enabled when you are explicitly testing lookups. Default: false
+
+        :stability: experimental
+        :exampleMetadata: infused
+
+        Example::
+
+            # app: App
+            # stack: Stack
+            # sm: IStateMachine
+            
+            
+            test_case = IntegTest(app, "IntegTest",
+                test_cases=[stack]
+            )
+            
+            # Start an execution
+            start = test_case.assertions.aws_api_call("StepFunctions", "startExecution", {
+                "state_machine_arn": sm.state_machine_arn
+            })
+            
+            # describe the results of the execution
+            describe = test_case.assertions.aws_api_call("StepFunctions", "describeExecution", {
+                "execution_arn": start.get_att_string("executionArn")
+            })
+            
+            # assert the results
+            describe.expect(ExpectedResult.object_like({
+                "status": "SUCCEEDED"
+            }))
+        '''
+        if isinstance(cdk_command_options, dict):
+            cdk_command_options = _aws_cdk_cloud_assembly_schema_ceddda9d.CdkCommands(**cdk_command_options)
+        if isinstance(hooks, dict):
+            hooks = _aws_cdk_cloud_assembly_schema_ceddda9d.Hooks(**hooks)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7a2013546a0269b479331ed4cdfd706a8b20bf18d5f45e074d56ae77eb9b6dd4)
+            check_type(argname="argument allow_delete_failures", value=allow_delete_failures, expected_type=type_hints["allow_delete_failures"])
+            check_type(argname="argument allow_destroy", value=allow_destroy, expected_type=type_hints["allow_destroy"])
+            check_type(argname="argument cdk_command_options", value=cdk_command_options, expected_type=type_hints["cdk_command_options"])
+            check_type(argname="argument diff_assets", value=diff_assets, expected_type=type_hints["diff_assets"])
+            check_type(argname="argument hooks", value=hooks, expected_type=type_hints["hooks"])
+            check_type(argname="argument regions", value=regions, expected_type=type_hints["regions"])
+            check_type(argname="argument stack_update_workflow", value=stack_update_workflow, expected_type=type_hints["stack_update_workflow"])
+            check_type(argname="argument provider_log_level", value=provider_log_level, expected_type=type_hints["provider_log_level"])
+            check_type(argname="argument test_cases", value=test_cases, expected_type=type_hints["test_cases"])
+            check_type(argname="argument assertion_stack", value=assertion_stack, expected_type=type_hints["assertion_stack"])
+            check_type(argname="argument enable_lookups", value=enable_lookups, expected_type=type_hints["enable_lookups"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "test_cases": test_cases,
+        }
+        if allow_delete_failures is not None:
+            self._values["allow_delete_failures"] = allow_delete_failures
+        if allow_destroy is not None:
+            self._values["allow_destroy"] = allow_destroy
+        if cdk_command_options is not None:
+            self._values["cdk_command_options"] = cdk_command_options
+        if diff_assets is not None:
+            self._values["diff_assets"] = diff_assets
+        if hooks is not None:
+            self._values["hooks"] = hooks
+        if regions is not None:
+            self._values["regions"] = regions
+        if stack_update_workflow is not None:
+            self._values["stack_update_workflow"] = stack_update_workflow
+        if provider_log_level is not None:
+            self._values["provider_log_level"] = provider_log_level
+        if assertion_stack is not None:
+            self._values["assertion_stack"] = assertion_stack
+        if enable_lookups is not None:
+            self._values["enable_lookups"] = enable_lookups
+
+    @builtins.property
+    def allow_delete_failures(self) -> typing.Optional[builtins.bool]:
+        '''Whether to allow resources that fail to delete during a stack update.
+
+        When false, the test will fail if CloudFormation skips deleting a resource
+        during a stack update. When true, only a warning is printed.
+
+        :default: false
+        '''
+        result = self._values.get("allow_delete_failures")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def allow_destroy(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''List of CloudFormation resource types in this stack that can be destroyed as part of an update without failing the test.
+
+        This list should only include resources that for this specific
+        integration test we are sure will not cause errors or an outage if
+        destroyed. For example, maybe we know that a new resource will be created
+        first before the old resource is destroyed which prevents any outage.
+
+        e.g. ['AWS::IAM::Role']
+
+        :default: - do not allow destruction of any resources on update
+        '''
+        result = self._values.get("allow_destroy")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def cdk_command_options(
+        self,
+    ) -> typing.Optional["_aws_cdk_cloud_assembly_schema_ceddda9d.CdkCommands"]:
+        '''Additional options to use for each CDK command.
+
+        :default: - runner default options
+        '''
+        result = self._values.get("cdk_command_options")
+        return typing.cast(typing.Optional["_aws_cdk_cloud_assembly_schema_ceddda9d.CdkCommands"], result)
+
+    @builtins.property
+    def diff_assets(self) -> typing.Optional[builtins.bool]:
+        '''Whether or not to include asset hashes in the diff Asset hashes can introduces a lot of unneccessary noise into tests, but there are some cases where asset hashes *should* be included.
+
+        For example
+        any tests involving custom resources or bundling
+
+        :default: false
+        '''
+        result = self._values.get("diff_assets")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def hooks(self) -> typing.Optional["_aws_cdk_cloud_assembly_schema_ceddda9d.Hooks"]:
+        '''Additional commands to run at predefined points in the test workflow.
+
+        e.g. { postDeploy: ['yarn', 'test'] }
+
+        :default: - no hooks
+        '''
+        result = self._values.get("hooks")
+        return typing.cast(typing.Optional["_aws_cdk_cloud_assembly_schema_ceddda9d.Hooks"], result)
+
+    @builtins.property
+    def regions(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Limit deployment to these regions.
+
+        :default: - can run in any region
+        '''
+        result = self._values.get("regions")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def stack_update_workflow(self) -> typing.Optional[builtins.bool]:
+        '''Run update workflow on this test case This should only be set to false to test scenarios that are not possible to test as part of the update workflow.
+
+        :default: true
+        '''
+        result = self._values.get("stack_update_workflow")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def provider_log_level(
+        self,
+    ) -> typing.Optional["_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel"]:
+        '''(experimental) The log level of the provider lambda function.
+
+        :default: ApplicationLogLevel.FATAL
+
+        :stability: experimental
+        '''
+        result = self._values.get("provider_log_level")
+        return typing.cast(typing.Optional["_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel"], result)
+
+    @builtins.property
+    def test_cases(self) -> typing.List["_aws_cdk_ceddda9d.Stack"]:
+        '''(experimental) List of test cases that make up this test.
+
+        :stability: experimental
+        '''
+        result = self._values.get("test_cases")
+        assert result is not None, "Required property 'test_cases' is missing"
+        return typing.cast(typing.List["_aws_cdk_ceddda9d.Stack"], result)
+
+    @builtins.property
+    def assertion_stack(self) -> typing.Optional["_aws_cdk_ceddda9d.Stack"]:
+        '''(experimental) Specify a stack to use for assertions.
+
+        :default: - a stack is created for you
+
+        :stability: experimental
+        '''
+        result = self._values.get("assertion_stack")
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Stack"], result)
+
+    @builtins.property
+    def enable_lookups(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Enable lookups for this test.
+
+        If lookups are enabled
+        then ``stackUpdateWorkflow`` must be set to false.
+        Lookups should only be enabled when you are explicitly testing
+        lookups.
+
+        :default: false
+
+        :stability: experimental
+        '''
+        result = self._values.get("enable_lookups")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "IntegTestProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/integ-tests-alpha.LambdaFunctionProviderProps",
+    jsii_struct_bases=[ProviderOptions],
+    name_mapping={
+        "provider_log_level": "providerLogLevel",
+        "handler": "handler",
+        "log_retention": "logRetention",
+    },
+)
+class LambdaFunctionProviderProps(ProviderOptions):
+    def __init__(
+        self,
+        *,
+        provider_log_level: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel"] = None,
+        handler: typing.Optional[builtins.str] = None,
+        log_retention: typing.Optional["_aws_cdk_aws_logs_ceddda9d.RetentionDays"] = None,
+    ) -> None:
+        '''(experimental) Properties for a lambda function provider.
+
+        :param provider_log_level: (experimental) The log level of the provider lambda function. Default: ApplicationLogLevel.FATAL
+        :param handler: (experimental) The handler to use for the lambda function. Default: index.handler
+        :param log_retention: (experimental) How long, in days, the log contents will be retained. Default: - no retention days specified
+
+        :stability: experimental
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.integ_tests_alpha as integ_tests_alpha
+            from aws_cdk import aws_lambda as lambda_
+            from aws_cdk import aws_logs as logs
+            
+            lambda_function_provider_props = integ_tests_alpha.LambdaFunctionProviderProps(
+                handler="handler",
+                log_retention=logs.RetentionDays.ONE_DAY,
+                provider_log_level=lambda_.ApplicationLogLevel.INFO
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c38d440a6e46009e1964a16dca6cca6a65cee4a96c1e4ec4505f3cc068bc45c1)
+            check_type(argname="argument provider_log_level", value=provider_log_level, expected_type=type_hints["provider_log_level"])
+            check_type(argname="argument handler", value=handler, expected_type=type_hints["handler"])
+            check_type(argname="argument log_retention", value=log_retention, expected_type=type_hints["log_retention"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if provider_log_level is not None:
+            self._values["provider_log_level"] = provider_log_level
+        if handler is not None:
+            self._values["handler"] = handler
+        if log_retention is not None:
+            self._values["log_retention"] = log_retention
+
+    @builtins.property
+    def provider_log_level(
+        self,
+    ) -> typing.Optional["_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel"]:
+        '''(experimental) The log level of the provider lambda function.
+
+        :default: ApplicationLogLevel.FATAL
+
+        :stability: experimental
+        '''
+        result = self._values.get("provider_log_level")
+        return typing.cast(typing.Optional["_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel"], result)
+
+    @builtins.property
+    def handler(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The handler to use for the lambda function.
+
+        :default: index.handler
+
+        :stability: experimental
+        '''
+        result = self._values.get("handler")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def log_retention(
+        self,
+    ) -> typing.Optional["_aws_cdk_aws_logs_ceddda9d.RetentionDays"]:
+        '''(experimental) How long, in days, the log contents will be retained.
+
+        :default: - no retention days specified
+
+        :stability: experimental
+        '''
+        result = self._values.get("log_retention")
+        return typing.cast(typing.Optional["_aws_cdk_aws_logs_ceddda9d.RetentionDays"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "LambdaFunctionProviderProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -6157,6 +6459,129 @@ class LambdaInvokeFunction(
         jsii.create(self.__class__, self, [scope, id, props])
 
 
+@jsii.data_type(
+    jsii_type="@aws-cdk/integ-tests-alpha.AssertionsProviderProps",
+    jsii_struct_bases=[LambdaFunctionProviderProps],
+    name_mapping={
+        "provider_log_level": "providerLogLevel",
+        "handler": "handler",
+        "log_retention": "logRetention",
+        "uuid": "uuid",
+    },
+)
+class AssertionsProviderProps(LambdaFunctionProviderProps):
+    def __init__(
+        self,
+        *,
+        provider_log_level: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel"] = None,
+        handler: typing.Optional[builtins.str] = None,
+        log_retention: typing.Optional["_aws_cdk_aws_logs_ceddda9d.RetentionDays"] = None,
+        uuid: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''(experimental) Properties for defining an AssertionsProvider.
+
+        :param provider_log_level: (experimental) The log level of the provider lambda function. Default: ApplicationLogLevel.FATAL
+        :param handler: (experimental) The handler to use for the lambda function. Default: index.handler
+        :param log_retention: (experimental) How long, in days, the log contents will be retained. Default: - no retention days specified
+        :param uuid: (experimental) This determines the uniqueness of each AssertionsProvider. You should only need to provide something different here if you *know* that you need a separate provider Default: - the default uuid is used
+
+        :stability: experimental
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.integ_tests_alpha as integ_tests_alpha
+            from aws_cdk import aws_lambda as lambda_
+            from aws_cdk import aws_logs as logs
+            
+            assertions_provider_props = integ_tests_alpha.AssertionsProviderProps(
+                handler="handler",
+                log_retention=logs.RetentionDays.ONE_DAY,
+                provider_log_level=lambda_.ApplicationLogLevel.INFO,
+                uuid="uuid"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2c5e060905b379d8af8619d5ea408511fba77814517c07abbda12acf1dbe165b)
+            check_type(argname="argument provider_log_level", value=provider_log_level, expected_type=type_hints["provider_log_level"])
+            check_type(argname="argument handler", value=handler, expected_type=type_hints["handler"])
+            check_type(argname="argument log_retention", value=log_retention, expected_type=type_hints["log_retention"])
+            check_type(argname="argument uuid", value=uuid, expected_type=type_hints["uuid"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if provider_log_level is not None:
+            self._values["provider_log_level"] = provider_log_level
+        if handler is not None:
+            self._values["handler"] = handler
+        if log_retention is not None:
+            self._values["log_retention"] = log_retention
+        if uuid is not None:
+            self._values["uuid"] = uuid
+
+    @builtins.property
+    def provider_log_level(
+        self,
+    ) -> typing.Optional["_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel"]:
+        '''(experimental) The log level of the provider lambda function.
+
+        :default: ApplicationLogLevel.FATAL
+
+        :stability: experimental
+        '''
+        result = self._values.get("provider_log_level")
+        return typing.cast(typing.Optional["_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel"], result)
+
+    @builtins.property
+    def handler(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The handler to use for the lambda function.
+
+        :default: index.handler
+
+        :stability: experimental
+        '''
+        result = self._values.get("handler")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def log_retention(
+        self,
+    ) -> typing.Optional["_aws_cdk_aws_logs_ceddda9d.RetentionDays"]:
+        '''(experimental) How long, in days, the log contents will be retained.
+
+        :default: - no retention days specified
+
+        :stability: experimental
+        '''
+        result = self._values.get("log_retention")
+        return typing.cast(typing.Optional["_aws_cdk_aws_logs_ceddda9d.RetentionDays"], result)
+
+    @builtins.property
+    def uuid(self) -> typing.Optional[builtins.str]:
+        '''(experimental) This determines the uniqueness of each AssertionsProvider.
+
+        You should only need to provide something different here if you
+        *know* that you need a separate provider
+
+        :default: - the default uuid is used
+
+        :stability: experimental
+        '''
+        result = self._values.get("uuid")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AssertionsProviderProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "ActualResult",
     "ApiCallBase",
@@ -6195,6 +6620,7 @@ __all__ = [
     "LambdaInvokeFunctionProps",
     "LogType",
     "Match",
+    "ProviderOptions",
     "Status",
     "WaiterStateMachine",
     "WaiterStateMachineOptions",
@@ -6255,6 +6681,7 @@ def _typecheckingstub__d829d3346bf088cede720be581add7c49c5142d6b67835d095d5b7fc2
     uuid: typing.Optional[builtins.str] = None,
     handler: typing.Optional[builtins.str] = None,
     log_retention: typing.Optional[_aws_cdk_aws_logs_ceddda9d.RetentionDays] = None,
+    provider_log_level: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6285,26 +6712,6 @@ def _typecheckingstub__15205a41c415f7c6befb41d2657e281256b15aca69cb25c1fe72c1803
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__1bb3bfb6e039f1770b7357b50e700e5397b1fe0af7e9bda38fcf799b232ae6b1(
-    *,
-    api: builtins.str,
-    service: builtins.str,
-    output_paths: typing.Optional[typing.Sequence[builtins.str]] = None,
-    parameters: typing.Any = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9667093e2c183b6409c654dfeddf1ba9117d05548446571b59e368fb53b52357(
-    *,
-    api: builtins.str,
-    service: builtins.str,
-    output_paths: typing.Optional[typing.Sequence[builtins.str]] = None,
-    parameters: typing.Any = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__31c5b4f02fb0af656efa41ad3e0b46bca31caf2520a4a6f541428609610641b2(
     *,
     api: builtins.str,
@@ -6330,15 +6737,7 @@ def _typecheckingstub__4c04e443c11a2367321899a4898db5e5d6620d46b9e0d1b3fa31d7e9d
     actual: ActualResult,
     expected: ExpectedResult,
     fail_deployment: typing.Optional[builtins.bool] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__58af14cdbf1ae6af7373273fada4bab47f80572e2dc79fc8406588336d4cd06a(
-    *,
-    actual: ActualResult,
-    expected: ExpectedResult,
-    fail_deployment: typing.Optional[builtins.bool] = None,
+    provider_log_level: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6483,12 +6882,14 @@ def _typecheckingstub__12fb8761c88b4fc9579f6a32db4edfe539963bdb489338e7e428d98f4
     test_cases: typing.Sequence[_aws_cdk_ceddda9d.Stack],
     assertion_stack: typing.Optional[_aws_cdk_ceddda9d.Stack] = None,
     enable_lookups: typing.Optional[builtins.bool] = None,
+    allow_delete_failures: typing.Optional[builtins.bool] = None,
     allow_destroy: typing.Optional[typing.Sequence[builtins.str]] = None,
     cdk_command_options: typing.Optional[typing.Union[_aws_cdk_cloud_assembly_schema_ceddda9d.CdkCommands, typing.Dict[builtins.str, typing.Any]]] = None,
     diff_assets: typing.Optional[builtins.bool] = None,
     hooks: typing.Optional[typing.Union[_aws_cdk_cloud_assembly_schema_ceddda9d.Hooks, typing.Dict[builtins.str, typing.Any]]] = None,
     regions: typing.Optional[typing.Sequence[builtins.str]] = None,
     stack_update_workflow: typing.Optional[builtins.bool] = None,
+    provider_log_level: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6499,26 +6900,14 @@ def _typecheckingstub__93909b22bdb434dd5bf6d9361625228bbeaf85254c3fc7bc9e72b77b7
     *,
     stacks: typing.Sequence[_aws_cdk_ceddda9d.Stack],
     assertion_stack: typing.Optional[_aws_cdk_ceddda9d.Stack] = None,
+    allow_delete_failures: typing.Optional[builtins.bool] = None,
     allow_destroy: typing.Optional[typing.Sequence[builtins.str]] = None,
     cdk_command_options: typing.Optional[typing.Union[_aws_cdk_cloud_assembly_schema_ceddda9d.CdkCommands, typing.Dict[builtins.str, typing.Any]]] = None,
     diff_assets: typing.Optional[builtins.bool] = None,
     hooks: typing.Optional[typing.Union[_aws_cdk_cloud_assembly_schema_ceddda9d.Hooks, typing.Dict[builtins.str, typing.Any]]] = None,
     regions: typing.Optional[typing.Sequence[builtins.str]] = None,
     stack_update_workflow: typing.Optional[builtins.bool] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5f36706ce503fa92c9baffb37b25208bc4e61071c2af78b1cf526c1916f483b6(
-    *,
-    allow_destroy: typing.Optional[typing.Sequence[builtins.str]] = None,
-    cdk_command_options: typing.Optional[typing.Union[_aws_cdk_cloud_assembly_schema_ceddda9d.CdkCommands, typing.Dict[builtins.str, typing.Any]]] = None,
-    diff_assets: typing.Optional[builtins.bool] = None,
-    hooks: typing.Optional[typing.Union[_aws_cdk_cloud_assembly_schema_ceddda9d.Hooks, typing.Dict[builtins.str, typing.Any]]] = None,
-    regions: typing.Optional[typing.Sequence[builtins.str]] = None,
-    stack_update_workflow: typing.Optional[builtins.bool] = None,
-    stacks: typing.Sequence[_aws_cdk_ceddda9d.Stack],
-    assertion_stack: typing.Optional[_aws_cdk_ceddda9d.Stack] = None,
+    provider_log_level: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6527,6 +6916,7 @@ def _typecheckingstub__ae3a10010962bdab5e34756e8b8781def4d66140bc39b762ac839b643
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
+    allow_delete_failures: typing.Optional[builtins.bool] = None,
     allow_destroy: typing.Optional[typing.Sequence[builtins.str]] = None,
     cdk_command_options: typing.Optional[typing.Union[_aws_cdk_cloud_assembly_schema_ceddda9d.CdkCommands, typing.Dict[builtins.str, typing.Any]]] = None,
     diff_assets: typing.Optional[builtins.bool] = None,
@@ -6557,6 +6947,7 @@ def _typecheckingstub__df0f2ea15e16068a7686e303272abe9b66aff6f74e31067127bd671e0
 
 def _typecheckingstub__59edf2938a92df2253021d942b03a0fa818705ff3df6920854079be734c3e175(
     *,
+    allow_delete_failures: typing.Optional[builtins.bool] = None,
     allow_destroy: typing.Optional[typing.Sequence[builtins.str]] = None,
     cdk_command_options: typing.Optional[typing.Union[_aws_cdk_cloud_assembly_schema_ceddda9d.CdkCommands, typing.Dict[builtins.str, typing.Any]]] = None,
     diff_assets: typing.Optional[builtins.bool] = None,
@@ -6575,29 +6966,6 @@ def _typecheckingstub__59edf2938a92df2253021d942b03a0fa818705ff3df6920854079be73
     synthesizer: typing.Optional[_aws_cdk_ceddda9d.IStackSynthesizer] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     termination_protection: typing.Optional[builtins.bool] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__7a2013546a0269b479331ed4cdfd706a8b20bf18d5f45e074d56ae77eb9b6dd4(
-    *,
-    allow_destroy: typing.Optional[typing.Sequence[builtins.str]] = None,
-    cdk_command_options: typing.Optional[typing.Union[_aws_cdk_cloud_assembly_schema_ceddda9d.CdkCommands, typing.Dict[builtins.str, typing.Any]]] = None,
-    diff_assets: typing.Optional[builtins.bool] = None,
-    hooks: typing.Optional[typing.Union[_aws_cdk_cloud_assembly_schema_ceddda9d.Hooks, typing.Dict[builtins.str, typing.Any]]] = None,
-    regions: typing.Optional[typing.Sequence[builtins.str]] = None,
-    stack_update_workflow: typing.Optional[builtins.bool] = None,
-    test_cases: typing.Sequence[_aws_cdk_ceddda9d.Stack],
-    assertion_stack: typing.Optional[_aws_cdk_ceddda9d.Stack] = None,
-    enable_lookups: typing.Optional[builtins.bool] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c38d440a6e46009e1964a16dca6cca6a65cee4a96c1e4ec4505f3cc068bc45c1(
-    *,
-    handler: typing.Optional[builtins.str] = None,
-    log_retention: typing.Optional[_aws_cdk_aws_logs_ceddda9d.RetentionDays] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6637,6 +7005,13 @@ def _typecheckingstub__08b86e0fb528b0809c81fd8c9509acd452ec22cd078f57824f27506c9
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__7916bcb8e7183f4e6ab3838f2b86b4872a8e034022780244121e291e3385cd0a(
+    *,
+    provider_log_level: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__99521e6ae1132d620337d92d0e6db2d69a603a34b4b8ff711ffc16a33f710a3a(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -6644,12 +7019,14 @@ def _typecheckingstub__99521e6ae1132d620337d92d0e6db2d69a603a34b4b8ff711ffc16a33
     backoff_rate: typing.Optional[jsii.Number] = None,
     interval: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
     total_timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+    provider_log_level: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__121fca5df71218eb18c08109872208325ee23307067d82bcba84288b6feccd22(
     *,
+    provider_log_level: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel] = None,
     backoff_rate: typing.Optional[jsii.Number] = None,
     interval: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
     total_timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
@@ -6659,6 +7036,7 @@ def _typecheckingstub__121fca5df71218eb18c08109872208325ee23307067d82bcba84288b6
 
 def _typecheckingstub__0e828ea92e322e9108a7c287fff81908fdb3933543431b12a3a1c1252a39520e(
     *,
+    provider_log_level: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel] = None,
     backoff_rate: typing.Optional[jsii.Number] = None,
     interval: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
     total_timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
@@ -6728,15 +7106,6 @@ def _typecheckingstub__13845f08ac36885e9e69aea7f533608f95aec490022e45da191534ce7
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__2c5e060905b379d8af8619d5ea408511fba77814517c07abbda12acf1dbe165b(
-    *,
-    handler: typing.Optional[builtins.str] = None,
-    log_retention: typing.Optional[_aws_cdk_aws_logs_ceddda9d.RetentionDays] = None,
-    uuid: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__e538fc4583813356d54f185265235ce446a780672975e15bbe5fa65cbba69a5b(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -6745,6 +7114,7 @@ def _typecheckingstub__e538fc4583813356d54f185265235ce446a780672975e15bbe5fa65cb
     service: builtins.str,
     output_paths: typing.Optional[typing.Sequence[builtins.str]] = None,
     parameters: typing.Any = None,
+    provider_log_level: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6762,12 +7132,45 @@ def _typecheckingstub__0e978f2b80fc7ca4cf867ebf9e4673daf1582477274721902259a31ca
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__1bb3bfb6e039f1770b7357b50e700e5397b1fe0af7e9bda38fcf799b232ae6b1(
+    *,
+    provider_log_level: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel] = None,
+    api: builtins.str,
+    service: builtins.str,
+    output_paths: typing.Optional[typing.Sequence[builtins.str]] = None,
+    parameters: typing.Any = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9667093e2c183b6409c654dfeddf1ba9117d05548446571b59e368fb53b52357(
+    *,
+    provider_log_level: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel] = None,
+    api: builtins.str,
+    service: builtins.str,
+    output_paths: typing.Optional[typing.Sequence[builtins.str]] = None,
+    parameters: typing.Any = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__58af14cdbf1ae6af7373273fada4bab47f80572e2dc79fc8406588336d4cd06a(
+    *,
+    provider_log_level: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel] = None,
+    actual: ActualResult,
+    expected: ExpectedResult,
+    fail_deployment: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__0209121e751279aa416df5a16ee8548cf444948c1d390c4c88c07eb8c6b1c58a(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
     url: builtins.str,
     fetch_options: typing.Optional[typing.Union[FetchOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    provider_log_level: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6783,6 +7186,49 @@ def _typecheckingstub__1f4a71f13aa64d1306c572e9f98559d007cead2ee1c483183f46e1dad
     *,
     url: builtins.str,
     fetch_options: typing.Optional[typing.Union[FetchOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    provider_log_level: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5f36706ce503fa92c9baffb37b25208bc4e61071c2af78b1cf526c1916f483b6(
+    *,
+    allow_delete_failures: typing.Optional[builtins.bool] = None,
+    allow_destroy: typing.Optional[typing.Sequence[builtins.str]] = None,
+    cdk_command_options: typing.Optional[typing.Union[_aws_cdk_cloud_assembly_schema_ceddda9d.CdkCommands, typing.Dict[builtins.str, typing.Any]]] = None,
+    diff_assets: typing.Optional[builtins.bool] = None,
+    hooks: typing.Optional[typing.Union[_aws_cdk_cloud_assembly_schema_ceddda9d.Hooks, typing.Dict[builtins.str, typing.Any]]] = None,
+    regions: typing.Optional[typing.Sequence[builtins.str]] = None,
+    stack_update_workflow: typing.Optional[builtins.bool] = None,
+    provider_log_level: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel] = None,
+    stacks: typing.Sequence[_aws_cdk_ceddda9d.Stack],
+    assertion_stack: typing.Optional[_aws_cdk_ceddda9d.Stack] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7a2013546a0269b479331ed4cdfd706a8b20bf18d5f45e074d56ae77eb9b6dd4(
+    *,
+    allow_delete_failures: typing.Optional[builtins.bool] = None,
+    allow_destroy: typing.Optional[typing.Sequence[builtins.str]] = None,
+    cdk_command_options: typing.Optional[typing.Union[_aws_cdk_cloud_assembly_schema_ceddda9d.CdkCommands, typing.Dict[builtins.str, typing.Any]]] = None,
+    diff_assets: typing.Optional[builtins.bool] = None,
+    hooks: typing.Optional[typing.Union[_aws_cdk_cloud_assembly_schema_ceddda9d.Hooks, typing.Dict[builtins.str, typing.Any]]] = None,
+    regions: typing.Optional[typing.Sequence[builtins.str]] = None,
+    stack_update_workflow: typing.Optional[builtins.bool] = None,
+    provider_log_level: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel] = None,
+    test_cases: typing.Sequence[_aws_cdk_ceddda9d.Stack],
+    assertion_stack: typing.Optional[_aws_cdk_ceddda9d.Stack] = None,
+    enable_lookups: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c38d440a6e46009e1964a16dca6cca6a65cee4a96c1e4ec4505f3cc068bc45c1(
+    *,
+    provider_log_level: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel] = None,
+    handler: typing.Optional[builtins.str] = None,
+    log_retention: typing.Optional[_aws_cdk_aws_logs_ceddda9d.RetentionDays] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6796,6 +7242,16 @@ def _typecheckingstub__fc846004ad65c16a9a1322c4c518ae25ebd02b2bc7803230f5bb11a28
     log_retention: typing.Optional[_aws_cdk_aws_logs_ceddda9d.RetentionDays] = None,
     log_type: typing.Optional[LogType] = None,
     payload: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2c5e060905b379d8af8619d5ea408511fba77814517c07abbda12acf1dbe165b(
+    *,
+    provider_log_level: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel] = None,
+    handler: typing.Optional[builtins.str] = None,
+    log_retention: typing.Optional[_aws_cdk_aws_logs_ceddda9d.RetentionDays] = None,
+    uuid: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

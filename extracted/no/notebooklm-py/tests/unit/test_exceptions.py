@@ -5,6 +5,7 @@ import pytest
 import notebooklm
 from notebooklm._env import DEFAULT_BASE_URL
 from notebooklm.exceptions import (
+    _PREVIEW_SCRUB_CAP,  # noqa: PLC2701 (test of internal)
     ArtifactDownloadError,
     ArtifactError,
     ArtifactFeatureUnavailableError,
@@ -20,13 +21,20 @@ from notebooklm.exceptions import (
     ClientError,
     ConfigurationError,
     DecodingError,
+    MindMapError,
+    MindMapNotFoundError,
     NetworkError,
     NotebookError,
     NotebookLimitError,
     NotebookLMError,
     NotebookNotFoundError,
+    NoteError,
+    NoteNotFoundError,
     NotFoundError,
     RateLimitError,
+    ResearchError,
+    ResearchTaskMismatchError,
+    ResearchTimeoutError,
     RPCError,
     RPCTimeoutError,
     ServerError,
@@ -37,6 +45,7 @@ from notebooklm.exceptions import (
     SourceTimeoutError,
     UnknownRPCMethodError,
     ValidationError,
+    WaitTimeoutError,
 )
 from notebooklm.types import AccountLimits, AccountTier, GenerationStatus
 
@@ -77,6 +86,10 @@ class TestExceptionHierarchy:
             ArtifactTimeoutError,
             ArtifactPendingTimeoutError,
             ArtifactInProgressTimeoutError,
+            NoteError,
+            NoteNotFoundError,
+            MindMapError,
+            MindMapNotFoundError,
         ]
         for exc_class in exceptions:
             assert issubclass(exc_class, NotebookLMError), (
@@ -141,6 +154,8 @@ class TestExceptionHierarchy:
         assert NotebookNotFoundError.__mro__[1:4] == (NotFoundError, RPCError, NotebookError)
         assert SourceNotFoundError.__mro__[1:4] == (NotFoundError, RPCError, SourceError)
         assert ArtifactNotFoundError.__mro__[1:4] == (NotFoundError, RPCError, ArtifactError)
+        assert NoteNotFoundError.__mro__[1:4] == (NotFoundError, RPCError, NoteError)
+        assert MindMapNotFoundError.__mro__[1:4] == (NotFoundError, RPCError, MindMapError)
 
     def test_not_found_errors_caught_by_except_rpc_error(self):
         """End-to-end ``try/except RPCError`` exercise — a direct regression
@@ -295,6 +310,18 @@ class TestNotFoundErrorUmbrella:
         with pytest.raises(NotFoundError):
             raise ArtifactNotFoundError("art-123", "audio")
 
+    def test_not_found_error_catches_note_not_found(self):
+        """`except NotFoundError` catches NoteNotFoundError."""
+        assert issubclass(NoteNotFoundError, NotFoundError)
+        with pytest.raises(NotFoundError):
+            raise NoteNotFoundError("note-123")
+
+    def test_not_found_error_catches_mind_map_not_found(self):
+        """`except NotFoundError` catches MindMapNotFoundError."""
+        assert issubclass(MindMapNotFoundError, NotFoundError)
+        with pytest.raises(NotFoundError):
+            raise MindMapNotFoundError("mm-123")
+
     def test_existing_catches_still_work(self):
         """Adding NotFoundError must not break existing domain catches.
 
@@ -352,6 +379,166 @@ class TestNotFoundErrorUmbrella:
         ]
 
 
+class TestWaitTimeoutErrorUmbrella:
+    """The WaitTimeoutError umbrella catches every wait/poll timeout.
+
+    Added in v0.7.0 (issue #1208). It is purely additive: it mixes in the
+    built-in :class:`TimeoutError`, so existing ``except TimeoutError`` clauses
+    keep catching every wait timeout, and it widens the inheritance of the
+    source / artifact / research timeout types without disturbing their
+    domain bases.
+    """
+
+    def test_umbrella_inherits_timeout_and_base(self):
+        assert issubclass(WaitTimeoutError, TimeoutError)
+        assert issubclass(WaitTimeoutError, NotebookLMError)
+
+    def test_all_wait_timeouts_subclass_umbrella(self):
+        for exc_class in (
+            SourceTimeoutError,
+            ArtifactTimeoutError,
+            ArtifactPendingTimeoutError,
+            ArtifactInProgressTimeoutError,
+            ResearchTimeoutError,
+        ):
+            assert issubclass(exc_class, WaitTimeoutError), exc_class.__name__
+            # Still a built-in TimeoutError (backward-compatible catchability).
+            assert issubclass(exc_class, TimeoutError), exc_class.__name__
+
+    def test_domain_bases_unchanged(self):
+        """Widening to WaitTimeoutError must not disturb the domain bases."""
+        assert issubclass(SourceTimeoutError, SourceError)
+        assert issubclass(ArtifactTimeoutError, ArtifactError)
+        assert issubclass(ResearchTimeoutError, ResearchError)
+        assert issubclass(ResearchError, NotebookLMError)
+
+    def test_wait_timeouts_declare_umbrella_base_first(self):
+        """The ``*TimeoutError`` types list ``WaitTimeoutError`` before their
+        domain base, so the wait-timeout umbrella reads consistently across
+        domains. ``ArtifactTimeoutError`` was the lone outlier
+        (``(ArtifactError, WaitTimeoutError)``) and is now umbrella-first like
+        its siblings. The reorder is cosmetic — ``isinstance`` against either
+        base is unaffected (proven by ``test_umbrella_catches_source_artifact_research``
+        and ``test_domain_bases_unchanged``).
+        """
+        assert SourceTimeoutError.__bases__ == (WaitTimeoutError, SourceError)
+        assert ArtifactTimeoutError.__bases__ == (WaitTimeoutError, ArtifactError)
+        assert ResearchTimeoutError.__bases__ == (WaitTimeoutError, ResearchError)
+
+    def test_umbrella_catches_source_artifact_research(self):
+        """One ``except WaitTimeoutError`` clause catches all three domains."""
+        caught: list[type] = []
+        for exc in (
+            SourceTimeoutError("src-1", 12.0),
+            ArtifactTimeoutError("nb-1", "task-1", 30.0),
+            ResearchTimeoutError("nb-1", "task-1", 60.0),
+        ):
+            try:
+                raise exc
+            except WaitTimeoutError as e:
+                caught.append(type(e))
+        assert caught == [
+            SourceTimeoutError,
+            ArtifactTimeoutError,
+            ResearchTimeoutError,
+        ]
+
+    def test_builtin_timeout_error_still_catches_all(self):
+        """Backward compatibility: ``except TimeoutError`` still works."""
+        for exc in (
+            SourceTimeoutError("src-1", 12.0),
+            ArtifactTimeoutError("nb-1", "task-1", 30.0),
+            ResearchTimeoutError("nb-1", "task-1", 60.0),
+        ):
+            with pytest.raises(TimeoutError):
+                raise exc
+
+    def test_research_timeout_attributes(self):
+        err = ResearchTimeoutError("nb-1", "task-7", 60.0, last_status="in_progress")
+        assert err.notebook_id == "nb-1"
+        assert err.task_id == "task-7"
+        assert err.timeout == 60.0
+        assert err.timeout_seconds == 60.0
+        assert err.last_status == "in_progress"
+        assert "task-7" in str(err)
+        assert "in_progress" in str(err)
+
+    def test_research_task_mismatch_stays_validation_error(self):
+        """ResearchTaskMismatchError stays a ValidationError, not ResearchError.
+
+        It is a caller-input validation failure on ``import_sources``, so it
+        keeps its :class:`ValidationError` base and is deliberately NOT moved
+        under the new :class:`ResearchError` domain base.
+        """
+        assert issubclass(ResearchTaskMismatchError, ValidationError)
+        assert not issubclass(ResearchTaskMismatchError, ResearchError)
+        assert not issubclass(ResearchTaskMismatchError, WaitTimeoutError)
+
+    def test_umbrella_and_research_exports(self):
+        assert notebooklm.WaitTimeoutError is WaitTimeoutError
+        assert notebooklm.ResearchError is ResearchError
+        assert notebooklm.ResearchTimeoutError is ResearchTimeoutError
+        assert "WaitTimeoutError" in notebooklm.__all__
+        assert "ResearchError" in notebooklm.__all__
+        assert "ResearchTimeoutError" in notebooklm.__all__
+
+
+class TestNoteAndMindMapNotFound:
+    """The note / mind-map not-found exceptions mirror ``SourceNotFoundError``.
+
+    Added as the prerequisite for the mind-map not-found work (#1291), these
+    are the first members of the note and mind-map domain subtrees. Each is
+    a triple-base ``(NotFoundError, RPCError, <Domain>Error)`` so it is
+    catchable via the cross-domain umbrella, at transport-level call sites,
+    and at domain-level call sites — exactly like ``SourceNotFoundError``.
+    """
+
+    def test_note_not_found_attributes_and_catchability(self):
+        err = NoteNotFoundError("note-x", method_id="abc")
+        assert err.note_id == "note-x"
+        assert err.method_id == "abc"
+        assert "note-x" in str(err)
+        # Catchable as the umbrella, the RPC layer, and the domain base.
+        assert isinstance(err, NotFoundError)
+        assert isinstance(err, RPCError)
+        assert isinstance(err, NoteError)
+
+    def test_note_not_found_raw_response_kwarg(self):
+        err = NoteNotFoundError("note-x", raw_response="payload")
+        assert err.raw_response == "payload"
+
+    def test_mind_map_not_found_attributes_and_catchability(self):
+        err = MindMapNotFoundError("mm-x", method_id="abc")
+        assert err.mind_map_id == "mm-x"
+        assert err.method_id == "abc"
+        assert "mm-x" in str(err)
+        # Catchable as the umbrella, the RPC layer, and the domain base.
+        assert isinstance(err, NotFoundError)
+        assert isinstance(err, RPCError)
+        assert isinstance(err, MindMapError)
+
+    def test_mind_map_not_found_raw_response_kwarg(self):
+        err = MindMapNotFoundError("mm-x", raw_response="payload")
+        assert err.raw_response == "payload"
+
+    def test_domain_bases_are_under_notebooklm_error(self):
+        assert issubclass(NoteError, NotebookLMError)
+        assert issubclass(MindMapError, NotebookLMError)
+        # The bare domain bases are NOT not-found / RPC types.
+        assert not issubclass(NoteError, NotFoundError)
+        assert not issubclass(MindMapError, RPCError)
+
+    def test_exported_from_package(self):
+        for name, obj in (
+            ("NoteError", NoteError),
+            ("NoteNotFoundError", NoteNotFoundError),
+            ("MindMapError", MindMapError),
+            ("MindMapNotFoundError", MindMapNotFoundError),
+        ):
+            assert getattr(notebooklm, name) is obj
+            assert name in notebooklm.__all__
+
+
 class TestRPCErrorAttributes:
     """Test RPCError attribute handling."""
 
@@ -396,6 +583,112 @@ class TestRPCErrorAttributes:
         assert len(e.raw_response) == 83
         assert e.raw_response.endswith("...")
         assert e.raw_response[:-3] == "x" * 80
+
+    def test_rpc_error_scrubs_secrets_in_raw_response(self, monkeypatch):
+        """raw_response is secret-scrubbed before it can leak.
+
+        ``raw_response`` is a public attribute that escapes the logging
+        pipeline's ``RedactingFilter`` — it is spliced into error ``str``/repr
+        and survives serialization. Credential-shaped substrings must therefore
+        be redacted at the source. The default (truncated) path keeps the scrub
+        *before* the 80-char cut so a secret sitting in the first 80 chars can
+        never survive into the preview.
+        """
+        monkeypatch.delenv("NOTEBOOKLM_DEBUG", raising=False)
+        secret = "AF1_QpN-supersecretcsrftoken1234567890abcdefghij"
+        raw = f'{{"SNlM0e":"{secret}"}}'
+        # Realistic splice: callers build the message from the (now scrubbed)
+        # raw_response attribute, which is the surface str(exc) exposes.
+        e = RPCError("decode failed", raw_response=raw)
+        assert e.raw_response is not None
+        assert secret not in e.raw_response
+        assert "***" in e.raw_response
+        # A message built from the scrubbed preview stays clean too.
+        spliced = RPCError(f"decode failed: {e.raw_response}", raw_response=raw)
+        assert secret not in str(spliced)
+
+    def test_rpc_error_scrubs_secrets_in_debug_full_body(self, monkeypatch):
+        """NOTEBOOKLM_DEBUG=1 keeps the full body but still scrubs secrets.
+
+        The deep-debug branch returns the untruncated body; it must scrub THEN
+        return so the full-body opt-in does not become a token leak.
+        """
+        monkeypatch.setenv("NOTEBOOKLM_DEBUG", "1")
+        secret = "AF1_QpN-supersecretcsrftoken1234567890abcdefghij"
+        raw = f'{{"SNlM0e":"{secret}"}}' + "x" * 1000
+        e = RPCError("decode failed", raw_response=raw)
+        assert e.raw_response is not None
+        # Full body preserved (not truncated) but the token is gone.
+        assert len(e.raw_response) > 80
+        assert not e.raw_response.endswith("...")
+        assert secret not in e.raw_response
+        assert "***" in e.raw_response
+        spliced = RPCError(f"decode failed: {e.raw_response}", raw_response=raw)
+        assert secret not in str(spliced)
+
+    def test_rpc_error_scrubs_secret_straddling_truncation_boundary(self, monkeypatch):
+        """A secret straddling the 80-char preview cut is scrubbed, not halved.
+
+        Scrubbing runs on the pre-sliced window *before* the 80-char cut, so a
+        token positioned so that it spans the boundary is neutralized whole — no
+        partial-token suffix can leak into the truncated preview. This is the
+        property the pre-slice (scrub-then-cut) ordering exists to preserve.
+        """
+        monkeypatch.delenv("NOTEBOOKLM_DEBUG", raising=False)
+        secret = "AF1_QpN-supersecretcsrftoken1234567890abcdefghij"
+        # Pad so the secret suffix straddles the 80-char cut.
+        raw = "x" * 70 + secret
+        e = RPCError("decode failed", raw_response=raw)
+        assert e.raw_response is not None
+        assert e.raw_response.endswith("...")
+        # The secret suffix is gone — only the ``AF1_QpN-`` shape hint (a
+        # deliberate non-secret marker) and a ``*`` redaction stub remain.
+        assert "supersecret" not in e.raw_response
+        assert "csrftoken" not in e.raw_response
+        assert "*" in e.raw_response
+
+    def test_rpc_error_preview_drops_secret_beyond_scrub_cap(self, monkeypatch):
+        """A secret past the pre-slice cap is dropped, never partially leaked.
+
+        The truncated path only scrubs the first ``_PREVIEW_SCRUB_CAP`` chars,
+        but anything beyond the cap is also beyond the 80-char preview, so it is
+        discarded rather than exposed. This guards the perf optimization against
+        ever shrinking the redaction surface that reaches the preview.
+        """
+        monkeypatch.delenv("NOTEBOOKLM_DEBUG", raising=False)
+        secret = "AF1_QpN-supersecretcsrftoken1234567890abcdefghij"
+        raw = "x" * (_PREVIEW_SCRUB_CAP + 50) + secret
+        e = RPCError("decode failed", raw_response=raw)
+        assert e.raw_response is not None
+        assert secret not in e.raw_response
+        assert e.raw_response == "x" * 80 + "..."
+
+    def test_unknown_rpc_method_error_scrubs_secrets_in_raw_response(self, monkeypatch):
+        """UnknownRPCMethodError forwards string raw_response through the scrub.
+
+        It splices structured context into ``str``/``repr`` and exposes the
+        public ``raw_response`` attribute, so the same redaction guarantee must
+        hold for the subclass that carries the string branch.
+        """
+        monkeypatch.delenv("NOTEBOOKLM_DEBUG", raising=False)
+        secret = "AF1_QpN-supersecretcsrftoken1234567890abcdefghij"
+        raw = f'{{"SNlM0e":"{secret}"}}'
+        e = UnknownRPCMethodError(
+            "schema drift",
+            method_id="abc123",
+            raw_response=raw,
+        )
+        assert isinstance(e.raw_response, str)
+        assert secret not in e.raw_response
+        assert "***" in e.raw_response
+        # str/repr that splice the scrubbed attribute never leak the token.
+        spliced = UnknownRPCMethodError(
+            f"schema drift: {e.raw_response}",
+            method_id="abc123",
+            raw_response=raw,
+        )
+        assert secret not in str(spliced)
+        assert secret not in repr(spliced)
 
     def test_rpc_error_stores_found_ids(self):
         """RPCError stores found_ids list."""

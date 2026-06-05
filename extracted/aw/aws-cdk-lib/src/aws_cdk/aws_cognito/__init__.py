@@ -519,7 +519,7 @@ Once the SES setup is complete, the UserPool can be configured to use the SES em
 
 ```python
 cognito.UserPool(self, "myuserpool",
-    email=cognito.UserPoolEmail.with_sES(
+    email=cognito.UserPoolEmail.with_ses(
         from_email="noreply@myawesomeapp.com",
         from_name="Awesome App",
         reply_to="support@myawesomeapp.com"
@@ -532,7 +532,7 @@ If the UserPool is being created in a different region, `sesRegion` must be used
 
 ```python
 cognito.UserPool(self, "myuserpool",
-    email=cognito.UserPoolEmail.with_sES(
+    email=cognito.UserPoolEmail.with_ses(
         ses_region="us-east-1",
         from_email="noreply@myawesomeapp.com",
         from_name="Awesome App",
@@ -546,7 +546,7 @@ The email address does not need to be verified when sending emails from a verifi
 
 ```python
 cognito.UserPool(self, "myuserpool",
-    email=cognito.UserPoolEmail.with_sES(
+    email=cognito.UserPoolEmail.with_ses(
         ses_region="us-east-1",
         from_email="noreply@myawesomeapp.com",
         from_name="Awesome App",
@@ -560,7 +560,7 @@ If `fromName` does not comply RFC 5322 atom or quoted-string, it will be quoted 
 
 ```python
 cognito.UserPool(self, "myuserpool",
-    email=cognito.UserPoolEmail.with_sES(
+    email=cognito.UserPoolEmail.with_ses(
         from_email="noreply@myawesomeapp.com",
         from_name="myname@mycompany.com"
     )
@@ -5241,7 +5241,7 @@ class CfnTerms(
         id: builtins.str,
         *,
         enforcement: builtins.str,
-        links: typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"],
+        links: typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]],
         terms_name: builtins.str,
         terms_source: builtins.str,
         user_pool_id: builtins.str,
@@ -5357,14 +5357,14 @@ class CfnTerms(
     @jsii.member(jsii_name="links")
     def links(
         self,
-    ) -> typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]:
+    ) -> typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]:
         '''A map of URLs to languages.'''
-        return typing.cast(typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"], jsii.get(self, "links"))
+        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]], jsii.get(self, "links"))
 
     @links.setter
     def links(
         self,
-        value: typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"],
+        value: typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4f9dfce3805ce6a5b41ec8b8adeb160b16b2bb09e9af48569f2f3a28a1301c36)
@@ -5441,7 +5441,7 @@ class CfnTermsProps:
         self,
         *,
         enforcement: builtins.str,
-        links: typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"],
+        links: typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]],
         terms_name: builtins.str,
         terms_source: builtins.str,
         user_pool_id: builtins.str,
@@ -5509,7 +5509,7 @@ class CfnTermsProps:
     @builtins.property
     def links(
         self,
-    ) -> typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]:
+    ) -> typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]:
         '''A map of URLs to languages.
 
         For each localized language that will view the requested ``TermsName`` , assign a URL. A selection of ``cognito:default`` displays for all languages that don't have a language-specific URL.
@@ -5520,7 +5520,7 @@ class CfnTermsProps:
         '''
         result = self._values.get("links")
         assert result is not None, "Required property 'links' is missing"
-        return typing.cast(typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"], result)
+        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def terms_name(self) -> builtins.str:
@@ -6789,7 +6789,7 @@ class CfnUserPool(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_cognito as cognito
                 
-                custom_sMSSender_property = cognito.CfnUserPool.CustomSMSSenderProperty(
+                custom_sms_sender_property = cognito.CfnUserPool.CustomSMSSenderProperty(
                     lambda_arn="lambdaArn",
                     lambda_version="lambdaVersion"
                 )
@@ -9821,9 +9821,9 @@ class CfnUserPoolClientProps:
             
                 # the properties below are optional
                 access_token_validity=123,
-                allowed_oAuth_flows=["allowedOAuthFlows"],
-                allowed_oAuth_flows_user_pool_client=False,
-                allowed_oAuth_scopes=["allowedOAuthScopes"],
+                allowed_o_auth_flows=["allowedOAuthFlows"],
+                allowed_o_auth_flows_user_pool_client=False,
+                allowed_o_auth_scopes=["allowedOAuthScopes"],
                 analytics_configuration=cognito.CfnUserPoolClient.AnalyticsConfigurationProperty(
                     application_arn="applicationArn",
                     application_id="applicationId",
@@ -13721,7 +13721,7 @@ class CfnUserPoolUICustomizationAttachment(
         # The values are placeholders you should change.
         from aws_cdk import aws_cognito as cognito
         
-        cfn_user_pool_uICustomization_attachment = cognito.CfnUserPoolUICustomizationAttachment(self, "MyCfnUserPoolUICustomizationAttachment",
+        cfn_user_pool_ui_customization_attachment = cognito.CfnUserPoolUICustomizationAttachment(self, "MyCfnUserPoolUICustomizationAttachment",
             client_id="clientId",
             user_pool_id="userPoolId",
         
@@ -13888,7 +13888,7 @@ class CfnUserPoolUICustomizationAttachmentProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_cognito as cognito
             
-            cfn_user_pool_uICustomization_attachment_props = cognito.CfnUserPoolUICustomizationAttachmentProps(
+            cfn_user_pool_ui_customization_attachment_props = cognito.CfnUserPoolUICustomizationAttachmentProps(
                 client_id="clientId",
                 user_pool_id="userPoolId",
             
@@ -13999,7 +13999,7 @@ class CfnUserPoolUser(
         id: builtins.str,
         *,
         user_pool_id: typing.Union[builtins.str, "_IUserPoolRef_0b7d02b5"],
-        client_metadata: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        client_metadata: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         desired_delivery_mediums: typing.Optional[typing.Sequence[builtins.str]] = None,
         force_alias_creation: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         message_action: typing.Optional[builtins.str] = None,
@@ -14112,14 +14112,14 @@ class CfnUserPoolUser(
     @jsii.member(jsii_name="clientMetadata")
     def client_metadata(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''A map of custom key-value pairs that you can provide as input for any custom workflows that this action triggers.'''
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], jsii.get(self, "clientMetadata"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "clientMetadata"))
 
     @client_metadata.setter
     def client_metadata(
         self,
-        value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__674b44537db9d65119536a886fe3b7990cd0df2f1aa1c3c2880711f8b302ae40)
@@ -14312,7 +14312,7 @@ class CfnUserPoolUserProps:
         self,
         *,
         user_pool_id: typing.Union[builtins.str, "_IUserPoolRef_0b7d02b5"],
-        client_metadata: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        client_metadata: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         desired_delivery_mediums: typing.Optional[typing.Sequence[builtins.str]] = None,
         force_alias_creation: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         message_action: typing.Optional[builtins.str] = None,
@@ -14402,7 +14402,7 @@ class CfnUserPoolUserProps:
     @builtins.property
     def client_metadata(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''A map of custom key-value pairs that you can provide as input for any custom workflows that this action triggers.
 
         You create custom workflows by assigning AWS Lambda functions to user pool triggers.
@@ -14421,7 +14421,7 @@ class CfnUserPoolUserProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpooluser.html#cfn-cognito-userpooluser-clientmetadata
         '''
         result = self._values.get("client_metadata")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
     @builtins.property
     def desired_delivery_mediums(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -20800,7 +20800,7 @@ class UserPoolEmail(
     Example::
 
         cognito.UserPool(self, "myuserpool",
-            email=cognito.UserPoolEmail.with_sES(
+            email=cognito.UserPoolEmail.with_ses(
                 from_email="noreply@myawesomeapp.com",
                 from_name="Awesome App",
                 reply_to="support@myawesomeapp.com"
@@ -23558,7 +23558,7 @@ class UserPoolSESOptions:
         Example::
 
             cognito.UserPool(self, "myuserpool",
-                email=cognito.UserPoolEmail.with_sES(
+                email=cognito.UserPoolEmail.with_ses(
                     from_email="noreply@myawesomeapp.com",
                     from_name="Awesome App",
                     reply_to="support@myawesomeapp.com"
@@ -25716,7 +25716,7 @@ def _typecheckingstub__60ed6baa47f9012cc57d9cef7e22f15d5f04fd45aa55fc0e8672f7e89
     id: builtins.str,
     *,
     enforcement: builtins.str,
-    links: typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b],
+    links: typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]],
     terms_name: builtins.str,
     terms_source: builtins.str,
     user_pool_id: builtins.str,
@@ -25750,7 +25750,7 @@ def _typecheckingstub__f61b831431a9a8cd9abc071d0372ef9f7481c4297f99d22362f79e445
     pass
 
 def _typecheckingstub__4f9dfce3805ce6a5b41ec8b8adeb160b16b2bb09e9af48569f2f3a28a1301c36(
-    value: typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b],
+    value: typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -25782,7 +25782,7 @@ def _typecheckingstub__b52c4f91e8237836ed692eed70ef894814f27cdb9a5c5fe5278b59f34
 def _typecheckingstub__285db7e3bc95478b571785bee7fa49951055cef4d8266009ed59e73fea5e4d4e(
     *,
     enforcement: builtins.str,
-    links: typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b],
+    links: typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]],
     terms_name: builtins.str,
     terms_source: builtins.str,
     user_pool_id: builtins.str,
@@ -27038,7 +27038,7 @@ def _typecheckingstub__392de74de1133635a0d4d21dbd0cb3290007171e021625ff9a1259834
     id: builtins.str,
     *,
     user_pool_id: typing.Union[builtins.str, _IUserPoolRef_0b7d02b5],
-    client_metadata: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    client_metadata: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     desired_delivery_mediums: typing.Optional[typing.Sequence[builtins.str]] = None,
     force_alias_creation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     message_action: typing.Optional[builtins.str] = None,
@@ -27074,7 +27074,7 @@ def _typecheckingstub__feefc710cb336bda2be62c58dcbdfc764a535ab2e52aa19e44511aca0
     pass
 
 def _typecheckingstub__674b44537db9d65119536a886fe3b7990cd0df2f1aa1c3c2880711f8b302ae40(
-    value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -27126,7 +27126,7 @@ def _typecheckingstub__480fd17b16e7156f8c801d35ad2f0806c252a5a32182194061ca2a956
 def _typecheckingstub__382fb58e358860ff3016c5f0203cf6f5b59ab27ba70ef920ce589784afe54f17(
     *,
     user_pool_id: typing.Union[builtins.str, _IUserPoolRef_0b7d02b5],
-    client_metadata: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    client_metadata: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     desired_delivery_mediums: typing.Optional[typing.Sequence[builtins.str]] = None,
     force_alias_creation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     message_action: typing.Optional[builtins.str] = None,

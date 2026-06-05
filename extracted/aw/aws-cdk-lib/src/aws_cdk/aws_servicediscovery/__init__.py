@@ -1493,7 +1493,7 @@ class CfnPrivateDnsNamespace(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_servicediscovery as servicediscovery
                 
-                s_oAProperty = servicediscovery.CfnPrivateDnsNamespace.SOAProperty(
+                s_oa_property = servicediscovery.CfnPrivateDnsNamespace.SOAProperty(
                     ttl=123
                 )
             '''
@@ -2040,7 +2040,7 @@ class CfnPublicDnsNamespace(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_servicediscovery as servicediscovery
                 
-                s_oAProperty = servicediscovery.CfnPublicDnsNamespace.SOAProperty(
+                s_oa_property = servicediscovery.CfnPublicDnsNamespace.SOAProperty(
                     ttl=123
                 )
             '''

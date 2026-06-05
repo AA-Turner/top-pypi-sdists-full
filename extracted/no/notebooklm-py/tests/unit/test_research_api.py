@@ -4,6 +4,7 @@ import pytest
 from pytest_httpx import HTTPXMock
 
 from notebooklm import NotebookLMClient
+from notebooklm.exceptions import UnknownRPCMethodError
 from notebooklm.rpc import RPCMethod
 
 
@@ -27,9 +28,9 @@ class TestResearchAPI:
             )
 
         assert result is not None
-        assert result["task_id"] == "task_123"
-        assert result["report_id"] == "report_456"
-        assert result["mode"] == "fast"
+        assert result.task_id == "task_123"
+        assert result.report_id == "report_456"
+        assert result.mode == "fast"
 
         request = httpx_mock.get_request()
         assert "Ljjv0c" in str(request.url)
@@ -51,8 +52,8 @@ class TestResearchAPI:
             )
 
         assert result is not None
-        assert result["task_id"] == "task_789"
-        assert result["mode"] == "fast"
+        assert result.task_id == "task_789"
+        assert result.mode == "fast"
 
     @pytest.mark.asyncio
     async def test_start_deep_web_research(
@@ -69,7 +70,7 @@ class TestResearchAPI:
             result = await client.research.start("nb_123", "AI ethics", source="web", mode="deep")
 
         assert result is not None
-        assert result["mode"] == "deep"
+        assert result.mode == "deep"
 
         request = httpx_mock.get_request()
         assert "QA9ei" in str(request.url)
@@ -147,13 +148,13 @@ class TestResearchAPI:
         async with NotebookLMClient(auth_tokens) as client:
             result = await client.research.poll("nb_123")
 
-        assert result["status"] == "completed"
-        assert result["task_id"] == "task_123"
-        assert len(result["sources"]) == 2
-        assert result["sources"][0]["url"] == "https://example.com"
-        assert result["sources"][0]["title"] == "Quantum Guide"
-        assert result["sources"][0]["result_type"] == 1
-        assert "Summary" in result["summary"]
+        assert result.status == "completed"
+        assert result.task_id == "task_123"
+        assert len(result.sources) == 2
+        assert result.sources[0].url == "https://example.com"
+        assert result.sources[0].title == "Quantum Guide"
+        assert result.sources[0].result_type == 1
+        assert "Summary" in result.summary
         assert "report" in result
 
     @pytest.mark.asyncio
@@ -184,8 +185,8 @@ class TestResearchAPI:
         async with NotebookLMClient(auth_tokens) as client:
             result = await client.research.poll("nb_123")
 
-        assert result["status"] == "in_progress"
-        assert result["task_id"] == "task_456"
+        assert result.status == "in_progress"
+        assert result.task_id == "task_456"
 
     @pytest.mark.asyncio
     async def test_poll_no_research(
@@ -201,7 +202,7 @@ class TestResearchAPI:
         async with NotebookLMClient(auth_tokens) as client:
             result = await client.research.poll("nb_123")
 
-        assert result["status"] == "no_research"
+        assert result.status == "no_research"
 
     @pytest.mark.asyncio
     async def test_import_sources(
@@ -277,8 +278,8 @@ class TestPollEdgeCases:
         async with NotebookLMClient(auth_tokens) as client:
             result = await client.research.poll("nb_123")
 
-        assert result["task_id"] == "task_wrap"
-        assert result["query"] == "wrapped query"
+        assert result.task_id == "task_wrap"
+        assert result.query == "wrapped query"
 
     @pytest.mark.asyncio
     async def test_poll_skips_non_list_task_data(
@@ -286,13 +287,15 @@ class TestPollEdgeCases:
         auth_tokens,
         httpx_mock: HTTPXMock,
         build_rpc_response,
-        monkeypatch,
     ):
-        """Line 137: task_data is not a list — continue, eventually return no_research."""
-        # Soft-mode opt-in (post-PR 13.9a default is strict): the
-        # "skip-and-continue" semantics pinned here depend on safe_index
-        # returning None on the malformed first entry rather than raising.
-        monkeypatch.setenv("NOTEBOOKLM_STRICT_DECODE", "0")
+        """A too-short task entry is drift and raises under strict decoding.
+
+        Non-list outer items are skipped before ``safe_index`` is reached, but
+        a too-short list entry (``["only_one_elem"]``) drifts on the
+        ``task_info`` descent. Strict decoding is the only mode (the soft-mode
+        opt-out was retired in v0.7.0), so the drift raises rather than being
+        silently skipped.
+        """
         # Outer list contains a non-list item then a too-short list
         response = build_rpc_response(
             RPCMethod.POLL_RESEARCH,
@@ -301,10 +304,8 @@ class TestPollEdgeCases:
         httpx_mock.add_response(content=response.encode())
 
         async with NotebookLMClient(auth_tokens) as client:
-            with pytest.warns(DeprecationWarning, match="safe_index soft-mode"):
-                result = await client.research.poll("nb_123")
-
-        assert result["status"] == "no_research"
+            with pytest.raises(UnknownRPCMethodError):
+                await client.research.poll("nb_123")
 
     @pytest.mark.asyncio
     async def test_poll_skips_non_string_task_id(
@@ -324,7 +325,7 @@ class TestPollEdgeCases:
         async with NotebookLMClient(auth_tokens) as client:
             result = await client.research.poll("nb_123")
 
-        assert result["status"] == "no_research"
+        assert result.status == "no_research"
 
     @pytest.mark.asyncio
     async def test_poll_skips_non_list_task_info(
@@ -344,7 +345,7 @@ class TestPollEdgeCases:
         async with NotebookLMClient(auth_tokens) as client:
             result = await client.research.poll("nb_123")
 
-        assert result["status"] == "no_research"
+        assert result.status == "no_research"
 
     @pytest.mark.asyncio
     async def test_poll_sources_and_summary_has_only_sources_no_summary(
@@ -379,9 +380,9 @@ class TestPollEdgeCases:
         async with NotebookLMClient(auth_tokens) as client:
             result = await client.research.poll("nb_123")
 
-        assert result["status"] == "completed"
-        assert result["summary"] == ""
-        assert len(result["sources"]) == 1
+        assert result.status == "completed"
+        assert result.summary == ""
+        assert len(result.sources) == 1
 
     @pytest.mark.asyncio
     async def test_poll_skips_short_source_entry(
@@ -418,8 +419,8 @@ class TestPollEdgeCases:
             result = await client.research.poll("nb_123")
 
         # Only the valid source is returned
-        assert len(result["sources"]) == 1
-        assert result["sources"][0]["url"] == "https://valid.com"
+        assert len(result.sources) == 1
+        assert result.sources[0].url == "https://valid.com"
 
     @pytest.mark.asyncio
     async def test_poll_deep_research_source_none_first_element(
@@ -463,12 +464,12 @@ class TestPollEdgeCases:
         async with NotebookLMClient(auth_tokens) as client:
             result = await client.research.poll("nb_123")
 
-        assert result["status"] == "completed"
-        assert len(result["sources"]) == 1
-        assert result["sources"][0]["title"] == "Deep Research Title"
-        assert result["sources"][0]["url"] == ""
-        assert result["sources"][0]["result_type"] == 5
-        assert result["report"] == "# Deep Report\nContent here"
+        assert result.status == "completed"
+        assert len(result.sources) == 1
+        assert result.sources[0].title == "Deep Research Title"
+        assert result.sources[0].url == ""
+        assert result.sources[0].result_type == 5
+        assert result.report == "# Deep Report\nContent here"
 
     @pytest.mark.asyncio
     async def test_poll_status_code_6_is_completed(
@@ -503,8 +504,8 @@ class TestPollEdgeCases:
         async with NotebookLMClient(auth_tokens) as client:
             result = await client.research.poll("nb_123")
 
-        assert result["status"] == "completed"
-        assert result["task_id"] == "task_deep6"
+        assert result.status == "completed"
+        assert result.task_id == "task_deep6"
 
     @pytest.mark.asyncio
     async def test_poll_fast_research_source_with_url(
@@ -539,9 +540,9 @@ class TestPollEdgeCases:
         async with NotebookLMClient(auth_tokens) as client:
             result = await client.research.poll("nb_123")
 
-        assert result["status"] == "in_progress"
-        assert result["sources"][0]["url"] == "https://fast.example.com"
-        assert result["sources"][0]["title"] == "Fast Title"
+        assert result.status == "in_progress"
+        assert result.sources[0].url == "https://fast.example.com"
+        assert result.sources[0].title == "Fast Title"
 
     @pytest.mark.asyncio
     async def test_poll_source_with_no_title_or_url_skipped(
@@ -578,23 +579,24 @@ class TestPollEdgeCases:
         async with NotebookLMClient(auth_tokens) as client:
             result = await client.research.poll("nb_123")
 
-        assert result["status"] == "completed"
-        assert result["sources"] == []
+        assert result.status == "completed"
+        assert result.sources == ()
 
     @pytest.mark.asyncio
-    async def test_poll_all_tasks_invalid_returns_no_research(
+    async def test_poll_all_tasks_too_short_raises(
         self,
         auth_tokens,
         httpx_mock: HTTPXMock,
         build_rpc_response,
-        monkeypatch,
     ):
-        """Line 193: all items in the loop fail validation — final no_research is returned."""
-        # Soft-mode opt-in: the iteration's `continue` path depends on
-        # safe_index returning None for the missing task_info slot under
-        # the legacy default. Post-PR 13.9a the default is strict.
-        monkeypatch.setenv("NOTEBOOKLM_STRICT_DECODE", "0")
-        # All task_data entries are short lists (len < 2) so every iteration hits `continue`
+        """All task entries are too short — the first drift raises.
+
+        Each task_data entry is a short list (len < 2), so the ``task_info``
+        descent drifts. Strict decoding is the only mode (the soft-mode
+        opt-out was retired in v0.7.0), so the drift raises rather than every
+        iteration being silently skipped to a ``no_research`` result.
+        """
+        # All task_data entries are short lists (len < 2)
         response = build_rpc_response(
             RPCMethod.POLL_RESEARCH,
             [["only_one"], ["also_one"]],
@@ -602,10 +604,8 @@ class TestPollEdgeCases:
         httpx_mock.add_response(content=response.encode())
 
         async with NotebookLMClient(auth_tokens) as client:
-            with pytest.warns(DeprecationWarning, match="safe_index soft-mode"):
-                result = await client.research.poll("nb_123")
-
-        assert result["status"] == "no_research"
+            with pytest.raises(UnknownRPCMethodError):
+                await client.research.poll("nb_123")
 
 
 class TestImportSourcesEdgeCases:

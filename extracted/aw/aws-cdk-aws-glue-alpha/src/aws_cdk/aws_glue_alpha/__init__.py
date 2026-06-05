@@ -42,7 +42,7 @@ and deploy new resources.
 
 A Job encapsulates a script that connects to data sources, processes
 them, and then writes output to a data target. There are four types of Glue
-Jobs: Spark (ETL and Streaming), Python Shell, Ray, and Flex Jobs. Most
+Jobs: Spark (ETL and Streaming), Python Shell, and Flex Jobs. Most
 of the required parameters for these jobs are common across all types,
 but there are a few differences depending on the languages supported
 and features provided by each type. For all job types, the L2 defaults
@@ -306,54 +306,10 @@ glue.PythonShellJob(stack, "PythonShellJob",
 
 ### Ray Jobs
 
-Glue Ray jobs use worker type Z.2X and Glue version 4.0. These are not
-overrideable since these are the only configuration that Glue Ray jobs
-currently support. The runtime defaults to Ray2.4 and min workers defaults to 3.
+> **⚠️ DEPRECATED:** AWS Glue for Ray is closed to new customers as of April 30, 2026 and is in maintenance mode.
+> Migrate to [Amazon EKS with KubeRay Operator](https://docs.aws.amazon.com/glue/latest/dg/awsglue-ray-jobs-availability-change.html).
 
-Reference the ray-job.test.ts unit tests for examples of required-only and
-optional job parameters when creating these types of jobs.
-
-Example with only required parameters:
-
-```python
-import aws_cdk as cdk
-import aws_cdk.aws_iam as iam
-# stack: cdk.Stack
-# role: iam.IRole
-# script: glue.Code
-
-glue.RayJob(stack, "ImportedJob", role=role, script=script)
-```
-
-Example with optional override parameters:
-
-```python
-import aws_cdk as cdk
-import aws_cdk.aws_iam as iam
-# stack: cdk.Stack
-# role: iam.IRole
-# script: glue.Code
-
-glue.RayJob(stack, "ImportedJob",
-    role=role,
-    script=script,
-    job_name="RayCustomJobName",
-    description="This is a description",
-    worker_type=glue.WorkerType.Z_2X,
-    number_of_workers=5,
-    runtime=glue.Runtime.RAY_TWO_FOUR,
-    max_retries=3,
-    max_concurrent_runs=100,
-    timeout=cdk.Duration.hours(2),
-    connections=[glue.Connection.from_connection_name(stack, "Connection", "connectionName")],
-    security_configuration=glue.SecurityConfiguration.from_security_configuration_name(stack, "SecurityConfig", "securityConfigName"),
-    tags={
-        "FirstTagName": "FirstTagValue",
-        "SecondTagName": "SecondTagValue",
-        "XTagName": "XTagValue"
-    }
-)
-```
+The `RayJob` construct, `Runtime.RAY_TWO_FOUR`, and `JobType.RAY` are deprecated and will be removed in a future release.
 
 ### Metrics Control
 
@@ -383,7 +339,7 @@ glue.PySparkEtlJob(stack, "SelectiveJob",
 )
 ```
 
-This feature is available for all Spark job types (ETL, Streaming, Flex) and Ray jobs.
+This feature is available for all Spark job types (ETL, Streaming, Flex).
 
 ### Enable Job Run Queuing
 
@@ -6767,9 +6723,15 @@ class JobType(enum.Enum):
     :stability: experimental
     '''
     RAY = "RAY"
-    '''(experimental) Command for running a Glue Ray job.
+    '''(deprecated) Command for running a Glue Ray job.
 
-    :stability: experimental
+    :deprecated:
+
+    AWS Glue for Ray is closed to new customers as of April 30, 2026.
+    Migrate to Amazon EKS with KubeRay Operator. See
+    https://docs.aws.amazon.com/glue/latest/dg/awsglue-ray-jobs-availability-change.html
+
+    :stability: deprecated
     '''
 
 
@@ -7903,7 +7865,7 @@ class RayJobProps(JobProps):
         job_run_queuing_enabled: typing.Optional[builtins.bool] = None,
         runtime: typing.Optional["Runtime"] = None,
     ) -> None:
-        '''(experimental) Properties for creating a Ray Glue job.
+        '''(deprecated) Properties for creating a Ray Glue job.
 
         :param role: (experimental) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
         :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
@@ -7921,23 +7883,71 @@ class RayJobProps(JobProps):
         :param tags: (experimental) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
         :param timeout: (experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
         :param worker_type: (experimental) Worker Type (optional) Type of Worker for Glue to use during job execution Enum options: Standard, G_1X, G_2X, G_025X. G_4X, G_8X, Z_2X Default: WorkerType.G_1X
-        :param enable_metrics: (experimental) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
-        :param enable_observability_metrics: (experimental) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
-        :param job_run_queuing_enabled: (experimental) Specifies whether job run queuing is enabled for the job runs for this job. A value of true means job run queuing is enabled for the job runs. If false or not populated, the job runs will not be considered for queueing. If this field does not match the value set in the job run, then the value from the job run field will be used. This property must be set to false for flex jobs. If this property is enabled, maxRetries must be set to zero. Default: - no job run queuing
-        :param runtime: (experimental) Sets the Ray runtime environment version. Default: - Runtime version will default to Ray2.4
+        :param enable_metrics: (deprecated) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
+        :param enable_observability_metrics: (deprecated) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
+        :param job_run_queuing_enabled: (deprecated) Specifies whether job run queuing is enabled for the job runs for this job. A value of true means job run queuing is enabled for the job runs. If false or not populated, the job runs will not be considered for queueing. If this field does not match the value set in the job run, then the value from the job run field will be used. This property must be set to false for flex jobs. If this property is enabled, maxRetries must be set to zero. Default: - no job run queuing
+        :param runtime: (deprecated) Sets the Ray runtime environment version. Default: - Runtime version will default to Ray2.4
 
-        :stability: experimental
-        :exampleMetadata: infused
+        :deprecated:
+
+        AWS Glue for Ray is closed to new customers as of April 30, 2026.
+        Migrate to Amazon EKS with KubeRay Operator. See
+        https://docs.aws.amazon.com/glue/latest/dg/awsglue-ray-jobs-availability-change.html
+
+        :stability: deprecated
+        :exampleMetadata: fixture=_generated
 
         Example::
 
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.aws_glue_alpha as glue_alpha
             import aws_cdk as cdk
-            import aws_cdk.aws_iam as iam
-            # stack: cdk.Stack
-            # role: iam.IRole
-            # script: glue.Code
+            from aws_cdk import aws_iam as iam
+            from aws_cdk import aws_logs as logs
             
-            glue.RayJob(stack, "ImportedJob", role=role, script=script)
+            # code: glue_alpha.Code
+            # connection: glue_alpha.Connection
+            # log_group: logs.LogGroup
+            # role: iam.Role
+            # security_configuration: glue_alpha.SecurityConfiguration
+            
+            ray_job_props = glue_alpha.RayJobProps(
+                role=role,
+                script=code,
+            
+                # the properties below are optional
+                connections=[connection],
+                continuous_logging=glue_alpha.ContinuousLoggingProps(
+                    enabled=False,
+            
+                    # the properties below are optional
+                    conversion_pattern="conversionPattern",
+                    log_group=log_group,
+                    log_stream_prefix="logStreamPrefix",
+                    quiet=False
+                ),
+                default_arguments={
+                    "default_arguments_key": "defaultArguments"
+                },
+                description="description",
+                enable_metrics=False,
+                enable_observability_metrics=False,
+                enable_profiling_metrics=False,
+                glue_version=glue_alpha.GlueVersion.V0_9,
+                job_name="jobName",
+                job_run_queuing_enabled=False,
+                max_concurrent_runs=123,
+                max_retries=123,
+                number_of_workers=123,
+                runtime=glue_alpha.Runtime.RAY_TWO_FOUR,
+                security_configuration=security_configuration,
+                tags={
+                    "tags_key": "tags"
+                },
+                timeout=cdk.Duration.minutes(30),
+                worker_type=glue_alpha.WorkerType.STANDARD
+            )
         '''
         if isinstance(continuous_logging, dict):
             continuous_logging = ContinuousLoggingProps(**continuous_logging)
@@ -8200,33 +8210,33 @@ class RayJobProps(JobProps):
 
     @builtins.property
     def enable_metrics(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Enable profiling metrics for the Glue job.
+        '''(deprecated) Enable profiling metrics for the Glue job.
 
         When enabled, adds '--enable-metrics' to job arguments.
 
         :default: true
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("enable_metrics")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def enable_observability_metrics(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Enable observability metrics for the Glue job.
+        '''(deprecated) Enable observability metrics for the Glue job.
 
         When enabled, adds '--enable-observability-metrics': 'true' to job arguments.
 
         :default: true
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("enable_observability_metrics")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def job_run_queuing_enabled(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Specifies whether job run queuing is enabled for the job runs for this job.
+        '''(deprecated) Specifies whether job run queuing is enabled for the job runs for this job.
 
         A value of true means job run queuing is enabled for the job runs.
         If false or not populated, the job runs will not be considered for queueing.
@@ -8236,18 +8246,18 @@ class RayJobProps(JobProps):
 
         :default: - no job run queuing
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("job_run_queuing_enabled")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def runtime(self) -> typing.Optional["Runtime"]:
-        '''(experimental) Sets the Ray runtime environment version.
+        '''(deprecated) Sets the Ray runtime environment version.
 
         :default: - Runtime version will default to Ray2.4
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("runtime")
         return typing.cast(typing.Optional["Runtime"], result)
@@ -8266,44 +8276,21 @@ class RayJobProps(JobProps):
 
 @jsii.enum(jsii_type="@aws-cdk/aws-glue-alpha.Runtime")
 class Runtime(enum.Enum):
-    '''(experimental) AWS Glue runtime determines the runtime engine of the job.
+    '''(deprecated) AWS Glue runtime determines the runtime engine of the job.
 
-    :stability: experimental
-    :exampleMetadata: infused
+    :deprecated:
 
-    Example::
+    AWS Glue for Ray is closed to new customers as of April 30, 2026.
+    Migrate to Amazon EKS with KubeRay Operator. See
+    https://docs.aws.amazon.com/glue/latest/dg/awsglue-ray-jobs-availability-change.html
 
-        import aws_cdk as cdk
-        import aws_cdk.aws_iam as iam
-        # stack: cdk.Stack
-        # role: iam.IRole
-        # script: glue.Code
-        
-        glue.RayJob(stack, "ImportedJob",
-            role=role,
-            script=script,
-            job_name="RayCustomJobName",
-            description="This is a description",
-            worker_type=glue.WorkerType.Z_2X,
-            number_of_workers=5,
-            runtime=glue.Runtime.RAY_TWO_FOUR,
-            max_retries=3,
-            max_concurrent_runs=100,
-            timeout=cdk.Duration.hours(2),
-            connections=[glue.Connection.from_connection_name(stack, "Connection", "connectionName")],
-            security_configuration=glue.SecurityConfiguration.from_security_configuration_name(stack, "SecurityConfig", "securityConfigName"),
-            tags={
-                "FirstTagName": "FirstTagValue",
-                "SecondTagName": "SecondTagValue",
-                "XTagName": "XTagValue"
-            }
-        )
+    :stability: deprecated
     '''
 
     RAY_TWO_FOUR = "RAY_TWO_FOUR"
-    '''(experimental) Runtime for a Glue for Ray 2.4.
+    '''(deprecated) Runtime for a Glue for Ray 2.4.
 
-    :stability: experimental
+    :stability: deprecated
     '''
 
 
@@ -8747,15 +8734,14 @@ class SecurityConfiguration(
         # role: iam.IRole
         # script: glue.Code
         
-        glue.RayJob(stack, "ImportedJob",
+        glue.PySparkEtlJob(stack, "PySparkETLJob",
+            job_name="PySparkETLJobCustomName",
+            description="This is a description",
             role=role,
             script=script,
-            job_name="RayCustomJobName",
-            description="This is a description",
-            worker_type=glue.WorkerType.Z_2X,
-            number_of_workers=5,
-            runtime=glue.Runtime.RAY_TWO_FOUR,
-            max_retries=3,
+            glue_version=glue.GlueVersion.V5_1,
+            continuous_logging=glue.ContinuousLoggingProps(enabled=False),
+            worker_type=glue.WorkerType.G_2X,
             max_concurrent_runs=100,
             timeout=cdk.Duration.hours(2),
             connections=[glue.Connection.from_connection_name(stack, "Connection", "connectionName")],
@@ -8764,7 +8750,9 @@ class SecurityConfiguration(
                 "FirstTagName": "FirstTagValue",
                 "SecondTagName": "SecondTagValue",
                 "XTagName": "XTagValue"
-            }
+            },
+            number_of_workers=2,
+            max_retries=2
         )
     '''
 
@@ -9363,7 +9351,7 @@ class SparkJobProps(JobProps):
                 max_retries=123,
                 number_of_workers=123,
                 security_configuration=security_configuration,
-                spark_uI=glue_alpha.SparkUIProps(
+                spark_ui=glue_alpha.SparkUIProps(
                     bucket=bucket,
                     prefix="prefix"
                 ),
@@ -9712,7 +9700,7 @@ class SparkUILoggingLocation:
             
             # bucket: s3.Bucket
             
-            spark_uILogging_location = glue_alpha.SparkUILoggingLocation(
+            spark_ui_logging_location = glue_alpha.SparkUILoggingLocation(
                 bucket=bucket,
             
                 # the properties below are optional
@@ -9792,7 +9780,7 @@ class SparkUIProps:
             
             # bucket: s3.Bucket
             
-            spark_uIProps = glue_alpha.SparkUIProps(
+            spark_ui_props = glue_alpha.SparkUIProps(
                 bucket=bucket,
                 prefix="prefix"
             )
@@ -11613,9 +11601,15 @@ class WorkerType(enum.Enum):
     :stability: experimental
     '''
     Z_2X = "Z_2X"
-    '''(experimental) Z.2X Worker Type.
+    '''(deprecated) Z.2X Worker Type.
 
-    :stability: experimental
+    :deprecated:
+
+    AWS Glue for Ray is closed to new customers as of April 30, 2026.
+    This worker type was only used for Ray jobs. See
+    https://docs.aws.amazon.com/glue/latest/dg/awsglue-ray-jobs-availability-change.html
+
+    :stability: deprecated
     '''
     R_1X = "R_1X"
     '''(experimental) R.1X Worker Type 1 M-DPU (4 vCPUs, 32 GB memory), We recommend this worker type for memory-intensive workloads that frequently encounter out-of-memory errors or require high memory-to-CPU ratios.
@@ -12253,7 +12247,7 @@ class AssetCode(
             follow_symlinks=cdk.SymlinkFollowMode.NEVER,
             ignore_mode=cdk.IgnoreMode.GLOB,
             readers=[grantable],
-            source_kMSKey=key_ref
+            source_kms_key=key_ref
         )
     '''
 
@@ -12344,15 +12338,14 @@ class Connection(
         # role: iam.IRole
         # script: glue.Code
         
-        glue.RayJob(stack, "ImportedJob",
+        glue.PySparkEtlJob(stack, "PySparkETLJob",
+            job_name="PySparkETLJobCustomName",
+            description="This is a description",
             role=role,
             script=script,
-            job_name="RayCustomJobName",
-            description="This is a description",
-            worker_type=glue.WorkerType.Z_2X,
-            number_of_workers=5,
-            runtime=glue.Runtime.RAY_TWO_FOUR,
-            max_retries=3,
+            glue_version=glue.GlueVersion.V5_1,
+            continuous_logging=glue.ContinuousLoggingProps(enabled=False),
+            worker_type=glue.WorkerType.G_2X,
             max_concurrent_runs=100,
             timeout=cdk.Duration.hours(2),
             connections=[glue.Connection.from_connection_name(stack, "Connection", "connectionName")],
@@ -12361,7 +12354,9 @@ class Connection(
                 "FirstTagName": "FirstTagValue",
                 "SecondTagName": "SecondTagValue",
                 "XTagName": "XTagValue"
-            }
+            },
+            number_of_workers=2,
+            max_retries=2
         )
     '''
 
@@ -13959,6 +13954,7 @@ class OnDemandTriggerOptions(TriggerOptions):
         "extra_jars_first": "extraJarsFirst",
         "extra_python_files": "extraPythonFiles",
         "job_run_queuing_enabled": "jobRunQueuingEnabled",
+        "notify_delay_after": "notifyDelayAfter",
     },
 )
 class PySparkEtlJobProps(SparkJobProps):
@@ -13989,6 +13985,7 @@ class PySparkEtlJobProps(SparkJobProps):
         extra_jars_first: typing.Optional[builtins.bool] = None,
         extra_python_files: typing.Optional[typing.Sequence["Code"]] = None,
         job_run_queuing_enabled: typing.Optional[builtins.bool] = None,
+        notify_delay_after: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
     ) -> None:
         '''(experimental) Properties for creating a Python Spark ETL job.
 
@@ -14016,6 +14013,7 @@ class PySparkEtlJobProps(SparkJobProps):
         :param extra_jars_first: (experimental) Setting this value to true prioritizes the customer's extra JAR files in the classpath. Default: false - priority is not given to user-provided jars
         :param extra_python_files: (experimental) Extra Python Files S3 URL (optional) S3 URL where additional python dependencies are located. Default: - no extra files
         :param job_run_queuing_enabled: (experimental) Specifies whether job run queuing is enabled for the job runs for this job. A value of true means job run queuing is enabled for the job runs. If false or not populated, the job runs will not be considered for queueing. If this field does not match the value set in the job run, then the value from the job run field will be used. This property must be set to false for flex jobs. If this property is enabled, maxRetries must be set to zero. Default: false
+        :param notify_delay_after: (experimental) Specifies configuration properties of a notification (optional). After a job run starts, the number of minutes to wait before sending a job run delay notification. Default: - undefined
 
         :stability: experimental
         :exampleMetadata: infused
@@ -14074,6 +14072,7 @@ class PySparkEtlJobProps(SparkJobProps):
             check_type(argname="argument extra_jars_first", value=extra_jars_first, expected_type=type_hints["extra_jars_first"])
             check_type(argname="argument extra_python_files", value=extra_python_files, expected_type=type_hints["extra_python_files"])
             check_type(argname="argument job_run_queuing_enabled", value=job_run_queuing_enabled, expected_type=type_hints["job_run_queuing_enabled"])
+            check_type(argname="argument notify_delay_after", value=notify_delay_after, expected_type=type_hints["notify_delay_after"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "role": role,
             "script": script,
@@ -14122,6 +14121,8 @@ class PySparkEtlJobProps(SparkJobProps):
             self._values["extra_python_files"] = extra_python_files
         if job_run_queuing_enabled is not None:
             self._values["job_run_queuing_enabled"] = job_run_queuing_enabled
+        if notify_delay_after is not None:
+            self._values["notify_delay_after"] = notify_delay_after
 
     @builtins.property
     def role(self) -> "_aws_cdk_aws_iam_ceddda9d.IRole":
@@ -14417,6 +14418,19 @@ class PySparkEtlJobProps(SparkJobProps):
         '''
         result = self._values.get("job_run_queuing_enabled")
         return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def notify_delay_after(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
+        '''(experimental) Specifies configuration properties of a notification (optional).
+
+        After a job run starts, the number of minutes to wait before sending a job run delay notification.
+
+        :default: - undefined
+
+        :stability: experimental
+        '''
+        result = self._values.get("notify_delay_after")
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -15550,25 +15564,73 @@ class PythonShellJob(
 
 
 class RayJob(Job, metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.RayJob"):
-    '''(experimental) Ray Jobs class.
+    '''(deprecated) Ray Jobs class.
 
     Glue Ray jobs use worker type Z.2X and Glue version 4.0.
     These are not overrideable since these are the only configuration that
     Glue Ray jobs currently support. The runtime defaults to Ray2.4 and min
     workers defaults to 3.
 
-    :stability: experimental
-    :exampleMetadata: infused
+    :deprecated:
+
+    AWS Glue for Ray is closed to new customers as of April 30, 2026.
+    Migrate to Amazon EKS with KubeRay Operator. See
+    https://docs.aws.amazon.com/glue/latest/dg/awsglue-ray-jobs-availability-change.html
+
+    :stability: deprecated
+    :exampleMetadata: fixture=_generated
 
     Example::
 
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        import aws_cdk.aws_glue_alpha as glue_alpha
         import aws_cdk as cdk
-        import aws_cdk.aws_iam as iam
-        # stack: cdk.Stack
-        # role: iam.IRole
-        # script: glue.Code
+        from aws_cdk import aws_iam as iam
+        from aws_cdk import aws_logs as logs
         
-        glue.RayJob(stack, "ImportedJob", role=role, script=script)
+        # code: glue_alpha.Code
+        # connection: glue_alpha.Connection
+        # log_group: logs.LogGroup
+        # role: iam.Role
+        # security_configuration: glue_alpha.SecurityConfiguration
+        
+        ray_job = glue_alpha.RayJob(self, "MyRayJob",
+            role=role,
+            script=code,
+        
+            # the properties below are optional
+            connections=[connection],
+            continuous_logging=glue_alpha.ContinuousLoggingProps(
+                enabled=False,
+        
+                # the properties below are optional
+                conversion_pattern="conversionPattern",
+                log_group=log_group,
+                log_stream_prefix="logStreamPrefix",
+                quiet=False
+            ),
+            default_arguments={
+                "default_arguments_key": "defaultArguments"
+            },
+            description="description",
+            enable_metrics=False,
+            enable_observability_metrics=False,
+            enable_profiling_metrics=False,
+            glue_version=glue_alpha.GlueVersion.V0_9,
+            job_name="jobName",
+            job_run_queuing_enabled=False,
+            max_concurrent_runs=123,
+            max_retries=123,
+            number_of_workers=123,
+            runtime=glue_alpha.Runtime.RAY_TWO_FOUR,
+            security_configuration=security_configuration,
+            tags={
+                "tags_key": "tags"
+            },
+            timeout=cdk.Duration.minutes(30),
+            worker_type=glue_alpha.WorkerType.STANDARD
+        )
     '''
 
     def __init__(
@@ -15597,14 +15659,14 @@ class RayJob(Job, metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.Ra
         timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         worker_type: typing.Optional["WorkerType"] = None,
     ) -> None:
-        '''(experimental) RayJob constructor.
+        '''(deprecated) RayJob constructor.
 
         :param scope: -
         :param id: -
-        :param enable_metrics: (experimental) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
-        :param enable_observability_metrics: (experimental) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
-        :param job_run_queuing_enabled: (experimental) Specifies whether job run queuing is enabled for the job runs for this job. A value of true means job run queuing is enabled for the job runs. If false or not populated, the job runs will not be considered for queueing. If this field does not match the value set in the job run, then the value from the job run field will be used. This property must be set to false for flex jobs. If this property is enabled, maxRetries must be set to zero. Default: - no job run queuing
-        :param runtime: (experimental) Sets the Ray runtime environment version. Default: - Runtime version will default to Ray2.4
+        :param enable_metrics: (deprecated) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
+        :param enable_observability_metrics: (deprecated) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
+        :param job_run_queuing_enabled: (deprecated) Specifies whether job run queuing is enabled for the job runs for this job. A value of true means job run queuing is enabled for the job runs. If false or not populated, the job runs will not be considered for queueing. If this field does not match the value set in the job run, then the value from the job run field will be used. This property must be set to false for flex jobs. If this property is enabled, maxRetries must be set to zero. Default: - no job run queuing
+        :param runtime: (deprecated) Sets the Ray runtime environment version. Default: - Runtime version will default to Ray2.4
         :param role: (experimental) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
         :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
         :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
@@ -15622,7 +15684,7 @@ class RayJob(Job, metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.Ra
         :param timeout: (experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
         :param worker_type: (experimental) Worker Type (optional) Type of Worker for Glue to use during job execution Enum options: Standard, G_1X, G_2X, G_025X. G_4X, G_8X, Z_2X Default: WorkerType.G_1X
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f7beec401782b29b227bf0ea4c127741d2963c96d556c701232fc9b8d7a173f4)
@@ -15656,45 +15718,45 @@ class RayJob(Job, metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.Ra
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
-        '''(experimental) Uniquely identifies this class.
+        '''(deprecated) Uniquely identifies this class.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
 
     @builtins.property
     @jsii.member(jsii_name="grantPrincipal")
     def grant_principal(self) -> "_aws_cdk_aws_iam_ceddda9d.IPrincipal":
-        '''(experimental) The principal to grant permissions to.
+        '''(deprecated) The principal to grant permissions to.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.IPrincipal", jsii.get(self, "grantPrincipal"))
 
     @builtins.property
     @jsii.member(jsii_name="jobArn")
     def job_arn(self) -> builtins.str:
-        '''(experimental) The ARN of the job.
+        '''(deprecated) The ARN of the job.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.get(self, "jobArn"))
 
     @builtins.property
     @jsii.member(jsii_name="jobName")
     def job_name(self) -> builtins.str:
-        '''(experimental) The name of the job.
+        '''(deprecated) The name of the job.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.get(self, "jobName"))
 
     @builtins.property
     @jsii.member(jsii_name="role")
     def role(self) -> "_aws_cdk_aws_iam_ceddda9d.IRole":
-        '''(experimental) The IAM role Glue assumes to run this job.
+        '''(deprecated) The IAM role Glue assumes to run this job.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.IRole", jsii.get(self, "role"))
 
@@ -16372,6 +16434,7 @@ class S3TableProps(TableBaseProps):
         "extra_jars": "extraJars",
         "extra_jars_first": "extraJarsFirst",
         "job_run_queuing_enabled": "jobRunQueuingEnabled",
+        "notify_delay_after": "notifyDelayAfter",
     },
 )
 class ScalaSparkEtlJobProps(SparkJobProps):
@@ -16402,6 +16465,7 @@ class ScalaSparkEtlJobProps(SparkJobProps):
         extra_jars: typing.Optional[typing.Sequence["Code"]] = None,
         extra_jars_first: typing.Optional[builtins.bool] = None,
         job_run_queuing_enabled: typing.Optional[builtins.bool] = None,
+        notify_delay_after: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
     ) -> None:
         '''(experimental) Properties for creating a Scala Spark ETL job.
 
@@ -16429,6 +16493,7 @@ class ScalaSparkEtlJobProps(SparkJobProps):
         :param extra_jars: (experimental) Extra Jars S3 URL (optional) S3 URL where additional jar dependencies are located. Default: - no extra jar files
         :param extra_jars_first: (experimental) Setting this value to true prioritizes the customer's extra JAR files in the classpath. Default: false - priority is not given to user-provided jars
         :param job_run_queuing_enabled: (experimental) Specifies whether job run queuing is enabled for the job runs for this job. A value of true means job run queuing is enabled for the job runs. If false or not populated, the job runs will not be considered for queueing. If this field does not match the value set in the job run, then the value from the job run field will be used. This property must be set to false for flex jobs. If this property is enabled, maxRetries must be set to zero. Default: - no job run queuing
+        :param notify_delay_after: (experimental) Specifies configuration properties of a notification (optional). After a job run starts, the number of minutes to wait before sending a job run delay notification. Default: - undefined
 
         :stability: experimental
         :exampleMetadata: fixture=_generated
@@ -16481,9 +16546,10 @@ class ScalaSparkEtlJobProps(SparkJobProps):
                 job_run_queuing_enabled=False,
                 max_concurrent_runs=123,
                 max_retries=123,
+                notify_delay_after=cdk.Duration.minutes(30),
                 number_of_workers=123,
                 security_configuration=security_configuration,
-                spark_uI=glue_alpha.SparkUIProps(
+                spark_ui=glue_alpha.SparkUIProps(
                     bucket=bucket,
                     prefix="prefix"
                 ),
@@ -16524,6 +16590,7 @@ class ScalaSparkEtlJobProps(SparkJobProps):
             check_type(argname="argument extra_jars", value=extra_jars, expected_type=type_hints["extra_jars"])
             check_type(argname="argument extra_jars_first", value=extra_jars_first, expected_type=type_hints["extra_jars_first"])
             check_type(argname="argument job_run_queuing_enabled", value=job_run_queuing_enabled, expected_type=type_hints["job_run_queuing_enabled"])
+            check_type(argname="argument notify_delay_after", value=notify_delay_after, expected_type=type_hints["notify_delay_after"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "role": role,
             "script": script,
@@ -16571,6 +16638,8 @@ class ScalaSparkEtlJobProps(SparkJobProps):
             self._values["extra_jars_first"] = extra_jars_first
         if job_run_queuing_enabled is not None:
             self._values["job_run_queuing_enabled"] = job_run_queuing_enabled
+        if notify_delay_after is not None:
+            self._values["notify_delay_after"] = notify_delay_after
 
     @builtins.property
     def role(self) -> "_aws_cdk_aws_iam_ceddda9d.IRole":
@@ -16866,6 +16935,19 @@ class ScalaSparkEtlJobProps(SparkJobProps):
         result = self._values.get("job_run_queuing_enabled")
         return typing.cast(typing.Optional[builtins.bool], result)
 
+    @builtins.property
+    def notify_delay_after(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
+        '''(experimental) Specifies configuration properties of a notification (optional).
+
+        After a job run starts, the number of minutes to wait before sending a job run delay notification.
+
+        :default: - undefined
+
+        :stability: experimental
+        '''
+        result = self._values.get("notify_delay_after")
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
+
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -17026,7 +17108,7 @@ class ScalaSparkFlexEtlJobProps(SparkJobProps):
                 notify_delay_after=cdk.Duration.minutes(30),
                 number_of_workers=123,
                 security_configuration=security_configuration,
-                spark_uI=glue_alpha.SparkUIProps(
+                spark_ui=glue_alpha.SparkUIProps(
                     bucket=bucket,
                     prefix="prefix"
                 ),
@@ -17557,7 +17639,7 @@ class ScalaSparkStreamingJobProps(SparkJobProps):
                 max_retries=123,
                 number_of_workers=123,
                 security_configuration=security_configuration,
-                spark_uI=glue_alpha.SparkUIProps(
+                spark_ui=glue_alpha.SparkUIProps(
                     bucket=bucket,
                     prefix="prefix"
                 ),
@@ -19419,6 +19501,7 @@ class PySparkEtlJob(
         extra_jars_first: typing.Optional[builtins.bool] = None,
         extra_python_files: typing.Optional[typing.Sequence["Code"]] = None,
         job_run_queuing_enabled: typing.Optional[builtins.bool] = None,
+        notify_delay_after: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         enable_metrics: typing.Optional[builtins.bool] = None,
         enable_observability_metrics: typing.Optional[builtins.bool] = None,
         spark_ui: typing.Optional[typing.Union["SparkUIProps", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -19448,6 +19531,7 @@ class PySparkEtlJob(
         :param extra_jars_first: (experimental) Setting this value to true prioritizes the customer's extra JAR files in the classpath. Default: false - priority is not given to user-provided jars
         :param extra_python_files: (experimental) Extra Python Files S3 URL (optional) S3 URL where additional python dependencies are located. Default: - no extra files
         :param job_run_queuing_enabled: (experimental) Specifies whether job run queuing is enabled for the job runs for this job. A value of true means job run queuing is enabled for the job runs. If false or not populated, the job runs will not be considered for queueing. If this field does not match the value set in the job run, then the value from the job run field will be used. This property must be set to false for flex jobs. If this property is enabled, maxRetries must be set to zero. Default: false
+        :param notify_delay_after: (experimental) Specifies configuration properties of a notification (optional). After a job run starts, the number of minutes to wait before sending a job run delay notification. Default: - undefined
         :param enable_metrics: (experimental) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
         :param enable_observability_metrics: (experimental) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
         :param spark_ui: (experimental) Enables the Spark UI debugging and monitoring with the specified props. Default: - Spark UI debugging and monitoring is disabled.
@@ -19480,6 +19564,7 @@ class PySparkEtlJob(
             extra_jars_first=extra_jars_first,
             extra_python_files=extra_python_files,
             job_run_queuing_enabled=job_run_queuing_enabled,
+            notify_delay_after=notify_delay_after,
             enable_metrics=enable_metrics,
             enable_observability_metrics=enable_observability_metrics,
             spark_ui=spark_ui,
@@ -19902,9 +19987,10 @@ class ScalaSparkEtlJob(
             job_run_queuing_enabled=False,
             max_concurrent_runs=123,
             max_retries=123,
+            notify_delay_after=cdk.Duration.minutes(30),
             number_of_workers=123,
             security_configuration=security_configuration,
-            spark_uI=glue_alpha.SparkUIProps(
+            spark_ui=glue_alpha.SparkUIProps(
                 bucket=bucket,
                 prefix="prefix"
             ),
@@ -19926,6 +20012,7 @@ class ScalaSparkEtlJob(
         extra_jars: typing.Optional[typing.Sequence["Code"]] = None,
         extra_jars_first: typing.Optional[builtins.bool] = None,
         job_run_queuing_enabled: typing.Optional[builtins.bool] = None,
+        notify_delay_after: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         enable_metrics: typing.Optional[builtins.bool] = None,
         enable_observability_metrics: typing.Optional[builtins.bool] = None,
         spark_ui: typing.Optional[typing.Union["SparkUIProps", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -19955,6 +20042,7 @@ class ScalaSparkEtlJob(
         :param extra_jars: (experimental) Extra Jars S3 URL (optional) S3 URL where additional jar dependencies are located. Default: - no extra jar files
         :param extra_jars_first: (experimental) Setting this value to true prioritizes the customer's extra JAR files in the classpath. Default: false - priority is not given to user-provided jars
         :param job_run_queuing_enabled: (experimental) Specifies whether job run queuing is enabled for the job runs for this job. A value of true means job run queuing is enabled for the job runs. If false or not populated, the job runs will not be considered for queueing. If this field does not match the value set in the job run, then the value from the job run field will be used. This property must be set to false for flex jobs. If this property is enabled, maxRetries must be set to zero. Default: - no job run queuing
+        :param notify_delay_after: (experimental) Specifies configuration properties of a notification (optional). After a job run starts, the number of minutes to wait before sending a job run delay notification. Default: - undefined
         :param enable_metrics: (experimental) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
         :param enable_observability_metrics: (experimental) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
         :param spark_ui: (experimental) Enables the Spark UI debugging and monitoring with the specified props. Default: - Spark UI debugging and monitoring is disabled.
@@ -19987,6 +20075,7 @@ class ScalaSparkEtlJob(
             extra_jars=extra_jars,
             extra_jars_first=extra_jars_first,
             job_run_queuing_enabled=job_run_queuing_enabled,
+            notify_delay_after=notify_delay_after,
             enable_metrics=enable_metrics,
             enable_observability_metrics=enable_observability_metrics,
             spark_ui=spark_ui,
@@ -20107,7 +20196,7 @@ class ScalaSparkFlexEtlJob(
             notify_delay_after=cdk.Duration.minutes(30),
             number_of_workers=123,
             security_configuration=security_configuration,
-            spark_uI=glue_alpha.SparkUIProps(
+            spark_ui=glue_alpha.SparkUIProps(
                 bucket=bucket,
                 prefix="prefix"
             ),
@@ -20310,7 +20399,7 @@ class ScalaSparkStreamingJob(
             max_retries=123,
             number_of_workers=123,
             security_configuration=security_configuration,
-            spark_uI=glue_alpha.SparkUIProps(
+            spark_ui=glue_alpha.SparkUIProps(
                 bucket=bucket,
                 prefix="prefix"
             ),
@@ -21856,6 +21945,7 @@ def _typecheckingstub__7d1f0248e91f0e304122bfc575cd46be082ce53b491ae4ac58657dde6
     extra_jars_first: typing.Optional[builtins.bool] = None,
     extra_python_files: typing.Optional[typing.Sequence[Code]] = None,
     job_run_queuing_enabled: typing.Optional[builtins.bool] = None,
+    notify_delay_after: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22068,6 +22158,7 @@ def _typecheckingstub__7dc0f0fa237cf7965aab0946ff23b7cd81480bfae21863d601973dccf
     extra_jars: typing.Optional[typing.Sequence[Code]] = None,
     extra_jars_first: typing.Optional[builtins.bool] = None,
     job_run_queuing_enabled: typing.Optional[builtins.bool] = None,
+    notify_delay_after: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22297,6 +22388,7 @@ def _typecheckingstub__327d74fee281b2b0d3a8881dfc5d5dc7ee1df1b54cc0e95df5cc6b254
     extra_jars_first: typing.Optional[builtins.bool] = None,
     extra_python_files: typing.Optional[typing.Sequence[Code]] = None,
     job_run_queuing_enabled: typing.Optional[builtins.bool] = None,
+    notify_delay_after: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
     enable_metrics: typing.Optional[builtins.bool] = None,
     enable_observability_metrics: typing.Optional[builtins.bool] = None,
     spark_ui: typing.Optional[typing.Union[SparkUIProps, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -22393,6 +22485,7 @@ def _typecheckingstub__3531464a00fcaee4dedc194dffa8743ca4d59d92cc35e1ec406f90fe4
     extra_jars: typing.Optional[typing.Sequence[Code]] = None,
     extra_jars_first: typing.Optional[builtins.bool] = None,
     job_run_queuing_enabled: typing.Optional[builtins.bool] = None,
+    notify_delay_after: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
     enable_metrics: typing.Optional[builtins.bool] = None,
     enable_observability_metrics: typing.Optional[builtins.bool] = None,
     spark_ui: typing.Optional[typing.Union[SparkUIProps, typing.Dict[builtins.str, typing.Any]]] = None,

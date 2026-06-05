@@ -3,7 +3,7 @@ name = "sqlfluffrs"
 # NOTE: Version uses Rust SemVer format (e.g., "4.0.0-alpha.1").
 # Maturin automatically converts this to PEP 440 format for the Python package (e.g., "4.0.0a1").
 # See: https://www.maturin.rs/metadata.html
-version = "4.2.1"
+version = "4.2.2"
 edition = "2021"
 autobenches = false
 readme = "README.md"
@@ -18,7 +18,7 @@ bench = false
 members = ["sqlfluffrs_dialects", "sqlfluffrs_lexer", "sqlfluffrs_parser", "sqlfluffrs_types", "sqlfluffrs_python"]
 
 [workspace.package]
-version = "4.2.1"
+version = "4.2.2"
 
 [features]
 unicode = []

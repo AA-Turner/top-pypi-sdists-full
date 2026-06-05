@@ -30,7 +30,17 @@ RUN_CRITERION_DIRECTION_MAX: RunCriterionDirection
 RUN_CRITERION_DIRECTION_MIN: RunCriterionDirection
 
 class ModelArtifact(_message.Message):
-    __slots__ = ("id", "path", "spec", "metadata", "created_by", "created_at")
+    __slots__ = (
+        "id",
+        "path",
+        "spec",
+        "metadata",
+        "created_by",
+        "created_at",
+        "archived_at",
+        "archived_by",
+        "storage_deleted_at",
+    )
     class MetadataEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -47,12 +57,18 @@ class ModelArtifact(_message.Message):
     METADATA_FIELD_NUMBER: _ClassVar[int]
     CREATED_BY_FIELD_NUMBER: _ClassVar[int]
     CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    ARCHIVED_AT_FIELD_NUMBER: _ClassVar[int]
+    ARCHIVED_BY_FIELD_NUMBER: _ClassVar[int]
+    STORAGE_DELETED_AT_FIELD_NUMBER: _ClassVar[int]
     id: str
     path: str
     spec: _model_artifact_pb2.ModelArtifactSpec
     metadata: _containers.MessageMap[str, _struct_pb2.Value]
     created_by: str
     created_at: _timestamp_pb2.Timestamp
+    archived_at: _timestamp_pb2.Timestamp
+    archived_by: str
+    storage_deleted_at: _timestamp_pb2.Timestamp
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -61,10 +77,24 @@ class ModelArtifact(_message.Message):
         metadata: _Optional[_Mapping[str, _struct_pb2.Value]] = ...,
         created_by: _Optional[str] = ...,
         created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        archived_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        archived_by: _Optional[str] = ...,
+        storage_deleted_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
     ) -> None: ...
 
 class ModelVersion(_message.Message):
-    __slots__ = ("id", "model_name", "version", "model_artifact", "aliases", "metadata", "created_by", "created_at")
+    __slots__ = (
+        "id",
+        "model_name",
+        "version",
+        "model_artifact",
+        "aliases",
+        "metadata",
+        "created_by",
+        "created_at",
+        "archived_at",
+        "archived_by",
+    )
     class MetadataEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -83,6 +113,8 @@ class ModelVersion(_message.Message):
     METADATA_FIELD_NUMBER: _ClassVar[int]
     CREATED_BY_FIELD_NUMBER: _ClassVar[int]
     CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    ARCHIVED_AT_FIELD_NUMBER: _ClassVar[int]
+    ARCHIVED_BY_FIELD_NUMBER: _ClassVar[int]
     id: str
     model_name: str
     version: int
@@ -91,6 +123,8 @@ class ModelVersion(_message.Message):
     metadata: _containers.MessageMap[str, _struct_pb2.Value]
     created_by: str
     created_at: _timestamp_pb2.Timestamp
+    archived_at: _timestamp_pb2.Timestamp
+    archived_by: str
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -101,6 +135,8 @@ class ModelVersion(_message.Message):
         metadata: _Optional[_Mapping[str, _struct_pb2.Value]] = ...,
         created_by: _Optional[str] = ...,
         created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        archived_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        archived_by: _Optional[str] = ...,
     ) -> None: ...
 
 class Model(_message.Message):
@@ -114,6 +150,7 @@ class Model(_message.Message):
         "updated_at",
         "archived_at",
         "latest_model_version",
+        "archived_by",
     )
     class MetadataEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -134,6 +171,7 @@ class Model(_message.Message):
     UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
     ARCHIVED_AT_FIELD_NUMBER: _ClassVar[int]
     LATEST_MODEL_VERSION_FIELD_NUMBER: _ClassVar[int]
+    ARCHIVED_BY_FIELD_NUMBER: _ClassVar[int]
     id: str
     model_name: str
     description: str
@@ -143,6 +181,7 @@ class Model(_message.Message):
     updated_at: _timestamp_pb2.Timestamp
     archived_at: _timestamp_pb2.Timestamp
     latest_model_version: ModelVersion
+    archived_by: str
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -154,15 +193,20 @@ class Model(_message.Message):
         updated_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         archived_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         latest_model_version: _Optional[_Union[ModelVersion, _Mapping]] = ...,
+        archived_by: _Optional[str] = ...,
     ) -> None: ...
 
 class ListModelsRequest(_message.Message):
-    __slots__ = ("cursor", "limit")
+    __slots__ = ("cursor", "limit", "include_deleted")
     CURSOR_FIELD_NUMBER: _ClassVar[int]
     LIMIT_FIELD_NUMBER: _ClassVar[int]
+    INCLUDE_DELETED_FIELD_NUMBER: _ClassVar[int]
     cursor: str
     limit: int
-    def __init__(self, cursor: _Optional[str] = ..., limit: _Optional[int] = ...) -> None: ...
+    include_deleted: bool
+    def __init__(
+        self, cursor: _Optional[str] = ..., limit: _Optional[int] = ..., include_deleted: bool = ...
+    ) -> None: ...
 
 class ListModelsResponse(_message.Message):
     __slots__ = ("models", "next_cursor")
@@ -175,12 +219,16 @@ class ListModelsResponse(_message.Message):
     ) -> None: ...
 
 class GetModelRequest(_message.Message):
-    __slots__ = ("model_id", "model_name")
+    __slots__ = ("model_id", "model_name", "include_deleted")
     MODEL_ID_FIELD_NUMBER: _ClassVar[int]
     MODEL_NAME_FIELD_NUMBER: _ClassVar[int]
+    INCLUDE_DELETED_FIELD_NUMBER: _ClassVar[int]
     model_id: str
     model_name: str
-    def __init__(self, model_id: _Optional[str] = ..., model_name: _Optional[str] = ...) -> None: ...
+    include_deleted: bool
+    def __init__(
+        self, model_id: _Optional[str] = ..., model_name: _Optional[str] = ..., include_deleted: bool = ...
+    ) -> None: ...
 
 class GetModelResponse(_message.Message):
     __slots__ = ("model",)
@@ -268,16 +316,36 @@ class UpdateModelResponse(_message.Message):
     model: Model
     def __init__(self, model: _Optional[_Union[Model, _Mapping]] = ...) -> None: ...
 
+class DeleteModelRequest(_message.Message):
+    __slots__ = ("model_id", "model_name")
+    MODEL_ID_FIELD_NUMBER: _ClassVar[int]
+    MODEL_NAME_FIELD_NUMBER: _ClassVar[int]
+    model_id: str
+    model_name: str
+    def __init__(self, model_id: _Optional[str] = ..., model_name: _Optional[str] = ...) -> None: ...
+
+class DeleteModelResponse(_message.Message):
+    __slots__ = ("model",)
+    MODEL_FIELD_NUMBER: _ClassVar[int]
+    model: Model
+    def __init__(self, model: _Optional[_Union[Model, _Mapping]] = ...) -> None: ...
+
 class ListModelVersionsRequest(_message.Message):
-    __slots__ = ("model_name", "cursor", "limit")
+    __slots__ = ("model_name", "cursor", "limit", "include_deleted")
     MODEL_NAME_FIELD_NUMBER: _ClassVar[int]
     CURSOR_FIELD_NUMBER: _ClassVar[int]
     LIMIT_FIELD_NUMBER: _ClassVar[int]
+    INCLUDE_DELETED_FIELD_NUMBER: _ClassVar[int]
     model_name: str
     cursor: str
     limit: int
+    include_deleted: bool
     def __init__(
-        self, model_name: _Optional[str] = ..., cursor: _Optional[str] = ..., limit: _Optional[int] = ...
+        self,
+        model_name: _Optional[str] = ...,
+        cursor: _Optional[str] = ...,
+        limit: _Optional[int] = ...,
+        include_deleted: bool = ...,
     ) -> None: ...
 
 class ListModelVersionsResponse(_message.Message):
@@ -293,12 +361,16 @@ class ListModelVersionsResponse(_message.Message):
     ) -> None: ...
 
 class GetModelVersionRequest(_message.Message):
-    __slots__ = ("model_name", "version")
+    __slots__ = ("model_name", "version", "include_deleted")
     MODEL_NAME_FIELD_NUMBER: _ClassVar[int]
     VERSION_FIELD_NUMBER: _ClassVar[int]
+    INCLUDE_DELETED_FIELD_NUMBER: _ClassVar[int]
     model_name: str
     version: int
-    def __init__(self, model_name: _Optional[str] = ..., version: _Optional[int] = ...) -> None: ...
+    include_deleted: bool
+    def __init__(
+        self, model_name: _Optional[str] = ..., version: _Optional[int] = ..., include_deleted: bool = ...
+    ) -> None: ...
 
 class GetModelVersionResponse(_message.Message):
     __slots__ = ("model_version",)
@@ -418,6 +490,18 @@ class UpdateModelVersionRequest(_message.Message):
     ) -> None: ...
 
 class UpdateModelVersionResponse(_message.Message):
+    __slots__ = ("model_version",)
+    MODEL_VERSION_FIELD_NUMBER: _ClassVar[int]
+    model_version: ModelVersion
+    def __init__(self, model_version: _Optional[_Union[ModelVersion, _Mapping]] = ...) -> None: ...
+
+class DeleteModelVersionRequest(_message.Message):
+    __slots__ = ("model_version_key",)
+    MODEL_VERSION_KEY_FIELD_NUMBER: _ClassVar[int]
+    model_version_key: ModelVersionKey
+    def __init__(self, model_version_key: _Optional[_Union[ModelVersionKey, _Mapping]] = ...) -> None: ...
+
+class DeleteModelVersionResponse(_message.Message):
     __slots__ = ("model_version",)
     MODEL_VERSION_FIELD_NUMBER: _ClassVar[int]
     model_version: ModelVersion

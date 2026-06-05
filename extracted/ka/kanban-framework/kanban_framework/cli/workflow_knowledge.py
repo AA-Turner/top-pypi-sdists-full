@@ -44,7 +44,7 @@ def _import_retrospective_knowledge(task, fs: Filesystem) -> dict:
         if ke_file.exists():
             try:
                 data = _json.loads(ke_file.read_text(encoding="utf-8"))
-                entries = data.get("entries", [])
+                entries = data.get("entries", data.get("items", []))
                 added = []
                 skipped = 0
                 for e in entries:

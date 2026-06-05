@@ -147,22 +147,107 @@ def ensure_repository(repository: str) -> bool:
     return True
 
 
-def _ensure_buildx_builder() -> str:
-    """Ensure a buildx builder with docker-container driver exists. Returns builder name."""
-    builder_name = "plato-builder"
-    result = subprocess.run(
-        ["docker", "buildx", "inspect", builder_name],
-        capture_output=True,
-        text=True,
-    )
-    if result.returncode == 0:
-        return builder_name
+BUILDX_BUILDER_NAME = "plato-builder"
 
-    subprocess.run(
-        ["docker", "buildx", "create", "--name", builder_name, "--driver", "docker-container"],
+
+def _builder_base_marker(builder_name: str = BUILDX_BUILDER_NAME) -> Path:
+    """File recording the base-image digest this builder last built against."""
+    cache_root = Path(os.environ.get("XDG_CACHE_HOME", str(Path.home() / ".cache")))
+    return cache_root / "plato" / f"{builder_name}.base-digest"
+
+
+def _dockerfile_base_ref(build_path: str) -> str | None:
+    """Return the image reference of the first ``FROM`` in build_path/Dockerfile.
+
+    This is the base image whose staleness can poison a long-lived builder.
+    Returns None if there's no Dockerfile or the FROM can't be parsed.
+    """
+    dockerfile = Path(build_path) / "Dockerfile"
+    if not dockerfile.exists():
+        return None
+    for raw in dockerfile.read_text().splitlines():
+        line = raw.strip()
+        if not line.upper().startswith("FROM "):
+            continue
+        # FROM [--platform=...] <image>[:tag|@digest] [AS <stage>]
+        tokens = [t for t in line.split()[1:] if not t.startswith("--")]
+        if tokens:
+            return tokens[0]
+    return None
+
+
+def _resolve_registry_digest(image_ref: str) -> str | None:
+    """Resolve image_ref to its current registry manifest digest.
+
+    Used to detect when the base image moved so we can refresh the builder
+    instead of reusing a stale cached base snapshot. Returns None on any error
+    (e.g. a non-registry stage ref), in which case callers fall back to ``--pull``.
+    """
+    result = subprocess.run(
+        ["docker", "buildx", "imagetools", "inspect", image_ref, "--format", "{{.Manifest.Digest}}"],
         capture_output=True,
         text=True,
+        env=_clean_aws_env(),
     )
+    if result.returncode != 0:
+        return None
+    digest = result.stdout.strip()
+    return digest or None
+
+
+def _ensure_buildx_builder(base_digest: str | None = None) -> str:
+    """Ensure a docker-container buildx builder exists. Returns its name.
+
+    When ``base_digest`` is provided and differs from the digest this builder
+    last built against, the builder is recreated. A long-lived docker-container
+    builder caches *unpacked* base layers, and ``--pull`` re-resolves the base
+    manifest but still reuses that cached snapshot — so a moved base (e.g. a
+    rebuilt ``plato-agent-base:latest``) would otherwise keep shipping the old
+    base into images. Recreating only on a base-digest change keeps the build
+    cache for the common case where the base is unchanged.
+    """
+    builder_name = BUILDX_BUILDER_NAME
+    exists = (
+        subprocess.run(
+            ["docker", "buildx", "inspect", builder_name],
+            capture_output=True,
+            text=True,
+        ).returncode
+        == 0
+    )
+
+    marker = _builder_base_marker(builder_name)
+    if exists and base_digest is not None:
+        previous = marker.read_text().strip() if marker.exists() else None
+        if previous != base_digest:
+            logger.info(
+                "Base image digest changed (%s -> %s); recreating buildx builder "
+                "'%s' to avoid reusing a stale base snapshot",
+                previous or "<none>",
+                base_digest,
+                builder_name,
+            )
+            subprocess.run(
+                ["docker", "buildx", "rm", builder_name],
+                capture_output=True,
+                text=True,
+            )
+            exists = False
+
+    if not exists:
+        subprocess.run(
+            ["docker", "buildx", "create", "--name", builder_name, "--driver", "docker-container"],
+            capture_output=True,
+            text=True,
+        )
+
+    if base_digest is not None:
+        try:
+            marker.parent.mkdir(parents=True, exist_ok=True)
+            marker.write_text(base_digest)
+        except OSError as e:
+            logger.warning("Could not persist builder base-digest marker: %s", e)
+
     return builder_name
 
 
@@ -356,13 +441,28 @@ def publish_docker_image(
     # Use buildx with docker-container driver for registry cache support.
     # Registry cache stores cache metadata in a separate :cache tag so the
     # actual image digest stays stable when layers don't change.
-    builder = _ensure_buildx_builder()
+    #
+    # Resolve the Dockerfile's base image to its current registry digest and
+    # pass it to the builder, which recreates itself if the base moved — this
+    # prevents a long-lived builder from reusing a stale unpacked base snapshot
+    # (which `--pull` does not bust). Falls back to plain `--pull` if the base
+    # can't be resolved (e.g. a local-only or multi-stage ref).
+    base_ref = _dockerfile_base_ref(build_path)
+    base_digest = _resolve_registry_digest(base_ref) if base_ref else None
+    builder = _ensure_buildx_builder(base_digest)
     docker_cmd = [
         "docker",
         "buildx",
         "build",
         "--builder",
         builder,
+        # Always re-resolve `FROM ...:latest` base images against the registry.
+        # Without this, buildx reuses whatever base image is cached locally / in
+        # the builder, so a stale `plato-agent-base:latest` (e.g. an old build
+        # that left /root owned by a non-root uid, which breaks sshd into the
+        # VM) silently ships into the agent image. `--no-cache` does NOT cover
+        # this — it only busts build-layer cache, not the FROM base.
+        "--pull",
     ]
     if disable_provenance:
         docker_cmd.append("--provenance=false")

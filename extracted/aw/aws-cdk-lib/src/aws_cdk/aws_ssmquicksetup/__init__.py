@@ -337,7 +337,7 @@ class CfnConfigurationManager(
         def __init__(
             self,
             *,
-            parameters: typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"],
+            parameters: typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]],
             type: builtins.str,
             id: typing.Optional[builtins.str] = None,
             local_deployment_administration_role_arn: typing.Optional[builtins.str] = None,
@@ -399,7 +399,7 @@ class CfnConfigurationManager(
         @builtins.property
         def parameters(
             self,
-        ) -> typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]:
             '''The parameters for the configuration definition type.
 
             Parameters for configuration definitions vary based the configuration type. The following lists outline the parameters for each configuration type.
@@ -609,7 +609,7 @@ class CfnConfigurationManager(
             '''
             result = self._values.get("parameters")
             assert result is not None, "Required property 'parameters' is missing"
-            return typing.cast(typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]], result)
 
         @builtins.property
         def type(self) -> builtins.str:
@@ -696,7 +696,7 @@ class CfnConfigurationManager(
             last_updated_at: builtins.str,
             status_type: builtins.str,
             status: typing.Optional[builtins.str] = None,
-            status_details: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            status_details: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             status_message: typing.Optional[builtins.str] = None,
         ) -> None:
             '''A summarized description of the status.
@@ -778,13 +778,13 @@ class CfnConfigurationManager(
         @builtins.property
         def status_details(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''Details about the status.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssmquicksetup-configurationmanager-statussummary.html#cfn-ssmquicksetup-configurationmanager-statussummary-statusdetails
             '''
             result = self._values.get("status_details")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def status_message(self) -> typing.Optional[builtins.str]:
@@ -1319,7 +1319,7 @@ def _typecheckingstub__e616ab12615353ce8adb7959fdd264518ca60136764500b5507fb35dd
 
 def _typecheckingstub__5de88cdf2c4ba7069e306fade91e021ab2a61a9f9d1bdde1ced8a9f3f54e2741(
     *,
-    parameters: typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b],
+    parameters: typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]],
     type: builtins.str,
     id: typing.Optional[builtins.str] = None,
     local_deployment_administration_role_arn: typing.Optional[builtins.str] = None,
@@ -1334,7 +1334,7 @@ def _typecheckingstub__0a15d3717729affa2b751047a4b5b72469d29c10060f85ac60b65e8bc
     last_updated_at: builtins.str,
     status_type: builtins.str,
     status: typing.Optional[builtins.str] = None,
-    status_details: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    status_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     status_message: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""

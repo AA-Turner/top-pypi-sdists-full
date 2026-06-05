@@ -287,7 +287,31 @@ def _set_extent(ax, name_country):
             )
             _name_country.append(cntr_lower.replace(" ", "_"))
 
-        extent = rgeo.get_country_lat_lon_extent(_name_country, buffer=1.0)
+        # Skip extent-setting when no countries matched Natural Earth.
+        # Happens when name_country contains a sub-country zone (e.g. a
+        # zone like Wolayita that lives inside Ethiopia) or a misspelled
+        # country. Without this guard the empty-list path used to hit
+        # pygeoutil's UnboundLocalError; with the pygeoutil fix in place
+        # this would return the global bbox, which is also wrong here —
+        # let cartopy auto-fit from the geometries already added via
+        # ax.add_geometries above.
+        if not _name_country:
+            logger.warning(
+                "  Skipping country-extent setting; no countries matched "
+                "Natural Earth. Cartopy will auto-fit from the shapefile."
+            )
+            return
+
+        try:
+            extent = rgeo.get_country_lat_lon_extent(_name_country, buffer=1.0)
+        except Exception as exc:  # noqa: BLE001
+            # Defense-in-depth — any unexpected pygeoutil failure
+            # shouldn't crash the whole plotting pass. Auto-fit instead.
+            logger.warning(
+                f"  get_country_lat_lon_extent failed ({type(exc).__name__}: "
+                f"{exc}); falling back to cartopy auto-extent."
+            )
+            return
 
         # Use contiguous U.S. extent (exclude Alaska/Hawaii)
         if any(c in ("united_states_of_america", "united_states") for c in _name_country):

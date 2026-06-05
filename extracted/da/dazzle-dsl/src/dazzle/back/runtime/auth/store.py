@@ -19,7 +19,7 @@ except ImportError:
 from dazzle.core.db_url import normalise_postgres_scheme
 
 from .crypto import hash_password, verify_password
-from .models import AuthContext, SessionRecord, UserRecord
+from .models import AuthContext, MembershipRecord, SessionRecord, UserRecord
 
 logger = logging.getLogger(__name__)
 
@@ -446,6 +446,7 @@ class SessionStoreMixin:
         expires_in: timedelta = timedelta(days=7),
         ip_address: str | None = None,
         user_agent: str | None = None,
+        active_membership_id: str | None = None,  # auth Plan 1a
     ) -> SessionRecord:
         """
         Create a new session for a user.
@@ -464,12 +465,15 @@ class SessionStoreMixin:
             expires_at=datetime.now(UTC) + expires_in,
             ip_address=ip_address,
             user_agent=user_agent,
+            active_membership_id=active_membership_id,
         )
 
         self._execute(
             """
-            INSERT INTO sessions (id, user_id, created_at, expires_at, ip_address, user_agent)
-            VALUES (%s, %s, %s, %s, %s, %s)
+            INSERT INTO sessions
+                (id, user_id, created_at, expires_at, ip_address, user_agent,
+                 csrf_secret, active_membership_id)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             """,
             (
                 session.id,
@@ -478,6 +482,8 @@ class SessionStoreMixin:
                 session.expires_at.isoformat(),
                 session.ip_address,
                 session.user_agent,
+                session.csrf_secret,
+                session.active_membership_id,
             ),
         )
 
@@ -488,6 +494,23 @@ class SessionStoreMixin:
         row = self._execute_one("SELECT * FROM sessions WHERE id = %s", (session_id,))
 
         if row:
+            # Pass the stored secret through verbatim so the model's
+            # default_factory does NOT silently mint a fresh one on every load
+            # (which would break double-submit validation). Migration 0005
+            # backfills every existing row, so a NULL/empty value here is an
+            # unexpected invariant violation — surface it loudly rather than
+            # silently fabricating a (non-functional) secret, per the
+            # silent-failure counter-prior. We still mint a transient secret so
+            # the load doesn't crash on a legacy row.
+            stored_csrf = row.get("csrf_secret")
+            if not stored_csrf:
+                logger.warning(
+                    "Session %s has no csrf_secret (migration backfill gap?) — "
+                    "minting a transient secret; this session's CSRF token will "
+                    "not be stable until re-login.",
+                    row["id"],
+                )
+                stored_csrf = secrets.token_urlsafe(32)
             return SessionRecord(
                 id=row["id"],
                 user_id=UUID(row["user_id"]),
@@ -495,9 +518,28 @@ class SessionStoreMixin:
                 expires_at=datetime.fromisoformat(row["expires_at"]),
                 ip_address=row["ip_address"],
                 user_agent=row["user_agent"],
+                csrf_secret=stored_csrf,
+                active_membership_id=row.get("active_membership_id"),  # auth Plan 1a
             )
 
         return None
+
+    def regenerate_session_csrf(self, session_id: str) -> str:
+        """Mint a fresh CSRF secret for an existing session and return it.
+
+        Rotates the token within a session's lifetime without forcing re-login
+        (the privilege-change-rotation primitive). Raises if no session matches —
+        rotating a non-existent session is a programming error, surfaced loudly
+        rather than returning an un-persisted secret (anti-silent-failure).
+        """
+        new_secret = secrets.token_urlsafe(32)
+        rowcount = self._execute_modify(
+            "UPDATE sessions SET csrf_secret = %s WHERE id = %s",
+            (new_secret, session_id),
+        )
+        if rowcount == 0:
+            raise LookupError(f"cannot regenerate CSRF secret: no session {session_id!r}")
+        return new_secret
 
     def validate_session(self, session_id: str) -> AuthContext:
         """
@@ -539,12 +581,26 @@ class SessionStoreMixin:
         for k, v in domain_attrs.items():
             prefs.setdefault(k, v)  # Explicit preferences take priority
 
+        # auth Plan 1a: resolve the session's active membership (if any). When
+        # present it sources the RLS tenant id + effective roles (see
+        # AuthContext.effective_roles / _bind_rls_tenant_id).
+        active_membership = None
+        if session.active_membership_id:
+            active_membership = self.get_membership(session.active_membership_id)
+            # Only an ACTIVE membership sources the fence + roles. A suspended or
+            # still-invited membership must not keep scoping the session to the
+            # org — fail-safe: drop to None → tenant GUC stays unbound → the RLS
+            # fence denies (a suspended user sees nothing until re-auth).
+            if active_membership is not None and active_membership.status != "active":
+                active_membership = None
+
         return AuthContext(
             user=user,
             session=session,
             is_authenticated=True,
             roles=user.roles,
             preferences=prefs,
+            active_membership=active_membership,
         )
 
     def delete_session(self, session_id: str) -> bool:
@@ -592,6 +648,86 @@ class SessionStoreMixin:
     def delete_all_sessions(self) -> int:
         """Delete all sessions for all users. Returns count deleted."""
         return int(self._execute_modify("DELETE FROM sessions"))
+
+    # -- Memberships (auth Plan 1a) -------------------------------------------
+    # Kept on this mixin (not AuthStore) so validate_session above can resolve
+    # self.get_membership; membership is session-adjacent (a session pins one).
+
+    def _row_to_membership(self, row: dict[str, Any]) -> MembershipRecord:
+        import json
+
+        return MembershipRecord(
+            id=row["id"],
+            tenant_id=row["tenant_id"],
+            identity_id=row["identity_id"],
+            roles=json.loads(row["roles"]) if row.get("roles") else [],
+            status=row["status"],
+            invited_by=row.get("invited_by"),
+            joined_at=datetime.fromisoformat(row["joined_at"]),
+            created_at=datetime.fromisoformat(row["created_at"]),
+            updated_at=datetime.fromisoformat(row["updated_at"]),
+        )
+
+    def create_membership(
+        self,
+        *,
+        tenant_id: str,
+        identity_id: str,
+        roles: list[str] | None = None,
+        status: str = "active",
+        invited_by: str | None = None,
+    ) -> MembershipRecord:
+        """Create a membership (identity x org x roles).
+
+        Raises ``ValueError`` if ``identity_id`` does not name an existing user —
+        there is no DB foreign key (the auth tables are not in the Alembic chain;
+        see migration 0007), so this is the integrity guard against orphan
+        memberships / a mistyped identity.
+        """
+        import json
+
+        if self.get_user_by_id(UUID(identity_id)) is None:
+            raise ValueError(f"cannot create membership: no user with id {identity_id!r}")
+
+        membership = MembershipRecord(
+            id=secrets.token_urlsafe(24),
+            tenant_id=tenant_id,
+            identity_id=identity_id,
+            roles=roles or [],
+            status=status,
+            invited_by=invited_by,
+        )
+        self._execute(
+            """
+            INSERT INTO memberships
+                (id, tenant_id, identity_id, roles, status, invited_by,
+                 joined_at, created_at, updated_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """,
+            (
+                membership.id,
+                membership.tenant_id,
+                membership.identity_id,
+                json.dumps(membership.roles),
+                membership.status,
+                membership.invited_by,
+                membership.joined_at.isoformat(),
+                membership.created_at.isoformat(),
+                membership.updated_at.isoformat(),
+            ),
+        )
+        return membership
+
+    def get_membership(self, membership_id: str) -> MembershipRecord | None:
+        row = self._execute_one("SELECT * FROM memberships WHERE id = %s", (membership_id,))
+        return self._row_to_membership(row) if row else None
+
+    def get_memberships_for_identity(self, identity_id: str) -> list[MembershipRecord]:
+        rows = self._execute(
+            "SELECT * FROM memberships WHERE identity_id = %s ORDER BY created_at",
+            (identity_id,),
+        )
+        return [self._row_to_membership(r) for r in rows]
 
 
 class AuthStore(UserStoreMixin, SessionStoreMixin, TwoFactorMixin):
@@ -678,9 +814,56 @@ class AuthStore(UserStoreMixin, SessionStoreMixin, TwoFactorMixin):
                     created_at TEXT NOT NULL,
                     expires_at TEXT NOT NULL,
                     ip_address TEXT,
-                    user_agent TEXT
+                    user_agent TEXT,
+                    csrf_secret TEXT
                 )
             """)
+            # Idempotent add for pre-existing sessions tables (dev path doesn't
+            # run Alembic; production gets this via migration 0005). Mirrors the
+            # users-table ALTER pattern above. ADD COLUMN IF NOT EXISTS is a
+            # Postgres extension (the auth store runtime is PG per ADR-0008); the
+            # try/except keeps the SQLite-in-tests path graceful.
+            try:
+                cursor.execute("ALTER TABLE sessions ADD COLUMN IF NOT EXISTS csrf_secret TEXT")
+            except Exception:
+                logger.warning(
+                    "Schema migration for sessions.csrf_secret raised — continuing",
+                    exc_info=True,
+                )
+            # auth Plan 1a: memberships (identity x org x roles) — the fenced source
+            # of dazzle.tenant_id. Mirrors alembic 0007_memberships exactly (same
+            # shape, NO users FK — see that migration's docstring). The dev path
+            # doesn't run Alembic; production gets it via the migration too.
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS memberships (
+                    id TEXT PRIMARY KEY,
+                    tenant_id TEXT NOT NULL,
+                    identity_id TEXT NOT NULL,
+                    roles TEXT NOT NULL DEFAULT '[]',
+                    status TEXT NOT NULL DEFAULT 'active',
+                    invited_by TEXT,
+                    joined_at TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    CONSTRAINT uq_memberships_tenant_identity UNIQUE (tenant_id, identity_id)
+                )
+            """)
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS ix_memberships_identity_id ON memberships(identity_id)"
+            )
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS ix_memberships_tenant_id ON memberships(tenant_id)"
+            )
+            # sessions.active_membership_id — pins the active org for the session.
+            try:
+                cursor.execute(
+                    "ALTER TABLE sessions ADD COLUMN IF NOT EXISTS active_membership_id TEXT"
+                )
+            except Exception:
+                logger.warning(
+                    "Schema migration for sessions.active_membership_id raised — continuing",
+                    exc_info=True,
+                )
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS password_reset_tokens (
                     token TEXT PRIMARY KEY,

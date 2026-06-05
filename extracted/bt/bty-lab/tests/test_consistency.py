@@ -281,38 +281,22 @@ def test_bty_version_substitution_runs_in_every_bake_script() -> None:
     chroot tree must also include it.
     """
     scripts_dir = REPO_ROOT / "cijoe" / "scripts"
-    # Bake scripts that emit live-env / appliance artifacts derived
-    # from the bty-media trees. Each must substitute
-    # ``__BTY_VERSION__`` via SOME mechanism. The substitution
-    # mechanism varies by bake style:
+    # Bake scripts that emit live-env artifacts derived from the
+    # bty-media trees. Each must substitute ``__BTY_VERSION__`` via
+    # SOME mechanism:
     #
     #   * usb_iso_build.py + live_build.py shell out to ``sed -i``
     #     across the copied live-build tree (the trees mostly carry
     #     templated text files like /etc/issue, /etc/motd, the
     #     boot-banner script).
-    #   * gen_userdata.py renders cloud-init user-data for the
-    #     server appliance from rootfs/server/. It does the
-    #     substitution in-Python via ``text.replace(...)`` because
-    #     cloud-init's write_files YAML is generated string-by-
-    #     string and a single sed pass over the rendered YAML
-    #     would also rewrite the placeholder inside any binary
-    #     base64 block.
     bake_scripts: list[tuple[Path, tuple[str, ...]]] = [
         (scripts_dir / "usb_iso_build.py", ("sed -i s/__BTY_VERSION__/",)),
         (scripts_dir / "live_build.py", ("sed -i s/__BTY_VERSION__/",)),
-        # gen_userdata's in-Python replace; either spelling is fine.
-        (
-            scripts_dir / "gen_userdata.py",
-            (
-                'replace("__BTY_VERSION__"',
-                "replace('__BTY_VERSION__'",
-            ),
-        ),
     ]
     for script, substitution_hints in bake_scripts:
         body = script.read_text()
         assert "__BTY_VERSION__" in body, (
-            f"{script.name} produces a live-env / appliance artifact but contains no "
+            f"{script.name} produces a live-env artifact but contains no "
             "__BTY_VERSION__ substitution. The booted target's /etc/issue / motd "
             "/ shell prompt will carry the literal placeholder."
         )
@@ -407,8 +391,6 @@ def test_plymouth_kill_token_on_every_cmdline_insertion_point() -> None:
 
       * iPXE templates (already tested elsewhere)
       * live-build auto/config BOOTAPPEND (both branches)
-      * cloud-init's GRUB_CMDLINE_LINUX_DEFAULT EXTRA on the
-        server appliance
 
     Asserts the token is present in every cmdline insertion site
     rather than only on some.
@@ -417,7 +399,6 @@ def test_plymouth_kill_token_on_every_cmdline_insertion_point() -> None:
         REPO_ROOT / "src" / "bty" / "web" / "_templates" / "ipxe_tui.j2",
         REPO_ROOT / "src" / "bty" / "web" / "_templates" / "ipxe_flash.j2",
         REPO_ROOT / "bty-media" / "live-build" / "auto" / "config",
-        REPO_ROOT / "bty-media" / "auxiliary" / "cloudinit-base-server.user",
     )
     missing = []
     for path in cmdline_sources:
@@ -558,112 +539,6 @@ def test_boot_banner_script_and_units_exist_and_are_wired() -> None:
         assert f"systemctl enable bty-banner-{phase}.service" in hook_body, (
             f"enable hook does not enable bty-banner-{phase}.service"
         )
-
-
-# ----------------------------------------------------------------------
-# 12. bty-boot-banner script + units stay byte-identical across trees
-# ----------------------------------------------------------------------
-
-
-def test_boot_banner_files_synced_across_live_env_and_server_trees() -> None:
-    """The banner script + most units are duplicated between
-    ``bty-media/live-build/config/includes.chroot/`` (live env)
-    and ``bty-media/rootfs/server/`` (appliance) -- live-build's
-    chroot includes are NOT shared with the cloud-init rootfs.
-    A manual ``cp`` is the current sync mechanism; this test
-    keeps the two copies honest.
-
-    Exception: ``bty-banner-late.service`` has a slightly
-    divergent ``[Unit]`` block (different commentary, different
-    references in the doc comment) but the ``[Service]`` and
-    ``[Install]`` sections must match byte-for-byte. Critically:
-    NEITHER copy may carry a ``Before=`` directive. The unit is
-    ``After=multi-user.target`` AND ``WantedBy=multi-user.target``;
-    adding ``Before=<anything-also-WantedBy-multi-user.target>``
-    creates an ordering cycle that systemd silently breaks by
-    dropping a unit from the boot transaction. This bit us on
-    v0.22.4 when the appliance's ``Before=bty-web.service`` got
-    bty-web silently removed from the boot, so /healthz never
-    answered. Test guards both trees against re-introducing the
-    trap.
-    """
-    import hashlib
-
-    live = REPO_ROOT / "bty-media" / "live-build" / "config" / "includes.chroot"
-    server = REPO_ROOT / "bty-media" / "rootfs" / "server"
-
-    # Script: byte-for-byte identical.
-    live_script = live / "usr" / "local" / "sbin" / "bty-boot-banner"
-    server_script = server / "usr" / "local" / "sbin" / "bty-boot-banner"
-    assert live_script.is_file(), f"missing {live_script}"
-    assert server_script.is_file(), f"missing {server_script}"
-    assert (
-        hashlib.sha256(live_script.read_bytes()).hexdigest()
-        == hashlib.sha256(server_script.read_bytes()).hexdigest()
-    ), (
-        "bty-boot-banner drifted between the live-env and "
-        "server-rootfs trees. Sync via:\n"
-        f"  cp {live_script.relative_to(REPO_ROOT)} {server_script.relative_to(REPO_ROOT)}"
-    )
-
-    # Early + mid units: identical.
-    for phase in ("early", "mid"):
-        live_unit = live / "etc" / "systemd" / "system" / f"bty-banner-{phase}.service"
-        server_unit = server / "etc" / "systemd" / "system" / f"bty-banner-{phase}.service"
-        assert live_unit.read_bytes() == server_unit.read_bytes(), (
-            f"bty-banner-{phase}.service drifted; sync the file"
-        )
-
-    # Late unit: [Unit] section is intentionally divergent
-    # (different Before= + different commentary explaining the
-    # hand-off target). [Service] + [Install] sections must
-    # match -- those are the load-bearing pieces.
-    live_late = (live / "etc" / "systemd" / "system" / "bty-banner-late.service").read_text()
-    server_late = (server / "etc" / "systemd" / "system" / "bty-banner-late.service").read_text()
-
-    def _section(body: str, name: str) -> str:
-        """Extract the named ini-style section from a systemd unit."""
-        lines: list[str] = []
-        in_section = False
-        for raw in body.splitlines():
-            stripped = raw.strip()
-            if stripped.startswith("[") and stripped.endswith("]"):
-                in_section = stripped == f"[{name}]"
-                continue
-            if in_section and stripped:
-                lines.append(raw)
-        return "\n".join(lines)
-
-    assert _section(live_late, "Service") == _section(server_late, "Service"), (
-        "bty-banner-late.service [Service] block drifted; reconcile."
-    )
-    assert _section(live_late, "Install") == _section(server_late, "Install"), (
-        "bty-banner-late.service [Install] block drifted; reconcile."
-    )
-
-    # Cycle-trap guard: NEITHER copy may have a ``Before=`` directive
-    # while being ``After=multi-user.target`` + ``WantedBy=multi-user.
-    # target``. See the docstring above for the v0.22.4 incident.
-    for label, body in (("live", live_late), ("server", server_late)):
-        unit_section = _section(body, "Unit")
-        for line in unit_section.splitlines():
-            assert not line.strip().startswith("Before="), (
-                f"bty-banner-late.service ({label} tree) has a "
-                f"``Before=`` directive: {line.strip()!r}. This "
-                f"creates an ordering cycle with the multi-user."
-                f"target wantedby; systemd will silently drop a "
-                f"service from boot. Drop the Before= line."
-            )
-
-    # Server has the marker files; live env does not.
-    server_variant = server / "etc" / "bty" / "variant"
-    server_mode = server / "etc" / "bty" / "mode"
-    assert server_variant.is_file() and server_variant.read_text().strip(), (
-        f"server rootfs missing /etc/bty/variant marker: {server_variant}"
-    )
-    assert server_mode.is_file() and server_mode.read_text().strip(), (
-        f"server rootfs missing /etc/bty/mode marker: {server_mode}"
-    )
 
 
 # ----------------------------------------------------------------------
@@ -1042,9 +917,6 @@ def test_bty_web_help_documents_every_env_var() -> None:
         src = (web / name).read_text()
         env_keys.update(re.findall(r'os\.environ\.get\(\s*"(BTY_[A-Z0-9_]+)"', src))
         env_keys.update(re.findall(r'os\.environ\[\s*"(BTY_[A-Z0-9_]+)"', src))
-    # BTY_QUIET is a docker-entrypoint shell knob, not read by the
-    # Python runtime; not expected in the Python --help.
-    env_keys.discard("BTY_QUIET")
     assert env_keys, "scan should find at least one BTY_* lookup"
 
     # The name must appear in the --help description block (we
@@ -1059,57 +931,40 @@ def test_bty_web_help_documents_every_env_var() -> None:
     )
 
 
-def test_dnsmasq_tftp_root_agrees_across_deployment_shapes() -> None:
-    """The bty-web container (docker/dnsmasq.conf) and the
-    bty-server appliance (rootfs .../dnsmasq.d/bty-pxe.conf) both
-    run dnsmasq as the TFTP daemon. They must agree on the
-    ``tftp-root`` -- it's where the iPXE binaries (``ipxe.efi`` /
-    ``undionly.kpxe``) are staged, and a PXE client that fetches
-    a bootfile from one path while the daemon serves another just
-    404s. The Dockerfile stages the binaries into that same root,
-    so pin all three to one another.
+def test_tftp_sidecar_serves_its_baked_nbp_dir() -> None:
+    """The bty-tftp sidecar bakes the iPXE NBPs into one directory and
+    serves that same directory over TFTP. If the ``cp`` target dir and
+    the ``in.tftpd`` serve dir drift, clients 404 on the bootfile. Pin
+    the two to each other (bty-web is HTTP-only now, so this self-check
+    on the sidecar replaces the old container-vs-appliance dnsmasq check).
     """
-    docker_conf = (REPO_ROOT / "docker" / "dnsmasq.conf").read_text()
-    appliance_conf = (
-        REPO_ROOT / "bty-media" / "rootfs" / "server" / "etc" / "dnsmasq.d" / "bty-pxe.conf"
-    ).read_text()
-    dockerfile = (REPO_ROOT / "docker" / "Dockerfile").read_text()
+    containerfile = (REPO_ROOT / "deploy" / "tftp" / "Containerfile").read_text()
 
-    def _tftp_root(conf: str) -> str | None:
-        m = re.search(r"^tftp-root=(\S+)", conf, re.MULTILINE)
-        return m.group(1) if m else None
-
-    docker_root = _tftp_root(docker_conf)
-    appliance_root = _tftp_root(appliance_conf)
-    assert docker_root, "docker/dnsmasq.conf must set tftp-root"
-    assert appliance_root, "appliance bty-pxe.conf must set tftp-root"
-    assert docker_root == appliance_root, (
-        f"dnsmasq tftp-root mismatch: docker={docker_root!r} vs "
-        f"appliance={appliance_root!r}. PXE clients would 404 on "
-        f"the bootfile from one deployment shape."
+    # The ENTRYPOINT's last arg is the dir in.tftpd serves.
+    serve = re.search(r'ENTRYPOINT\s+\[.*"([^"]+)"\s*\]', containerfile)
+    assert serve, "deploy/tftp/Containerfile must have an in.tftpd ENTRYPOINT"
+    serve_dir = serve.group(1)
+    assert serve_dir == "/opt/ipxe", (
+        f"tftp sidecar serves {serve_dir!r}; the NBPs are staged into /opt/ipxe"
     )
-    # The Dockerfile must stage the iPXE binaries into that same root.
-    assert f"{docker_root}/ipxe.efi" in dockerfile, (
-        f"Dockerfile should stage ipxe.efi into {docker_root} (the configured tftp-root)"
+    # The stock NBPs are copied into that same dir.
+    assert f"{serve_dir}/" in containerfile or f" {serve_dir}\n" in containerfile, (
+        f"Containerfile should copy the iPXE NBPs into {serve_dir} (the served dir)"
     )
 
 
 def test_docker_bty_uid_aligned_across_surfaces() -> None:
-    """The Dockerfile pins the in-container bty user to a fixed
-    UID; the Makefile ``docker-run`` target chowns the host-side
-    bind-mount to the same UID; the docker-compose comments
-    document it. If any of those three drift the
-    ``make docker-clean docker-build docker-run`` flow comes up
-    and immediately exits 1 (the entrypoint's writability
-    preflight kicks in) and the operator sees nothing on
-    http://localhost:8080/ui -- the exact bug v0.22.11 shipped.
+    """The Dockerfile pins the in-container bty user to a fixed UID and
+    the Makefile ``docker-run`` target chowns the host-side bind-mount to
+    the same UID. If they drift, the bind-mount isn't writable by the bty
+    user and bty-web can't write state.db -- the operator sees nothing on
+    http://localhost:8080/ui.
 
-    Pin the alignment so a future Dockerfile bump that changes
-    the UID has to also bump the Makefile + compose surfaces.
+    Pin the alignment so a future Dockerfile UID bump also bumps the
+    Makefile chown.
     """
     dockerfile = (REPO_ROOT / "docker" / "Dockerfile").read_text()
     makefile = (REPO_ROOT / "Makefile").read_text()
-    compose = (REPO_ROOT / "docker" / "docker-compose.yml").read_text()
 
     uid_match = re.search(r"useradd\s+--uid\s+(\d+)\s+--gid\s+\d+", dockerfile)
     assert uid_match, (
@@ -1124,48 +979,27 @@ def test_docker_bty_uid_aligned_across_surfaces() -> None:
     assert chown_match.group(1) == uid and chown_match.group(2) == uid, (
         f"Makefile chowns bty-data to {chown_match.group(1)}:{chown_match.group(2)} "
         f"but Dockerfile pins bty to uid {uid}. Align them or the "
-        f"entrypoint's writability preflight will reject the bind-mount."
-    )
-
-    # docker-compose.yml documents the UID in operator comments.
-    # Look for the literal "(uid N" so a future operator copying
-    # the chown command finds the right number.
-    assert f"(uid {uid}" in compose, (
-        f"docker-compose.yml comments should reference uid {uid} "
-        f"(matching the Dockerfile pin); operator copy-paste relies "
-        f"on that number being current."
+        f"bind-mount won't be writable by the bty user."
     )
 
 
-def test_docker_run_and_compose_publish_same_ports() -> None:
-    """``make docker-run`` (the manual single-command path) and
-    ``docker-compose.yml`` (the orchestrated path) should publish
-    the same port set. Otherwise the operator's mental model
-    silently differs between deployment shapes -- e.g. compose
-    serves TFTP but the make target doesn't, and a PXE client
-    appears to be unreachable from one but not the other.
+def test_docker_run_publishes_http_only() -> None:
+    """The bty-web container is HTTP-only -- TFTP moved to the separate
+    bty-tftp sidecar. ``make docker-run`` must publish just 8080:8080 and
+    must NOT publish udp/69 again (a regression would imply the container
+    is back to bundling dnsmasq, which it isn't).
     """
     makefile = (REPO_ROOT / "Makefile").read_text()
-    compose = (REPO_ROOT / "docker" / "docker-compose.yml").read_text()
-
-    # Match ``-p HOST:CONTAINER[/proto]`` flags in the docker-run
-    # rule. ``-p 69:69/udp`` -> ("69", "69", "udp"). TCP is the
-    # default when /proto is missing; normalise.
     make_ports = {
         f"{host}:{cont}/{proto or 'tcp'}"
         for host, cont, proto in re.findall(r"-p\s+(\d+):(\d+)(?:/(tcp|udp))?", makefile)
     }
-    # docker-compose YAML: ``"HOST:CONTAINER[/proto]"`` strings
-    # inside the ports list. Same regex shape.
-    compose_ports = {
-        f"{host}:{cont}/{proto or 'tcp'}"
-        for host, cont, proto in re.findall(r'"(\d+):(\d+)(?:/(tcp|udp))?"', compose)
-    }
-    assert make_ports == compose_ports, (
-        f"Makefile docker-run ports {sorted(make_ports)} != "
-        f"docker-compose.yml ports {sorted(compose_ports)}. "
-        f"One deployment shape can't reach a service the other "
-        f"can; align them or the operator gets surprises."
+    assert "8080:8080/tcp" in make_ports, (
+        f"Makefile docker-run must publish 8080:8080; got {sorted(make_ports)}"
+    )
+    assert not any("69" in p for p in make_ports), (
+        f"Makefile docker-run still publishes udp/69 {sorted(make_ports)} -- "
+        f"the bty-web container is HTTP-only; TFTP is the bty-tftp sidecar."
     )
 
 
@@ -1175,26 +1009,22 @@ def test_docker_healthcheck_honors_configured_port() -> None:
     overrides the port (``docker run -e BTY_WEB_PORT=9000``) would
     otherwise get a permanently-unhealthy container -- the probe
     keeps hitting the stale default while bty-web listens
-    elsewhere. The fix is shell-form CMD with runtime env
-    expansion (``${BTY_WEB_PORT:-8080}``); guard against a
-    regression back to a literal ``:8080`` in the probe URL.
+    elsewhere. The probe reads ``BTY_WEB_PORT`` from the environment at
+    runtime (a Python one-liner, no curl dependency); guard against a
+    regression to a literal ``:8080`` in the probe URL.
     """
     dockerfile = (REPO_ROOT / "docker" / "Dockerfile").read_text()
     healthcheck = next(
-        (
-            line
-            for line in dockerfile.splitlines()
-            if "curl" in line and "healthz" in line and "http" in line
-        ),
+        (line for line in dockerfile.splitlines() if "healthz" in line and "http" in line),
         None,
     )
-    assert healthcheck is not None, "Dockerfile HEALTHCHECK curl line not found"
-    assert "${BTY_WEB_PORT" in healthcheck, (
-        f"HEALTHCHECK must expand BTY_WEB_PORT at runtime, got: {healthcheck.strip()!r}. "
+    assert healthcheck is not None, "Dockerfile HEALTHCHECK healthz probe not found"
+    assert "BTY_WEB_PORT" in healthcheck, (
+        f"HEALTHCHECK must read BTY_WEB_PORT at runtime, got: {healthcheck.strip()!r}. "
         f"A hardcoded port breaks the health probe for any operator who overrides it."
     )
     assert "127.0.0.1:8080/healthz" not in healthcheck, (
-        "HEALTHCHECK appears to hardcode :8080 again -- use ${BTY_WEB_PORT:-8080}."
+        "HEALTHCHECK appears to hardcode :8080 again -- read BTY_WEB_PORT instead."
     )
 
 
@@ -1207,10 +1037,8 @@ def test_publish_scripts_write_basename_into_sha256_sidecar() -> None:
     Otherwise an operator's ``sha256sum -c <artifact>.sha256``
     (documented in docs/src/walkthrough-*.md) looks for a
     nonexistent ``/home/runner/.../<artifact>`` and fails. The
-    netboot / usb scripts already used ``cd <dir> && sha256sum
-    <basename>``; img_gz_publish + diskimage_build embedded the
-    absolute path until this was pinned (broke ``-c`` for the
-    server-x86 image). Scripts that build the sidecar in-Python via
+    netboot / usb scripts use ``cd <dir> && sha256sum <basename>``.
+    Scripts that build the sidecar in-Python via
     ``write_text(f"{digest}  {path.name}")`` carry no shell
     ``sha256sum`` redirect and are naturally exempt.
     """
@@ -1225,62 +1053,3 @@ def test_publish_scripts_write_basename_into_sha256_sidecar() -> None:
                 f"an operator's ``sha256sum -c``. Use ``cd {{dir}} && sha256sum "
                 f"{{name}} > {{name}}.sha256``. Offending line: {line.strip()!r}"
             )
-
-
-def test_state_disk_mounts_at_state_dir_not_images_subdir() -> None:
-    """The persistent-state disk (LABEL=BTY_IMAGE_STORE) must mount at
-    the whole state dir ``/var/lib/bty``, NOT the ``images/`` subdir.
-
-    Pre-0.22.17 mounted only ``/var/lib/bty/images`` -- but the bulk of
-    bty's data (the multi-GB content ``cache/`` and ``state.db``) are
-    SIBLINGS of ``images/`` under the state dir, so they stayed on the
-    rootfs and were lost on reflash. ``bty-state-migrate`` + the baked
-    fstab line now target the state dir itself. Pin all three surfaces
-    (cloud-init fstab line, the migrate script, the bty-web mount
-    ordering) so the granularity bug can't regress.
-    """
-    cloudinit = (REPO_ROOT / "bty-media" / "auxiliary" / "cloudinit-base-server.user").read_text(
-        encoding="utf-8"
-    )
-    fstab_lines = [
-        ln for ln in cloudinit.splitlines() if "LABEL=BTY_IMAGE_STORE" in ln and "ext4" in ln
-    ]
-    assert fstab_lines, "no LABEL=BTY_IMAGE_STORE fstab line in the server cloud-init"
-    for ln in fstab_lines:
-        assert "BTY_IMAGE_STORE /var/lib/bty " in ln, (
-            f"state disk must mount at /var/lib/bty (the whole state dir), not a subdir; "
-            f"got: {ln.strip()!r}"
-        )
-        assert "/var/lib/bty/images " not in ln, (
-            "fstab mounts the images/ subdir again -- that strands cache/ + state.db on the "
-            "rootfs (the pre-0.22.17 bug). Mount /var/lib/bty itself."
-        )
-
-    migrate = (
-        REPO_ROOT
-        / "bty-media"
-        / "rootfs"
-        / "server"
-        / "usr"
-        / "local"
-        / "sbin"
-        / "bty-state-migrate"
-    ).read_text(encoding="utf-8")
-    assert "STATE_DIR=/var/lib/bty\n" in migrate, (
-        "bty-state-migrate must target STATE_DIR=/var/lib/bty"
-    )
-
-    bty_web = (
-        REPO_ROOT
-        / "bty-media"
-        / "rootfs"
-        / "server"
-        / "etc"
-        / "systemd"
-        / "system"
-        / "bty-web.service"
-    ).read_text(encoding="utf-8")
-    assert "After=var-lib-bty.mount" in bty_web, (
-        "bty-web.service must order After=var-lib-bty.mount so it reads state from the "
-        "migrated disk, not the rootfs underneath a slow-to-mount disk"
-    )

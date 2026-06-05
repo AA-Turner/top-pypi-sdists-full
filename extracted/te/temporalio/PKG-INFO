@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: temporalio
-Version: 1.27.2
+Version: 1.28.0
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -22,12 +22,13 @@ Requires-Dist: opentelemetry-exporter-otlp-proto-grpc>=1.11.1,<2 ; extra == 'lam
 Requires-Dist: opentelemetry-semantic-conventions>=0.40b0,<1 ; extra == 'lambda-worker-otel'
 Requires-Dist: opentelemetry-sdk-extension-aws>=2.0.0,<3 ; extra == 'lambda-worker-otel'
 Requires-Dist: langgraph>=1.1.0 ; extra == 'langgraph'
-Requires-Dist: langsmith>=0.7.0,<0.8 ; extra == 'langsmith'
+Requires-Dist: langsmith>=0.7.34,<0.9 ; extra == 'langsmith'
 Requires-Dist: openai-agents>=0.17.1 ; extra == 'openai-agents'
 Requires-Dist: mcp>=1.9.4,<2 ; extra == 'openai-agents'
 Requires-Dist: opentelemetry-api>=1.11.1,<2 ; extra == 'opentelemetry'
 Requires-Dist: opentelemetry-sdk>=1.11.1,<2 ; extra == 'opentelemetry'
 Requires-Dist: pydantic>=2.0.0,<3 ; extra == 'pydantic'
+Requires-Dist: strands-agents>=1.39.0 ; extra == 'strands-agents'
 Provides-Extra: aioboto3
 Provides-Extra: google-adk
 Provides-Extra: grpc
@@ -37,6 +38,7 @@ Provides-Extra: langsmith
 Provides-Extra: openai-agents
 Provides-Extra: opentelemetry
 Provides-Extra: pydantic
+Provides-Extra: strands-agents
 License-File: LICENSE
 Summary: Temporal.io Python SDK
 Keywords: temporal,workflow
@@ -49,7 +51,7 @@ Project-URL: Documentation, https://docs.temporal.io/docs/python
 Project-URL: Homepage, https://github.com/temporalio/sdk-python
 Project-URL: Repository, https://github.com/temporalio/sdk-python
 
-![Temporal Python SDK](https://assets.temporal.io/w/py-banner.svg)
+![Temporal Python SDK](https://assets.temporal.io/w/py.png)
 
 [![Python 3.9+](https://img.shields.io/pypi/pyversions/temporalio.svg?style=for-the-badge)](https://pypi.org/project/temporalio)
 [![PyPI](https://img.shields.io/pypi/v/temporalio.svg?style=for-the-badge)](https://pypi.org/project/temporalio)
@@ -483,7 +485,7 @@ class IPv4AddressJSONEncoder(AdvancedJSONEncoder):
 class IPv4AddressJSONTypeConverter(JSONTypeConverter):
     def to_typed_value(
         self, hint: Type, value: Any
-    ) -> Union[Optional[Any], _JSONTypeConverterUnhandled]:
+    ) -> Union[Optional[Any], JSONTypeConverterUnhandled]:
         if issubclass(hint, ipaddress.IPv4Address):
             return ipaddress.IPv4Address(value)
         return JSONTypeConverter.Unhandled

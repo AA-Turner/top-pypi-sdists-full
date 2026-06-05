@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jupyter-server-ydoc
-Version: 2.4.0
+Version: 2.4.1
 Summary: jupyter-server extension integrating collaborative shared models.
 Project-URL: Documentation, https://jupyterlab-realtime-collaboration.readthedocs.io/
 Project-URL: Repository, https://github.com/jupyterlab/jupyter-collaboration
@@ -84,9 +84,9 @@ Requires-Dist: jsonschema>=4.18.0
 Requires-Dist: jupyter-events>=0.11.0
 Requires-Dist: jupyter-server-fileid<1,>=0.7.0
 Requires-Dist: jupyter-server<3.0.0,>=2.15.0
-Requires-Dist: jupyter-ydoc<4.0.0,>=3.4.0
+Requires-Dist: jupyter-ydoc<4.0.0,>=3.5.0
 Requires-Dist: pycrdt
-Requires-Dist: pycrdt-websocket<0.17.0,>=0.16.0
+Requires-Dist: pycrdt-websocket<0.17.0,>=0.16.2
 Provides-Extra: test
 Requires-Dist: anyio; extra == 'test'
 Requires-Dist: coverage; extra == 'test'

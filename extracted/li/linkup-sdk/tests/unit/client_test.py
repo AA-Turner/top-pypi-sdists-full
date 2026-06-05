@@ -329,7 +329,6 @@ def test_search(
     mock_request_response_content: bytes,
     expected_search_response: Any,  # noqa: ANN401
 ) -> None:
-    mocker.patch("linkup._client.date").today.return_value = date(2000, 1, 1)
     request_mock = mocker.patch(
         "httpx.Client.request",
         return_value=Response(
@@ -416,7 +415,6 @@ async def test_async_search(
     mock_request_response_content: bytes,
     expected_search_response: Any,  # noqa: ANN401
 ) -> None:
-    mocker.patch("linkup._client.date").today.return_value = date(2000, 1, 1)
     request_mock = mocker.patch(
         "httpx.AsyncClient.request",
         return_value=Response(
@@ -743,7 +741,10 @@ def test_get_research_structured_output_keeps_sourced_answer_shape_raw(
                 "id": "bfeb26f5-f4d6-47d2-9818-7f62fbcd0b0c",
                 "input": {
                     "outputType": "structured",
-                    "q": "query"
+                    "q": "query",
+                    "structuredOutputSchema": {
+                        "type": "object"
+                    }
                 },
                 "output": {
                     "answer": "structured answer field",
@@ -763,6 +764,7 @@ def test_get_research_structured_output_keeps_sourced_answer_shape_raw(
         "answer": "structured answer field",
         "sources": [],
     }
+    assert research_response.input.structured_output_schema == {"type": "object"}
 
 
 @pytest.mark.asyncio
@@ -1527,7 +1529,7 @@ def test_get_task_structured_search_output_keeps_search_results_shape_raw(
     assert task.output == {"results": []}
 
 
-def test_get_task_structured_search_output_without_schema_raw(
+def test_get_task_structured_search_output_raw(
     mocker: MockerFixture, client: linkup.Client
 ) -> None:
     mocker.patch(
@@ -1542,7 +1544,10 @@ def test_get_task_structured_search_output_without_schema_raw(
                 "input": {
                     "depth": "standard",
                     "outputType": "structured",
-                    "q": "query"
+                    "q": "query",
+                    "structuredOutputSchema": {
+                        "type": "object"
+                    }
                 },
                 "output": {
                     "summary": "done"
@@ -1558,7 +1563,7 @@ def test_get_task_structured_search_output_without_schema_raw(
     task = client.get_task("bfeb26f5-f4d6-47d2-9818-7f62fbcd0b0c")
 
     assert isinstance(task, linkup.SearchTask)
-    assert task.input.structured_output_schema is None
+    assert task.input.structured_output_schema == {"type": "object"}
     assert task.output == {"summary": "done"}
 
 

@@ -49,7 +49,7 @@ from blacksheep.server.cors import CORSPolicy, CORSStrategy, get_cors_middleware
 from blacksheep.server.env import EnvironmentSettings
 from blacksheep.server.errors import ServerErrorDetailsHandler
 from blacksheep.server.files import DefaultFileOptions
-from blacksheep.server.files.dynamic import serve_files_dynamic
+from blacksheep.server.files.dynamic import ResponseCallback, serve_files_dynamic
 from blacksheep.server.normalization import normalize_handler, normalize_middleware
 from blacksheep.server.process import use_shutdown_handler
 from blacksheep.server.remotes.scheme import configure_scheme_middleware
@@ -528,14 +528,18 @@ class Application(BaseApplication):
             strategy.add(Policy("authenticated", AuthenticatedRequirement()))
 
         self._authorization_strategy = strategy
-        self.exceptions_handlers.update(
-            {  # type: ignore
-                AuthenticateChallenge: handle_authentication_challenge,
-                UnauthorizedError: handle_unauthorized,
-                ForbiddenError: handle_forbidden,
-                RateLimitExceededError: handle_rate_limited_auth,
-            }
-        )
+        # Install framework defaults for authorization exceptions, but only for
+        # types that the user has not already registered a handler for. This
+        # lets users register their own handlers either before or after the
+        # call to ``use_authorization()`` and keep them in effect — see #643.
+        framework_defaults = {  # type: ignore
+            AuthenticateChallenge: handle_authentication_challenge,
+            UnauthorizedError: handle_unauthorized,
+            ForbiddenError: handle_forbidden,
+            RateLimitExceededError: handle_rate_limited_auth,
+        }
+        for exception_type, default_handler in framework_defaults.items():
+            self.exceptions_handlers.setdefault(exception_type, default_handler)
 
         self.middlewares.append(
             get_authorization_middleware(strategy), MiddlewareCategory.AUTHZ, 0
@@ -598,6 +602,7 @@ class Application(BaseApplication):
         fallback_document: str | None = None,
         allow_anonymous: bool = True,
         default_file_options: DefaultFileOptions | None = None,
+        on_response: ResponseCallback | None = None,
     ):
         """
         Configures dynamic file serving from a given folder, relative to the server cwd.
@@ -620,6 +625,9 @@ class Application(BaseApplication):
             use HTML5 History API for client side routing.
             default_file_options: Optional options to serve the default file
             (index.html)
+            on_response: Optional async callback called for every response produced by
+            the static file handler, receiving (request, response). Can be used to
+            inject dynamic response headers such as Content-Security-Policy.
         """
         serve_files_dynamic(
             self.router,
@@ -633,6 +641,7 @@ class Application(BaseApplication):
             fallback_document=fallback_document,
             anonymous_access=allow_anonymous,
             default_file_options=default_file_options,
+            on_response=on_response,
         )
 
     def _apply_middlewares_in_routes(self):
@@ -809,11 +818,9 @@ class Application(BaseApplication):
         root_path = scope.get("root_path", "")
         path = scope["path"]
         if root_path and path.startswith(root_path):
-            path = path[len(root_path):] or "/"
+            path = path[len(root_path) :] or "/"
 
-        route = self.router.get_match_by_method_and_path(
-            RouteMethod.GET_WS, path
-        )
+        route = self.router.get_match_by_method_and_path(RouteMethod.GET_WS, path)
 
         if route is None:
             await ws.close()
@@ -854,7 +861,7 @@ class Application(BaseApplication):
 
         root_path = scope.get("root_path", "")
         if root_path and raw_path.startswith(root_path.encode("utf8")):
-            raw_path = raw_path[len(root_path.encode("utf8")):] or b"/"
+            raw_path = raw_path[len(root_path.encode("utf8")) :] or b"/"
 
         request = Request.incoming(
             scope["method"],

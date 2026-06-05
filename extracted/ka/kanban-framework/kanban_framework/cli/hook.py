@@ -11,6 +11,7 @@ from pathlib import Path
 from kanban_framework.infra.filesystem import Filesystem
 from kanban_framework.domain.task import TaskManager
 from kanban_framework.infra.config import Config
+from kanban_framework.infra.consts import Consts
 
 
 def cmd_hook(args: list[str]) -> dict:
@@ -119,8 +120,7 @@ def _session_context() -> dict:
                         "phase": phase,
                         "status": status,
                         "iteration": data.get("iteration", 1),
-                        "mode": data.get("mode", "lightweight"),
-                        "lightweight": data.get("lightweight", False),
+                        "mode": data.get("mode", Consts.DEFAULT_MODE),
                         "auto_mode": data.get("auto_mode", {}),
                         "next_step": step_info.get("description") if step_info else None,
                         "next_step_id": step_info.get("step_id") if step_info else None,
@@ -147,9 +147,7 @@ def _format_summary(tasks: list[dict]) -> str:
     """Produce a human-readable summary for context injection."""
     lines = ["[KANBAN SESSION CONTEXT]"]
     for t in tasks:
-        mode = t.get("mode", "lightweight")
-        if t.get("lightweight"):
-            mode = "lightweight"
+        mode = t.get("mode", Consts.DEFAULT_MODE)
         auto = "auto" if any(t.get("auto_mode", {}).values()) else "manual"
         lines.append(
             f"  {t['id']}: {t['title'][:50]} "

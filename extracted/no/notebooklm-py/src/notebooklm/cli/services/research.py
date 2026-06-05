@@ -1,4 +1,4 @@
-"""Service layer for ``research wait`` (ADR-008 Click-to-service extraction).
+"""Service layer for ``research wait`` (ADR-0008 Click-to-service extraction).
 
 The CLI ``research wait`` command was a 130-line Click handler that mixed
 plan construction (parsing flags + validation), wait orchestration, and I/O
@@ -19,8 +19,8 @@ Contract
   which currently emits log messages and (in text mode) its own Rich
   status spinner; that I/O is part of the importer, not this service.
 
-Task-id pinning (P1.T2)
------------------------
+Task-id pinning
+---------------
 
 The protocol-level pinning invariant lives in
 ``ResearchAPI.wait_for_completion``. This service delegates the wait loop to
@@ -32,7 +32,7 @@ from __future__ import annotations
 import contextlib
 from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass, field
-from typing import Any, Literal, cast
+from typing import Any, Literal
 
 from ..research_import import ResearchImportResult, import_research_sources
 from ..resolve import resolve_notebook_id
@@ -128,9 +128,8 @@ async def execute_research_wait(
           ``client.research.wait_for_completion``.
         * Import is only invoked when ``plan.import_all`` is true AND the
           completed status has sources AND a ``task_id`` was discovered.
-          (The third guard preserves the pre-extraction handler's behavior
-          exactly — without a task_id the importer has nothing to verify
-          against.)
+          (The third guard is required because without a task_id the
+          importer has nothing to verify against.)
     """
     nb_id_resolved = await resolve_id(client, plan.notebook_id, json_output=plan.json_output)
 
@@ -139,7 +138,7 @@ async def execute_research_wait(
             status = await client.research.wait_for_completion(
                 nb_id_resolved,
                 timeout=float(plan.timeout),
-                interval=float(plan.interval),
+                initial_interval=float(plan.interval),
             )
         except TimeoutError:
             return ResearchWaitResult(
@@ -148,8 +147,7 @@ async def execute_research_wait(
                 timeout=plan.timeout,
             )
 
-    raw_task_id = status.get("task_id")
-    task_id = raw_task_id if isinstance(raw_task_id, str) else None
+    task_id = status.task_id or None
 
     def _terminal(outcome: ResearchWaitOutcome, **extra: Any) -> ResearchWaitResult:
         return ResearchWaitResult(
@@ -160,16 +158,12 @@ async def execute_research_wait(
             **extra,
         )
 
-    def _as_str(value: Any) -> str:
-        return value if isinstance(value, str) else ""
-
-    def _as_sources(value: Any) -> list[dict[str, Any]]:
-        return cast(list[dict[str, Any]], value) if isinstance(value, list) else []
-
-    status_val = _as_str(status.get("status")) or "unknown"
-    query = _as_str(status.get("query"))
-    sources = _as_sources(status.get("sources"))
-    report = _as_str(status.get("report"))
+    status_val = status.status.value
+    query = status.query
+    # ``ResearchWaitResult`` / ``import_research_sources`` consume the legacy
+    # ``list[dict]`` source shape, so serialize the typed sources here.
+    sources = [src.to_public_dict() for src in status.sources]
+    report = status.report
 
     if status_val == "no_research":
         return _terminal("no_research")
@@ -189,8 +183,7 @@ async def execute_research_wait(
     import_result: ResearchImportResult | None = None
     if plan.import_all and sources and task_id:
         # In text mode the importer renders its own "Importing sources..."
-        # status; in JSON mode it stays silent. The kwarg delta below mirrors
-        # the pre-extraction handler exactly.
+        # status; in JSON mode it stays silent.
         import_kwargs: dict[str, Any] = {
             "report": report,
             "cited_only": plan.cited_only,

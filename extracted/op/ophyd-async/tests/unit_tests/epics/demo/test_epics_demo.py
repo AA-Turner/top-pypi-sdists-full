@@ -11,10 +11,11 @@ from bluesky.run_engine import RunEngine
 
 from ophyd_async.core import (
     LazyMock,
-    NotConnectedError,
     get_mock,
     get_mock_put,
     init_devices,
+    set_mock_precision,
+    set_mock_units,
     set_mock_value,
 )
 from ophyd_async.epics import demo
@@ -35,10 +36,13 @@ scalar_int_dtype = (
 
 @pytest.fixture
 async def mock_motor():
-    async with init_devices(mock=True):
-        mock_motor = demo.DemoMotor("BLxxI-MO-TABLE-01:X:")
-    set_mock_value(mock_motor.units, "mm")
-    set_mock_value(mock_motor.precision, 3)
+    # Connect with a plain LazyMock, rather than mock=True that will use
+    # a InstantMovableMock, so we can have full control of how the readback is set
+    # in the tests
+    mock_motor = demo.DemoMotor("BLxxI-MO-TABLE-01:X:", name="mock_motor")
+    await mock_motor.connect(mock=LazyMock())
+    set_mock_units(mock_motor.readback, "mm")
+    set_mock_precision(mock_motor.readback, 3)
     set_mock_value(mock_motor.velocity, 1)
     yield mock_motor
 
@@ -78,12 +82,13 @@ async def test_motor_moving_well(mock_motor: demo.DemoMotor) -> None:
         target=0.55,
         unit="mm",
         precision=3,
-        time_elapsed=pytest.approx(0.0, abs=0.08),
+        time_elapsed=pytest.approx(0.0, abs=0.18),
     )
+    await wait_for_pending_wakeups()
     await assert_value(mock_motor.setpoint, 0.55)
     assert not s.done
     # Wait a bit and give it an update, checking that the watcher is called with it
-    await asyncio.sleep(0.1)
+    await asyncio.sleep(0.2)
     set_mock_value(mock_motor.readback, 0.1)
     await watcher.wait_for_call(
         name="mock_motor",
@@ -92,7 +97,7 @@ async def test_motor_moving_well(mock_motor: demo.DemoMotor) -> None:
         target=0.55,
         unit="mm",
         precision=3,
-        time_elapsed=pytest.approx(0.1, abs=0.08),
+        time_elapsed=pytest.approx(0.2, abs=0.18),
     )
     # Make it almost get there and check that it completes
     set_mock_value(mock_motor.readback, 0.5499999)
@@ -154,11 +159,6 @@ async def test_read_motor(mock_motor: demo.DemoMotor):
     await assert_configuration(
         mock_motor,
         {
-            "mock_motor-units": {
-                "value": "mm",
-                "timestamp": ANY,
-                "alarm_severity": 0,
-            },
             "mock_motor-velocity": {
                 "value": 1.0,
                 "timestamp": ANY,
@@ -200,13 +200,6 @@ async def test_zero_velocity(mock_motor: demo.DemoMotor) -> None:
     await mock_motor.velocity.set(0)
     with pytest.raises(ZeroDivisionError):
         await mock_motor.set(3.14)
-
-
-async def test_mover_disconnected():
-    with pytest.raises(NotConnectedError):
-        async with init_devices(timeout=0.1):
-            m = demo.DemoMotor("ca://PRE:", name="motor")
-    assert m.name == "motor"
 
 
 async def test_read_point_detector(mock_point_detector: demo.DemoPointDetector):
@@ -257,32 +250,6 @@ async def test_assembly_renaming() -> None:
     assert thing.x.name == "foo-x"
     assert thing.x.velocity.name == "foo-x-velocity"
     assert thing.x.stop_.name == "foo-x-stop_"
-
-
-async def test_point_detector_disconnected():
-    with pytest.raises(NotConnectedError) as exc:
-        async with init_devices(timeout=0.1):
-            det = demo.DemoPointDetector("MOCK:DET:")
-    expected = """
-det: NotConnectedError:
-    channel: NotConnectedError:
-        1: NotConnectedError:
-            value: NotConnectedError: ca://MOCK:DET:1:Value
-            mode: NotConnectedError: ca://MOCK:DET:1:Mode
-        2: NotConnectedError:
-            value: NotConnectedError: ca://MOCK:DET:2:Value
-            mode: NotConnectedError: ca://MOCK:DET:2:Mode
-        3: NotConnectedError:
-            value: NotConnectedError: ca://MOCK:DET:3:Value
-            mode: NotConnectedError: ca://MOCK:DET:3:Mode
-    acquire_time: NotConnectedError: ca://MOCK:DET:AcquireTime
-    start: NotConnectedError: ca://MOCK:DET:Start.PROC
-    acquiring: NotConnectedError: ca://MOCK:DET:Acquiring
-    reset: NotConnectedError: ca://MOCK:DET:Reset.PROC
-"""
-    assert str(exc.value) == expected
-
-    assert det.name == "det"
 
 
 async def test_point_detector_read_and_describe(

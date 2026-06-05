@@ -286,7 +286,7 @@ class IPSetReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_wafregional as interfaces_wafregional
             
-            i_pSet_reference = {
+            i_p_set_reference = {
                 "ip_set_id": "ipSetId"
             }
         '''
@@ -946,7 +946,7 @@ class WebACLAssociationReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_wafregional as interfaces_wafregional
             
-            web_aCLAssociation_reference = interfaces_wafregional.WebACLAssociationReference(
+            web_acl_association_reference = interfaces_wafregional.WebACLAssociationReference(
                 web_acl_association_id="webAclAssociationId"
             )
         '''
@@ -995,7 +995,7 @@ class WebACLReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_wafregional as interfaces_wafregional
             
-            web_aCLReference = interfaces_wafregional.WebACLReference(
+            web_acl_reference = interfaces_wafregional.WebACLReference(
                 web_acl_id="webAclId"
             )
         '''

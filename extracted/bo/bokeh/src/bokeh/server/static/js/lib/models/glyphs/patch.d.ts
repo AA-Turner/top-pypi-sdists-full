@@ -1,7 +1,7 @@
 import { XYGlyph, XYGlyphView } from "./xy_glyph";
 import type { PointGeometry } from "../../core/geometry";
-import type * as visuals from "../../core/visuals";
 import type { Rect } from "../../core/types";
+import type * as visuals from "../../core/visuals";
 import type { Context2d } from "../../core/util/canvas";
 import * as mixins from "../../core/property_mixins";
 import type * as p from "../../core/properties";

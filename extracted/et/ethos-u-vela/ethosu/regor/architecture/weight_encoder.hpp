@@ -1,5 +1,5 @@
 //
-// SPDX-FileCopyrightText: Copyright 2021-2025 Arm Limited and/or its affiliates <open-source-office@arm.com>
+// SPDX-FileCopyrightText: Copyright 2021-2026 Arm Limited and/or its affiliates <open-source-office@arm.com>
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -96,15 +96,17 @@ public:
 
     /** Required size in bytes if double buffering is applied */
     int maxRangeBytes = 0;
-    int doubleBufferSize = 0;
-    int doubleBufferOffset = 0;
+    int doubleBufferSizes[2] = {};
     int totalSourceBytes = 0;
     int totalWeightBytes = 0;
     int subStreams = 0;
     int distinctWeights = 0;
-    int zeroCount;
+    int zeroCount = 0;
+    std::vector<int> rangeSizes;
     std::unordered_map<int, WeightRange> encodedRanges;
     std::unique_ptr<IWeightEncodingConfig> config;
+
+    NpuWeightTensor() : SchedulerTensor(DataType::UInt8, Shape()) {}
 };
 
 struct WeightScaleTensors
@@ -145,9 +147,6 @@ public:
 
     virtual std::unique_ptr<IVolumeScaleSource>
     GetScaleSource(IWeightEncodingConfig *config, DataType scaleType, const Quantization &explicitQuant) = 0;
-
-    virtual Quantization MakeExplicit(const Quantization &ifmQ, const Quantization &weightQ, const Quantization &ofmQ,
-        DataType scaleType, DataType ifmType, OpType opType) = 0;
 
     virtual WeightsInfo EncodeWeights(IWeightEncodingConfig *config, IWeightSource *source, std::vector<uint8_t> &result) = 0;
     virtual int EncodeScales(IWeightEncodingConfig *config, IScaleSource *source, std::vector<uint8_t> &result, bool measureOnly) = 0;

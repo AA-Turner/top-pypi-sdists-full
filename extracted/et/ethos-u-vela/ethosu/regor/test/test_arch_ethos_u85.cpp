@@ -1,5 +1,5 @@
 //
-// SPDX-FileCopyrightText: Copyright 2024 Arm Limited and/or its affiliates <open-source-office@arm.com>
+// SPDX-FileCopyrightText: Copyright 2024, 2026 Arm Limited and/or its affiliates <open-source-office@arm.com>
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -31,6 +31,7 @@ TEST_CASE("arch_ethos_u85 GetOpConfig")
 {
     auto arch = CreateArchDefault<ArchEthosU85>(1024);
     ArchitectureConfigQuery query{};
+    Kernel kernel({1, 1}, {1, 1}, {0, 0});
     query.ifmBits = 8;
     query.lutBytes = 0;
     query.scaled = false;
@@ -42,7 +43,6 @@ TEST_CASE("arch_ethos_u85 GetOpConfig")
     SECTION("No waste")
     {
         OpType type = OpType::Add;
-        Kernel kernel({1, 1}, {1, 1}, {0, 0});
         query.ofmShape = {1, 8, 8, 32};
         query.ifmShape[0] = query.ofmShape;
         query.kernel = &kernel;
@@ -54,7 +54,6 @@ TEST_CASE("arch_ethos_u85 GetOpConfig")
     SECTION("Waste in H")
     {
         OpType type = OpType::Add;
-        Kernel kernel({1, 1}, {1, 1}, {0, 0});
         query.ofmShape = {1, 1, 8, 32};
         query.ifmShape[0] = query.ofmShape;
         query.kernel = &kernel;
@@ -66,7 +65,6 @@ TEST_CASE("arch_ethos_u85 GetOpConfig")
     SECTION("Waste in W")
     {
         OpType type = OpType::Add;
-        Kernel kernel({1, 1}, {1, 1}, {0, 0});
         query.ofmShape = {1, 8, 1, 16};
         query.ifmShape[0] = query.ofmShape;
         query.kernel = &kernel;
@@ -78,12 +76,38 @@ TEST_CASE("arch_ethos_u85 GetOpConfig")
     SECTION("Waste in C")
     {
         OpType type = OpType::Add;
-        Kernel kernel({1, 1}, {1, 1}, {0, 0});
         query.ofmShape = {1, 8, 8, 1};
         query.ifmShape[0] = query.ofmShape;
         query.kernel = &kernel;
         auto archOpConfig = arch->GetOpConfig(type, query);
         EthosU85OpConfig *ethosU85OpConfig = static_cast<EthosU85OpConfig *>(archOpConfig.get());
         REQUIRE(ethosU85OpConfig->OfmUBlock() == Shape(2, 4, 16));
+    }
+}
+
+
+TEST_CASE("arch_ethos_u85 UpscaleAndRounding")
+{
+    auto arch = CreateArchDefault<ArchEthosU85>(1024);
+    SECTION("Resampling None")
+    {
+        int rounding;
+        int upscale = arch->UpscaleAndRounding(ArchResampling::None, rounding);
+        REQUIRE(rounding == 0);
+        REQUIRE(upscale == 1);
+    }
+    SECTION("Resampling Zero")
+    {
+        int rounding;
+        int upscale = arch->UpscaleAndRounding(ArchResampling::Zeros, rounding);
+        REQUIRE(rounding == 0);
+        REQUIRE(upscale == 2);
+    }
+    SECTION("Resampling Nearest")
+    {
+        int rounding;
+        int upscale = arch->UpscaleAndRounding(ArchResampling::Nearest, rounding);
+        REQUIRE(rounding == 1);
+        REQUIRE(upscale == 2);
     }
 }

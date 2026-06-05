@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: robotframework-assertion-engine
-Version: 5.0.0
+Version: 5.0.1
 Summary: Generic way to create meaningful and easy to use assertions for the Robot Framework libraries.
 Author-email: Tatu Aalto <aalto.tatu@gmail.com>
 License-Expression: Apache-2.0

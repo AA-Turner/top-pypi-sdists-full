@@ -1,4 +1,5 @@
 import sys
+from collections.abc import AsyncGenerator, AsyncIterable, AsyncIterator
 from dataclasses import dataclass
 from datetime import date, datetime
 from enum import IntEnum
@@ -481,9 +482,7 @@ def test_dates_handling(docs: OpenAPIHandler, serializer: Serializer):
 
     yaml = serializer.to_yaml(docs.generate_documentation(get_app()))
 
-    assert (
-        yaml.strip()
-        == """
+    assert yaml.strip() == """
 openapi: 3.1.0
 info:
     title: Example
@@ -507,7 +506,6 @@ components:
                     nullable: false
 tags: []
 """.strip()
-    )
 
 
 def test_register_schema_for_generic_with_list(
@@ -522,9 +520,7 @@ def test_register_schema_for_generic_with_list(
 
     yaml = serializer.to_yaml(docs.generate_documentation(get_app()))
 
-    assert (
-        yaml.strip()
-        == """
+    assert yaml.strip() == """
 openapi: 3.1.0
 info:
     title: Example
@@ -568,7 +564,6 @@ components:
                     nullable: false
 tags: []
 """.strip()
-    )
 
 
 def test_register_schema_for_multiple_generic_with_list(
@@ -586,9 +581,7 @@ def test_register_schema_for_multiple_generic_with_list(
 
     yaml = serializer.to_yaml(docs.generate_documentation(get_app()))
 
-    assert (
-        yaml.strip()
-        == """
+    assert yaml.strip() == """
 openapi: 3.1.0
 info:
     title: Example
@@ -659,7 +652,6 @@ components:
                     nullable: false
 tags: []
 """.strip()
-    )
 
 
 def test_register_schema_for_generic_with_property(
@@ -674,9 +666,7 @@ def test_register_schema_for_generic_with_property(
 
     yaml = serializer.to_yaml(docs.generate_documentation(get_app()))
 
-    assert (
-        yaml.strip()
-        == """
+    assert yaml.strip() == """
 openapi: 3.1.0
 info:
     title: Example
@@ -716,7 +706,6 @@ components:
                     nullable: false
 tags: []
 """.strip()
-    )
 
 
 def test_register_schema_for_generic_sub_property(
@@ -732,9 +721,7 @@ def test_register_schema_for_generic_sub_property(
 
     yaml = serializer.to_yaml(docs.generate_documentation(get_app()))
 
-    assert (
-        yaml.strip()
-        == """
+    assert yaml.strip() == """
 openapi: 3.1.0
 info:
     title: Example
@@ -781,7 +768,6 @@ components:
                     $ref: '#/components/schemas/ValidatedOfFoo'
 tags: []
 """.strip()
-    )
 
 
 async def test_register_schema_for_multi_generic(
@@ -797,9 +783,7 @@ async def test_register_schema_for_multi_generic(
 
     yaml = serializer.to_yaml(docs.generate_documentation(app))
 
-    assert (
-        yaml.strip()
-        == """
+    assert yaml.strip() == """
 openapi: 3.1.0
 info:
     title: Example
@@ -861,7 +845,6 @@ components:
                     $ref: '#/components/schemas/Foo'
 tags: []
 """.strip()
-    )
 
 
 async def test_register_schema_for_generic_with_list_reusing_ref(
@@ -882,9 +865,7 @@ async def test_register_schema_for_generic_with_list_reusing_ref(
 
     yaml = serializer.to_yaml(docs.generate_documentation(app))
 
-    assert (
-        yaml.strip()
-        == """
+    assert yaml.strip() == """
 openapi: 3.1.0
 info:
     title: Example
@@ -948,7 +929,6 @@ tags:
 -   name: A tag
 -   name: B tag
 """.strip()
-    )
 
 
 def test_get_type_name_raises_for_invalid_object_type(docs: OpenAPIHandler):
@@ -969,9 +949,7 @@ async def test_handling_of_forward_references(
 
     yaml = serializer.to_yaml(docs.generate_documentation(app))
 
-    assert (
-        yaml.strip()
-        == """
+    assert yaml.strip() == """
 openapi: 3.1.0
 info:
     title: Example
@@ -1026,7 +1004,6 @@ components:
                     $ref: '#/components/schemas/PaginatedSetOfCat'
 tags: []
 """.strip()
-    )
 
 
 async def test_handling_of_normal_class(docs: OpenAPIHandler, serializer: Serializer):
@@ -1045,9 +1022,7 @@ async def test_handling_of_normal_class(docs: OpenAPIHandler, serializer: Serial
 
     yaml = serializer.to_yaml(docs.generate_documentation(app))
 
-    assert (
-        yaml.strip()
-        == """
+    assert yaml.strip() == """
 openapi: 3.1.0
 info:
     title: Example
@@ -1066,7 +1041,6 @@ paths:
 components: {}
 tags: []
 """.strip()
-    )
 
 
 async def test_handling_of_pydantic_class_with_generic(
@@ -1083,9 +1057,7 @@ async def test_handling_of_pydantic_class_with_generic(
     yaml = serializer.to_yaml(docs.generate_documentation(app))
 
     if PYDANTIC_VERSION == 1:
-        assert (
-            yaml.strip()
-            == """
+        assert yaml.strip() == """
 openapi: 3.1.0
 info:
     title: Example
@@ -1140,11 +1112,8 @@ components:
             - total
 tags: []
 """.strip()
-        )
     else:
-        assert (
-            yaml.strip()
-            == """
+        assert yaml.strip() == """
 openapi: 3.1.0
 info:
     title: Example
@@ -1199,7 +1168,6 @@ components:
             type: object
 tags: []
 """.strip()
-        )
 
 
 async def test_handling_of_pydantic_class_with_child_models(
@@ -1216,9 +1184,7 @@ async def test_handling_of_pydantic_class_with_child_models(
     yaml = serializer.to_yaml(docs.generate_documentation(app))
 
     if PYDANTIC_VERSION == 1:
-        assert (
-            yaml.strip()
-            == """
+        assert yaml.strip() == """
 openapi: 3.1.0
 info:
     title: Example
@@ -1296,11 +1262,8 @@ components:
             - friend
 tags: []
     """.strip()
-        )
     else:
-        assert (
-            yaml.strip()
-            == """
+        assert yaml.strip() == """
 openapi: 3.1.0
 info:
     title: Example
@@ -1378,7 +1341,6 @@ components:
             type: object
 tags: []
     """.strip()
-        )
 
 
 async def test_handling_of_pydantic_class_in_generic(
@@ -1395,9 +1357,7 @@ async def test_handling_of_pydantic_class_in_generic(
     yaml = serializer.to_yaml(docs.generate_documentation(app))
 
     if PYDANTIC_VERSION == 1:
-        assert (
-            yaml.strip()
-            == """
+        assert yaml.strip() == """
 openapi: 3.1.0
 info:
     title: Example
@@ -1452,11 +1412,8 @@ components:
                     nullable: false
 tags: []
     """.strip()
-        )
     else:
-        assert (
-            yaml.strip()
-            == """
+        assert yaml.strip() == """
 openapi: 3.1.0
 info:
     title: Example
@@ -1511,7 +1468,6 @@ components:
                     nullable: false
 tags: []
 """.strip()
-        )
 
 
 async def test_handling_of_sequence(docs: OpenAPIHandler, serializer: Serializer):
@@ -1525,9 +1481,7 @@ async def test_handling_of_sequence(docs: OpenAPIHandler, serializer: Serializer
 
     yaml = serializer.to_yaml(docs.generate_documentation(app))
 
-    assert (
-        yaml.strip()
-        == """
+    assert yaml.strip() == """
 openapi: 3.1.0
 info:
     title: Example
@@ -1563,7 +1517,6 @@ components:
                     nullable: false
 tags: []
 """.strip()
-    )
 
 
 @pytest.mark.asyncio
@@ -1578,9 +1531,7 @@ async def test_handling_of_mapping(docs: OpenAPIHandler, serializer: Serializer)
 
     yaml = serializer.to_yaml(docs.generate_documentation(app))
 
-    assert (
-        yaml.strip()
-        == r"""
+    assert yaml.strip() == r"""
 openapi: 3.1.0
 info:
     title: Example
@@ -1622,7 +1573,6 @@ components:
                     nullable: false
 tags: []
 """.strip()
-    )
 
 
 def test_handling_of_generic_with_forward_references(docs: OpenAPIHandler):
@@ -1637,9 +1587,7 @@ async def test_cats_api(docs: OpenAPIHandler, serializer: Serializer):
 
     yaml = serializer.to_yaml(docs.generate_documentation(app))
 
-    assert (
-        yaml.strip()
-        == """
+    assert yaml.strip() == """
 openapi: 3.1.0
 info:
     title: Example
@@ -1820,7 +1768,6 @@ components:
                         nullable: false
 tags: []
 """.strip()
-    )
 
 
 async def test_cats_api_capital_operations_ids(
@@ -1835,9 +1782,7 @@ async def test_cats_api_capital_operations_ids(
 
     yaml = serializer.to_yaml(docs.generate_documentation(app))
 
-    assert (
-        yaml.strip()
-        == """
+    assert yaml.strip() == """
 openapi: 3.1.0
 info:
     title: Example
@@ -2018,7 +1963,6 @@ components:
                         nullable: false
 tags: []
 """.strip()
-    )
 
 
 async def test_cats_annotated_api(docs: OpenAPIHandler, serializer: Serializer):
@@ -2028,9 +1972,7 @@ async def test_cats_annotated_api(docs: OpenAPIHandler, serializer: Serializer):
 
     yaml = serializer.to_yaml(docs.generate_documentation(app))
 
-    assert (
-        yaml.strip()
-        == """
+    assert yaml.strip() == """
 openapi: 3.1.0
 info:
     title: Example
@@ -2212,7 +2154,6 @@ components:
                         nullable: false
 tags: []
 """.strip()
-    )
 
 
 async def test_cats_annotated_api_capital_operations_ids(
@@ -2227,9 +2168,7 @@ async def test_cats_annotated_api_capital_operations_ids(
 
     yaml = serializer.to_yaml(docs.generate_documentation(app))
 
-    assert (
-        yaml.strip()
-        == """
+    assert yaml.strip() == """
 openapi: 3.1.0
 info:
     title: Example
@@ -2411,7 +2350,6 @@ components:
                         nullable: false
 tags: []
 """.strip()
-    )
 
 
 async def test_handling_of_pydantic_types(docs: OpenAPIHandler, serializer: Serializer):
@@ -2426,9 +2364,7 @@ async def test_handling_of_pydantic_types(docs: OpenAPIHandler, serializer: Seri
     yaml = serializer.to_yaml(docs.generate_documentation(app))
 
     if PYDANTIC_VERSION == 1:
-        assert (
-            yaml.strip()
-            == """
+        assert yaml.strip() == """
 openapi: 3.1.0
 info:
     title: Example
@@ -2460,12 +2396,9 @@ components:
             - url
 tags: []
 """.strip()
-        )
         return
 
-    assert (
-        yaml.strip()
-        == """
+    assert yaml.strip() == """
 openapi: 3.1.0
 info:
     title: Example
@@ -2497,7 +2430,6 @@ components:
             type: object
 tags: []
 """.strip()
-    )
 
 
 async def test_pydantic_generic(docs: OpenAPIHandler, serializer: Serializer):
@@ -2832,9 +2764,7 @@ async def test_schema_registration(docs: OpenAPIHandler, serializer: Serializer)
 
     yaml = serializer.to_yaml(docs.generate_documentation(app))
 
-    assert (
-        yaml.strip()
-        == """
+    assert yaml.strip() == """
 openapi: 3.1.0
 info:
     title: Example
@@ -2883,7 +2813,6 @@ components:
                     nullable: false
 tags: []
 """.strip()
-    )
 
 
 async def test_handles_ref_for_optional_type(
@@ -2908,9 +2837,7 @@ async def test_handles_ref_for_optional_type(
 
     yaml = serializer.to_yaml(docs.generate_documentation(app))
 
-    assert (
-        yaml.strip()
-        == """
+    assert yaml.strip() == """
 openapi: 3.1.0
 info:
     title: Example
@@ -3017,7 +2944,6 @@ components:
                     nullable: false
 tags: []
 """.strip()
-    )
 
 
 async def test_handles_from_form_docs(docs: OpenAPIHandler, serializer: Serializer):
@@ -3031,9 +2957,7 @@ async def test_handles_from_form_docs(docs: OpenAPIHandler, serializer: Serializ
 
     yaml = serializer.to_yaml(docs.generate_documentation(app))
 
-    assert (
-        yaml.strip()
-        == """
+    assert yaml.strip() == """
 openapi: 3.1.0
 info:
     title: Example
@@ -3101,7 +3025,6 @@ components:
                     - 3
 tags: []
 """.strip()
-    )
 
 
 async def test_websockets_routes_are_ignored(
@@ -3120,9 +3043,7 @@ async def test_websockets_routes_are_ignored(
 
     yaml = serializer.to_yaml(docs.generate_documentation(app))
 
-    assert (
-        yaml.strip()
-        == """
+    assert yaml.strip() == """
 openapi: 3.1.0
 info:
     title: Example
@@ -3190,7 +3111,6 @@ components:
                     - 3
 tags: []
 """.strip()
-    )
 
 
 async def test_mount_oad_generation(serializer: Serializer):
@@ -3293,9 +3213,7 @@ async def test_mount_oad_generation(serializer: Serializer):
 
     yaml = serializer.to_yaml(docs.generate_documentation(parent))
 
-    assert (
-        yaml.strip()
-        == """
+    assert yaml.strip() == """
 openapi: 3.1.0
 info:
     title: Parent API
@@ -3453,7 +3371,6 @@ components:
                     nullable: false
 tags: []
 """.strip()
-    )
 
 
 async def test_mount_oad_generation_sub_children(serializer: Serializer):
@@ -3511,9 +3428,7 @@ async def test_mount_oad_generation_sub_children(serializer: Serializer):
 
     yaml = serializer.to_yaml(docs.generate_documentation(parent))
 
-    assert (
-        yaml.strip()
-        == """
+    assert yaml.strip() == """
 openapi: 3.1.0
 info:
     title: Parent API
@@ -3549,7 +3464,6 @@ components: {}
 tags:
 -   name: A Home
 """.strip()
-    )
 
 
 async def test_sorting_api_controllers_tags(serializer: Serializer):
@@ -3641,9 +3555,7 @@ async def test_sorting_api_controllers_tags(serializer: Serializer):
 
     yaml = serializer.to_yaml(docs.generate_documentation(app))
 
-    assert (
-        yaml.strip()
-        == """
+    assert yaml.strip() == """
 openapi: 3.1.0
 info:
     title: Example API
@@ -3796,7 +3708,6 @@ tags:
 -   name: Dogs
 -   name: Parrots
 """.strip()
-    )
 
 
 @dataclass
@@ -4232,9 +4143,7 @@ async def test_tags_decorator(serializer: Serializer):
 
     yaml = serializer.to_yaml(docs.generate_documentation(app))
 
-    assert (
-        yaml.strip()
-        == """
+    assert yaml.strip() == """
 openapi: 3.1.0
 info:
     title: Example API
@@ -4282,7 +4191,6 @@ components:
 tags:
 -   name: TagExample
 """.strip()
-    )
 
 
 async def test_handles_from_files_multipart_docs():
@@ -4727,7 +4635,9 @@ async def test_multi_format_union_body_generates_all_content_types(
     app = get_app()
 
     @app.router.post("/items")
-    def create_item(data: FromJSON[CreateFooInput] | FromForm[CreateFooInput]) -> Foo: ...
+    def create_item(
+        data: FromJSON[CreateFooInput] | FromForm[CreateFooInput],
+    ) -> Foo: ...
 
     docs.bind_app(app)
     await app.start()
@@ -4746,7 +4656,12 @@ async def test_from_body_generates_json_and_form_content_types(
     docs: OpenAPIHandler, serializer: Serializer, monkeypatch
 ):
     """FromBody[T] should document both JSON and form content types."""
-    from blacksheep.server.bindings import FormBinder, FromBody, FromBodyBinder, JSONBinder
+    from blacksheep.server.bindings import (
+        FormBinder,
+        FromBody,
+        FromBodyBinder,
+        JSONBinder,
+    )
 
     monkeypatch.setattr(FromBodyBinder, "binder_types", [JSONBinder, FormBinder])
 
@@ -4819,7 +4734,9 @@ async def test_json_xml_union_generates_all_content_types(
     app = get_app()
 
     @app.router.post("/items")
-    def create_item(data: FromJSON[CreateFooInput] | FromXML[CreateFooInput]) -> Foo: ...
+    def create_item(
+        data: FromJSON[CreateFooInput] | FromXML[CreateFooInput],
+    ) -> Foo: ...
 
     docs.bind_app(app)
     await app.start()
@@ -4830,6 +4747,49 @@ async def test_json_xml_union_generates_all_content_types(
     assert "application/xml:" in yaml
     assert "text/xml:" in yaml
     assert yaml.count("$ref: '#/components/schemas/CreateFooInput'") == 3
+
+
+# endregion
+
+
+# region SSE / async-generator return types
+
+
+async def test_sse_async_iterable_does_not_crash_openapi(
+    docs: OpenAPIHandler, serializer: Serializer
+):
+    """AsyncIterable[ServerSentEvent] return type must not crash the OpenAPI generator."""
+    from blacksheep.server.controllers import Controller
+    from blacksheep.server.sse import ServerSentEvent
+
+    app = get_app()
+
+    class Home(Controller):
+        @app.router.get("/events")
+        async def events(self) -> AsyncIterable[ServerSentEvent]:
+            yield ServerSentEvent({"msg": "hello"})
+
+    docs.bind_app(app)
+    await app.start()
+
+    # Must not raise
+    docs.generate_documentation(app)
+
+
+@pytest.mark.parametrize(
+    "return_type",
+    [
+        AsyncIterable[int],
+        AsyncIterator[int],
+        AsyncGenerator[int, None],
+    ],
+)
+def test_get_schema_by_type_does_not_crash_for_async_iterables(
+    docs: OpenAPIHandler, return_type
+):
+    """get_schema_by_type must not raise for async iterable generics (issue #674)."""
+    # Should not raise AttributeError
+    docs.get_schema_by_type(return_type)
 
 
 # endregion

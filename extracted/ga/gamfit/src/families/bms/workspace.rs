@@ -144,43 +144,12 @@ impl BernoulliMarginalSlopeFamily {
         Ok(root)
     }
 
-    pub(super) fn empirical_rigid_calibration_jets(
-        &self,
-        intercept: &MultiDirJet,
-        mu: &MultiDirJet,
-        slope: &MultiDirJet,
-        nodes: &[f64],
-        measure_weights: &[f64],
-    ) -> (MultiDirJet, MultiDirJet) {
-        let n_dirs = intercept.coeffs.len().trailing_zeros() as usize;
-        let observed_slope = slope.scale(self.probit_frailty_scale());
-        let mut f = mu.scale(-1.0);
-        let mut f_a = MultiDirJet::zero(n_dirs);
-        for (&node, &weight) in nodes.iter().zip(measure_weights.iter()) {
-            let eta = intercept.add(&observed_slope.scale(node));
-            let cdf = eta.compose_unary(unary_derivatives_normal_cdf(eta.coeff(0)));
-            let pdf = eta.compose_unary(unary_derivatives_normal_pdf(eta.coeff(0)));
-            f = f.add(&cdf.scale(weight));
-            f_a = f_a.add(&pdf.scale(weight));
-        }
-        (f, f_a)
-    }
-
     /// Objective-only fast path for the empirical-grid rigid kernel: returns
-    /// just `-w · log Φ(s · (intercept + s_f·g·z))` evaluated at the
-    /// converged scalar intercept.
-    ///
-    /// **Mathematically identical** to
-    /// `empirical_rigid_neglog_jet(..).coeff(0)`: same scalar fixed point
-    /// (the converged intercept root from `empirical_intercept_from_marginal`),
-    /// same probit log-CDF evaluation. The skipped work is the per-row
-    /// `MultiDirJet` construction + the 6 Newton-refinement passes that
-    /// propagate the intercept through 16 directional coefficient slots;
-    /// the line-search accept/reject decision never reads those coefficients.
-    ///
-    /// Reuses the same `intercept_warm_starts` cache as `empirical_rigid_neglog_jet`,
-    /// so successive line-search trials at nearby intercepts converge in
-    /// `O(1)` Newton iterations per row.
+    /// `-w · log Φ(s · (intercept + s_f·g·z))` at the converged scalar
+    /// intercept (the calibration root from `empirical_intercept_from_marginal`).
+    /// Shares the `intercept_warm_starts` cache with the closed-form
+    /// gradient/Hessian path, so successive line-search trials at nearby
+    /// intercepts converge in `O(1)` Newton iterations per row.
     pub(super) fn empirical_rigid_neglog_only(
         &self,
         row: usize,
@@ -229,50 +198,384 @@ impl BernoulliMarginalSlopeFamily {
         }
     }
 
-    pub(super) fn empirical_rigid_neglog_jet(
+    /// Closed-form row-primary negative-log-likelihood, gradient, and Hessian
+    /// for the **rigid** empirical-grid Bernoulli kernel, in primary
+    /// coordinates `(m = marginal_eta, g = slope)`.
+    ///
+    /// Replaces the second-order `empirical_rigid_neglog_jet` path — a 4-slot
+    /// [`MultiDirJet`] driven through six Newton intercept-refinement passes
+    /// per row — with the exact implicit-function-theorem solution. The
+    /// intercept `a(m, g)` is the same scalar fixed point the jet converges to
+    /// ([`Self::empirical_rigid_intercept_for_row`]); its derivatives follow in
+    /// closed form from the grid calibration
+    /// `F(a, m, g) = Σ_k π_k Φ(a + s·g·x_k) − μ(m) = 0`:
+    ///
+    /// ```text
+    ///   D    = F_a = Σ_k π_k φ(η_k)            η_k = a + s·g·x_k
+    ///   F_g        = Σ_k π_k φ(η_k)·(s·x_k)
+    ///   F_aa       = Σ_k π_k (−η_k) φ(η_k)
+    ///   F_ag       = Σ_k π_k (−η_k) φ(η_k)·(s·x_k)
+    ///   F_gg       = Σ_k π_k (−η_k) φ(η_k)·(s·x_k)²
+    ///   a_m  = μ'(m)/D                a_g  = −F_g/D
+    ///   a_mm = (μ''(m) − F_aa·a_m²)/D
+    ///   a_mg = −(F_ag·a_m + F_aa·a_m·a_g)/D
+    ///   a_gg = −(F_gg + 2·F_ag·a_g + F_aa·a_g²)/D
+    /// ```
+    ///
+    /// The marginal target enters only through the link derivatives
+    /// `μ'(m) = marginal.mu1`, `μ''(m) = marginal.mu2`, so this stays correct
+    /// for any marginal link, not just probit. The observed index is
+    /// `η = a + s·g·z`, hence `η_m = a_m`, `η_g = a_g + s·z`, and the
+    /// second-order observed derivatives equal the intercept's (`s·g·z` is
+    /// linear in `g`). The negative-log-likelihood chain reuses the **same**
+    /// signed-probit scalar kernel as the standard-normal rigid path
+    /// ([`signed_probit_neglog_derivatives_up_to_fourth`]) so the two latent
+    /// measures stay numerically consistent on shared terms:
+    /// `ℓ_u = u1·η_u`, `ℓ_uv = u2·η_u·η_v + u1·η_uv`, with `u1 = s·k1`,
+    /// `u2 = k2`.
+    pub(super) fn empirical_rigid_primary_grad_hess_closed_form(
         &self,
         row: usize,
-        marginal_eta: f64,
         marginal: BernoulliMarginalLinkMap,
         slope: f64,
-        directions: &[[f64; 2]],
         nodes: &[f64],
         measure_weights: &[f64],
-    ) -> Result<MultiDirJet, String> {
-        let n_dirs = directions.len();
-        let marginal_first = directions.iter().map(|dir| dir[0]).collect::<Vec<_>>();
-        let slope_first = directions.iter().map(|dir| dir[1]).collect::<Vec<_>>();
-        let marginal_eta_jet = MultiDirJet::linear(n_dirs, marginal_eta, &marginal_first);
-        let mu_jet = marginal_eta_jet.compose_unary([
-            marginal.mu,
-            marginal.mu1,
-            marginal.mu2,
-            marginal.mu3,
-            marginal.mu4,
-        ]);
-        let slope_jet = MultiDirJet::linear(n_dirs, slope, &slope_first);
-        let intercept_root =
+    ) -> Result<(f64, [f64; 2], [[f64; 2]; 2]), String> {
+        let s = self.probit_frailty_scale();
+        let a =
             self.empirical_rigid_intercept_for_row(row, marginal, slope, nodes, measure_weights)?;
-        let mut intercept_jet = MultiDirJet::constant(n_dirs, intercept_root);
-        for _ in 0..6 {
-            let (f, f_a) = self.empirical_rigid_calibration_jets(
-                &intercept_jet,
-                &mu_jet,
-                &slope_jet,
-                nodes,
-                measure_weights,
-            );
-            let inv_f_a = f_a.compose_unary(unary_derivatives_reciprocal(f_a.coeff(0)));
-            intercept_jet = intercept_jet.add(&f.mul(&inv_f_a).scale(-1.0));
-            intercept_jet.coeffs[0] = intercept_root;
+        let observed_slope = s * slope;
+
+        // Single grid pass over the calibration moments.
+        let mut d = 0.0f64; // F_a = Σ π φ(η)
+        let mut f_g = 0.0f64;
+        let mut f_aa = 0.0f64;
+        let mut f_ag = 0.0f64;
+        let mut f_gg = 0.0f64;
+        for (&node, &weight) in nodes.iter().zip(measure_weights.iter()) {
+            let eta_k = a + observed_slope * node;
+            let w_phi = weight * normal_pdf(eta_k);
+            let sx = s * node;
+            let neg_eta_w_phi = -eta_k * w_phi;
+            d += w_phi;
+            f_g += w_phi * sx;
+            f_aa += neg_eta_w_phi;
+            f_ag += neg_eta_w_phi * sx;
+            f_gg += neg_eta_w_phi * sx * sx;
         }
-        let observed_slope = slope_jet.scale(self.probit_frailty_scale());
-        let observed_eta = intercept_jet.add(&observed_slope.scale(self.z[row]));
-        let signed = observed_eta.scale(2.0 * self.y[row] - 1.0);
-        Ok(signed.compose_unary(unary_derivatives_neglog_phi(
-            signed.coeff(0),
-            self.weights[row],
-        )))
+        if !d.is_finite() || d <= 0.0 {
+            return Err(format!(
+                "empirical rigid closed-form: non-positive calibration denominator D={d} at row {row}"
+            ));
+        }
+
+        // Intercept derivatives via the implicit function theorem.
+        let a_m = marginal.mu1 / d;
+        let a_g = -f_g / d;
+        let a_mm = (marginal.mu2 - f_aa * a_m * a_m) / d;
+        let a_mg = -(f_ag * a_m + f_aa * a_m * a_g) / d;
+        let a_gg = -(f_gg + 2.0 * f_ag * a_g + f_aa * a_g * a_g) / d;
+
+        // Observed-index derivatives at this row's own latent score z.
+        let z = self.z[row];
+        let eta_m = a_m;
+        let eta_g = a_g + s * z;
+
+        // Signed-probit negative-log-likelihood chain (shared scalar kernel).
+        let w = self.weights[row];
+        let sign = 2.0 * self.y[row] - 1.0;
+        let observed_eta = a + observed_slope * z;
+        let m_signed = sign * observed_eta;
+        let (logcdf, _) = signed_probit_logcdf_and_mills_ratio(m_signed);
+        if !logcdf.is_finite() {
+            return Err(format!(
+                "empirical rigid closed-form: non-finite log Φ at row {row}"
+            ));
+        }
+        let (k1, k2, _, _) = signed_probit_neglog_derivatives_up_to_fourth(m_signed, w)?;
+        let u1 = sign * k1;
+        let u2 = k2;
+
+        let neglog = -w * logcdf;
+        let grad = [u1 * eta_m, u1 * eta_g];
+        let h_mm = u2 * eta_m * eta_m + u1 * a_mm;
+        let h_mg = u2 * eta_m * eta_g + u1 * a_mg;
+        let h_gg = u2 * eta_g * eta_g + u1 * a_gg;
+        Ok((neglog, grad, [[h_mm, h_mg], [h_mg, h_gg]]))
+    }
+
+    /// Closed-form uncontracted **third**-derivative tensor of the rigid
+    /// empirical-grid row negative log-likelihood, in primary coordinates
+    /// `(m = marginal_eta, g = slope)`. Replaces the 6-direction
+    /// `empirical_rigid_neglog_jet` (a 64-coefficient `MultiDirJet` driven
+    /// through six Newton intercept passes) used by [`Self::rigid_row_third_full`].
+    ///
+    /// Continues the implicit-function-theorem program of
+    /// [`Self::empirical_rigid_primary_grad_hess_closed_form`] one order higher.
+    /// Writing the grid calibration as `G(a, g) = μ(m)` with
+    /// `G_{p,r} = Σ_k π_k Φ^{(p+r)}(η_k)·(s·x_k)^r` and `η_k = a + s·g·x_k`,
+    /// the higher intercept derivatives follow by repeatedly applying the total
+    /// operators `Dm(G_{p,r}) = G_{p+1,r}·a_m` and
+    /// `Dg(G_{p,r}) = G_{p+1,r}·a_g + G_{p,r+1}` to the order-`n−1` identity and
+    /// solving for the top term `D·a_{(i,j)}` (`D = G_a`). The needed CDF
+    /// derivatives are `Φ' = φ`, `Φ'' = −η·φ`, `Φ''' = (η²−1)·φ`. The marginal
+    /// link enters only as `μ', μ'', μ'''` (`marginal.mu1/mu2/mu3`), so this is
+    /// correct for any marginal link. The negative-log-likelihood chain reuses
+    /// the standard-normal signed-probit scalar kernel (`u1=s·k1`, `u2=k2`,
+    /// `u3=s·k3`).
+    pub(super) fn empirical_rigid_third_full_closed_form(
+        &self,
+        row: usize,
+        marginal: BernoulliMarginalLinkMap,
+        slope: f64,
+        nodes: &[f64],
+        measure_weights: &[f64],
+    ) -> Result<[[[f64; 2]; 2]; 2], String> {
+        let s = self.probit_frailty_scale();
+        let a =
+            self.empirical_rigid_intercept_for_row(row, marginal, slope, nodes, measure_weights)?;
+        let observed_slope = s * slope;
+
+        // Single grid pass: calibration moments through third CDF order.
+        // `c2 = Φ''·π = −η·π·φ`, `c3 = Φ'''·π = (η²−1)·π·φ`.
+        let (mut d, mut g_g) = (0.0f64, 0.0f64);
+        let (mut g_aa, mut g_ag, mut g_gg) = (0.0f64, 0.0f64, 0.0f64);
+        let (mut g_aaa, mut g_aag, mut g_agg, mut g_ggg) = (0.0f64, 0.0f64, 0.0f64, 0.0f64);
+        for (&node, &weight) in nodes.iter().zip(measure_weights.iter()) {
+            let eta_k = a + observed_slope * node;
+            let w_phi = weight * normal_pdf(eta_k);
+            let sx = s * node;
+            let c2 = -eta_k * w_phi;
+            let c3 = (eta_k * eta_k - 1.0) * w_phi;
+            d += w_phi;
+            g_g += w_phi * sx;
+            g_aa += c2;
+            g_ag += c2 * sx;
+            g_gg += c2 * sx * sx;
+            g_aaa += c3;
+            g_aag += c3 * sx;
+            g_agg += c3 * sx * sx;
+            g_ggg += c3 * sx * sx * sx;
+        }
+        if !d.is_finite() || d <= 0.0 {
+            return Err(format!(
+                "empirical rigid third-full: non-positive calibration denominator D={d} at row {row}"
+            ));
+        }
+
+        // Intercept derivatives a_{(i,j)} via the implicit function theorem.
+        let a_m = marginal.mu1 / d;
+        let a_g = -g_g / d;
+        let a_mm = (marginal.mu2 - g_aa * a_m * a_m) / d;
+        let coup = g_aa * a_g + g_ag; // recurring d/dg coupling factor on `a`
+        let a_mg = -coup * a_m / d;
+        let a_gg = -(g_aa * a_g * a_g + 2.0 * g_ag * a_g + g_gg) / d;
+        let a_mmm = (marginal.mu3 - 3.0 * g_aa * a_m * a_mm - g_aaa * a_m * a_m * a_m) / d;
+        let a_mmg =
+            -(coup * a_mm + (g_aaa * a_g + g_aag) * a_m * a_m + 2.0 * g_aa * a_m * a_mg) / d;
+        let a_mgg = -(2.0 * coup * a_mg
+            + (g_aaa * a_g * a_g + 2.0 * g_aag * a_g + g_aa * a_gg + g_agg) * a_m)
+            / d;
+        let a_ggg = -(3.0 * a_gg * coup
+            + g_aaa * a_g * a_g * a_g
+            + 3.0 * g_aag * a_g * a_g
+            + 3.0 * g_agg * a_g
+            + g_ggg)
+            / d;
+
+        // Observed-index derivatives at this row's z. All second-and-higher
+        // derivatives equal the intercept's (`s·g·z` is linear in `g`); only
+        // the first g-derivative carries the extra `s·z`.
+        let z = self.z[row];
+        let eta_m = a_m;
+        let eta_g = a_g + s * z;
+
+        // Signed-probit chain to third order (shared scalar kernel).
+        let w = self.weights[row];
+        let sign = 2.0 * self.y[row] - 1.0;
+        let m_signed = sign * (a + observed_slope * z);
+        let (k1, k2, k3, _) = signed_probit_neglog_derivatives_up_to_fourth(m_signed, w)?;
+        let u1 = sign * k1;
+        let u2 = k2;
+        let u3 = sign * k3;
+
+        // ℓ_ijk = u3·η_iη_jη_k + u2·(η_ijη_k + η_ikη_j + η_jkη_i) + u1·η_ijk.
+        let t_mmm = u3 * eta_m * eta_m * eta_m + u2 * 3.0 * eta_m * a_mm + u1 * a_mmm;
+        let t_mmg =
+            u3 * eta_m * eta_m * eta_g + u2 * (eta_g * a_mm + 2.0 * eta_m * a_mg) + u1 * a_mmg;
+        let t_mgg =
+            u3 * eta_m * eta_g * eta_g + u2 * (eta_m * a_gg + 2.0 * eta_g * a_mg) + u1 * a_mgg;
+        let t_ggg = u3 * eta_g * eta_g * eta_g + u2 * 3.0 * eta_g * a_gg + u1 * a_ggg;
+        Ok(third_full_from_symmetric_components(
+            t_mmm, t_mmg, t_mgg, t_ggg,
+        ))
+    }
+
+    /// Closed-form uncontracted **fourth**-derivative tensor of the rigid
+    /// empirical-grid row negative log-likelihood, in primary coordinates
+    /// `(m = marginal_eta, g = slope)`. Replaces the 8-direction
+    /// `empirical_rigid_neglog_jet` (a 256-coefficient `MultiDirJet` through six
+    /// Newton intercept passes) used by [`Self::rigid_row_fourth_full`].
+    ///
+    /// Same implicit-function-theorem program as
+    /// [`Self::empirical_rigid_third_full_closed_form`], one order higher.
+    /// Intercept derivatives `a_{(i,j)}` (i m's, j g's, i+j≤4) come from
+    /// differentiating the order-`n−1` identity of `G(a, g) = μ(m)` via the
+    /// total operators `Dm(G_{p,r}) = G_{p+1,r}·a_m` and
+    /// `Dg(G_{p,r}) = G_{p+1,r}·a_g + G_{p,r+1}` and isolating `D·a_{(i,j)}`.
+    /// Needed CDF derivatives: `Φ'=φ`, `Φ''=−ηφ`, `Φ'''=(η²−1)φ`,
+    /// `Φ''''=(3η−η³)φ`. The marginal link enters only as `μ'..μ''''`
+    /// (`marginal.mu1..mu4`). The ℓ-chain uses the shared signed-probit kernel
+    /// (`u1=s·k1, u2=k2, u3=s·k3, u4=k4`).
+    pub(super) fn empirical_rigid_fourth_full_closed_form(
+        &self,
+        row: usize,
+        marginal: BernoulliMarginalLinkMap,
+        slope: f64,
+        nodes: &[f64],
+        measure_weights: &[f64],
+    ) -> Result<[[[[f64; 2]; 2]; 2]; 2], String> {
+        let s = self.probit_frailty_scale();
+        let a =
+            self.empirical_rigid_intercept_for_row(row, marginal, slope, nodes, measure_weights)?;
+        let observed_slope = s * slope;
+
+        // Single grid pass: calibration moments through fourth CDF order.
+        let (mut d, mut g_g) = (0.0f64, 0.0f64);
+        let (mut g_aa, mut g_ag, mut g_gg) = (0.0f64, 0.0f64, 0.0f64);
+        let (mut g_aaa, mut g_aag, mut g_agg, mut g_ggg) = (0.0f64, 0.0f64, 0.0f64, 0.0f64);
+        let (mut g_aaaa, mut g_aaag, mut g_aagg, mut g_aggg, mut g_gggg) =
+            (0.0f64, 0.0f64, 0.0f64, 0.0f64, 0.0f64);
+        for (&node, &weight) in nodes.iter().zip(measure_weights.iter()) {
+            let eta_k = a + observed_slope * node;
+            let w_phi = weight * normal_pdf(eta_k);
+            let sx = s * node;
+            let eta2 = eta_k * eta_k;
+            let c2 = -eta_k * w_phi; // Φ''·π
+            let c3 = (eta2 - 1.0) * w_phi; // Φ'''·π
+            let c4 = (3.0 * eta_k - eta_k * eta2) * w_phi; // Φ''''·π
+            let sx2 = sx * sx;
+            let sx3 = sx2 * sx;
+            let sx4 = sx3 * sx;
+            d += w_phi;
+            g_g += w_phi * sx;
+            g_aa += c2;
+            g_ag += c2 * sx;
+            g_gg += c2 * sx2;
+            g_aaa += c3;
+            g_aag += c3 * sx;
+            g_agg += c3 * sx2;
+            g_ggg += c3 * sx3;
+            g_aaaa += c4;
+            g_aaag += c4 * sx;
+            g_aagg += c4 * sx2;
+            g_aggg += c4 * sx3;
+            g_gggg += c4 * sx4;
+        }
+        if !d.is_finite() || d <= 0.0 {
+            return Err(format!(
+                "empirical rigid fourth-full: non-positive calibration denominator D={d} at row {row}"
+            ));
+        }
+
+        // Intercept derivatives via the implicit function theorem.
+        let (mu1, mu2, mu3, mu4) = (marginal.mu1, marginal.mu2, marginal.mu3, marginal.mu4);
+        let a_m = mu1 / d;
+        let a_g = -g_g / d;
+        // P = Dg(D) = G_aa·a_g + G_ag, with its g-derivatives Pg, Pgg.
+        let p = g_aa * a_g + g_ag;
+        let a_mm = (mu2 - g_aa * a_m * a_m) / d;
+        let a_mg = -p * a_m / d;
+        let a_gg = -(g_aa * a_g * a_g + 2.0 * g_ag * a_g + g_gg) / d;
+        let pg = g_aaa * a_g * a_g + 2.0 * g_aag * a_g + g_aa * a_gg + g_agg;
+        let aag = g_aaa * a_g + g_aag; // Dg(G_aa)
+        let a_mmm = (mu3 - 3.0 * g_aa * a_m * a_mm - g_aaa * a_m * a_m * a_m) / d;
+        let a_mmg = -(p * a_mm + aag * a_m * a_m + 2.0 * g_aa * a_m * a_mg) / d;
+        let a_mgg = -(2.0 * p * a_mg + pg * a_m) / d;
+        let a_ggg = -(3.0 * a_gg * p
+            + g_aaa * a_g * a_g * a_g
+            + 3.0 * g_aag * a_g * a_g
+            + 3.0 * g_agg * a_g
+            + g_ggg)
+            / d;
+        // Pgg = Dg(Pg); R1 = Dg(G_aaa·a_g + G_aag) = Dg(aag).
+        let pgg = g_aaaa * a_g * a_g * a_g
+            + 3.0 * g_aaag * a_g * a_g
+            + 3.0 * g_aaa * a_g * a_gg
+            + 3.0 * g_aagg * a_g
+            + 3.0 * g_aag * a_gg
+            + g_aggg;
+        let r1 = g_aaaa * a_g * a_g + 2.0 * g_aaag * a_g + g_aaa * a_gg + g_aagg;
+        let aaag = g_aaaa * a_g + g_aaag; // Dg(G_aaa)
+        let a_mmmm = (mu4
+            - g_aa * (4.0 * a_m * a_mmm + 3.0 * a_mm * a_mm)
+            - 6.0 * g_aaa * a_m * a_m * a_mm
+            - g_aaaa * a_m * a_m * a_m * a_m)
+            / d;
+        let a_mmmg = -(p * a_mmm
+            + 3.0 * aag * a_m * a_mm
+            + 3.0 * g_aa * a_mg * a_mm
+            + 3.0 * g_aa * a_m * a_mmg
+            + aaag * a_m * a_m * a_m
+            + 3.0 * g_aaa * a_m * a_m * a_mg)
+            / d;
+        let a_mmgg = -(2.0 * p * a_mmg
+            + pg * a_mm
+            + r1 * a_m * a_m
+            + 4.0 * aag * a_m * a_mg
+            + 2.0 * g_aa * a_mg * a_mg
+            + 2.0 * g_aa * a_m * a_mgg)
+            / d;
+        let a_mggg = -(3.0 * p * a_mgg + 3.0 * pg * a_mg + pgg * a_m) / d;
+        let a_gggg = -(4.0 * p * a_ggg
+            + 6.0 * g_aaa * a_g * a_g * a_gg
+            + 12.0 * g_aag * a_g * a_gg
+            + 6.0 * g_agg * a_gg
+            + 3.0 * g_aa * a_gg * a_gg
+            + g_aaaa * a_g * a_g * a_g * a_g
+            + 4.0 * g_aaag * a_g * a_g * a_g
+            + 6.0 * g_aagg * a_g * a_g
+            + 4.0 * g_aggg * a_g
+            + g_gggg)
+            / d;
+
+        // Observed-index derivatives (only η_g carries the extra s·z).
+        let z = self.z[row];
+        let em = a_m;
+        let eg = a_g + s * z;
+
+        // Signed-probit chain to fourth order (shared scalar kernel).
+        let w = self.weights[row];
+        let sign = 2.0 * self.y[row] - 1.0;
+        let (k1, k2, k3, k4) =
+            signed_probit_neglog_derivatives_up_to_fourth(sign * (a + observed_slope * z), w)?;
+        let (u1, u2, u3, u4) = (sign * k1, k2, sign * k3, k4);
+
+        // ℓ_ijkl via Faà di Bruno: u4·(4 η's) + u3·(η_ij + 2 singles, 6 terms)
+        // + u2·(3 pair-pair + 4 triple-single) + u1·η_ijkl.
+        let t_mmmm = u4 * em * em * em * em
+            + u3 * 6.0 * a_mm * em * em
+            + u2 * (3.0 * a_mm * a_mm + 4.0 * a_mmm * em)
+            + u1 * a_mmmm;
+        let t_mmmg = u4 * em * em * em * eg
+            + u3 * (3.0 * a_mm * em * eg + 3.0 * a_mg * em * em)
+            + u2 * (3.0 * a_mm * a_mg + a_mmm * eg + 3.0 * a_mmg * em)
+            + u1 * a_mmmg;
+        let t_mmgg = u4 * em * em * eg * eg
+            + u3 * (a_mm * eg * eg + 4.0 * a_mg * em * eg + a_gg * em * em)
+            + u2 * (a_mm * a_gg + 2.0 * a_mg * a_mg + 2.0 * a_mmg * eg + 2.0 * a_mgg * em)
+            + u1 * a_mmgg;
+        let t_mggg = u4 * em * eg * eg * eg
+            + u3 * (3.0 * a_mg * eg * eg + 3.0 * a_gg * em * eg)
+            + u2 * (3.0 * a_mg * a_gg + 3.0 * a_mgg * eg + a_ggg * em)
+            + u1 * a_mggg;
+        let t_gggg = u4 * eg * eg * eg * eg
+            + u3 * 6.0 * a_gg * eg * eg
+            + u2 * (3.0 * a_gg * a_gg + 4.0 * a_ggg * eg)
+            + u1 * a_gggg;
+        Ok(fourth_full_from_symmetric_components(
+            t_mmmm, t_mmmg, t_mmgg, t_mggg, t_gggg,
+        ))
     }
 
     pub(super) fn primary_component_jet(
@@ -604,7 +907,6 @@ impl BernoulliMarginalSlopeFamily {
     pub(super) fn rigid_row_kernel_eval(
         &self,
         row: usize,
-        marginal_eta: f64,
         marginal: BernoulliMarginalLinkMap,
         slope: f64,
     ) -> Result<(f64, [f64; 2], [[f64; 2]; 2]), String> {
@@ -624,38 +926,25 @@ impl BernoulliMarginalSlopeFamily {
                     rigid_transformed_hessian(marginal, &kernel),
                 ))
             }
-            Some(grid) => {
-                let jet = self.empirical_rigid_neglog_jet(
-                    row,
-                    marginal_eta,
-                    marginal,
-                    slope,
-                    &[[1.0, 0.0], [0.0, 1.0], [1.0, 0.0], [0.0, 1.0]],
-                    &grid.nodes,
-                    &grid.weights,
-                )?;
-                Ok((
-                    jet.coeff(0),
-                    [jet.coeff(1), jet.coeff(2)],
-                    [
-                        [jet.coeff(1 | 4), jet.coeff(1 | 2)],
-                        [jet.coeff(1 | 2), jet.coeff(2 | 8)],
-                    ],
-                ))
-            }
+            Some(grid) => self.empirical_rigid_primary_grad_hess_closed_form(
+                row,
+                marginal,
+                slope,
+                &grid.nodes,
+                &grid.weights,
+            ),
         }
     }
 
     pub(super) fn rigid_row_third_contracted(
         &self,
         row: usize,
-        marginal_eta: f64,
         marginal: BernoulliMarginalLinkMap,
         slope: f64,
         dir_q: f64,
         dir_g: f64,
     ) -> Result<[[f64; 2]; 2], String> {
-        let full = self.rigid_row_third_full(row, marginal_eta, marginal, slope)?;
+        let full = self.rigid_row_third_full(row, marginal, slope)?;
         Ok(contract_third_full(&full, dir_q, dir_g))
     }
 
@@ -682,7 +971,7 @@ impl BernoulliMarginalSlopeFamily {
                     let marginal_eta = block_states[0].eta[r];
                     let marginal = self.marginal_link_map(marginal_eta)?;
                     let slope = block_states[1].eta[r];
-                    self.rigid_row_third_full(r, marginal_eta, marginal, slope)
+                    self.rigid_row_third_full(r, marginal, slope)
                 })
                 .collect::<Result<Vec<_>, String>>()
         });
@@ -710,7 +999,7 @@ impl BernoulliMarginalSlopeFamily {
                     let marginal_eta = block_states[0].eta[r];
                     let marginal = self.marginal_link_map(marginal_eta)?;
                     let slope = block_states[1].eta[r];
-                    self.rigid_row_fourth_full(r, marginal_eta, marginal, slope)
+                    self.rigid_row_fourth_full(r, marginal, slope)
                 })
                 .collect::<Result<Vec<_>, String>>()
         });
@@ -721,11 +1010,11 @@ impl BernoulliMarginalSlopeFamily {
     /// Return the lazily-built row-cell-moments bundle at `required_degree`
     /// (15 or 21) for outer dH/d²H trace paths.
     ///
-    /// On the first call the full-`n` bundle is built at `required_degree` and
-    /// stored in the appropriate `RayonSafeOnce` slot.  Subsequent calls — even
-    /// from concurrent Rayon workers — return the already-built bundle.  If the
-    /// FLEX path is inactive or the memory budget is exceeded the slot stores
-    /// `Ok(None)` and callers must use their per-row on-demand fallback.
+    /// This is an explicit prewarm/build helper: callers invoke it from serial
+    /// setup code before parallel row folds that would benefit from a full-row
+    /// high-degree bundle. Row-local kernels only read already-built bundles via
+    /// `existing_bundle_for_degree`; they never trigger this full-`n` build from
+    /// inside a Rayon worker.
     ///
     /// Returns `Ok(None)` for any `required_degree` outside {15, 21}; callers
     /// handle that the same way as a missing bundle.
@@ -735,6 +1024,12 @@ impl BernoulliMarginalSlopeFamily {
         cache: &'a BernoulliMarginalSlopeExactEvalCache,
         required_degree: usize,
     ) -> Result<Option<&'a RowCellMomentsBundle>, String> {
+        if let Some(bundle) = cache.row_cell_moments.as_ref()
+            && bundle.max_degree >= required_degree
+            && bundle.covers_all_rows()
+        {
+            return Ok(Some(bundle));
+        }
         let slot = match required_degree {
             15 => &cache.row_cell_moments_d15,
             21 => &cache.row_cell_moments_d21,
@@ -744,6 +1039,22 @@ impl BernoulliMarginalSlopeFamily {
         // the closure returns that same type (it IS T).  The outer `?` then
         // unwraps the stored Result on every access.
         let stored = slot.get_or_compute(|| {
+            if required_degree == 21 {
+                if let Some(stored_d15) = cache.row_cell_moments_d15.get() {
+                    match stored_d15 {
+                        Ok(Some(d15)) if d15.covers_all_rows() => {
+                            return self.extend_row_cell_moments_bundle(d15, required_degree);
+                        }
+                        Err(err) => return Err(err.clone()),
+                        _ => {}
+                    }
+                }
+            }
+            if let Some(base) = cache.row_cell_moments.as_ref()
+                && base.covers_all_rows()
+            {
+                return self.extend_row_cell_moments_bundle(base, required_degree);
+            }
             // No subsample mask for the outer-derivative trace bundles: they
             // must cover all rows so that every row lookup succeeds.
             self.build_row_cell_moments_bundle(
@@ -756,19 +1067,100 @@ impl BernoulliMarginalSlopeFamily {
         Ok(stored.as_ref().map_err(|e| e.clone())?.as_ref())
     }
 
+    /// Prewarm the degree-`required_degree` full-row cell-moment bundle once,
+    /// from serial setup code, before a FLEX outer-derivative row par-fold.
+    ///
+    /// The FLEX third/fourth row recompute kernels
+    /// (`row_primary_{third,fourth}_contracted_recompute*`) read the per-cell
+    /// moments through `row_cell_moments_for_third_degree15`, which only
+    /// consults an *already-built* bundle. Without a serial prewarm, the first
+    /// row to need degree-15 moments finds no bundle and falls back to
+    /// `evaluate_cell_derivative_moments_uncached` — recomputing the
+    /// transcendental cell moments for *every* row on *every* operator
+    /// application (gam#683). Under `linkwiggle()` the cells are non-affine and
+    /// the cross-row LRU key is row-unique, so that fallback never amortizes:
+    /// the outer-REML continuation and post-fit Hessian builds rebuild the
+    /// whole degree-15 moment table from scratch each step.
+    ///
+    /// Building the bundle once here populates `cache.row_cell_moments_d15`
+    /// (a `RayonSafeOnce` tied to the β-cache), so every subsequent per-row
+    /// kernel — across all CG iterations and HVP applications at this β — reads
+    /// the prebuilt moments and only pays the cheap directional contraction.
+    /// Mirrors the rigid `rigid_{third,fourth}_full_cached` prewarm and the
+    /// degree-21 prewarm in the psi-second-order path. No-op (returns `Ok(())`)
+    /// when the FLEX path is inactive, when the bundle build is skipped by the
+    /// resource-byte budget, or for an empirical-grid latent measure that
+    /// bypasses the cell path; in those cases callers fall back exactly as
+    /// before.
+    pub(super) fn prewarm_flex_cell_bundle(
+        &self,
+        block_states: &[ParameterBlockState],
+        cache: &BernoulliMarginalSlopeExactEvalCache,
+        required_degree: usize,
+    ) -> Result<(), String> {
+        if !self.effective_flex_active(block_states)? {
+            return Ok(());
+        }
+        if let Some(bundle) = self.bundle_for_degree(block_states, cache, required_degree)?
+            && bundle.max_degree < required_degree
+        {
+            return Err(format!(
+                "BMS row-cell-moments prewarm returned degree {} for required degree {}",
+                bundle.max_degree, required_degree
+            ));
+        }
+        Ok(())
+    }
+
+    fn existing_bundle_for_degree<'a>(
+        &self,
+        cache: &'a BernoulliMarginalSlopeExactEvalCache,
+        required_degree: usize,
+    ) -> Result<Option<&'a RowCellMomentsBundle>, String> {
+        if let Some(bundle) = cache.row_cell_moments.as_ref()
+            && bundle.max_degree >= required_degree
+            && bundle.covers_all_rows()
+        {
+            return Ok(Some(bundle));
+        }
+        let stored = match required_degree {
+            15 => cache.row_cell_moments_d15.get(),
+            21 => cache.row_cell_moments_d21.get(),
+            _ => None,
+        };
+        match stored {
+            Some(Ok(Some(bundle))) => Ok(Some(bundle)),
+            Some(Ok(None)) | None => Ok(None),
+            Some(Err(err)) => Err(err.clone()),
+        }
+    }
+
+    fn row_cell_moments_for_third_degree15<'a>(
+        &self,
+        cache: &'a BernoulliMarginalSlopeExactEvalCache,
+        row: usize,
+    ) -> Result<Option<&'a [CachedDenestedCellMoments]>, String> {
+        if let Some(bundle) = self.existing_bundle_for_degree(cache, 21)?
+            && let Some(cells) = bundle.row(row, 15)
+        {
+            return Ok(Some(cells));
+        }
+        Ok(self
+            .existing_bundle_for_degree(cache, 15)?
+            .and_then(|bundle| bundle.row(row, 15)))
+    }
+
     /// Per-row uncontracted third-derivative tensor in the rigid path.
     ///
-    /// Empirical-grid rows pay the heavy `empirical_rigid_neglog_jet` once
-    /// (with six identity directions: three `e_q` plus three `e_g`, giving
-    /// a 64-coefficient jet from which the four distinct symmetric components
-    /// `T_qqq`, `T_qqg`, `T_qgg`, `T_ggg` are read directly). The `rank`-many
-    /// ψ-axis directions are then folded in with a cheap 2×2 bilinear
-    /// `[contract_third_full]` per call, replacing the previous
-    /// `rank` separate 5-direction jets per row.
+    /// The standard-normal latent measure uses the analytic
+    /// `rigid_transformed_third_full`; empirical-grid rows use the closed-form
+    /// implicit-function-theorem tensor `empirical_rigid_third_full_closed_form`.
+    /// Both yield the four distinct symmetric components `T_mmm, T_mmg, T_mgg,
+    /// T_ggg`; the `rank`-many ψ-axis directions are folded in later by a cheap
+    /// `contract_third_full` bilinear per call.
     pub(super) fn rigid_row_third_full(
         &self,
         row: usize,
-        marginal_eta: f64,
         marginal: BernoulliMarginalLinkMap,
         slope: f64,
     ) -> Result<[[[f64; 2]; 2]; 2], String> {
@@ -784,57 +1176,28 @@ impl BernoulliMarginalSlopeFamily {
                 )?;
                 Ok(rigid_transformed_third_full(marginal, &kernel))
             }
-            Some(grid) => {
-                // Six identity directions: positions 0, 2, 4 are `e_q`,
-                // positions 1, 3, 5 are `e_g`. The mask encoding for
-                // `MultiDirJet::coeff` is `Σ 2^position`, so a 3-element
-                // subset like {0, 2, 4} (three `e_q`s) becomes mask
-                // 1 | 4 | 16 = 21 = 0b010101 — the partial `∂³f/∂q∂q∂q`.
-                let jet = self.empirical_rigid_neglog_jet(
-                    row,
-                    marginal_eta,
-                    marginal,
-                    slope,
-                    &[
-                        [1.0, 0.0],
-                        [0.0, 1.0],
-                        [1.0, 0.0],
-                        [0.0, 1.0],
-                        [1.0, 0.0],
-                        [0.0, 1.0],
-                    ],
-                    &grid.nodes,
-                    &grid.weights,
-                )?;
-                let t_qqq = jet.coeff(1 | 4 | 16); // {0, 2, 4}: e_q × e_q × e_q
-                let t_qqg = jet.coeff(1 | 4 | 2); // {0, 2, 1}: e_q × e_q × e_g
-                let t_qgg = jet.coeff(1 | 2 | 8); // {0, 1, 3}: e_q × e_g × e_g
-                let t_ggg = jet.coeff(2 | 8 | 32); // {1, 3, 5}: e_g × e_g × e_g
-                Ok(third_full_from_symmetric_components(
-                    t_qqq, t_qqg, t_qgg, t_ggg,
-                ))
-            }
+            Some(grid) => self.empirical_rigid_third_full_closed_form(
+                row,
+                marginal,
+                slope,
+                &grid.nodes,
+                &grid.weights,
+            ),
         }
     }
 
     /// Per-row uncontracted fourth-derivative tensor in the rigid path.
     ///
-    /// Closed-form path drops straight out of [`rigid_transformed_fourth_full`]
-    /// with five primary-space components computed from the
-    /// `rigid_internal_third_components` quantities and the link's higher
-    /// derivatives — all axis-invariant, so the previous design that re-ran
-    /// these for every (u, v) ψ-axis pair was paying `O(rank²)` redundancy.
-    ///
-    /// Empirical-grid path widens [`empirical_rigid_neglog_jet`] to eight
-    /// identity directions (`[e_q, e_g] × 4`), giving a 256-coefficient jet
-    /// from which the five distinct symmetric components `T_qqqq, T_qqqg,
-    /// T_qqgg, T_qggg, T_gggg` are read directly. The (u, v) directions are
-    /// folded in afterwards via the cheap [`contract_fourth_full`] bilinear
-    /// — at most one jet per row total, instead of `(rank²+rank)/2` per row.
+    /// The standard-normal latent measure drops out of
+    /// `rigid_transformed_fourth_full` (five axis-invariant primary-space
+    /// components). Empirical-grid rows use the closed-form implicit-function-
+    /// theorem tensor `empirical_rigid_fourth_full_closed_form`, yielding the
+    /// five distinct symmetric components `T_mmmm, T_mmmg, T_mmgg, T_mggg,
+    /// T_gggg`. The (u, v) ψ-axis directions are folded in afterwards via the
+    /// cheap `contract_fourth_full` bilinear — one tensor build per row.
     pub(super) fn rigid_row_fourth_full(
         &self,
         row: usize,
-        marginal_eta: f64,
         marginal: BernoulliMarginalLinkMap,
         slope: f64,
     ) -> Result<[[[[f64; 2]; 2]; 2]; 2], String> {
@@ -850,39 +1213,13 @@ impl BernoulliMarginalSlopeFamily {
                 )?;
                 Ok(rigid_transformed_fourth_full(marginal, &kernel))
             }
-            Some(grid) => {
-                // Eight identity directions: positions 0, 2, 4, 6 are `e_q`,
-                // positions 1, 3, 5, 7 are `e_g`. The mask encoding for
-                // `MultiDirJet::coeff` is `Σ 2^position`, so a 4-element
-                // subset like {0, 2, 4, 6} (four `e_q`s) becomes mask
-                // 1 | 4 | 16 | 64 = 85 — the partial `∂⁴f/∂q∂q∂q∂q`.
-                let jet = self.empirical_rigid_neglog_jet(
-                    row,
-                    marginal_eta,
-                    marginal,
-                    slope,
-                    &[
-                        [1.0, 0.0],
-                        [0.0, 1.0],
-                        [1.0, 0.0],
-                        [0.0, 1.0],
-                        [1.0, 0.0],
-                        [0.0, 1.0],
-                        [1.0, 0.0],
-                        [0.0, 1.0],
-                    ],
-                    &grid.nodes,
-                    &grid.weights,
-                )?;
-                let t_qqqq = jet.coeff(1 | 4 | 16 | 64); // {0, 2, 4, 6}: 4× e_q
-                let t_qqqg = jet.coeff(1 | 4 | 16 | 2); // {0, 2, 4, 1}: 3× e_q + 1× e_g
-                let t_qqgg = jet.coeff(1 | 4 | 2 | 8); // {0, 2, 1, 3}: 2× e_q + 2× e_g
-                let t_qggg = jet.coeff(1 | 2 | 8 | 32); // {0, 1, 3, 5}: 1× e_q + 3× e_g
-                let t_gggg = jet.coeff(2 | 8 | 32 | 128); // {1, 3, 5, 7}: 4× e_g
-                Ok(fourth_full_from_symmetric_components(
-                    t_qqqq, t_qqqg, t_qqgg, t_qggg, t_gggg,
-                ))
-            }
+            Some(grid) => self.empirical_rigid_fourth_full_closed_form(
+                row,
+                marginal,
+                slope,
+                &grid.nodes,
+                &grid.weights,
+            ),
         }
     }
 
@@ -1690,8 +2027,12 @@ impl BernoulliMarginalSlopeFamily {
         cell: exact_kernel::DenestedCubicCell,
         max_degree: usize,
     ) -> Result<exact_kernel::CellMomentState, String> {
-        self.cell_moment_cache_stats.record_miss();
-        exact_kernel::evaluate_cell_moments_uncached(cell, max_degree)
+        exact_kernel::evaluate_cell_moments_cached(
+            cell,
+            max_degree,
+            &self.cell_moment_lru,
+            Some(&self.cell_moment_cache_stats),
+        )
     }
 
     #[inline]
@@ -2880,6 +3221,8 @@ impl BernoulliMarginalSlopeFamily {
             row_primary_hessians: RowPrimaryEvalCache::Empty,
             rigid_third_full: crate::resource::RayonSafeOnce::new(),
             rigid_fourth_full: crate::resource::RayonSafeOnce::new(),
+            flex_axis_third_tensors: crate::resource::RayonSafeOnce::new(),
+            flex_axis_fourth_tensors: crate::resource::RayonSafeOnce::new(),
         })
     }
 
@@ -2993,14 +3336,20 @@ impl BernoulliMarginalSlopeFamily {
                 let moments = cells
                     .into_iter()
                     .map(|partition_cell| {
-                        // Use the per-family LRU here too so the bundle build
-                        // benefits from cross-row cell-moment reuse and keeps
-                        // the LRU's hit-rate accounting consistent.
-                        self.evaluate_cell_derivative_moments_lru(partition_cell.cell, max_degree)
-                            .map(|state| CachedDenestedCellMoments {
-                                partition_cell,
-                                state,
-                            })
+                        // Bundle rows are already the reusable state for this
+                        // beta snapshot. Under linkwiggle the bit-exact
+                        // cross-row LRU key is row-specific, so probing the
+                        // fit-lifetime LRU here just adds lock/eviction churn
+                        // without reuse. Evaluate directly and let the bundle
+                        // carry the reusable moments.
+                        exact_kernel::evaluate_cell_derivative_moments_uncached(
+                            partition_cell.cell,
+                            max_degree,
+                        )
+                        .map(|state| CachedDenestedCellMoments {
+                            partition_cell,
+                            state,
+                        })
                     })
                     .collect::<Result<Vec<_>, String>>()?;
                 Ok((row, moments))
@@ -3017,32 +3366,36 @@ impl BernoulliMarginalSlopeFamily {
         // block is `cfg(debug_assertions)`-gated.
         #[cfg(debug_assertions)]
         {
+            use crate::gpu::cubic_cell::branch::classify_cell_for_gpu;
             use crate::gpu::cubic_cell::{
-                CubicCellDerivativeMomentHostView, CubicCellMomentResidency, GpuCellBranchTag,
-                GpuDenestedCubicCell, try_build_cubic_cell_derivative_moments,
+                CubicCellDerivativeMomentHostView, CubicCellMomentResidency, GpuDenestedCubicCell,
+                try_build_cubic_cell_derivative_moments,
             };
             const PARITY_ROW_BUDGET: usize = 4;
             let mut sample_cells: Vec<GpuDenestedCubicCell> = Vec::new();
-            let mut sample_branches: Vec<GpuCellBranchTag> = Vec::new();
+            let mut sample_branches = Vec::new();
             let mut sample_cpu_moments: Vec<Vec<f64>> = Vec::new();
             for (_, moments) in computed_rows.iter().take(PARITY_ROW_BUDGET) {
                 for cached in moments {
                     let cell = cached.partition_cell.cell;
-                    let branch = if !cell.left.is_finite() || !cell.right.is_finite() {
-                        GpuCellBranchTag::AffineTail
-                    } else if cell.c2 == 0.0 && cell.c3 == 0.0 {
-                        GpuCellBranchTag::Affine
-                    } else {
-                        GpuCellBranchTag::NonAffineFinite
-                    };
-                    sample_cells.push(GpuDenestedCubicCell {
+                    let gpu_cell = GpuDenestedCubicCell {
                         left: cell.left,
                         right: cell.right,
                         c0: cell.c0,
                         c1: cell.c1,
                         c2: cell.c2,
                         c3: cell.c3,
-                    });
+                    };
+                    let branch = classify_cell_for_gpu(gpu_cell).map_err(|status| {
+                        format!(
+                            "BMS row-cell-moments parity classifier rejected CPU-evaluated cell \
+                             row_sample={} cell_sample={} status={}",
+                            sample_cpu_moments.len(),
+                            sample_cells.len(),
+                            status as u8
+                        )
+                    })?;
+                    sample_cells.push(gpu_cell);
                     sample_branches.push(branch);
                     sample_cpu_moments.push(cached.state.moments.to_vec());
                 }
@@ -3153,7 +3506,101 @@ impl BernoulliMarginalSlopeFamily {
             );
         }
         drop(heartbeat_guard);
-        Ok(Some(RowCellMomentsBundle { max_degree, rows }))
+        Ok(Some(RowCellMomentsBundle {
+            max_degree,
+            selected_rows: selected_n,
+            rows,
+        }))
+    }
+
+    fn extend_row_cell_moments_bundle(
+        &self,
+        base: &RowCellMomentsBundle,
+        required_degree: usize,
+    ) -> Result<Option<RowCellMomentsBundle>, String> {
+        if base.max_degree >= required_degree {
+            return Ok(Some(base.clone()));
+        }
+        if !base.covers_all_rows() {
+            return Ok(None);
+        }
+        let n = self.y.len();
+        if base.rows.len() != n {
+            return Err(format!(
+                "BMS row-cell-moments upgrade row-count mismatch: bundle rows={} expected={n}",
+                base.rows.len()
+            ));
+        }
+        let n_cells = base
+            .rows
+            .iter()
+            .map(|row| row.as_ref().map_or(0, Vec::len))
+            .sum::<usize>();
+        let estimated_bytes =
+            RowCellMomentsBundle::estimated_resident_bytes(n, n_cells, required_degree);
+        let limit_bytes = self.policy.max_operator_cache_bytes;
+        if estimated_bytes > limit_bytes {
+            log::info!(
+                "[BMS row-cell-moments] skip upgrade n={} selected_rows={} cells={} from_degree={} degree={} estimated_bytes={} limit_bytes={}",
+                n,
+                base.selected_rows,
+                n_cells,
+                base.max_degree,
+                required_degree,
+                estimated_bytes,
+                limit_bytes
+            );
+            return Ok(None);
+        }
+
+        let started = std::time::Instant::now();
+        let heartbeat_guard = crate::heartbeat::scope(format!(
+            "BMS row-cell-moments upgrade n={n} degree={}->{required_degree}",
+            base.max_degree
+        ));
+        let rows = base
+            .rows
+            .par_iter()
+            .map(|row| {
+                row.as_ref()
+                    .map(|entries| {
+                        entries
+                            .iter()
+                            .map(|entry| {
+                                exact_kernel::evaluate_cell_derivative_moments_uncached(
+                                    entry.partition_cell.cell,
+                                    required_degree,
+                                )
+                                .map(|state| {
+                                    CachedDenestedCellMoments {
+                                        partition_cell: entry.partition_cell,
+                                        state,
+                                    }
+                                })
+                            })
+                            .collect::<Result<Vec<_>, String>>()
+                    })
+                    .transpose()
+            })
+            .collect::<Result<Vec<_>, String>>()?;
+        if log_exact_work(n) {
+            log::info!(
+                "[BMS row-cell-moments] upgraded n={} selected_rows={} cells={} from_degree={} degree={} estimated_bytes={} elapsed={:.3}s",
+                n,
+                base.selected_rows,
+                n_cells,
+                base.max_degree,
+                required_degree,
+                estimated_bytes,
+                started.elapsed().as_secs_f64()
+            );
+        }
+        drop(heartbeat_guard);
+        Ok(Some(RowCellMomentsBundle {
+            max_degree: required_degree,
+            selected_rows: base.selected_rows,
+            rows,
+        }))
     }
 
     /// BMS-FLEX GPU milestone 1: pack the row-primary Hessian inputs for the
@@ -3744,11 +4191,16 @@ impl BernoulliMarginalSlopeFamily {
         let primary = &cache.primary;
         let r = primary.total;
         let runtime_available = runtime_available_memory_bytes();
+        // Fold the live reading into the monotone capacity floor so the
+        // per-shape single-cache budget is stable across workspace rebuilds;
+        // the live reading still drives the global-pin OOM guard.
+        let stable_capacity = observe_capacity_floor(runtime_available);
         let workspace_pinned = bms_row_primary_hessian_pinned_bytes().load(Ordering::Acquire);
         let plan = decide_row_primary_hessian_cache(
             n,
             r,
             BMS_ROW_PRIMARY_HESSIAN_EXPECTED_REUSE_PASSES,
+            stable_capacity,
             runtime_available,
             workspace_pinned,
         );
@@ -3784,11 +4236,77 @@ impl BernoulliMarginalSlopeFamily {
             }
         }
         if !plan.materialize {
+            let tiled_budget_bytes = plan
+                .global_pin_budget_bytes
+                .saturating_sub(plan.workspace_pinned_bytes);
+            if plan.expected_reuse_passes >= BMS_ROW_PRIMARY_HESSIAN_MIN_REUSE_PASSES
+                && plan.bytes <= tiled_budget_bytes
+                && n > 0
+            {
+                let started = std::time::Instant::now();
+                let heartbeat_guard = crate::heartbeat::scope(format!(
+                    "BMS row-primary-hessian-tiles n={n} r={r} bytes={} tile_rows={} global_budget={}",
+                    plan.bytes, BMS_ROW_PRIMARY_HESSIAN_TILE_ROWS, plan.global_pin_budget_bytes
+                ));
+                if log_exact_work(n) {
+                    log::info!(
+                        "[BMS row-primary-hessian-cache] decision=tile need_bytes={} avail_bytes={} stable_capacity={} workspace_pinned={} single_cache_budget={} global_pin_budget={} tile_rows={} n={} r={} expected_reuse_passes={} reason={} gpu_policy={} gpu_selected={} gpu_reason={}",
+                        plan.bytes,
+                        plan.runtime_available_bytes,
+                        plan.stable_capacity_bytes,
+                        plan.workspace_pinned_bytes,
+                        plan.single_cache_budget_bytes,
+                        plan.global_pin_budget_bytes,
+                        BMS_ROW_PRIMARY_HESSIAN_TILE_ROWS,
+                        n,
+                        r,
+                        plan.expected_reuse_passes,
+                        plan.reason.as_str(),
+                        gpu_decision.policy.as_str(),
+                        gpu_decision.use_gpu,
+                        gpu_decision.reason,
+                    );
+                }
+                let completed_rows = AtomicUsize::new(0);
+                let progress_step = (n / 10).max(1);
+                let mut tiles = Vec::with_capacity(n.div_ceil(BMS_ROW_PRIMARY_HESSIAN_TILE_ROWS));
+                let mut row_start = 0usize;
+                while row_start < n {
+                    let row_end = (row_start + BMS_ROW_PRIMARY_HESSIAN_TILE_ROWS).min(n);
+                    tiles.push(self.build_row_primary_hessian_tile(
+                        block_states,
+                        cache,
+                        row_start..row_end,
+                        &completed_rows,
+                        progress_step,
+                        started,
+                    )?);
+                    row_start = row_end;
+                }
+                if log_exact_work(n) {
+                    log::info!(
+                        "[BMS row-primary-hessian-cache] tiled build done n={} r={} tiles={} bytes={} elapsed={:.3}s",
+                        n,
+                        r,
+                        tiles.len(),
+                        plan.bytes,
+                        started.elapsed().as_secs_f64()
+                    );
+                }
+                drop(heartbeat_guard);
+                return Ok(RowPrimaryEvalCache::Tiled(RowPrimaryEvalTiles::new(
+                    n,
+                    r,
+                    BMS_ROW_PRIMARY_HESSIAN_TILE_ROWS,
+                    tiles,
+                )));
+            }
             if log_exact_work(n) {
                 log::info!(
-                    "[BMS row-primary-hessian-cache] decision=stream need_bytes={} avail_bytes={} workspace_pinned={} single_cache_budget={} global_pin_budget={} n={} r={} expected_reuse_passes={} materialized_row_hessian_evals={} streamed_row_hessian_evals={} reason={} gpu_policy={} gpu_selected={} gpu_reason={}",
+                    "[BMS row-primary-hessian-cache] decision=stream need_bytes={} avail_bytes={} stable_capacity={} workspace_pinned={} single_cache_budget={} global_pin_budget={} n={} r={} expected_reuse_passes={} materialized_row_hessian_evals={} streamed_row_hessian_evals={} reason={} gpu_policy={} gpu_selected={} gpu_reason={}",
                     plan.bytes,
                     plan.runtime_available_bytes,
+                    plan.stable_capacity_bytes,
                     plan.workspace_pinned_bytes,
                     plan.single_cache_budget_bytes,
                     plan.global_pin_budget_bytes,
@@ -3812,9 +4330,10 @@ impl BernoulliMarginalSlopeFamily {
         ));
         if log_exact_work(n) {
             log::info!(
-                "[BMS row-primary-hessian-cache] decision=materialize need_bytes={} avail_bytes={} workspace_pinned={} single_cache_budget={} global_pin_budget={} n={} r={} expected_reuse_passes={} materialized_row_hessian_evals={} streamed_row_hessian_evals={} reason={} gpu_policy={} gpu_selected={} gpu_reason={}",
+                "[BMS row-primary-hessian-cache] decision=materialize need_bytes={} avail_bytes={} stable_capacity={} workspace_pinned={} single_cache_budget={} global_pin_budget={} n={} r={} expected_reuse_passes={} materialized_row_hessian_evals={} streamed_row_hessian_evals={} reason={} gpu_policy={} gpu_selected={} gpu_reason={}",
                 plan.bytes,
                 plan.runtime_available_bytes,
+                plan.stable_capacity_bytes,
                 plan.workspace_pinned_bytes,
                 plan.single_cache_budget_bytes,
                 plan.global_pin_budget_bytes,
@@ -3954,10 +4473,124 @@ impl BernoulliMarginalSlopeFamily {
         }
         let completed_rows = AtomicUsize::new(0);
         let progress_step = (n / 10).max(1);
-        // Collect (neglog, grad_flat, hess_flat) per row in parallel, then
-        // assemble into the three packed arrays. Using par_iter collect avoids
-        // unsafe pointer aliasing while writing disjoint row slices.
-        let row_evals: Vec<(f64, Vec<f64>, Vec<f64>)> = (0..n)
+        // Allocate the three packed arrays up front, then fill them one row
+        // chunk at a time: each chunk is computed in parallel into a small
+        // `Vec<(f64, Vec, Vec)>` (safe disjoint-row collect) and copied into the
+        // packed arrays before the next chunk's scratch is allocated. This caps
+        // transient overhead at one chunk (~tens of MiB) instead of holding a
+        // second full `n×r²` copy alongside the packed arrays — the old
+        // collect-all-then-copy form peaked at ~2× the planned cache size, so
+        // the byte estimate the materialize/stream policy budgets against
+        // (`plan.bytes`) now actually bounds peak memory.
+        let mut packed_neglog = Array1::<f64>::zeros(n);
+        let mut packed_grad = Array2::<f64>::zeros((n, r));
+        let mut packed_hess = Array2::<f64>::zeros((n, r * r));
+        // ~tens of MiB of transient per-chunk scratch at r=20 (8192 * 421 * 8 ≈
+        // 27 MiB) regardless of n.
+        const ROW_PRIMARY_BUILD_CHUNK: usize = 8192;
+        let mut chunk_start = 0usize;
+        while chunk_start < n {
+            let chunk_end = (chunk_start + ROW_PRIMARY_BUILD_CHUNK).min(n);
+            let chunk_evals: Vec<(f64, Vec<f64>, Vec<f64>)> = (chunk_start..chunk_end)
+                .into_par_iter()
+                .map(|row| -> Result<(f64, Vec<f64>, Vec<f64>), String> {
+                    let row_ctx = Self::row_ctx(cache, row);
+                    let mut scratch = BernoulliMarginalSlopeFlexRowScratch::new(r);
+                    let row_moments = cache
+                        .row_cell_moments
+                        .as_ref()
+                        .and_then(|bundle| bundle.row(row, 9));
+                    let neglog = self.compute_row_analytic_flex_into_with_moments(
+                        row,
+                        block_states,
+                        primary,
+                        row_ctx,
+                        row_moments,
+                        true,
+                        &mut scratch,
+                    )?;
+                    if log_exact_work(n) {
+                        let done = completed_rows.fetch_add(1, Ordering::Relaxed) + 1;
+                        if done == n || done % progress_step == 0 {
+                            log::info!(
+                                "[BMS row-primary-hessian-cache] progress rows={}/{} elapsed={:.3}s",
+                                done,
+                                n,
+                                started.elapsed().as_secs_f64()
+                            );
+                        }
+                    }
+                    Ok((
+                        neglog,
+                        scratch.grad.to_vec(),
+                        scratch
+                            .hess
+                            .as_slice()
+                            .expect("hess is contiguous")
+                            .to_vec(),
+                    ))
+                })
+                .collect::<Result<Vec<_>, String>>()?;
+            for (offset, (neglog, grad_flat, hess_flat)) in chunk_evals.into_iter().enumerate() {
+                let row = chunk_start + offset;
+                packed_neglog[row] = neglog;
+                packed_grad
+                    .row_mut(row)
+                    .iter_mut()
+                    .zip(grad_flat.iter())
+                    .for_each(|(d, s)| *d = *s);
+                packed_hess
+                    .row_mut(row)
+                    .iter_mut()
+                    .zip(hess_flat.iter())
+                    .for_each(|(d, s)| *d = *s);
+            }
+            chunk_start = chunk_end;
+        }
+        if log_exact_work(n) {
+            log::info!(
+                "[BMS row-primary-hessian-cache] build done n={} r={} elapsed={:.3}s",
+                n,
+                r,
+                started.elapsed().as_secs_f64()
+            );
+        }
+        drop(heartbeat_guard);
+        Ok(RowPrimaryEvalCache::Host(RowPrimaryEvalPin::new(
+            packed_neglog,
+            packed_grad,
+            packed_hess,
+            plan.bytes,
+        )))
+    }
+
+    fn row_primary_eval_tile_bytes(rows: usize, r: usize) -> u64 {
+        let floats_per_row = (r as u64)
+            .saturating_mul(r as u64)
+            .saturating_add(r as u64)
+            .saturating_add(1);
+        (rows as u64)
+            .saturating_mul(floats_per_row)
+            .saturating_mul(std::mem::size_of::<f64>() as u64)
+    }
+
+    fn build_row_primary_hessian_tile(
+        &self,
+        block_states: &[ParameterBlockState],
+        cache: &BernoulliMarginalSlopeExactEvalCache,
+        rows: std::ops::Range<usize>,
+        completed_rows: &AtomicUsize,
+        progress_step: usize,
+        started: std::time::Instant,
+    ) -> Result<RowPrimaryEvalTile, String> {
+        let n = self.y.len();
+        let r = cache.primary.total;
+        let tile_len = rows.end - rows.start;
+        let mut packed_neglog = Array1::<f64>::zeros(tile_len);
+        let mut packed_grad = Array2::<f64>::zeros((tile_len, r));
+        let mut packed_hess = Array2::<f64>::zeros((tile_len, r * r));
+        let chunk_evals: Vec<(f64, Vec<f64>, Vec<f64>)> = rows
+            .clone()
             .into_par_iter()
             .map(|row| -> Result<(f64, Vec<f64>, Vec<f64>), String> {
                 let row_ctx = Self::row_ctx(cache, row);
@@ -3969,7 +4602,7 @@ impl BernoulliMarginalSlopeFamily {
                 let neglog = self.compute_row_analytic_flex_into_with_moments(
                     row,
                     block_states,
-                    primary,
+                    &cache.primary,
                     row_ctx,
                     row_moments,
                     true,
@@ -3997,37 +4630,24 @@ impl BernoulliMarginalSlopeFamily {
                 ))
             })
             .collect::<Result<Vec<_>, String>>()?;
-        let mut packed_neglog = Array1::<f64>::zeros(n);
-        let mut packed_grad = Array2::<f64>::zeros((n, r));
-        let mut packed_hess = Array2::<f64>::zeros((n, r * r));
-        for (row, (neglog, grad_flat, hess_flat)) in row_evals.into_iter().enumerate() {
-            packed_neglog[row] = neglog;
+        for (offset, (neglog, grad_flat, hess_flat)) in chunk_evals.into_iter().enumerate() {
+            packed_neglog[offset] = neglog;
             packed_grad
-                .row_mut(row)
+                .row_mut(offset)
                 .iter_mut()
                 .zip(grad_flat.iter())
                 .for_each(|(d, s)| *d = *s);
             packed_hess
-                .row_mut(row)
+                .row_mut(offset)
                 .iter_mut()
                 .zip(hess_flat.iter())
                 .for_each(|(d, s)| *d = *s);
         }
-        if log_exact_work(n) {
-            log::info!(
-                "[BMS row-primary-hessian-cache] build done n={} r={} elapsed={:.3}s",
-                n,
-                r,
-                started.elapsed().as_secs_f64()
-            );
-        }
-        drop(heartbeat_guard);
-        Ok(RowPrimaryEvalCache::Host(RowPrimaryEvalPin::new(
-            packed_neglog,
-            packed_grad,
-            packed_hess,
-            plan.bytes,
-        )))
+        let bytes = Self::row_primary_eval_tile_bytes(tile_len, r);
+        Ok(RowPrimaryEvalTile {
+            row_start: rows.start,
+            rows: RowPrimaryEvalPin::new(packed_neglog, packed_grad, packed_hess, bytes),
+        })
     }
 
     /// Look up the cached per-row primary Hessian (`r × r`) materialized at
@@ -4043,8 +4663,24 @@ impl BernoulliMarginalSlopeFamily {
         cache: &'a BernoulliMarginalSlopeExactEvalCache,
         row: usize,
     ) -> Option<ArrayView2<'a, f64>> {
-        let hess = cache.row_primary_hessians.host_pin()?.hess();
         let r = cache.primary.total;
+        if let Some(pin) = cache.row_primary_hessians.host_pin() {
+            return Self::cached_row_primary_hessian_from_pin(pin, row, r);
+        }
+        if let Some(tiles) = cache.row_primary_hessians.tiles() {
+            let (tile, local_row) = tiles.tile_for_row(row)?;
+            return Self::cached_row_primary_hessian_from_pin(&tile.rows, local_row, r);
+        }
+        None
+    }
+
+    #[inline]
+    fn cached_row_primary_hessian_from_pin<'a>(
+        pin: &'a RowPrimaryEvalPin,
+        row: usize,
+        r: usize,
+    ) -> Option<ArrayView2<'a, f64>> {
+        let hess = pin.hess();
         if row >= hess.nrows() {
             return None;
         }
@@ -4064,10 +4700,25 @@ impl BernoulliMarginalSlopeFamily {
         cache: &'a BernoulliMarginalSlopeExactEvalCache,
         row: usize,
     ) -> Option<(f64, ArrayView1<'a, f64>)> {
-        let pin = cache.row_primary_hessians.host_pin()?;
+        let r = cache.primary.total;
+        if let Some(pin) = cache.row_primary_hessians.host_pin() {
+            return Self::cached_row_primary_eval_from_pin(pin, row, r);
+        }
+        if let Some(tiles) = cache.row_primary_hessians.tiles() {
+            let (tile, local_row) = tiles.tile_for_row(row)?;
+            return Self::cached_row_primary_eval_from_pin(&tile.rows, local_row, r);
+        }
+        None
+    }
+
+    #[inline]
+    fn cached_row_primary_eval_from_pin<'a>(
+        pin: &'a RowPrimaryEvalPin,
+        row: usize,
+        r: usize,
+    ) -> Option<(f64, ArrayView1<'a, f64>)> {
         let neglog = pin.neglog();
         let grad = pin.grad();
-        let r = cache.primary.total;
         if row >= neglog.len() || row >= grad.nrows() {
             return None;
         }
@@ -4318,6 +4969,55 @@ impl BernoulliMarginalSlopeFamily {
         Ok(())
     }
 
+    /// View-accepting twin of [`Self::pullback_primary_vector_add_into`] used by
+    /// the batched multi-RHS apply, where each RHS pulls back into one column
+    /// (`ArrayViewMut1`) of the `(total, n_rhs)` output. The algebra is byte for
+    /// byte the same as the owned-`Array1` form; only the output handle type
+    /// differs so a column view can be written without copying.
+    pub(super) fn pullback_primary_vector_add_into_view(
+        &self,
+        row: usize,
+        slices: &BlockSlices,
+        primary: &PrimarySlices,
+        primary_vec: &Array1<f64>,
+        out: &mut ArrayViewMut1<'_, f64>,
+    ) -> Result<(), String> {
+        {
+            let mut marginal = out.slice_mut(s![slices.marginal.clone()]);
+            self.marginal_design
+                .axpy_row_into(row, primary_vec[primary.q], &mut marginal)?;
+        }
+        {
+            let mut logslope = out.slice_mut(s![slices.logslope.clone()]);
+            self.logslope_design.axpy_row_into(
+                row,
+                primary_vec[primary.logslope],
+                &mut logslope,
+            )?;
+        }
+        if let Some(primary_h) = primary.h.as_ref()
+            && let Some(block_h) = slices.h.as_ref()
+        {
+            out.slice_mut(s![block_h.clone()]).zip_mut_with(
+                &primary_vec.slice(s![primary_h.start..primary_h.end]),
+                |a, &b| {
+                    *a += b;
+                },
+            );
+        }
+        if let Some(primary_w) = primary.w.as_ref()
+            && let Some(block_w) = slices.w.as_ref()
+        {
+            out.slice_mut(s![block_w.clone()]).zip_mut_with(
+                &primary_vec.slice(s![primary_w.start..primary_w.end]),
+                |a, &b| {
+                    *a += b;
+                },
+            );
+        }
+        Ok(())
+    }
+
     pub(super) fn block_psi_row_from_map(
         &self,
         row: usize,
@@ -4378,7 +5078,7 @@ impl BernoulliMarginalSlopeFamily {
         let marginal_eta = block_states[0].eta[row];
         let marginal = self.marginal_link_map(marginal_eta)?;
         let g = block_states[1].eta[row];
-        let (neglog, grad_pair, h) = self.rigid_row_kernel_eval(row, marginal_eta, marginal, g)?;
+        let (neglog, grad_pair, h) = self.rigid_row_kernel_eval(row, marginal, g)?;
         let mut grad = Array1::<f64>::zeros(2);
         grad[0] = grad_pair[0];
         grad[1] = grad_pair[1];
@@ -5053,6 +5753,174 @@ impl BernoulliMarginalSlopeFamily {
         )
     }
 
+    /// Decompose an outer ψ-axis direction into `(axis, scalar)` when it is
+    /// *single-axis* in primary space — nonzero only at `primary.q` (axis `0`,
+    /// "q") or `primary.logslope` (axis `1`, "g"). This is the universal shape
+    /// of the nonzero directions every outer-derivative consumer builds (a
+    /// ψ-row dotted into one block's β, deposited at that block's primary
+    /// slot). Returns `None` for the all-zero vector and for any genuinely
+    /// multi-axis direction (e.g. finite-difference probes); zero directions
+    /// take a separate exact zero fast path. Backs the gam#683 fast path.
+    #[inline]
+    fn single_primary_axis(dir: &Array1<f64>, primary: &PrimarySlices) -> Option<(usize, f64)> {
+        if dir.len() != primary.total {
+            return None;
+        }
+        let mut found: Option<(usize, f64)> = None;
+        for (idx, &value) in dir.iter().enumerate() {
+            if value == 0.0 {
+                continue;
+            }
+            let axis = if idx == primary.q {
+                0usize
+            } else if idx == primary.logslope {
+                1usize
+            } else {
+                return None;
+            };
+            if found.is_some() {
+                return None;
+            }
+            found = Some((axis, value));
+        }
+        found
+    }
+
+    #[inline]
+    fn primary_direction_is_zero(dir: &Array1<f64>, primary: &PrimarySlices) -> bool {
+        dir.len() == primary.total && dir.iter().all(|&value| value == 0.0)
+    }
+
+    /// Lazily build the requested row's axis-projected third-derivative tensors
+    /// backing the FLEX outer-derivative fast paths (gam#683), reused across
+    /// every ψ-axis. `None` on the rigid path (rigid rows use
+    /// `rigid_third_full`).
+    ///
+    /// Each row's tensors are produced by the *slow* third-order cell-walk
+    /// worker (`row_primary_third_contracted_recompute_with_moments`) evaluated
+    /// at the two primary-axis basis vectors `e_q`, `e_g` — so the cached
+    /// values are the very contractions the per-axis path used to recompute,
+    /// just computed once and reused.
+    ///
+    /// Two-level lazy: the outer `RayonSafeOnce` allocates a per-row slot table
+    /// on first touch; each inner per-row `RayonSafeOnce` then builds that row
+    /// on demand. Both inits run lock-free (`get_or_compute`), so first-touch
+    /// from inside an outer Rayon row fold is safe, and the per-row build is
+    /// serial (no nested `into_par_iter`). Because outer derivative passes are
+    /// row-subsampled, only the consumed rows are ever built.
+    pub(super) fn flex_axis_third_tensors_for_row<'a>(
+        &self,
+        block_states: &[ParameterBlockState],
+        cache: &'a BernoulliMarginalSlopeExactEvalCache,
+        row: usize,
+    ) -> Result<Option<&'a FlexAxisThirdRowTensors>, String> {
+        if !self.effective_flex_active(block_states)? {
+            return Ok(None);
+        }
+        // Allocate the per-row slot table once (one inner RayonSafeOnce per
+        // global row), then build only the requested row on first touch.
+        let slots = cache.flex_axis_third_tensors.get_or_compute(|| {
+            (0..self.y.len())
+                .map(|_| crate::resource::RayonSafeOnce::new())
+                .collect::<Vec<_>>()
+        });
+        let stored = slots[row].get_or_compute(|| -> Result<FlexAxisThirdRowTensors, String> {
+            let r = cache.primary.total;
+            let mut e_q = Array1::<f64>::zeros(r);
+            e_q[cache.primary.q] = 1.0;
+            let mut e_g = Array1::<f64>::zeros(r);
+            e_g[cache.primary.logslope] = 1.0;
+            let row_ctx = Self::row_ctx(cache, row);
+            let t3_q = self.row_primary_third_contracted_recompute_with_moments(
+                row,
+                block_states,
+                cache,
+                row_ctx,
+                &e_q,
+            )?;
+            let t3_g = self.row_primary_third_contracted_recompute_with_moments(
+                row,
+                block_states,
+                cache,
+                row_ctx,
+                &e_g,
+            )?;
+            Ok(FlexAxisThirdRowTensors {
+                third: [t3_q, t3_g],
+            })
+        });
+        let tensors = stored.as_ref().map_err(|err| err.clone())?;
+        Ok(Some(tensors))
+    }
+
+    /// Lazily build the requested row's axis-projected fourth-derivative
+    /// tensors. Kept separate from [`Self::flex_axis_third_tensors_for_row`] so
+    /// first-order outer paths do not force degree-21 fourth-order cell work.
+    pub(super) fn flex_axis_fourth_tensors_for_row<'a>(
+        &self,
+        block_states: &[ParameterBlockState],
+        cache: &'a BernoulliMarginalSlopeExactEvalCache,
+        row: usize,
+    ) -> Result<Option<&'a FlexAxisFourthRowTensors>, String> {
+        if !self.effective_flex_active(block_states)? {
+            return Ok(None);
+        }
+        let slots = cache.flex_axis_fourth_tensors.get_or_compute(|| {
+            (0..self.y.len())
+                .map(|_| crate::resource::RayonSafeOnce::new())
+                .collect::<Vec<_>>()
+        });
+        let stored = slots[row].get_or_compute(|| -> Result<FlexAxisFourthRowTensors, String> {
+            let r = cache.primary.total;
+            let mut e_q = Array1::<f64>::zeros(r);
+            e_q[cache.primary.q] = 1.0;
+            let mut e_g = Array1::<f64>::zeros(r);
+            e_g[cache.primary.logslope] = 1.0;
+            let row_ctx = Self::row_ctx(cache, row);
+            let t4_qq = self.row_primary_fourth_contracted_recompute_ordered(
+                row,
+                block_states,
+                cache,
+                row_ctx,
+                &e_q,
+                &e_q,
+            )?;
+            let t4_gg = self.row_primary_fourth_contracted_recompute_ordered(
+                row,
+                block_states,
+                cache,
+                row_ctx,
+                &e_g,
+                &e_g,
+            )?;
+            let t4_qg_ordered = self.row_primary_fourth_contracted_recompute_ordered(
+                row,
+                block_states,
+                cache,
+                row_ctx,
+                &e_q,
+                &e_g,
+            )?;
+            let t4_qg_swapped = self.row_primary_fourth_contracted_recompute_ordered(
+                row,
+                block_states,
+                cache,
+                row_ctx,
+                &e_g,
+                &e_q,
+            )?;
+            let mut t4_qg = t4_qg_ordered;
+            t4_qg.zip_mut_with(&t4_qg_swapped, |a, &b| *a = 0.5 * (*a + b));
+            Ok(FlexAxisFourthRowTensors {
+                qq: t4_qq,
+                qg: t4_qg,
+                gg: t4_gg,
+            })
+        });
+        let tensors = stored.as_ref().map_err(|err| err.clone())?;
+        Ok(Some(tensors))
+    }
+
     /// Third-derivative tensor contracted with direction `dir`:
     ///   out[k,l] = sum_m f_{klm} dir[m]
     /// Rigid path uses the closed-form kernel. The flexible de-nested
@@ -5070,6 +5938,24 @@ impl BernoulliMarginalSlopeFamily {
         row_ctx: &BernoulliMarginalSlopeRowExactContext,
         dir: &Array1<f64>,
     ) -> Result<Array2<f64>, String> {
+        // Exact zero by linearity. This matters for mixed-block ψ second-order
+        // terms, where `dir_ij` is structurally zero; without this guard the
+        // FLEX path would re-walk every cubic cell to produce a zero matrix.
+        if Self::primary_direction_is_zero(dir, &cache.primary) {
+            let r = cache.primary.total;
+            return Ok(Array2::<f64>::zeros((r, r)));
+        }
+        // FLEX fast path (gam#683): outer-derivative consumers pass single-axis
+        // directions, so reuse the per-row axis-projected tensor cache instead
+        // of re-walking every cubic partition cell on every (ρ-axis, row).
+        // Equal to the slow path by linearity: third_contracted(s·e_a) = s·T3[a].
+        if let Some((axis, scalar)) = Self::single_primary_axis(dir, &cache.primary) {
+            if let Some(tensors) = self.flex_axis_third_tensors_for_row(block_states, cache, row)? {
+                let mut out = tensors.third[axis].clone();
+                out.mapv_inplace(|value| value * scalar);
+                return Ok(out);
+            }
+        }
         self.row_primary_third_contracted_recompute_with_moments(
             row,
             block_states,
@@ -5148,9 +6034,8 @@ impl BernoulliMarginalSlopeFamily {
         let mut f_uv_dir = Array2::<f64>::zeros((r, r));
 
         let owned_cells;
-        let cells: &[CachedDenestedCellMoments] = if let Some(cached) = self
-            .bundle_for_degree(block_states, cache, 15)?
-            .and_then(|bundle| bundle.row(row, 15))
+        let cells: &[CachedDenestedCellMoments] = if let Some(cached) =
+            self.row_cell_moments_for_third_degree15(cache, row)?
         {
             cached
         } else {
@@ -5158,7 +6043,7 @@ impl BernoulliMarginalSlopeFamily {
             owned_cells = partitions
                 .into_iter()
                 .map(|partition_cell| {
-                    self.evaluate_cell_derivative_moments_lru(partition_cell.cell, 15)
+                    exact_kernel::evaluate_cell_derivative_moments_uncached(partition_cell.cell, 15)
                         .map(|state| CachedDenestedCellMoments {
                             partition_cell,
                             state,
@@ -5886,9 +6771,8 @@ impl BernoulliMarginalSlopeFamily {
         let mut f_uv = Array2::<f64>::zeros((r, r));
 
         let owned_cells;
-        let cells: &[CachedDenestedCellMoments] = if let Some(cached) = self
-            .bundle_for_degree(block_states, cache, 15)?
-            .and_then(|bundle| bundle.row(row, 15))
+        let cells: &[CachedDenestedCellMoments] = if let Some(cached) =
+            self.row_cell_moments_for_third_degree15(cache, row)?
         {
             cached
         } else {
@@ -5896,7 +6780,7 @@ impl BernoulliMarginalSlopeFamily {
             owned_cells = partitions
                 .into_iter()
                 .map(|partition_cell| {
-                    self.evaluate_cell_derivative_moments_lru(partition_cell.cell, 15)
+                    exact_kernel::evaluate_cell_derivative_moments_uncached(partition_cell.cell, 15)
                         .map(|state| CachedDenestedCellMoments {
                             partition_cell,
                             state,
@@ -6575,7 +7459,6 @@ impl BernoulliMarginalSlopeFamily {
     /// accumulators. The two call sites previously inlined byte-identical
     /// copies differing only in the diagnostic `score_label` / `link_label`
     /// strings threaded into the deviation-basis iterators.
-    #[allow(clippy::too_many_arguments)]
     fn accumulate_primary_third_cell_moments(
         cells: &[CachedDenestedCellMoments],
         a: f64,
@@ -6938,9 +7821,8 @@ impl BernoulliMarginalSlopeFamily {
         let mut f_uv_dir = vec![0.0; n_dirs * r * r];
 
         let owned_cells;
-        let cells: &[CachedDenestedCellMoments] = if let Some(cached) = self
-            .bundle_for_degree(block_states, cache, 15)?
-            .and_then(|bundle| bundle.row(row, 15))
+        let cells: &[CachedDenestedCellMoments] = if let Some(cached) =
+            self.row_cell_moments_for_third_degree15(cache, row)?
         {
             cached
         } else {
@@ -6948,7 +7830,7 @@ impl BernoulliMarginalSlopeFamily {
             owned_cells = partitions
                 .into_iter()
                 .map(|partition_cell| {
-                    self.evaluate_cell_derivative_moments_lru(partition_cell.cell, 15)
+                    exact_kernel::evaluate_cell_derivative_moments_uncached(partition_cell.cell, 15)
                         .map(|state| CachedDenestedCellMoments {
                             partition_cell,
                             state,
@@ -7299,7 +8181,7 @@ impl BernoulliMarginalSlopeFamily {
 
         let owned_cells;
         let cells: &[CachedDenestedCellMoments] = if let Some(cached) = self
-            .bundle_for_degree(block_states, cache, 21)?
+            .existing_bundle_for_degree(cache, 21)?
             .and_then(|bundle| bundle.row(row, 21))
         {
             cached
@@ -7308,11 +8190,12 @@ impl BernoulliMarginalSlopeFamily {
             owned_cells = partitions
                 .into_iter()
                 .map(|partition_cell| {
-                    self.evaluate_cell_derivative_moments_lru(partition_cell.cell, 21)
-                        .map(|state| CachedDenestedCellMoments {
+                    exact::evaluate_cell_derivative_moments_uncached(partition_cell.cell, 21).map(
+                        |state| CachedDenestedCellMoments {
                             partition_cell,
                             state,
-                        })
+                        },
+                    )
                 })
                 .collect::<Result<Vec<_>, String>>()?;
             &owned_cells
@@ -8229,6 +9112,40 @@ impl BernoulliMarginalSlopeFamily {
         dir_u: &Array1<f64>,
         dir_v: &Array1<f64>,
     ) -> Result<Array2<f64>, String> {
+        // Exact zero by bilinearity. Keep zero directions off the FLEX
+        // cell-walk fallback even when the other side is a valid ψ axis.
+        if Self::primary_direction_is_zero(dir_u, &cache.primary)
+            || Self::primary_direction_is_zero(dir_v, &cache.primary)
+        {
+            let r = cache.primary.total;
+            return Ok(Array2::<f64>::zeros((r, r)));
+        }
+        // FLEX fast path (gam#683): both directions single-axis → a scalar
+        // scale of the cached symmetric axis-projected fourth tensor, by
+        // bilinearity: fourth_contracted(s_u·e_a, s_v·e_b) = s_u·s_v·T4[a][b].
+        if let (Some((a, s_u)), Some((b, s_v))) = (
+            Self::single_primary_axis(dir_u, &cache.primary),
+            Self::single_primary_axis(dir_v, &cache.primary),
+        ) {
+            if let Some(tensors) =
+                self.flex_axis_fourth_tensors_for_row(block_states, cache, row)?
+            {
+                let scale = s_u * s_v;
+                let mut out = match (a, b) {
+                    (0, 0) => tensors.qq.clone(),
+                    (1, 1) => tensors.gg.clone(),
+                    (0, 1) | (1, 0) => tensors.qg.clone(),
+                    _ => {
+                        return Err(format!(
+                            "bernoulli marginal-slope FLEX fourth fast path primary axis out of range: a={a}, b={b}, primary_total={}",
+                            cache.primary.total
+                        ));
+                    }
+                };
+                out.mapv_inplace(|value| value * scale);
+                return Ok(out);
+            }
+        }
         let ordered = self.row_primary_fourth_contracted_recompute_ordered(
             row,
             block_states,
@@ -9105,8 +10022,7 @@ impl BernoulliMarginalSlopeFamily {
                             let marginal_eta = block_states[0].eta[row];
                             let marginal = self.marginal_link_map(marginal_eta)?;
                             let g = block_states[1].eta[row];
-                            let (_, _, h) =
-                                self.rigid_row_kernel_eval(row, marginal_eta, marginal, g)?;
+                            let (_, _, h) = self.rigid_row_kernel_eval(row, marginal, g)?;
                             let v_q = self
                                 .marginal_design
                                 .dot_row_view(row, direction.slice(s![slices.marginal.clone()]));
@@ -9232,16 +10148,165 @@ impl BernoulliMarginalSlopeFamily {
                     crate::gpu::row_hessian_ops::cpu_row_hessian_matvec(&inputs)
                 }
             };
-            // Reuse `row_dir_scratch` as the per-row action buffer (same
-            // length r_pr) to avoid per-row allocation in the pullback loop.
-            for row in 0..n {
-                let action_slice = &y_rows[row * r_pr..(row + 1) * r_pr];
-                row_dir_scratch
-                    .iter_mut()
-                    .zip(action_slice.iter())
-                    .for_each(|(dst, &src)| *dst = src);
-                self.pullback_primary_vector_add_into(row, slices, primary, &row_dir_scratch, out)?;
+            // Pull back every row's action `y_rows[row]` through its design
+            // rows into the joint-β image. The pullback accumulates into the
+            // shared output, so fan it across rayon row chunks with a private
+            // per-chunk partial + a sum reduce — numerically identical to the
+            // serial single-buffer accumulation, with each worker owning its
+            // own action scratch.
+            let partial = (0..n.div_ceil(ROW_CHUNK_SIZE))
+                .into_par_iter()
+                .try_fold(
+                    || {
+                        (
+                            Array1::<f64>::zeros(slices.total),
+                            Array1::<f64>::zeros(r_pr),
+                        )
+                    },
+                    |(mut chunk_out, mut action_scratch), chunk_idx| -> Result<_, String> {
+                        let start = chunk_idx * ROW_CHUNK_SIZE;
+                        let end = (start + ROW_CHUNK_SIZE).min(n);
+                        for row in start..end {
+                            let action_slice = &y_rows[row * r_pr..(row + 1) * r_pr];
+                            action_scratch
+                                .iter_mut()
+                                .zip(action_slice.iter())
+                                .for_each(|(dst, &src)| *dst = src);
+                            self.pullback_primary_vector_add_into(
+                                row,
+                                slices,
+                                primary,
+                                &action_scratch,
+                                &mut chunk_out,
+                            )?;
+                        }
+                        Ok((chunk_out, action_scratch))
+                    },
+                )
+                .map(|res| res.map(|(chunk_out, _)| chunk_out))
+                .try_reduce(
+                    || Array1::<f64>::zeros(slices.total),
+                    |mut left, right| -> Result<_, String> {
+                        left += &right;
+                        Ok(left)
+                    },
+                )?;
+            *out += &partial;
+            return Ok(());
+        }
+
+        if let Some(tiles) = cache.row_primary_hessians.tiles() {
+            if tiles.r != primary.total || tiles.n_rows != n {
+                return Err(format!(
+                    "BMS tiled row-primary Hessian shape mismatch: tiles n={} r={}, expected n={} r={}",
+                    tiles.n_rows, tiles.r, n, primary.total
+                ));
             }
+            if tiles.is_empty() {
+                return Ok(());
+            }
+            if log_exact_work(n) {
+                log::info!(
+                    "[BMS exact-newton HVP] route=tiled-host rows={} r={} tiles={} bytes={}",
+                    n,
+                    tiles.r,
+                    tiles.tiles.len(),
+                    tiles.total_bytes()
+                );
+            }
+            let r_pr = primary.total;
+            // Fan the tiles across rayon: each tile owns an independent row
+            // block, so a per-tile partial pullback into a private accumulator
+            // followed by a reduce is numerically identical to the serial
+            // single-buffer accumulation (the reduction order differs only by
+            // tile, and each tile contributes a disjoint set of rows). This
+            // mirrors the chunked `try_fold`/`try_reduce` used by the streaming
+            // fallback below and gives every worker its own row-direction /
+            // action scratch, so there is no per-call `v_rows` allocation on a
+            // shared path and no serial bottleneck across the ~`n/tile_rows`
+            // tiles.
+            let partial = tiles
+                .tiles
+                .par_iter()
+                .try_fold(
+                    || (Array1::<f64>::zeros(slices.total), Array1::<f64>::zeros(r_pr)),
+                    |(mut tile_out, mut row_dir_scratch), tile| -> Result<_, String> {
+                        let tile_rows = tile.rows.hess().nrows();
+                        let mut v_rows = vec![0.0_f64; tile_rows * r_pr];
+                        for local in 0..tile_rows {
+                            let row = tile.row_start + local;
+                            self.row_primary_direction_from_flat_into(
+                                row,
+                                slices,
+                                primary,
+                                direction,
+                                &mut row_dir_scratch,
+                            )?;
+                            v_rows[local * r_pr..(local + 1) * r_pr]
+                                .copy_from_slice(row_dir_scratch.as_slice().expect("contiguous"));
+                        }
+                        let h_rows_slice = tile.rows.hess().as_slice().expect(
+                            "tiled row_primary_hessians.hess() is row-major contiguous",
+                        );
+                        let inputs = crate::gpu::row_hessian_ops::RowHessianMatvecInputs {
+                            n_rows: tile_rows,
+                            r: r_pr,
+                            h_rows: h_rows_slice,
+                            v_rows: &v_rows,
+                        };
+                        let y_rows = {
+                            #[cfg(target_os = "linux")]
+                            {
+                                match crate::gpu::row_hessian_ops::launch_row_hessian_matvec(
+                                    crate::gpu::row_hessian_ops::RowHessianMatvecInputs {
+                                        n_rows: tile_rows,
+                                        r: r_pr,
+                                        h_rows: h_rows_slice,
+                                        v_rows: &v_rows,
+                                    },
+                                ) {
+                                    Ok(result) => result.y_rows,
+                                    Err(err) => {
+                                        log::info!(
+                                            "[BMS exact-newton HVP] tiled GPU matvec failed: {err}; \
+                                             falling back to CPU oracle"
+                                        );
+                                        crate::gpu::row_hessian_ops::cpu_row_hessian_matvec(&inputs)
+                                    }
+                                }
+                            }
+                            #[cfg(not(target_os = "linux"))]
+                            {
+                                crate::gpu::row_hessian_ops::cpu_row_hessian_matvec(&inputs)
+                            }
+                        };
+                        for local in 0..tile_rows {
+                            let row = tile.row_start + local;
+                            let action_slice = &y_rows[local * r_pr..(local + 1) * r_pr];
+                            row_dir_scratch
+                                .iter_mut()
+                                .zip(action_slice.iter())
+                                .for_each(|(dst, &src)| *dst = src);
+                            self.pullback_primary_vector_add_into(
+                                row,
+                                slices,
+                                primary,
+                                &row_dir_scratch,
+                                &mut tile_out,
+                            )?;
+                        }
+                        Ok((tile_out, row_dir_scratch))
+                    },
+                )
+                .map(|res| res.map(|(tile_out, _)| tile_out))
+                .try_reduce(
+                    || Array1::<f64>::zeros(slices.total),
+                    |mut left, right| -> Result<_, String> {
+                        left += &right;
+                        Ok(left)
+                    },
+                )?;
+            *out += &partial;
             return Ok(());
         }
 
@@ -9305,6 +10370,191 @@ impl BernoulliMarginalSlopeFamily {
         *out += &partial;
         Ok(())
     }
+
+    /// Batched multi-RHS coefficient-Hessian apply: writes `H · V` into `out`,
+    /// where `V` and `out` are `(total, n_rhs)` and each column is an
+    /// independent direction. Column for column the result is **numerically
+    /// identical** to calling
+    /// [`Self::exact_newton_joint_hessian_matvec_from_cache_into`] on each
+    /// column: the same per-row primary Hessian `Hᵢ`, the same projection and
+    /// pullback algebra, only with the row tiles swept once for all columns.
+    ///
+    /// For the tiled row-primary Hessian cache the win is structural — each
+    /// tile's resident `Hᵢ` block is materialised and consumed once per tile
+    /// pass instead of once per (column × tile). Dense reconstruction of the
+    /// matrix-free joint Hessian (`H = H · I`) is then a single tile sweep of
+    /// width `total` rather than `total` separate sweeps. Every non-tiled cache
+    /// state (rigid closed-form, host-pin, device-resident, matrix-free
+    /// stream) routes column-by-column through the single-vector entry point,
+    /// so those paths are unchanged.
+    pub(crate) fn exact_newton_joint_hessian_matvec_mat_from_cache_into(
+        &self,
+        v_cols: &Array2<f64>,
+        block_states: &[ParameterBlockState],
+        cache: &BernoulliMarginalSlopeExactEvalCache,
+        out: &mut Array2<f64>,
+    ) -> Result<(), String> {
+        let slices = &cache.slices;
+        let primary = &cache.primary;
+        let total = slices.total;
+        let n = self.y.len();
+        if v_cols.nrows() != total || out.nrows() != total {
+            return Err(format!(
+                "BMS batched HVP: row mismatch v_cols={}x{} out={}x{} expected rows={total}",
+                v_cols.nrows(),
+                v_cols.ncols(),
+                out.nrows(),
+                out.ncols()
+            ));
+        }
+        if v_cols.ncols() != out.ncols() {
+            return Err(format!(
+                "BMS batched HVP: column mismatch v_cols has {} columns, out has {}",
+                v_cols.ncols(),
+                out.ncols()
+            ));
+        }
+        let n_rhs = v_cols.ncols();
+        out.fill(0.0);
+        if n_rhs == 0 {
+            return Ok(());
+        }
+
+        // Fast path: tiled row-primary Hessian. Sweep each tile once and apply
+        // its `Hᵢ` to every RHS column. Tiles own disjoint row blocks, so a
+        // per-tile private `(total, n_rhs)` partial followed by a reduce is
+        // identical (up to f.p. reduction order, by tile) to the serial
+        // single-buffer accumulation — exactly as the single-vector tiled HVP
+        // does for one column.
+        if let Some(tiles) = cache.row_primary_hessians.tiles() {
+            if tiles.r != primary.total || tiles.n_rows != n {
+                return Err(format!(
+                    "BMS tiled row-primary Hessian batched-HVP shape mismatch: tiles n={} r={}, expected n={} r={}",
+                    tiles.n_rows, tiles.r, n, primary.total
+                ));
+            }
+            if tiles.is_empty() {
+                return Ok(());
+            }
+            let r_pr = primary.total;
+            let partial = tiles
+                .tiles
+                .par_iter()
+                .try_fold(
+                    || {
+                        (
+                            Array2::<f64>::zeros((total, n_rhs)),
+                            Array1::<f64>::zeros(total),
+                            Array1::<f64>::zeros(r_pr),
+                        )
+                    },
+                    |(mut tile_out, mut col_scratch, mut row_dir_scratch), tile| -> Result<_, String> {
+                        let tile_rows = tile.rows.hess().nrows();
+                        let h_rows_slice = tile.rows.hess().as_slice().expect(
+                            "tiled row_primary_hessians.hess() is row-major contiguous",
+                        );
+                        // One `v_rows` / `y_rows` buffer reused across all RHS
+                        // columns within this tile so the per-tile working set
+                        // stays one column wide regardless of `n_rhs`.
+                        let mut v_rows = vec![0.0_f64; tile_rows * r_pr];
+                        for col in 0..n_rhs {
+                            col_scratch.assign(&v_cols.column(col));
+                            for local in 0..tile_rows {
+                                let row = tile.row_start + local;
+                                self.row_primary_direction_from_flat_into(
+                                    row,
+                                    slices,
+                                    primary,
+                                    &col_scratch,
+                                    &mut row_dir_scratch,
+                                )?;
+                                v_rows[local * r_pr..(local + 1) * r_pr].copy_from_slice(
+                                    row_dir_scratch.as_slice().expect("contiguous"),
+                                );
+                            }
+                            let inputs = crate::gpu::row_hessian_ops::RowHessianMatvecInputs {
+                                n_rows: tile_rows,
+                                r: r_pr,
+                                h_rows: h_rows_slice,
+                                v_rows: &v_rows,
+                            };
+                            let y_rows = {
+                                #[cfg(target_os = "linux")]
+                                {
+                                    match crate::gpu::row_hessian_ops::launch_row_hessian_matvec(
+                                        crate::gpu::row_hessian_ops::RowHessianMatvecInputs {
+                                            n_rows: tile_rows,
+                                            r: r_pr,
+                                            h_rows: h_rows_slice,
+                                            v_rows: &v_rows,
+                                        },
+                                    ) {
+                                        Ok(result) => result.y_rows,
+                                        Err(err) => {
+                                            log::info!(
+                                                "[BMS exact-newton batched-HVP] tiled GPU matvec failed: {err}; \
+                                                 falling back to CPU oracle"
+                                            );
+                                            crate::gpu::row_hessian_ops::cpu_row_hessian_matvec(
+                                                &inputs,
+                                            )
+                                        }
+                                    }
+                                }
+                                #[cfg(not(target_os = "linux"))]
+                                {
+                                    crate::gpu::row_hessian_ops::cpu_row_hessian_matvec(&inputs)
+                                }
+                            };
+                            let mut tile_out_col = tile_out.column_mut(col);
+                            for local in 0..tile_rows {
+                                let row = tile.row_start + local;
+                                let action_slice = &y_rows[local * r_pr..(local + 1) * r_pr];
+                                row_dir_scratch
+                                    .iter_mut()
+                                    .zip(action_slice.iter())
+                                    .for_each(|(dst, &src)| *dst = src);
+                                self.pullback_primary_vector_add_into_view(
+                                    row,
+                                    slices,
+                                    primary,
+                                    &row_dir_scratch,
+                                    &mut tile_out_col,
+                                )?;
+                            }
+                        }
+                        Ok((tile_out, col_scratch, row_dir_scratch))
+                    },
+                )
+                .map(|res| res.map(|(tile_out, _, _)| tile_out))
+                .try_reduce(
+                    || Array2::<f64>::zeros((total, n_rhs)),
+                    |mut left, right| -> Result<_, String> {
+                        left += &right;
+                        Ok(left)
+                    },
+                )?;
+            *out += &partial;
+            return Ok(());
+        }
+
+        // Every other cache state keeps the single-vector fast paths. Loop the
+        // columns through the single-vector `_into`; the result is identical.
+        let mut col_in = Array1::<f64>::zeros(total);
+        let mut col_out = Array1::<f64>::zeros(total);
+        for col in 0..n_rhs {
+            col_in.assign(&v_cols.column(col));
+            self.exact_newton_joint_hessian_matvec_from_cache_into(
+                &col_in,
+                block_states,
+                cache,
+                &mut col_out,
+            )?;
+            out.column_mut(col).assign(&col_out);
+        }
+        Ok(())
+    }
+
     pub(super) fn exact_newton_joint_hessian_diagonal_from_cache(
         &self,
         block_states: &[ParameterBlockState],
@@ -9327,8 +10577,7 @@ impl BernoulliMarginalSlopeFamily {
                             let marginal_eta = block_states[0].eta[row];
                             let marginal = self.marginal_link_map(marginal_eta)?;
                             let g = block_states[1].eta[row];
-                            let (_, _, h) =
-                                self.rigid_row_kernel_eval(row, marginal_eta, marginal, g)?;
+                            let (_, _, h) = self.rigid_row_kernel_eval(row, marginal, g)?;
                             {
                                 let mut m = chunk_diag.slice_mut(s![slices.marginal.clone()]);
                                 self.marginal_design
@@ -9414,34 +10663,185 @@ impl BernoulliMarginalSlopeFamily {
                     crate::gpu::row_hessian_ops::cpu_row_hessian_diag(&inputs)
                 }
             };
-            let mut diagonal = Array1::<f64>::zeros(slices.total);
-            for row in 0..n {
-                let d_row_base = row * r_pr;
-                let h00 = d_rows[d_row_base];
-                let h11 = d_rows[d_row_base + 1];
-                {
-                    let mut marginal_diag = diagonal.slice_mut(s![slices.marginal.clone()]);
-                    self.marginal_design
-                        .squared_axpy_row_into(row, h00, &mut marginal_diag)?;
-                }
-                {
-                    let mut logslope_diag = diagonal.slice_mut(s![slices.logslope.clone()]);
-                    self.logslope_design
-                        .squared_axpy_row_into(row, h11, &mut logslope_diag)?;
-                }
-                if let (Some(primary_h), Some(block_h)) = (primary.h.as_ref(), slices.h.as_ref()) {
-                    for (local_idx, global_idx) in block_h.clone().enumerate() {
-                        let ii = primary_h.start + local_idx;
-                        diagonal[global_idx] += d_rows[d_row_base + ii];
-                    }
-                }
-                if let (Some(primary_w), Some(block_w)) = (primary.w.as_ref(), slices.w.as_ref()) {
-                    for (local_idx, global_idx) in block_w.clone().enumerate() {
-                        let ii = primary_w.start + local_idx;
-                        diagonal[global_idx] += d_rows[d_row_base + ii];
-                    }
-                }
+            // The per-row diagonals `d_rows` are already materialised; the
+            // remaining design² accumulation is a reduction over rows (every
+            // row contributes to the same marginal/logslope columns). Fan it
+            // across rayon row chunks with private diagonal partials + a sum
+            // reduce, exactly as the streaming fallback below does — numerically
+            // identical to the serial single-buffer accumulation up to f.p.
+            // reduction order, and removing the serial walk over all `n` rows.
+            let diagonal = (0..n.div_ceil(ROW_CHUNK_SIZE))
+                .into_par_iter()
+                .try_fold(
+                    || Array1::<f64>::zeros(slices.total),
+                    |mut chunk_diag, chunk_idx| -> Result<_, String> {
+                        let start = chunk_idx * ROW_CHUNK_SIZE;
+                        let end = (start + ROW_CHUNK_SIZE).min(n);
+                        for row in start..end {
+                            let d_row_base = row * r_pr;
+                            let h00 = d_rows[d_row_base];
+                            let h11 = d_rows[d_row_base + 1];
+                            {
+                                let mut marginal_diag =
+                                    chunk_diag.slice_mut(s![slices.marginal.clone()]);
+                                self.marginal_design.squared_axpy_row_into(
+                                    row,
+                                    h00,
+                                    &mut marginal_diag,
+                                )?;
+                            }
+                            {
+                                let mut logslope_diag =
+                                    chunk_diag.slice_mut(s![slices.logslope.clone()]);
+                                self.logslope_design.squared_axpy_row_into(
+                                    row,
+                                    h11,
+                                    &mut logslope_diag,
+                                )?;
+                            }
+                            if let (Some(primary_h), Some(block_h)) =
+                                (primary.h.as_ref(), slices.h.as_ref())
+                            {
+                                for (local_idx, global_idx) in block_h.clone().enumerate() {
+                                    let ii = primary_h.start + local_idx;
+                                    chunk_diag[global_idx] += d_rows[d_row_base + ii];
+                                }
+                            }
+                            if let (Some(primary_w), Some(block_w)) =
+                                (primary.w.as_ref(), slices.w.as_ref())
+                            {
+                                for (local_idx, global_idx) in block_w.clone().enumerate() {
+                                    let ii = primary_w.start + local_idx;
+                                    chunk_diag[global_idx] += d_rows[d_row_base + ii];
+                                }
+                            }
+                        }
+                        Ok(chunk_diag)
+                    },
+                )
+                .try_reduce(
+                    || Array1::<f64>::zeros(slices.total),
+                    |mut left, right| -> Result<_, String> {
+                        left += &right;
+                        Ok(left)
+                    },
+                )?;
+            return Ok(diagonal);
+        }
+
+        if let Some(tiles) = cache.row_primary_hessians.tiles() {
+            if tiles.r != primary.total || tiles.n_rows != n {
+                return Err(format!(
+                    "BMS tiled row-primary Hessian diagonal shape mismatch: tiles n={} r={}, expected n={} r={}",
+                    tiles.n_rows, tiles.r, n, primary.total
+                ));
             }
+            if log_exact_work(n) {
+                log::info!(
+                    "[BMS exact-newton diag] route=tiled-host rows={} r={} tiles={} bytes={}",
+                    n,
+                    tiles.r,
+                    tiles.tiles.len(),
+                    tiles.total_bytes()
+                );
+            }
+            let r_pr = primary.total;
+            // Fan tiles across rayon with a per-tile private diagonal partial
+            // and a reduce, exactly as the streaming fallback below does over
+            // row chunks. Each tile owns a disjoint row block, so the
+            // accumulation is order-independent up to f.p. reduction; the
+            // partials sum to the same diagonal the serial loop produced.
+            let diagonal = tiles
+                .tiles
+                .par_iter()
+                .try_fold(
+                    || Array1::<f64>::zeros(slices.total),
+                    |mut tile_diag, tile| -> Result<_, String> {
+                        let tile_rows = tile.rows.hess().nrows();
+                        let h_rows_slice =
+                            tile.rows.hess().as_slice().expect(
+                                "tiled row_primary_hessians.hess() is row-major contiguous",
+                            );
+                        let inputs = crate::gpu::row_hessian_ops::RowHessianDiagInputs {
+                            n_rows: tile_rows,
+                            r: r_pr,
+                            h_rows: h_rows_slice,
+                        };
+                        let d_rows = {
+                            #[cfg(target_os = "linux")]
+                            {
+                                match crate::gpu::row_hessian_ops::launch_row_hessian_diag(
+                                    crate::gpu::row_hessian_ops::RowHessianDiagInputs {
+                                        n_rows: tile_rows,
+                                        r: r_pr,
+                                        h_rows: h_rows_slice,
+                                    },
+                                ) {
+                                    Ok(out) => out.d_rows,
+                                    Err(err) => {
+                                        log::info!(
+                                            "[BMS exact-newton diag] tiled GPU diag failed: {err}; \
+                                             falling back to CPU oracle"
+                                        );
+                                        crate::gpu::row_hessian_ops::cpu_row_hessian_diag(&inputs)
+                                    }
+                                }
+                            }
+                            #[cfg(not(target_os = "linux"))]
+                            {
+                                crate::gpu::row_hessian_ops::cpu_row_hessian_diag(&inputs)
+                            }
+                        };
+                        for local in 0..tile_rows {
+                            let row = tile.row_start + local;
+                            let d_row_base = local * r_pr;
+                            let h00 = d_rows[d_row_base];
+                            let h11 = d_rows[d_row_base + 1];
+                            {
+                                let mut marginal_diag =
+                                    tile_diag.slice_mut(s![slices.marginal.clone()]);
+                                self.marginal_design.squared_axpy_row_into(
+                                    row,
+                                    h00,
+                                    &mut marginal_diag,
+                                )?;
+                            }
+                            {
+                                let mut logslope_diag =
+                                    tile_diag.slice_mut(s![slices.logslope.clone()]);
+                                self.logslope_design.squared_axpy_row_into(
+                                    row,
+                                    h11,
+                                    &mut logslope_diag,
+                                )?;
+                            }
+                            if let (Some(primary_h), Some(block_h)) =
+                                (primary.h.as_ref(), slices.h.as_ref())
+                            {
+                                for (local_idx, global_idx) in block_h.clone().enumerate() {
+                                    let ii = primary_h.start + local_idx;
+                                    tile_diag[global_idx] += d_rows[d_row_base + ii];
+                                }
+                            }
+                            if let (Some(primary_w), Some(block_w)) =
+                                (primary.w.as_ref(), slices.w.as_ref())
+                            {
+                                for (local_idx, global_idx) in block_w.clone().enumerate() {
+                                    let ii = primary_w.start + local_idx;
+                                    tile_diag[global_idx] += d_rows[d_row_base + ii];
+                                }
+                            }
+                        }
+                        Ok(tile_diag)
+                    },
+                )
+                .try_reduce(
+                    || Array1::<f64>::zeros(slices.total),
+                    |mut left, right| -> Result<_, String> {
+                        left += &right;
+                        Ok(left)
+                    },
+                )?;
             return Ok(diagonal);
         }
 
@@ -9645,6 +11045,10 @@ impl BernoulliMarginalSlopeFamily {
                 "run_psi_row_pass_for_axes rigid third-cache warm-up",
             )?;
         }
+        // FLEX analogue: prewarm the degree-15 cell-moment bundle so the
+        // per-row third-order recompute reuses prebuilt moments instead of
+        // recomputing them per row on every operator application (gam#683).
+        self.prewarm_flex_cell_bundle(block_states, cache, 15)?;
 
         // Block-local accumulator path: avoids O(n p^2) dense Hessian
         // materialization by keeping one accumulator per ψ axis in the
@@ -9863,6 +11267,11 @@ impl BernoulliMarginalSlopeFamily {
         } else {
             None
         };
+
+        // Prewarm the high-degree full-row bundle from serial setup code. Row
+        // kernels only read existing bundles, so parallel workers never launch
+        // duplicate full-`n` degree-21 builds on first touch.
+        self.prewarm_flex_cell_bundle(block_states, cache, 21)?;
 
         // Block-local accumulator path for second-order psi terms
         let weighted_rows = outer_weighted_rows(options, n);
@@ -10180,6 +11589,13 @@ impl BernoulliMarginalSlopeFamily {
             &self.policy,
         )?;
 
+        // FLEX: prewarm the degree-21 cell-moment bundle so per-row third/
+        // fourth recompute reuses prebuilt moments rather than recomputing
+        // them per row on every operator application. The fourth-order
+        // recompute reads degree-21 cells, and a degree-21 bundle also serves
+        // the third-order (degree-15) lookups (gam#683).
+        self.prewarm_flex_cell_bundle(block_states, cache, 21)?;
+
         let weighted_rows = outer_weighted_rows(options, n);
         let block_acc = weighted_rows
             .into_par_iter()
@@ -10315,6 +11731,13 @@ impl BernoulliMarginalSlopeFamily {
             &self.policy,
         )?;
 
+        // FLEX: prewarm the degree-21 cell-moment bundle so per-row third/
+        // fourth recompute reuses prebuilt moments rather than recomputing
+        // them per row on every operator application. The fourth-order
+        // recompute reads degree-21 cells, and a degree-21 bundle also serves
+        // the third-order (degree-15) lookups (gam#683).
+        self.prewarm_flex_cell_bundle(block_states, cache, 21)?;
+
         let weighted_rows = outer_weighted_rows(options, n);
         let block_acc = weighted_rows
             .into_par_iter()
@@ -10447,14 +11870,7 @@ impl BernoulliMarginalSlopeFamily {
                         let dg = self
                             .logslope_design
                             .dot_row_view(row, d_beta_flat.slice(s![slices.logslope.clone()]));
-                        let t = self.rigid_row_third_contracted(
-                            row,
-                            marginal_eta,
-                            marginal,
-                            g,
-                            dq,
-                            dg,
-                        )?;
+                        let t = self.rigid_row_third_contracted(row, marginal, g, dq, dg)?;
                         acc.add_pullback_rigid_2x2(self, row, &t, w);
                         Ok(acc)
                     },
@@ -10468,6 +11884,11 @@ impl BernoulliMarginalSlopeFamily {
                 )?;
             return Ok(Some(block_acc.to_dense(slices)));
         }
+
+        // FLEX: prewarm the degree-15 cell-moment bundle so the per-row
+        // third-order recompute reuses prebuilt moments rather than
+        // recomputing them per row on every operator application (gam#683).
+        self.prewarm_flex_cell_bundle(block_states, cache, 15)?;
 
         let block_acc = weighted_rows
             .into_par_iter()
@@ -10538,14 +11959,7 @@ impl BernoulliMarginalSlopeFamily {
                         let dg = self
                             .logslope_design
                             .dot_row_view(row, d_beta_flat.slice(s![slices.logslope.clone()]));
-                        let t = self.rigid_row_third_contracted(
-                            row,
-                            marginal_eta,
-                            marginal,
-                            g,
-                            dq,
-                            dg,
-                        )?;
+                        let t = self.rigid_row_third_contracted(row, marginal, g, dq, dg)?;
                         acc.add_pullback_rigid_2x2(self, row, &t, w);
                         Ok(acc)
                     },
@@ -10561,6 +11975,11 @@ impl BernoulliMarginalSlopeFamily {
                 Arc::new(block_acc.into_operator(slices)) as Arc<dyn HyperOperator>
             ));
         }
+
+        // FLEX: prewarm the degree-15 cell-moment bundle so the per-row
+        // third-order recompute reuses prebuilt moments rather than
+        // recomputing them per row on every operator application (gam#683).
+        self.prewarm_flex_cell_bundle(block_states, cache, 15)?;
 
         let block_acc = weighted_rows
             .into_par_iter()
@@ -10682,6 +12101,12 @@ impl BernoulliMarginalSlopeFamily {
                 "compute_gradient_and_hessian_via_psi_axes rigid third-cache warm-up",
             )?;
         }
+        // FLEX analogue: prewarm the degree-15 cell-moment bundle once, serially,
+        // so the per-row third-order recompute reuses prebuilt moments instead
+        // of recomputing them per row across all directions/chunks (gam#683).
+        if flex_active && n > 0 {
+            self.prewarm_flex_cell_bundle(block_states, cache, 15)?;
+        }
         if n > 0 {
             let warm_marg = Array1::<f64>::zeros(slices.marginal.end - slices.marginal.start);
             let marginal_probe = self.marginal_design.dot_row_view(0, warm_marg.view());
@@ -10727,14 +12152,7 @@ impl BernoulliMarginalSlopeFamily {
                         let dg = self
                             .logslope_design
                             .dot_row_view(row, d_beta_flat.slice(s![slices.logslope.clone()]));
-                        let t = self.rigid_row_third_contracted(
-                            row,
-                            marginal_eta,
-                            marginal,
-                            g,
-                            dq,
-                            dg,
-                        )?;
+                        let t = self.rigid_row_third_contracted(row, marginal, g, dq, dg)?;
                         accs[idx].add_pullback_rigid_2x2(self, row, &t, w);
                     }
                     bump_progress(&progress);
@@ -10757,14 +12175,7 @@ impl BernoulliMarginalSlopeFamily {
                             let dg = self
                                 .logslope_design
                                 .dot_row_view(row, d_beta_flat.slice(s![slices.logslope.clone()]));
-                            let t = self.rigid_row_third_contracted(
-                                row,
-                                marginal_eta,
-                                marginal,
-                                g,
-                                dq,
-                                dg,
-                            )?;
+                            let t = self.rigid_row_third_contracted(row, marginal, g, dq, dg)?;
                             accs[idx].add_pullback_rigid_2x2(self, row, &t, w);
                         }
                         bump_progress(&progress);
@@ -10997,6 +12408,11 @@ impl BernoulliMarginalSlopeFamily {
                 "exact_newton_joint_hessiansecond_directional_derivative_from_cache rigid fourth-cache warm-up",
             )?;
         }
+        // FLEX analogue: prewarm the degree-21 cell-moment bundle so the per-row
+        // fourth-order recompute reuses prebuilt moments rather than recomputing
+        // them per row on every operator application. The fourth-order recompute
+        // reads degree-21 cells (gam#683).
+        self.prewarm_flex_cell_bundle(block_states, cache, 21)?;
 
         // ── Rigid closed-form: 4th-order scalar kernel ───────────────
         if !self.effective_flex_active(block_states)? {
@@ -11094,6 +12510,11 @@ impl BernoulliMarginalSlopeFamily {
                 "exact_newton_joint_hessiansecond_directional_derivative_operator_from_cache rigid fourth-cache warm-up",
             )?;
         }
+        // FLEX analogue: prewarm the degree-21 cell-moment bundle so the per-row
+        // fourth-order recompute reuses prebuilt moments rather than recomputing
+        // them per row on every operator application. The fourth-order recompute
+        // reads degree-21 cells (gam#683).
+        self.prewarm_flex_cell_bundle(block_states, cache, 21)?;
 
         if !self.effective_flex_active(block_states)? {
             let block_acc = weighted_rows
@@ -11162,6 +12583,263 @@ impl BernoulliMarginalSlopeFamily {
         Ok(Some(
             Arc::new(block_acc.into_operator(slices)) as Arc<dyn HyperOperator>
         ))
+    }
+
+    pub(crate) fn exact_newton_joint_hessiansecond_directional_derivative_operators_from_cache_with_options(
+        &self,
+        block_states: &[ParameterBlockState],
+        d_beta_pairs: &[(Array1<f64>, Array1<f64>)],
+        cache: &BernoulliMarginalSlopeExactEvalCache,
+        options: &BlockwiseFitOptions,
+    ) -> Result<Vec<Option<Arc<dyn HyperOperator>>>, String> {
+        if d_beta_pairs.is_empty() {
+            return Ok(Vec::new());
+        }
+        let slices = &cache.slices;
+        let primary = &cache.primary;
+        let n = self.y.len();
+        let weighted_rows = outer_weighted_rows(options, n);
+        let mut unique_dirs = Vec::<Array1<f64>>::new();
+        let mut pair_indices = Vec::<(usize, usize)>::with_capacity(d_beta_pairs.len());
+        for (u, v) in d_beta_pairs {
+            let u_idx = Self::find_or_push_unique_direction(&mut unique_dirs, u);
+            let v_idx = Self::find_or_push_unique_direction(&mut unique_dirs, v);
+            pair_indices.push((u_idx, v_idx));
+        }
+        let make_accs = || {
+            (0..d_beta_pairs.len())
+                .map(|_| BernoulliBlockHessianAccumulator::new(slices))
+                .collect::<Vec<_>>()
+        };
+
+        let started = std::time::Instant::now();
+        let n_rows = weighted_rows.len();
+        let n_pairs = d_beta_pairs.len();
+        let n_unique_dirs = unique_dirs.len();
+        let flex_active = self.effective_flex_active(block_states)?;
+        let bundle_present = cache.row_cell_moments.is_some();
+        let heartbeat_guard = crate::heartbeat::scope(format!(
+            "BMS batched d2H n={n} rows={n_rows} p={} pairs={n_pairs} unique_dirs={n_unique_dirs} flex={flex_active} cell_moments_bundle={bundle_present}",
+            slices.total
+        ));
+        log::info!(
+            "[BMS batched d2H start] n={} rows={} p={} pairs={} unique_dirs={} flex={} cell_moments_bundle={}",
+            n,
+            n_rows,
+            slices.total,
+            n_pairs,
+            n_unique_dirs,
+            flex_active,
+            bundle_present,
+        );
+        let progress = Arc::new(AtomicUsize::new(0));
+        let progress_step = (n_rows / 8).max(1);
+        let bump_progress = |progress: &AtomicUsize| {
+            let now = progress.fetch_add(1, Ordering::Relaxed) + 1;
+            if now == n_rows || now.is_multiple_of(progress_step) {
+                log::info!(
+                    "[BMS batched d2H progress] rows={}/{} pairs={} unique_dirs={} elapsed={:.3}s",
+                    now,
+                    n_rows,
+                    n_pairs,
+                    n_unique_dirs,
+                    started.elapsed().as_secs_f64(),
+                );
+            }
+        };
+
+        if !flex_active && n > 0 {
+            let warmed = self.rigid_fourth_full_cached(block_states, cache, 0)?;
+            ensure_finite_fourth_full_cache_row(
+                warmed,
+                "exact_newton_joint_hessiansecond_directional_derivative_operators_from_cache rigid fourth-cache warm-up",
+            )?;
+        }
+        // FLEX analogue: prewarm the degree-21 cell-moment bundle once, serially,
+        // so the per-row fourth-order recompute reuses prebuilt moments instead
+        // of recomputing them per row across all direction pairs. The
+        // fourth-order recompute reads degree-21 cells (gam#683).
+        if flex_active && n > 0 {
+            self.prewarm_flex_cell_bundle(block_states, cache, 21)?;
+        }
+        const ROW_PAR_MIN_ROWS: usize = 4_096;
+        let run_rows_serial = rayon::current_thread_index().is_some()
+            || rayon::current_num_threads() <= 1
+            || n_rows < ROW_PAR_MIN_ROWS;
+
+        let accs = if !flex_active {
+            if run_rows_serial {
+                let mut accs = make_accs();
+                for wr in weighted_rows.iter() {
+                    let row = wr.index;
+                    let w = wr.weight;
+                    let projections = unique_dirs
+                        .iter()
+                        .map(|direction| {
+                            let q = self
+                                .marginal_design
+                                .dot_row_view(row, direction.slice(s![slices.marginal.clone()]));
+                            let g = self
+                                .logslope_design
+                                .dot_row_view(row, direction.slice(s![slices.logslope.clone()]));
+                            (q, g)
+                        })
+                        .collect::<Vec<_>>();
+                    let t = self.rigid_fourth_full_cached(block_states, cache, row)?;
+                    for (idx, (u_idx, v_idx)) in pair_indices.iter().copied().enumerate() {
+                        let (uq, ug) = projections[u_idx];
+                        let (vq, vg) = projections[v_idx];
+                        let f = contract_fourth_full(t, uq, ug, vq, vg);
+                        let mut f_arr = Array2::from_shape_fn((2, 2), |(a, b)| f[a][b]);
+                        if w != 1.0 {
+                            f_arr.mapv_inplace(|value| value * w);
+                        }
+                        accs[idx].add_pullback(self, row, slices, primary, &f_arr);
+                    }
+                    bump_progress(&progress);
+                }
+                accs
+            } else {
+                weighted_rows
+                    .clone()
+                    .into_par_iter()
+                    .try_fold(make_accs, |mut accs, wr| -> Result<_, String> {
+                        let row = wr.index;
+                        let w = wr.weight;
+                        let projections = unique_dirs
+                            .iter()
+                            .map(|direction| {
+                                let q = self.marginal_design.dot_row_view(
+                                    row,
+                                    direction.slice(s![slices.marginal.clone()]),
+                                );
+                                let g = self.logslope_design.dot_row_view(
+                                    row,
+                                    direction.slice(s![slices.logslope.clone()]),
+                                );
+                                (q, g)
+                            })
+                            .collect::<Vec<_>>();
+                        let t = self.rigid_fourth_full_cached(block_states, cache, row)?;
+                        for (idx, (u_idx, v_idx)) in pair_indices.iter().copied().enumerate() {
+                            let (uq, ug) = projections[u_idx];
+                            let (vq, vg) = projections[v_idx];
+                            let f = contract_fourth_full(t, uq, ug, vq, vg);
+                            let mut f_arr = Array2::from_shape_fn((2, 2), |(a, b)| f[a][b]);
+                            if w != 1.0 {
+                                f_arr.mapv_inplace(|value| value * w);
+                            }
+                            accs[idx].add_pullback(self, row, slices, primary, &f_arr);
+                        }
+                        bump_progress(&progress);
+                        Ok(accs)
+                    })
+                    .try_reduce(make_accs, |mut left, right| -> Result<_, String> {
+                        for (l, r) in left.iter_mut().zip(right.iter()) {
+                            l.add(r);
+                        }
+                        Ok(left)
+                    })?
+            }
+        } else if run_rows_serial {
+            let mut accs = make_accs();
+            for wr in weighted_rows.iter() {
+                let row = wr.index;
+                let w = wr.weight;
+                let row_dirs = unique_dirs
+                    .iter()
+                    .map(|direction| {
+                        self.row_primary_direction_from_flat(row, slices, primary, direction)
+                    })
+                    .collect::<Result<Vec<_>, String>>()?;
+                let row_ctx = Self::row_ctx(cache, row);
+                for (idx, (u_idx, v_idx)) in pair_indices.iter().copied().enumerate() {
+                    let mut fourth = self.row_primary_fourth_contracted_recompute(
+                        row,
+                        block_states,
+                        cache,
+                        row_ctx,
+                        &row_dirs[u_idx],
+                        &row_dirs[v_idx],
+                    )?;
+                    if w != 1.0 {
+                        fourth.mapv_inplace(|value| value * w);
+                    }
+                    accs[idx].add_pullback(self, row, slices, primary, &fourth);
+                }
+                bump_progress(&progress);
+            }
+            accs
+        } else {
+            weighted_rows
+                .clone()
+                .into_par_iter()
+                .try_fold(make_accs, |mut accs, wr| -> Result<_, String> {
+                    let row = wr.index;
+                    let w = wr.weight;
+                    let row_dirs = unique_dirs
+                        .iter()
+                        .map(|direction| {
+                            self.row_primary_direction_from_flat(row, slices, primary, direction)
+                        })
+                        .collect::<Result<Vec<_>, String>>()?;
+                    let row_ctx = Self::row_ctx(cache, row);
+                    for (idx, (u_idx, v_idx)) in pair_indices.iter().copied().enumerate() {
+                        let mut fourth = self.row_primary_fourth_contracted_recompute(
+                            row,
+                            block_states,
+                            cache,
+                            row_ctx,
+                            &row_dirs[u_idx],
+                            &row_dirs[v_idx],
+                        )?;
+                        if w != 1.0 {
+                            fourth.mapv_inplace(|value| value * w);
+                        }
+                        accs[idx].add_pullback(self, row, slices, primary, &fourth);
+                    }
+                    bump_progress(&progress);
+                    Ok(accs)
+                })
+                .try_reduce(make_accs, |mut left, right| -> Result<_, String> {
+                    for (l, r) in left.iter_mut().zip(right.iter()) {
+                        l.add(r);
+                    }
+                    Ok(left)
+                })?
+        };
+        log::info!(
+            "[BMS batched d2H done] n={} rows={} p={} pairs={} unique_dirs={} elapsed={:.3}s",
+            n,
+            n_rows,
+            slices.total,
+            n_pairs,
+            n_unique_dirs,
+            started.elapsed().as_secs_f64(),
+        );
+        drop(heartbeat_guard);
+        Ok(accs
+            .into_iter()
+            .map(|acc| Some(Arc::new(acc.into_operator(slices)) as Arc<dyn HyperOperator>))
+            .collect())
+    }
+
+    fn find_or_push_unique_direction(
+        unique_dirs: &mut Vec<Array1<f64>>,
+        candidate: &Array1<f64>,
+    ) -> usize {
+        if let Some(idx) = unique_dirs.iter().position(|existing| {
+            existing.len() == candidate.len()
+                && existing
+                    .iter()
+                    .zip(candidate.iter())
+                    .all(|(left, right)| left == right)
+        }) {
+            return idx;
+        }
+        let idx = unique_dirs.len();
+        unique_dirs.push(candidate.clone());
+        idx
     }
 
     pub(super) fn evaluate_flex_block_diagonals_from_cache(
@@ -11455,8 +13133,7 @@ impl BernoulliMarginalSlopeFamily {
                         let marginal_eta = block_states[0].eta[row];
                         let marginal = self.marginal_link_map(marginal_eta)?;
                         let g = block_states[1].eta[row];
-                        let (neglog, grad, h) =
-                            self.rigid_row_kernel_eval(row, marginal_eta, marginal, g)?;
+                        let (neglog, grad, h) = self.rigid_row_kernel_eval(row, marginal, g)?;
                         ll -= neglog;
                         gm_w[local_row] =
                             Self::exact_newton_score_component_from_objective_gradient(grad[0]);
@@ -11572,6 +13249,19 @@ impl CustomFamily for BernoulliMarginalSlopeFamily {
             .max(self.coefficient_gradient_cost(specs));
         let dense_available = self.outer_hyper_hessian_dense_available(specs);
         let hvp_available = self.outer_hyper_hessian_hvp_available(specs);
+        if flex_active {
+            if log_exact_work(self.y.len()) {
+                log::info!(
+                    "[BMS outer-derivative-policy] n={} p={} flex=true order=First reason=flex-outer-hessian-fourth-order-cost dense_available={} outer_hvp_available={} coefficient_work={}",
+                    self.y.len(),
+                    specs.iter().map(|spec| spec.design.ncols()).sum::<usize>(),
+                    dense_available,
+                    hvp_available,
+                    coefficient_work,
+                );
+            }
+            return ExactOuterDerivativeOrder::First;
+        }
         if !dense_available && !hvp_available {
             if log_exact_work(self.y.len()) {
                 log::info!(
@@ -11628,7 +13318,7 @@ impl CustomFamily for BernoulliMarginalSlopeFamily {
         if n_params == 0 {
             return config;
         }
-        config.max_seeds = 1;
+        config.max_seeds = if n_params <= 6 { 6 } else { 4 };
         config.seed_budget = 1;
         config.screen_max_inner_iterations = 2;
         config
@@ -12493,6 +14183,9 @@ impl BernoulliMarginalSlopeExactNewtonJointHessianWorkspace {
     /// handful of HVPs, so routing the inner solve through the operator path
     /// beats per-cycle dense reassembly.
     pub(super) fn matrix_free_inner_route(&self) -> bool {
+        if self.cache.row_primary_hessians.is_tiled() {
+            return true;
+        }
         if self.cache.row_primary_hessians.is_some() {
             return false;
         }
@@ -12564,6 +14257,14 @@ impl ExactNewtonJointHessianWorkspace for BernoulliMarginalSlopeExactNewtonJoint
         }
         self.fused_gradient_dense()
             .map(|fused| Some(fused.hessian.clone()))
+    }
+
+    fn hessian_source_preference(&self) -> crate::custom_family::JointHessianSourcePreference {
+        if self.matrix_free_inner_route() {
+            crate::custom_family::JointHessianSourcePreference::Operator
+        } else {
+            crate::custom_family::JointHessianSourcePreference::Dense
+        }
     }
 
     fn hessian_dense_forced(&self) -> Result<Option<Array2<f64>>, String> {
@@ -12707,6 +14408,58 @@ impl ExactNewtonJointHessianWorkspace for BernoulliMarginalSlopeExactNewtonJoint
         Ok(true)
     }
 
+    fn hessian_apply_mat(
+        &self,
+        v_cols: &Array2<f64>,
+        out: &mut Array2<f64>,
+    ) -> Result<bool, String> {
+        let total = self.cache.slices.total;
+        if v_cols.nrows() != total || out.nrows() != total {
+            return Err(format!(
+                "BMS hessian_apply_mat: row mismatch v_cols={}x{} out={}x{} expected rows={total}",
+                v_cols.nrows(),
+                v_cols.ncols(),
+                out.nrows(),
+                out.ncols()
+            ));
+        }
+        if v_cols.ncols() != out.ncols() {
+            return Err(format!(
+                "BMS hessian_apply_mat: column mismatch v_cols has {} columns, out has {}",
+                v_cols.ncols(),
+                out.ncols()
+            ));
+        }
+        let call = self.matvec_calls.fetch_add(1, Ordering::Relaxed) + 1;
+        let started = std::time::Instant::now();
+        let heartbeat_guard = crate::heartbeat::scope(format!(
+            "BMS Hessian-Hv (mat) call={call} n={} p={} n_rhs={}",
+            self.family.y.len(),
+            total,
+            v_cols.ncols()
+        ));
+        self.family
+            .exact_newton_joint_hessian_matvec_mat_from_cache_into(
+                v_cols,
+                &self.block_states,
+                &self.cache,
+                out,
+            )?;
+        if log_exact_work(self.family.y.len()) && (call <= 3 || call.is_power_of_two()) {
+            log::info!(
+                "[BMS Hessian-Hv] call={} n={} p={} n_rhs={} primary_hessian_cache={} elapsed={:.3}s (mat)",
+                call,
+                self.family.y.len(),
+                total,
+                v_cols.ncols(),
+                self.cache.row_primary_hessians.is_some(),
+                started.elapsed().as_secs_f64()
+            );
+        }
+        drop(heartbeat_guard);
+        Ok(true)
+    }
+
     fn hessian_diagonal(&self) -> Result<Option<Array1<f64>>, String> {
         // Diagonal is consumed by inner preconditioners; full-data semantics
         // preserved (see `hessian_matvec`).
@@ -12789,6 +14542,19 @@ impl ExactNewtonJointHessianWorkspace for BernoulliMarginalSlopeExactNewtonJoint
                 &self.block_states,
                 d_beta_u_flat,
                 d_beta_v_flat,
+                &self.cache,
+                &self.options,
+            )
+    }
+
+    fn second_directional_derivative_operators(
+        &self,
+        d_beta_pairs: &[(Array1<f64>, Array1<f64>)],
+    ) -> Result<Vec<Option<Arc<dyn HyperOperator>>>, String> {
+        self.family
+            .exact_newton_joint_hessiansecond_directional_derivative_operators_from_cache_with_options(
+                &self.block_states,
+                d_beta_pairs,
                 &self.cache,
                 &self.options,
             )
@@ -12995,15 +14761,41 @@ impl BernoulliMarginalSlopeFamily {
             ));
         }
         if row_dirs.len() == 1 {
-            return Ok(vec![
-                self.row_primary_third_contracted_recompute_with_moments(
-                    row,
-                    block_states,
-                    cache,
-                    row_ctx,
-                    &row_dirs[0],
-                )?,
-            ]);
+            return Ok(vec![self.row_primary_third_contracted_recompute(
+                row,
+                block_states,
+                cache,
+                row_ctx,
+                &row_dirs[0],
+            )?]);
+        }
+        if row_dirs.iter().all(|dir| {
+            Self::primary_direction_is_zero(dir, primary)
+                || Self::single_primary_axis(dir, primary).is_some()
+        }) {
+            let zero = || Array2::<f64>::zeros((r, r));
+            if row_dirs
+                .iter()
+                .all(|dir| Self::primary_direction_is_zero(dir, primary))
+            {
+                return Ok(row_dirs.iter().map(|_| zero()).collect());
+            }
+            if let Some(tensors) = self.flex_axis_third_tensors_for_row(block_states, cache, row)? {
+                return Ok(row_dirs
+                    .iter()
+                    .map(|dir| {
+                        if Self::primary_direction_is_zero(dir, primary) {
+                            zero()
+                        } else {
+                            let (axis, scalar) = Self::single_primary_axis(dir, primary)
+                                .expect("all directions checked as zero or single-axis");
+                            let mut out = tensors.third[axis].clone();
+                            out.mapv_inplace(|value| value * scalar);
+                            out
+                        }
+                    })
+                    .collect());
+            }
         }
         if !self.effective_flex_active(block_states)? {
             let t = self.rigid_third_full_cached(block_states, cache, row)?;
@@ -13062,9 +14854,8 @@ impl BernoulliMarginalSlopeFamily {
         let mut f_uv_dir = vec![0.0; n_dirs * r * r];
 
         let owned_cells;
-        let cells: &[CachedDenestedCellMoments] = if let Some(cached) = self
-            .bundle_for_degree(block_states, cache, 15)?
-            .and_then(|bundle| bundle.row(row, 15))
+        let cells: &[CachedDenestedCellMoments] = if let Some(cached) =
+            self.row_cell_moments_for_third_degree15(cache, row)?
         {
             cached
         } else {
@@ -13072,7 +14863,7 @@ impl BernoulliMarginalSlopeFamily {
             owned_cells = partitions
                 .into_iter()
                 .map(|partition_cell| {
-                    self.evaluate_cell_derivative_moments_lru(partition_cell.cell, 15)
+                    exact_kernel::evaluate_cell_derivative_moments_uncached(partition_cell.cell, 15)
                         .map(|state| CachedDenestedCellMoments {
                             partition_cell,
                             state,

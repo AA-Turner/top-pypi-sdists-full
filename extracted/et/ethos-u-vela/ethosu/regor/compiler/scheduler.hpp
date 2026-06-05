@@ -25,6 +25,7 @@
 #include "cascade_builder.hpp"
 #include "common/shape.hpp"
 #include "graph.hpp"
+#include "live_range.hpp"
 #include "quantization.hpp"
 #include "scheduler_operation.hpp"
 
@@ -38,7 +39,6 @@ namespace regor
 {
 
 class IncrementalLinearAllocator;
-class LiveRangeGraph;
 
 enum class OptimizationStrategy
 {
@@ -91,9 +91,41 @@ struct WeightScaleEncoding
 
 struct SchedulerBufferTensor
 {
-    std::shared_ptr<SchedulerTensor> tensor;
+    std::shared_ptr<SchedulerTensor> tensor[2];
+    unsigned parts = 0;
     bool preBuffer = false;
     Buffering buffering = Buffering::None;
+
+    Address AllocatedSize() const
+    {
+        Address size = tensor[0] ? tensor[0]->AllocationSizeBytes() : 0;
+        if ( parts > 1 && tensor[1] ) size += tensor[1]->AllocationSizeBytes();
+        return size;
+    }
+};
+
+
+struct EstimatedPerf
+{
+    int64_t weightReadBytes;   // Total number of weight bytes read
+    int64_t ifmReadBytes;      // Total number of ifm bytes read
+    int64_t opRunCycles;       // Op run cycles without buffering
+    int64_t fullRunCycles;     // Op run cycles with buffering
+    int64_t ifmReadCycles;     // Total cycles spent doing required ifm reads
+    int64_t weightReadCycles;  // Total cycles spent doing required weights reads
+    int64_t lastSliceCycles;   // Cycles taken when executing the last slice
+    int visibleBufferCycles;   // Leftover visible buffering cycles
+    int ifmSizeBytes;          // Size of the primary IFM in bytes
+    bool OpDominated() const { return opRunCycles > weightReadCycles && opRunCycles > ifmReadCycles; }
+    double IfmRatio() const { return weightReadCycles ? double(ifmReadCycles) / weightReadCycles : 1.0; }
+};
+
+enum class StagingPref
+{
+    None = 0x00,
+    IFM = 0x01,
+    Weights = 0x02,
+    OFM = 0x04,
 };
 
 /// <summary>
@@ -105,11 +137,14 @@ private:
     std::unique_ptr<ArchitectureOpConfig> _config;
 
 public:
+    // Uses primary-IFM order: [0] is the stripe for IFM(PrimaryIfmIndex()), [1] is the stripe for any other IFM.
     Shape stripeInput[2];
     Shape stripe;
     int cascade = 0;
+    // Setting this to the UID of the IFM signals reuse.
+    UniqueId ofmEquivalenceId = INVALID_UID;
+    bool firstInCascade = false;
     int timeIndex = -1;
-    int weightSize = 0;
     std::vector<int> ofmDepthSlices;
     int64_t slackBufferingCycles = 0;
     int slackBufferingMemory = 0;
@@ -122,6 +157,8 @@ public:
     SchedulerBufferTensor bufferedWeightTensor;
     CycleCost cycles;
     ElementAccess elementAccess;
+    EstimatedPerf perf{};
+    Flags<StagingPref> stagingPreference;
 
 public:
     SchedulerOpInfo(std::unique_ptr<ArchitectureOpConfig> opConfig, const Shape &stripeInput1, const Shape &stripeInput2, const Shape &stripe_)
@@ -130,7 +167,9 @@ public:
         this->stripeInput[0] = stripeInput1;
         this->stripeInput[1] = stripeInput2;
         this->stripe = stripe_;
-        this->ofmDepthSlices = {0, stripe_.Size() > 0 ? stripe.Depth() : 0};
+
+        // Create default single depth slice that covers the whole stripe depth. It may be updated later.
+        this->ofmDepthSlices = {0, (stripe_.Size() > 0 ? stripe.Depth() : 0)};
     }
 
     SchedulerOpInfo(const SchedulerOpInfo &other) { Copy(other); }
@@ -146,6 +185,8 @@ public:
         npuWeightsTensor = weights;
         npuScalesTensor = scales;
     }
+
+    bool SourcesCascadeBuffer() const { return this->cascade != 0 && !this->firstInCascade; }
 
     ArchitectureOpConfig *Config() const { return _config.get(); }
 
@@ -167,10 +208,10 @@ public:
             // TODO: Finish formatting;
             temp += fmt::format(
                 "\n\t\tEncoded Weights = {0} bytes\n"
-                "\t\tWeight buffer = {1} bytes\n"
+                "\t\tWeight buffer = {1} bytes ({3})\n"
                 "\t\tDepth slices = [{2}]",
-                npuWeightsTensor->AllocationSizeBytes(),
-                bufferedWeightTensor.tensor ? bufferedWeightTensor.tensor->AllocationSizeBytes() : 0, fmt::join(ofmDepthSlices, ", "));
+                npuWeightsTensor->AllocationSizeBytes(), bufferedWeightTensor.parts ? bufferedWeightTensor.AllocatedSize() : 0,
+                fmt::join(ofmDepthSlices, ", "), EnumToString(bufferedWeightTensor.buffering));
         }
 
         return temp;
@@ -190,8 +231,9 @@ private:
         stripeInput[1] = other.stripeInput[1];
         stripe = other.stripe;
         cascade = other.cascade;
+        ofmEquivalenceId = other.ofmEquivalenceId;
         timeIndex = other.timeIndex;
-        weightSize = other.weightSize;
+        firstInCascade = other.firstInCascade;
         ofmDepthSlices = other.ofmDepthSlices;
         slackBufferingCycles = other.slackBufferingCycles;
         slackBufferingMemory = other.slackBufferingMemory;
@@ -201,6 +243,7 @@ private:
         bufferedWeightTensor = other.bufferedWeightTensor;
         cycles = other.cycles;
         elementAccess = other.elementAccess;
+        perf = other.perf;
     }
 };
 
@@ -216,17 +259,27 @@ class Schedule
 private:
     std::string _name;
     SchedulerCostMap _costMap;
+    int _subScheduleStart = 0;  // Start index in external ops array
+    int _subScheduleEnd = 0;    // Exclusive end index in external ops array
 
 public:
     std::unordered_map<int, CascadeInfo> cascades;
     MemorySnapshot memorySnapshot;
     int fastStoragePeakUsage = 0;
     std::unordered_map<MemArea, int, MemArea::hash> memoryUsage;
+    std::unique_ptr<LiveRangeGraph> featureMapLRGraph;
+    std::unique_ptr<LiveRangeGraph> stagingLRGraph;
 
 public:
-    Schedule(const std::string &name) : _name(name) {}
+    Schedule(const std::string &name, int startIndex, unsigned endIndex) :
+            _name(name), _subScheduleStart(startIndex), _subScheduleEnd(int(endIndex))
+    {
+        assert(_subScheduleStart >= 0 && _subScheduleEnd >= _subScheduleStart);
+    }
 
     const std::string &Name() const { return _name; }
+    int Start() const { return _subScheduleStart; }
+    int End() const { return _subScheduleEnd; }
 
     void SetCost(UniqueId id, std::unique_ptr<SchedulerOpInfo> opInfo) { _costMap[id] = std::move(opInfo); }
 
@@ -238,6 +291,8 @@ public:
     }
 
     const SchedulerCostMap &Costs() const { return _costMap; }
+
+    const LRMemory &MemoryAt(int timeIndex) const;
 
     int MemoryUsageAt(int timeIndex) const
     {
@@ -274,28 +329,31 @@ class Scheduler
 {
     struct TensorCacheKey
     {
-    public:
+    private:
         IWeightEncodingConfig *_config;  // must persist as map entry
         uint32_t _hash;
         UniqueId _uid;
+        int _weightDepthBase;
 
     public:
-        TensorCacheKey(IWeightEncodingConfig *config, const std::vector<int> &depthOffsets, const BufferView &view, UniqueId uid) :
-                _config(config), _uid(uid)
+        TensorCacheKey(IWeightEncodingConfig *config, int weightDepthBase, const std::vector<int> &depthOffsets, const BufferView &view, UniqueId uid) :
+                _config(config), _uid(uid), _weightDepthBase(weightDepthBase)
         {
-            _hash = SimpleHash32(HashVector32(depthOffsets), view.BaseOffset(), view.StrideBytes(), view.ViewShape(),
-                _config->Hash(), uid);
+            _hash = SimpleHash32(weightDepthBase, HashVector32(depthOffsets), view.BaseOffset(), view.StrideBytes(),
+                view.ViewShape(), _config->Hash(), uid);
         }
 
         bool operator==(const TensorCacheKey &other) const
         {
-            return _config->Equals(other._config) && (_uid == other._uid) && (_hash == other._hash);
+            return _config->Equals(other._config) && (_uid == other._uid) && (_hash == other._hash) &&
+                   (_weightDepthBase == other._weightDepthBase);
         }
+        uint32_t Hash() const { return _hash; }
     };
 
     struct TensorCacheHash
     {
-        std::size_t operator()(const TensorCacheKey &key) const { return key._hash; }
+        std::size_t operator()(const TensorCacheKey &key) const { return key.Hash(); }
     };
 
 private:
@@ -324,10 +382,12 @@ public:
 
     void AllocateIOAddresses(Schedule *schedule, const std::vector<std::unique_ptr<SchedulerOperation>> &ops);
 
-    static PerformanceQuery InitPerfQuery(SchedulerOperation *op, ArchitectureOpConfig *config, int ofm_depth = -1,
-        WeightFormat wgtFormat = WeightFormat::Default, SchedulerOpInfo *cost = nullptr, Schedule *schedule = nullptr);
+    static PerformanceQuery InitPerfQuery(const SchedulerOperation *op, ArchitectureOpConfig *config, int ofm_depth = -1,
+        WeightFormat wgtFormat = WeightFormat::Default, const SchedulerOpInfo *cost = nullptr, Schedule *schedule = nullptr);
 
 private:
+    Shape AlignStripe(const SchedulerOperation *schedOp, const Shape &stripe);
+
     int UpdateSchedulerTensor(TensorUsage usage, SchedulerConnection *conn, std::unordered_set<UniqueId> &visited);
 
     Address CreateSchedulerRepresentation();
@@ -358,8 +418,11 @@ private:
     void ProposeOperatorBuffering(SchedulerOperation *schedOp, SchedulerOperation *prevOp, Schedule *bufferedSchedule,
         Schedule *refSchedule, int stagingLimitBytes);
 
-    void ProposeWeightBuffering(SchedulerConnection *weights, SchedulerConnection *scales, SchedulerOperation *schedOp,
+    Buffering ProposeWeightBuffering(SchedulerConnection *weights, SchedulerConnection *scales, SchedulerOperation *schedOp,
         SchedulerOperation *prevOp, Schedule *bufferedSchedule, Schedule *refSchedule, int bufferLimitBytes);
+
+    bool ProposeSlicedWeightBuffering(SchedulerConnection *weights, SchedulerConnection *scales, SchedulerOperation *schedOp,
+        SchedulerOperation *prevOp, Schedule *bufferedSchedule, Schedule *refSchedule, int bufferLimitBytes, int untransposedFullDepth);
 
     std::shared_ptr<Schedule> ProposeMinimalSchedule();
 
@@ -376,18 +439,25 @@ private:
     void CoalesceWeightBufferTensors(Schedule *schedule);
 
     CycleCost EstimateOpPerformance(SchedulerOperation *op, ArchitectureOpConfig *config, int ofm_depth,
-        WeightFormat wgtFormat = WeightFormat::Default);
+        WeightFormat wgtFormat = WeightFormat::Default, ArchitectureMemory *wgtStaging = nullptr,
+        OpScheduling scheduling = OpScheduling::Single);
+
+    EstimatedPerf EstimateSlicedOpPerformance(
+        SchedulerOperation *schedOp, SchedulerOpInfo *cost, const Point2i stripe, int slackCycles, Buffering buffering);
+
+    EstimatedPerf EstimateSlicedOpPerformance(SchedulerOperation *schedOp, const std::vector<int> &depthSlices, ArchitectureOpConfig *opConfig,
+        NpuWeightTensor *weights, Flags<StagingPref> stageFlags, const Point2i stripe, int slackCycles, Buffering buffering);
 
     void PrintSchedule(Schedule *schedule);
 
-    WeightScaleTensors EncodeQuantizationScaleTensor(OpType forOp, std::unique_ptr<IWeightEncodingConfig> encodingParams,
+    WeightScaleTensors EncodeQuantizationScaleTensor(OpType forOp, std::unique_ptr<IWeightEncodingConfig> encodingParams, int weightDepthBase,
         const std::vector<int> &depthOffsets, const Quantization &ofmQuantization, const SchedulerTensor *scales = nullptr);
 
     WeightScaleTensors EncodeWeightAndScaleTensor(OpType forOp, std::unique_ptr<IWeightEncodingConfig> encodingParams,
-        const std::vector<int> &depthOffsets, const SchedulerTensor *weightTens, const SchedulerTensor *scaleTens,
-        const Quantization &weightQuantization, const Quantization &ofmQuantization);
+        int weightDepthBase, const std::vector<int> &depthOffsets, const SchedulerTensor *weightTens,
+        const SchedulerTensor *scaleTens, const Quantization &weightQuantization, const Quantization &ofmQuantization);
 
-    WeightScaleTensors TryEncodeWeightAndScaleTensor(OpType forOp, IWeightEncodingConfig *encodingParams,
+    WeightScaleTensors TryEncodeWeightAndScaleTensor(OpType forOp, IWeightEncodingConfig *encodingParams, int weightDepthBase,
         const std::vector<int> &depthOffsets, const SchedulerTensor *weightTens, const SchedulerTensor *scaleTens,
         const Quantization &weightQuantization, const Quantization &ofmQuantization, bool doWeights, bool doScales);
 

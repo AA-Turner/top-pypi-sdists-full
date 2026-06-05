@@ -1164,7 +1164,7 @@ class CfnSamplingRule(
             service_name: builtins.str,
             service_type: builtins.str,
             url_path: builtins.str,
-            attributes: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             rule_arn: typing.Optional[builtins.str] = None,
             rule_name: typing.Optional[builtins.str] = None,
             sampling_rate_boost: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSamplingRule.SamplingRateBoostProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -1355,7 +1355,7 @@ class CfnSamplingRule(
         @builtins.property
         def attributes(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''Matches attributes derived from the request.
 
             *Map Entries:* Maximum number of 5 items.
@@ -1367,7 +1367,7 @@ class CfnSamplingRule(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-xray-samplingrule-samplingrule.html#cfn-xray-samplingrule-samplingrule-attributes
             '''
             result = self._values.get("attributes")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def rule_arn(self) -> typing.Optional[builtins.str]:
@@ -1559,7 +1559,7 @@ class CfnSamplingRule(
         def __init__(
             self,
             *,
-            attributes: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             fixed_rate: typing.Optional[jsii.Number] = None,
             host: typing.Optional[builtins.str] = None,
             http_method: typing.Optional[builtins.str] = None,
@@ -1664,13 +1664,13 @@ class CfnSamplingRule(
         @builtins.property
         def attributes(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''Matches attributes derived from the request.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-xray-samplingrule-samplingruleupdate.html#cfn-xray-samplingrule-samplingruleupdate-attributes
             '''
             result = self._values.get("attributes")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def fixed_rate(self) -> typing.Optional[jsii.Number]:
@@ -2419,7 +2419,7 @@ def _typecheckingstub__43bc9b1caf3053b699ff280f7b010b90f9d18aa1854cf7169b6066bf2
     service_name: builtins.str,
     service_type: builtins.str,
     url_path: builtins.str,
-    attributes: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     rule_arn: typing.Optional[builtins.str] = None,
     rule_name: typing.Optional[builtins.str] = None,
     sampling_rate_boost: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSamplingRule.SamplingRateBoostProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -2439,7 +2439,7 @@ def _typecheckingstub__b82d1dc50d432c980a6858f43473d293909235617d21487fdf7d00127
 
 def _typecheckingstub__75a672db5b7c76b4aaf3fd52ee6a4e3a911cc745d1728fa77059a1fcaae2f173(
     *,
-    attributes: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     fixed_rate: typing.Optional[jsii.Number] = None,
     host: typing.Optional[builtins.str] = None,
     http_method: typing.Optional[builtins.str] = None,

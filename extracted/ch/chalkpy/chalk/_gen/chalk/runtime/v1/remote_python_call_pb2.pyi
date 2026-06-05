@@ -151,6 +151,33 @@ class GetRecentCallsResponse(_message.Message):
     calls: _containers.RepeatedCompositeFieldContainer[FunctionCallInfo]
     def __init__(self, calls: _Optional[_Iterable[_Union[FunctionCallInfo, _Mapping]]] = ...) -> None: ...
 
+class GetCallResultsRequest(_message.Message):
+    __slots__ = ("call_ids",)
+    CALL_IDS_FIELD_NUMBER: _ClassVar[int]
+    call_ids: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, call_ids: _Optional[_Iterable[str]] = ...) -> None: ...
+
+class CallResult(_message.Message):
+    __slots__ = ("call_id", "response", "error_message")
+    CALL_ID_FIELD_NUMBER: _ClassVar[int]
+    RESPONSE_FIELD_NUMBER: _ClassVar[int]
+    ERROR_MESSAGE_FIELD_NUMBER: _ClassVar[int]
+    call_id: str
+    response: PollRemoteCallResponse
+    error_message: str
+    def __init__(
+        self,
+        call_id: _Optional[str] = ...,
+        response: _Optional[_Union[PollRemoteCallResponse, _Mapping]] = ...,
+        error_message: _Optional[str] = ...,
+    ) -> None: ...
+
+class GetCallResultsResponse(_message.Message):
+    __slots__ = ("results",)
+    RESULTS_FIELD_NUMBER: _ClassVar[int]
+    results: _containers.RepeatedCompositeFieldContainer[CallResult]
+    def __init__(self, results: _Optional[_Iterable[_Union[CallResult, _Mapping]]] = ...) -> None: ...
+
 class GetCallCountRequest(_message.Message):
     __slots__ = ("function_name",)
     FUNCTION_NAME_FIELD_NUMBER: _ClassVar[int]

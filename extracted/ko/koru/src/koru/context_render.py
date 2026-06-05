@@ -133,8 +133,8 @@ def render_ai_tool_support_2026() -> list[str]:
         "2. **adapter lane** — tool used via `planfile` executors (`shell` / `api` / `llm`).",
         "3. **manual lane** — no stable automation API yet; operator uses it directly.",
         "",
-        "Current native lane includes: `windsurf`, `vscode`, `cursor`, `jetbrains`, `zed`, "
-        "`claude-code`, `aider`, `codex` and OpenRouter-compatible `llm` tickets.",
+        "Current native GUI lane includes: `windsurf`, `vscode`, `cursor`, `jetbrains`, `zed`. "
+        "Shell LLM clients such as `claude-code`, `aider`, and `codex` are delegated to `sllm`.",
         "",
         "For tools not listed as native (e.g. Gemini CLI, Cline, OpenCode, Qwen Code, "
         "Copilot/Tabnine plugins, app builders), use adapter lane first; promote to native "
@@ -397,10 +397,15 @@ def render_dashboard() -> list[str]:
     ]
 
 
+def _autonomy_loop_block(ctx: dict[str, Any]) -> dict[str, Any]:
+    value = ctx.get("autonomy_loop") or {}
+    return value if isinstance(value, dict) else {}
+
+
 def render_autonomy_loop_brief(ctx: dict[str, Any]) -> list[str]:
-    block = ctx.get("autonomy_loop") or {}
+    autonomy_loop = _autonomy_loop_block(ctx)
     lines: list[str] = ["## Autonomy loop (koru autonomous)", ""]
-    snap = block.get("last_run_snapshot")
+    snap = autonomy_loop.get("last_run_snapshot")
     if isinstance(snap, dict) and snap:
         lines.append("_Last completed cycle (`.planfile/.koru/autonomy-telemetry.json`):_")
         lines.append("")
@@ -414,13 +419,13 @@ def render_autonomy_loop_brief(ctx: dict[str, Any]) -> list[str]:
             "`koru autonomous up` cycle._",
         )
         lines.append("")
-    hints = block.get("environment_hints") or {}
+    hints = autonomy_loop.get("environment_hints") or {}
     if hints:
         lines.append("Relevant process environment (only non-empty keys):")
         for key in sorted(hints):
             lines.append(f"- `{key}`={hints[key]!r}")
         lines.append("")
-    tf = block.get("telemetry_file")
+    tf = autonomy_loop.get("telemetry_file")
     if tf:
         lines.append(f"Telemetry path: `{tf}`")
         lines.append("")
@@ -466,7 +471,7 @@ def _render_ticket_scope(context: dict[str, Any], parts: _HandoffRenderParts) ->
 def render_markdown_handoff(context: dict[str, Any]) -> str:
     """Turn a context dict into a Markdown brief for the operator.
 
-    Designed to be pasted into a Cascade/Cursor/aider chat to onboard
+    Designed to be pasted into an IDE chat or SLLM shell-client prompt to onboard
     the LLM with the policy and ticket scope in one shot.
     """
     lines: list[str] = []

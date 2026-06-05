@@ -109,7 +109,7 @@ class CfnAPIKey(
         # The values are placeholders you should change.
         from aws_cdk import aws_location as location
         
-        cfn_aPIKey = location.CfnAPIKey(self, "MyCfnAPIKey",
+        cfn_api_key = location.CfnAPIKey(self, "MyCfnAPIKey",
             key_name="keyName",
             restrictions=location.CfnAPIKey.ApiKeyRestrictionsProperty(
                 allow_actions=["allowActions"],
@@ -822,7 +822,7 @@ class CfnAPIKeyProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_location as location
             
-            cfn_aPIKey_props = location.CfnAPIKeyProps(
+            cfn_api_key_props = location.CfnAPIKeyProps(
                 key_name="keyName",
                 restrictions=location.CfnAPIKey.ApiKeyRestrictionsProperty(
                     allow_actions=["allowActions"],

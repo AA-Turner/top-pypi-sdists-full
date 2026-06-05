@@ -277,7 +277,7 @@ class Fathom(BaseSDK):
         include_crm_matches: Optional[bool] = False,
         include_summary: Optional[bool] = False,
         include_transcript: Optional[bool] = False,
-        meeting_type: Optional[models.MeetingType] = None,
+        meeting_type: Optional[str] = None,
         recorded_by: Optional[List[str]] = None,
         teams: Optional[List[str]] = None,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
@@ -302,7 +302,10 @@ class Fathom(BaseSDK):
         :param include_crm_matches: Include CRM matches for each meeting. Only returns data from your or your team's linked CRM.
         :param include_summary: Include the summary for each meeting. Unavailable for OAuth connected apps (use /recordings instead).
         :param include_transcript: Include the transcript for each meeting. Unavailable for OAuth connected apps (use /recordings instead).
-        :param meeting_type: Filter by meeting type.
+        :param meeting_type: Filter by meeting type name.
+
+            Returns only meetings assigned the meeting type with this name. Use /meeting_types to discover valid values. An unknown or non-matching name returns an empty list.
+
         :param recorded_by: Email addresses of users who recorded meetings.
 
             Pass the parameter once per value, e.g.
@@ -441,7 +444,7 @@ class Fathom(BaseSDK):
         include_crm_matches: Optional[bool] = False,
         include_summary: Optional[bool] = False,
         include_transcript: Optional[bool] = False,
-        meeting_type: Optional[models.MeetingType] = None,
+        meeting_type: Optional[str] = None,
         recorded_by: Optional[List[str]] = None,
         teams: Optional[List[str]] = None,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
@@ -466,7 +469,10 @@ class Fathom(BaseSDK):
         :param include_crm_matches: Include CRM matches for each meeting. Only returns data from your or your team's linked CRM.
         :param include_summary: Include the summary for each meeting. Unavailable for OAuth connected apps (use /recordings instead).
         :param include_transcript: Include the transcript for each meeting. Unavailable for OAuth connected apps (use /recordings instead).
-        :param meeting_type: Filter by meeting type.
+        :param meeting_type: Filter by meeting type name.
+
+            Returns only meetings assigned the meeting type with this name. Use /meeting_types to discover valid values. An unknown or non-matching name returns an empty list.
+
         :param recorded_by: Email addresses of users who recorded meetings.
 
             Pass the parameter once per value, e.g.
@@ -1348,6 +1354,216 @@ class Fathom(BaseSDK):
         if utils.match_response(http_res, "200", "application/json"):
             return models.ListTeamMembersResponse(
                 result=unmarshal_json_response(models.TeamMemberListResponse, http_res),
+                next=next_func,
+            )
+        if utils.match_response(http_res, ["400", "401", "429", "4XX"], "*"):
+            http_res_text = await utils.stream_to_text_async(http_res)
+            raise errors.APIError("API error occurred", http_res, http_res_text)
+        if utils.match_response(http_res, "5XX", "*"):
+            http_res_text = await utils.stream_to_text_async(http_res)
+            raise errors.APIError("API error occurred", http_res, http_res_text)
+
+        raise errors.APIError("Unexpected response received", http_res)
+
+    def list_meeting_types(
+        self,
+        *,
+        cursor: Optional[str] = None,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: Optional[str] = None,
+        timeout_ms: Optional[int] = None,
+        http_headers: Optional[Mapping[str, str]] = None,
+    ) -> Optional[models.ListMeetingTypesResponse]:
+        r"""List meeting types
+
+        List your team's published meeting types (both `active` and `inactive`). Draft meeting types, which are not yet fully created and never appear on meetings, are excluded. Use the returned `name` values to filter /meetings via its meeting_type parameter.
+
+
+        :param cursor: Cursor for pagination.
+        :param retries: Override the default retry configuration for this method
+        :param server_url: Override the default server URL for this method
+        :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
+        :param http_headers: Additional headers to set or replace on requests.
+        """
+        base_url = None
+        url_variables = None
+        if timeout_ms is None:
+            timeout_ms = self.sdk_configuration.timeout_ms
+
+        if server_url is not None:
+            base_url = server_url
+        else:
+            base_url = self._get_url(base_url, url_variables)
+
+        request = models.ListMeetingTypesRequest(
+            cursor=cursor,
+        )
+
+        req = self._build_request(
+            method="GET",
+            path="/meeting_types",
+            base_url=base_url,
+            url_variables=url_variables,
+            request=request,
+            request_body_required=False,
+            request_has_path_params=False,
+            request_has_query_params=True,
+            user_agent_header="user-agent",
+            accept_header_value="application/json",
+            http_headers=http_headers,
+            security=self.sdk_configuration.security,
+            timeout_ms=timeout_ms,
+        )
+
+        if retries == UNSET:
+            if self.sdk_configuration.retry_config is not UNSET:
+                retries = self.sdk_configuration.retry_config
+
+        retry_config = None
+        if isinstance(retries, utils.RetryConfig):
+            retry_config = (retries, ["429", "500", "502", "503", "504"])
+
+        http_res = self.do_request(
+            hook_ctx=HookContext(
+                config=self.sdk_configuration,
+                base_url=base_url or "",
+                operation_id="listMeetingTypes",
+                oauth2_scopes=None,
+                security_source=get_security_from_env(
+                    self.sdk_configuration.security, models.Security
+                ),
+            ),
+            request=req,
+            error_status_codes=["400", "401", "429", "4XX", "5XX"],
+            retry_config=retry_config,
+        )
+
+        def next_func() -> Optional[models.ListMeetingTypesResponse]:
+            body = utils.unmarshal_json(http_res.text, Union[Dict[Any, Any], List[Any]])
+            next_cursor = JSONPath("$.next_cursor").parse(body)
+
+            if len(next_cursor) == 0:
+                return None
+
+            next_cursor = next_cursor[0]
+            if next_cursor is None or str(next_cursor).strip() == "":
+                return None
+
+            return self.list_meeting_types(
+                cursor=next_cursor,
+                retries=retries,
+            )
+
+        if utils.match_response(http_res, "200", "application/json"):
+            return models.ListMeetingTypesResponse(
+                result=unmarshal_json_response(
+                    models.MeetingTypeListResponse, http_res
+                ),
+                next=next_func,
+            )
+        if utils.match_response(http_res, ["400", "401", "429", "4XX"], "*"):
+            http_res_text = utils.stream_to_text(http_res)
+            raise errors.APIError("API error occurred", http_res, http_res_text)
+        if utils.match_response(http_res, "5XX", "*"):
+            http_res_text = utils.stream_to_text(http_res)
+            raise errors.APIError("API error occurred", http_res, http_res_text)
+
+        raise errors.APIError("Unexpected response received", http_res)
+
+    async def list_meeting_types_async(
+        self,
+        *,
+        cursor: Optional[str] = None,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: Optional[str] = None,
+        timeout_ms: Optional[int] = None,
+        http_headers: Optional[Mapping[str, str]] = None,
+    ) -> Optional[models.ListMeetingTypesResponse]:
+        r"""List meeting types
+
+        List your team's published meeting types (both `active` and `inactive`). Draft meeting types, which are not yet fully created and never appear on meetings, are excluded. Use the returned `name` values to filter /meetings via its meeting_type parameter.
+
+
+        :param cursor: Cursor for pagination.
+        :param retries: Override the default retry configuration for this method
+        :param server_url: Override the default server URL for this method
+        :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
+        :param http_headers: Additional headers to set or replace on requests.
+        """
+        base_url = None
+        url_variables = None
+        if timeout_ms is None:
+            timeout_ms = self.sdk_configuration.timeout_ms
+
+        if server_url is not None:
+            base_url = server_url
+        else:
+            base_url = self._get_url(base_url, url_variables)
+
+        request = models.ListMeetingTypesRequest(
+            cursor=cursor,
+        )
+
+        req = self._build_request_async(
+            method="GET",
+            path="/meeting_types",
+            base_url=base_url,
+            url_variables=url_variables,
+            request=request,
+            request_body_required=False,
+            request_has_path_params=False,
+            request_has_query_params=True,
+            user_agent_header="user-agent",
+            accept_header_value="application/json",
+            http_headers=http_headers,
+            security=self.sdk_configuration.security,
+            timeout_ms=timeout_ms,
+        )
+
+        if retries == UNSET:
+            if self.sdk_configuration.retry_config is not UNSET:
+                retries = self.sdk_configuration.retry_config
+
+        retry_config = None
+        if isinstance(retries, utils.RetryConfig):
+            retry_config = (retries, ["429", "500", "502", "503", "504"])
+
+        http_res = await self.do_request_async(
+            hook_ctx=HookContext(
+                config=self.sdk_configuration,
+                base_url=base_url or "",
+                operation_id="listMeetingTypes",
+                oauth2_scopes=None,
+                security_source=get_security_from_env(
+                    self.sdk_configuration.security, models.Security
+                ),
+            ),
+            request=req,
+            error_status_codes=["400", "401", "429", "4XX", "5XX"],
+            retry_config=retry_config,
+        )
+
+        def next_func() -> Optional[models.ListMeetingTypesResponse]:
+            body = utils.unmarshal_json(http_res.text, Union[Dict[Any, Any], List[Any]])
+            next_cursor = JSONPath("$.next_cursor").parse(body)
+
+            if len(next_cursor) == 0:
+                return None
+
+            next_cursor = next_cursor[0]
+            if next_cursor is None or str(next_cursor).strip() == "":
+                return None
+
+            return self.list_meeting_types(
+                cursor=next_cursor,
+                retries=retries,
+            )
+
+        if utils.match_response(http_res, "200", "application/json"):
+            return models.ListMeetingTypesResponse(
+                result=unmarshal_json_response(
+                    models.MeetingTypeListResponse, http_res
+                ),
                 next=next_func,
             )
         if utils.match_response(http_res, ["400", "401", "429", "4XX"], "*"):

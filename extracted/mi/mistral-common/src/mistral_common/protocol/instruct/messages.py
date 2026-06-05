@@ -1,10 +1,12 @@
+import warnings
 from enum import Enum
-from typing import Any, Literal, TypeVar
+from typing import Any, Literal, TypeGuard, TypeVar
 
 from pydantic import Field
 from typing_extensions import Annotated, TypeAlias
 
 from mistral_common.base import MistralBase
+from mistral_common.exceptions import InvalidAssistantMessageException
 from mistral_common.protocol.instruct.chunk import (
     ContentChunk,
     TextChunk,
@@ -13,6 +15,34 @@ from mistral_common.protocol.instruct.chunk import (
     _convert_openai_content_chunks,
 )
 from mistral_common.protocol.instruct.tool_calls import ToolCall
+
+warnings.filterwarnings(
+    action="once",
+    category=FutureWarning,
+    message=r".*`convert_thinking_format` defaults to 'thinking_chunks'.*",
+)
+
+
+def _are_think_chunks(think_chunks: list[ThinkChunk | TextChunk]) -> TypeGuard[list[ThinkChunk]]:
+    return all(isinstance(c, ThinkChunk) for c in think_chunks)
+
+
+def _are_text_chunks(think_chunks: list[ThinkChunk | TextChunk]) -> TypeGuard[list[TextChunk]]:
+    return all(isinstance(c, TextChunk) for c in think_chunks)
+
+
+class ReasoningFieldFormat(str, Enum):
+    r"""How to serialize leading `ThinkChunk` in `AssistantMessage.to_openai()`.
+
+    Attributes:
+        thinking_chunks: Use think chunks (Mistral convention).
+        reasoning: Flat `reasoning` string (vLLM convention).
+        reasoning_content: Flat `reasoning_content` string (SGLang convention).
+    """
+
+    thinking_chunks = "thinking_chunks"
+    reasoning = "reasoning"
+    reasoning_content = "reasoning_content"
 
 
 class Roles(str, Enum):
@@ -132,19 +162,63 @@ class AssistantMessage(BaseMessage):
     tool_calls: list[ToolCall] | None = None
     prefix: bool = False
 
-    def to_openai(self) -> dict[str, Any]:
-        r"""Converts the message to the OpenAI format."""
-        out_dict: dict[str, str | list[dict[str, str | dict[str, Any]]]] = {
+    def to_openai(
+        self,
+        reasoning_field_format: ReasoningFieldFormat | None = None,
+    ) -> dict[str, Any]:
+        r"""Converts the message to the OpenAI format.
+
+        Args:
+            reasoning_field_format: Format for converting thinking chunks. When `None`, defaults to
+                `ReasoningFieldFormat.thinking_chunks` (chunks kept inline) but emits a `FutureWarning` if
+                the content contains `ThinkChunk`.
+        """
+        out_dict: dict[str, Any] = {
             "role": self.role,
         }
-        if self.content is None:
-            pass
-        elif isinstance(self.content, str):
-            out_dict["content"] = self.content
-        else:
-            out_dict["content"] = [chunk.to_openai() for chunk in self.content]
         if self.tool_calls is not None:
             out_dict["tool_calls"] = [tool_call.to_openai() for tool_call in self.tool_calls]
+
+        if self.content is None:
+            return out_dict
+
+        if isinstance(self.content, str):
+            out_dict["content"] = self.content
+            return out_dict
+
+        last_think_idx: int = -1
+        for i, chunk in enumerate(self.content):
+            if isinstance(chunk, ThinkChunk):
+                if (i - last_think_idx) > 1:
+                    raise InvalidAssistantMessageException(
+                        "ThinkChunks must be leading: all ThinkChunks must appear before any other content chunk."
+                    )
+                last_think_idx = i
+
+        if reasoning_field_format is None and last_think_idx >= 0:
+            warnings.warn(
+                "`convert_thinking_format` defaults to 'thinking_chunks' but will change to 'reasoning' "
+                "in 1.13.0. Pass `reasoning_field_format` explicitly to silence this warning.",
+                FutureWarning,
+                stacklevel=2,
+            )
+
+        match reasoning_field_format:
+            case None | ReasoningFieldFormat.thinking_chunks:
+                out_dict["content"] = [chunk.to_openai() for chunk in self.content]
+            case ReasoningFieldFormat.reasoning | ReasoningFieldFormat.reasoning_content:
+                think_chunks, content_chunks = self.content[: last_think_idx + 1], self.content[last_think_idx + 1 :]
+                if not _are_think_chunks(think_chunks) or not _are_text_chunks(content_chunks):
+                    raise RuntimeError("Impossible, only think or content chunks should have been present.")
+                if len(think_chunks) > 0:
+                    out_dict[reasoning_field_format.value] = "\n".join(tc.thinking for tc in think_chunks)
+
+                if len(content_chunks) == 1:
+                    out_dict["content"] = content_chunks[0].text
+                elif content_chunks:
+                    out_dict["content"] = [chunk.to_openai() for chunk in content_chunks]
+            case _:
+                raise ValueError(f"{reasoning_field_format=} is not supported.")
 
         return out_dict
 
@@ -169,23 +243,30 @@ class AssistantMessage(BaseMessage):
         else:
             raise ValueError(f"Unknown content type: {type(openai_content)}")
 
-        reasoning_content: str | None = openai_message.get("reasoning_content")  # deprecated field
+        reasoning_content: str | None = openai_message.get("reasoning_content")
         reasoning: str | None = openai_message.get("reasoning")
 
         match reasoning_content, reasoning:
             case None, None:
-                thinking = None
+                openai_thinking = None
             case None, _:
-                thinking = reasoning
+                openai_thinking = reasoning
             case _, None:
-                thinking = reasoning_content
+                openai_thinking = reasoning_content
             case _, _:
                 if reasoning_content != reasoning:
                     raise ValueError("`reasoning_content` and `reasoning` should be equal.")
-                thinking = reasoning
+                openai_thinking = reasoning
 
-        if thinking is not None:
-            reasoning_chunk = ThinkChunk(thinking=thinking, closed=True)
+        if openai_thinking is not None:
+            has_thinking_chunks = isinstance(content, list) and any(isinstance(chunk, ThinkChunk) for chunk in content)
+            if has_thinking_chunks:
+                raise InvalidAssistantMessageException(
+                    "Message cannot have both thinking chunks in content and a top-level"
+                    " `reasoning` or `reasoning_content` field."
+                )
+
+            reasoning_chunk = ThinkChunk(thinking=openai_thinking, closed=True)
             if isinstance(content, str):
                 content = [reasoning_chunk, TextChunk(text=content)]
             elif content is None:

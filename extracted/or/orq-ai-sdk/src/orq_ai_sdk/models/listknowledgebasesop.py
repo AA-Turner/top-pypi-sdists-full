@@ -203,14 +203,14 @@ class Data2TypedDict(TypedDict):
     updated: str
     r"""The last update date of the knowledge base."""
     external_config: DataExternalConfigTypedDict
-    description: NotRequired[str]
+    description: NotRequired[Nullable[str]]
     r"""The description of the knowledge base."""
     path: NotRequired[str]
-    r"""Entity storage path in the format: `project/folder/subfolder/...`
+    r"""Entity storage path.
 
-    The first element identifies the project, followed by nested folders (auto-created as needed).
+    With workspace-level API keys, use the format `project/folder/subfolder/...`. The first element identifies the project, followed by nested folders (auto-created as needed). Example: `Default/agents`.
 
-    With project-based API keys, the first element is treated as a folder name, as the project is predetermined by the API key.
+    With project-level API keys, the project is predetermined by the API key, so the path is relative to that project. Example: `agents`. For backward compatibility, a leading project name is ignored when it matches the scoped project.
     """
     created_by_id: NotRequired[Nullable[str]]
     updated_by_id: NotRequired[Nullable[str]]
@@ -237,15 +237,15 @@ class Data2(BaseModel):
 
     external_config: DataExternalConfig
 
-    description: Optional[str] = None
+    description: OptionalNullable[str] = UNSET
     r"""The description of the knowledge base."""
 
     path: Optional[str] = None
-    r"""Entity storage path in the format: `project/folder/subfolder/...`
+    r"""Entity storage path.
 
-    The first element identifies the project, followed by nested folders (auto-created as needed).
+    With workspace-level API keys, use the format `project/folder/subfolder/...`. The first element identifies the project, followed by nested folders (auto-created as needed). Example: `Default/agents`.
 
-    With project-based API keys, the first element is treated as a folder name, as the project is predetermined by the API key.
+    With project-level API keys, the project is predetermined by the API key, so the path is relative to that project. Example: `agents`. For backward compatibility, a leading project name is ignored when it matches the scoped project.
     """
 
     created_by_id: OptionalNullable[str] = UNSET
@@ -269,7 +269,7 @@ class Data2(BaseModel):
                 "retrieval_settings",
             ]
         )
-        nullable_fields = set(["created_by_id", "updated_by_id"])
+        nullable_fields = set(["description", "created_by_id", "updated_by_id"])
         serialized = handler(self)
         m = {}
 
@@ -439,14 +439,14 @@ class Data1TypedDict(TypedDict):
     r"""The last update date of the knowledge base."""
     model: str
     r"""The embeddings model used for the knowledge base."""
-    description: NotRequired[str]
+    description: NotRequired[Nullable[str]]
     r"""The description of the knowledge base."""
     path: NotRequired[str]
-    r"""Entity storage path in the format: `project/folder/subfolder/...`
+    r"""Entity storage path.
 
-    The first element identifies the project, followed by nested folders (auto-created as needed).
+    With workspace-level API keys, use the format `project/folder/subfolder/...`. The first element identifies the project, followed by nested folders (auto-created as needed). Example: `Default/agents`.
 
-    With project-based API keys, the first element is treated as a folder name, as the project is predetermined by the API key.
+    With project-level API keys, the project is predetermined by the API key, so the path is relative to that project. Example: `agents`. For backward compatibility, a leading project name is ignored when it matches the scoped project.
     """
     created_by_id: NotRequired[Nullable[str]]
     updated_by_id: NotRequired[Nullable[str]]
@@ -474,15 +474,15 @@ class Data1(BaseModel):
     model: str
     r"""The embeddings model used for the knowledge base."""
 
-    description: Optional[str] = None
+    description: OptionalNullable[str] = UNSET
     r"""The description of the knowledge base."""
 
     path: Optional[str] = None
-    r"""Entity storage path in the format: `project/folder/subfolder/...`
+    r"""Entity storage path.
 
-    The first element identifies the project, followed by nested folders (auto-created as needed).
+    With workspace-level API keys, use the format `project/folder/subfolder/...`. The first element identifies the project, followed by nested folders (auto-created as needed). Example: `Default/agents`.
 
-    With project-based API keys, the first element is treated as a folder name, as the project is predetermined by the API key.
+    With project-level API keys, the project is predetermined by the API key, so the path is relative to that project. Example: `agents`. For backward compatibility, a leading project name is ignored when it matches the scoped project.
     """
 
     created_by_id: OptionalNullable[str] = UNSET
@@ -506,7 +506,7 @@ class Data1(BaseModel):
                 "retrieval_settings",
             ]
         )
-        nullable_fields = set(["created_by_id", "updated_by_id"])
+        nullable_fields = set(["description", "created_by_id", "updated_by_id"])
         serialized = handler(self)
         m = {}
 

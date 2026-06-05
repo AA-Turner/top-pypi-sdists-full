@@ -17,7 +17,7 @@ def verify_cli_capability(domain, prompt):
             "ask", prompt, 
             "--raw", 
             "--agent",
-            "--model", "openrouter:meta-llama/llama-3.3-70b-instruct:free"
+            "--model", "cloud:qwen3-coder"
         ])
         
         # Assertions

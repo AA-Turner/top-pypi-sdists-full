@@ -54,7 +54,7 @@ class ACLReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_memorydb as interfaces_memorydb
             
-            a_cLReference = interfaces_memorydb.ACLReference(
+            a_cl_reference = interfaces_memorydb.ACLReference(
                 acl_arn="aclArn",
                 acl_name="aclName"
             )

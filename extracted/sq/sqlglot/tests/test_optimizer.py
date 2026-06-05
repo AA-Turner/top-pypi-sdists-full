@@ -341,6 +341,16 @@ class TestOptimizer(unittest.TestCase):
             "x AND (y OR z)",
         )
 
+        # Snowflake's BOOLXOR builds a Xor connector carrying a `round_input` arg, so unpacking
+        # via args.values() yields 3 values. The enclosing predicate isn't normalized, which forces
+        # _predicate_lengths to recurse into the Xor node.
+        self.assertEqual(
+            optimizer.normalize.normalize(
+                parse_one("(a AND b) OR BOOLXOR(x, y)", read="snowflake"),
+            ).sql(dialect="snowflake"),
+            "((BOOLXOR(x, y)) OR a) AND ((BOOLXOR(x, y)) OR b)",
+        )
+
         self.check_file("normalize", normalize, schema=self.schema)
 
     @patch("sqlglot.generator.logger")
@@ -1288,6 +1298,14 @@ SELECT :with_,WITH :expressions,CTE :this,UNION :this,SELECT :expressions,1,:exp
         self.assertEqual(
             ast.sql("postgres"),
             'SELECT CAST("t"."a" AS TEXT) || CAST("t"."b" AS TEXT) AS "_col_0" FROM "t" AS "t"',
+        )
+
+        # DateDiff args without inferred types should not crash _coerce_datediff_args.
+        # Callers that run canonicalize without annotate_types (or whose args fall outside
+        # the schema) used to hit AttributeError: 'NoneType' object has no attribute 'this'.
+        self.assertEqual(
+            optimizer.canonicalize.canonicalize(parse_one("SELECT DATEDIFF(a, b) FROM t")).sql(),
+            "SELECT DATEDIFF(CAST(a AS DATETIME), CAST(b AS DATETIME)) FROM t",
         )
 
     def test_tpch(self):

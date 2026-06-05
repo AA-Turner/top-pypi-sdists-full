@@ -404,7 +404,16 @@ def auto_train(
                 verbose=False,
             )
         elif model_name == "desreg":
-            from desReg.des.DESRegression import DESRegression
+            try:
+                from desReg.des.DESRegression import DESRegression
+            except ImportError as exc:
+                raise ImportError(
+                    "model = 'desreg' requires desReg, which is an OPTIONAL "
+                    "geocif extra (held out because it's an obscure package "
+                    "with historical install quirks). Install with:\n"
+                    "    pip install geocif[desreg]\n"
+                    "Or pick a different model in [DEFAULT] models = [...]."
+                ) from exc
             from tabpfn_extensions.post_hoc_ensembles.sklearn_interface import AutoTabPFNRegressor
             from catboost import CatBoostRegressor
 
@@ -482,8 +491,20 @@ def auto_train(
             gam_cls = LogisticGAM if model_type == "CLASSIFICATION" else LinearGAM
             model = gam_cls()
         elif model_name == "geospaNN":
-            import torch
-            import geospaNN
+            try:
+                import torch
+                import geospaNN
+            except ImportError as exc:
+                raise ImportError(
+                    "model = 'geospaNN' requires torch + geospaNN, an "
+                    "OPTIONAL geocif extra (held out because geospaNN "
+                    "depends on torch-scatter, which has a broken build "
+                    "system that can't find torch under PEP-517 build "
+                    "isolation). Install in this order:\n"
+                    "    pip install torch\n"
+                    "    pip install geocif[geospann] --no-build-isolation\n"
+                    "Or pick a different model in [DEFAULT] models = [...]."
+                ) from exc
 
             X_train = X_train.drop(columns=cat_features)
             X, Y = torch.from_numpy(X_train.to_numpy()).float(), torch.from_numpy(y_train.to_numpy().reshape(-1)).float()

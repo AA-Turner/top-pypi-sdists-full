@@ -171,7 +171,9 @@ def check_grading_rubric(output_text: str, generated_files: list[Path] = None) -
 
 
 def run_real_build_and_test(generated_files: list[Path]) -> None:
-    """Compile or run generated files functionally if compilers/runtimes are available."""
+    """Compile or run generated files functionally if compilers/runtimes are available,
+    and validate asset/media generation outputs.
+    """
     import sys
     import subprocess
     import shutil
@@ -181,8 +183,44 @@ def run_real_build_and_test(generated_files: list[Path]) -> None:
             continue
         filepath_str = str(f)
         
-        # Python
-        if f.suffix == ".py":
+        # 1. Media Asset Validation
+        if f.suffix in (".png", ".jpg", ".jpeg"):
+            # Image validation
+            header = f.read_bytes()[:8]
+            if f.suffix == ".png":
+                if not header.startswith(b'\x89PNG\r\n\x1a\n'):
+                    raise AssertionError(f"Invalid PNG format for {f.name}")
+            elif f.suffix in (".jpg", ".jpeg"):
+                if not header.startswith(b'\xff\xd8\xff'):
+                    raise AssertionError(f"Invalid JPG format for {f.name}")
+        elif f.suffix == ".gif":
+            # Animation validation
+            header = f.read_bytes()[:6]
+            if not header.startswith((b'GIF87a', b'GIF89a')):
+                raise AssertionError(f"Invalid GIF format for {f.name}")
+        elif f.suffix == ".mp4":
+            # Video validation
+            if f.stat().st_size < 100:
+                raise AssertionError(f"Video file {f.name} is too small to be valid")
+            if shutil.which("ffprobe"):
+                res = subprocess.run(["ffprobe", "-v", "error", "-show_format", "-show_streams", filepath_str], capture_output=True, text=True)
+                if res.returncode != 0:
+                    raise AssertionError(f"Invalid MP4 video file {f.name}: {res.stderr}")
+        elif f.suffix in (".wav", ".mp3"):
+            # Audio validation
+            if f.stat().st_size < 44:
+                raise AssertionError(f"Audio file {f.name} is too small to be valid")
+            if f.suffix == ".wav":
+                header = f.read_bytes()[:4]
+                if header != b'RIFF':
+                    raise AssertionError(f"Invalid WAV format for {f.name}")
+            if shutil.which("ffprobe"):
+                res = subprocess.run(["ffprobe", "-v", "error", "-show_format", "-show_streams", filepath_str], capture_output=True, text=True)
+                if res.returncode != 0:
+                    raise AssertionError(f"Invalid audio file {f.name}: {res.stderr}")
+
+        # 2. Python Validation
+        elif f.suffix == ".py":
             # If it's a test file, run pytest on it and assert it passes
             if "test_" in f.name or "_test" in f.name:
                 try:
@@ -202,8 +240,8 @@ def run_real_build_and_test(generated_files: list[Path]) -> None:
                 except Exception as e:
                     raise AssertionError(f"Python syntax error in {f.name}: {e}")
                 
-        # JavaScript/TypeScript
-        elif f.suffix in (".js", ".ts"):
+        # 3. JavaScript/TypeScript Validation
+        elif f.suffix in (".js", ".ts", ".jsx", ".tsx"):
             if shutil.which("node"):
                 if f.suffix == ".js":
                     try:
@@ -215,7 +253,7 @@ def run_real_build_and_test(generated_files: list[Path]) -> None:
                     except Exception:
                         pass
                         
-        # Go
+        # 4. Go Validation
         elif f.suffix == ".go":
             is_external_go = False
             try:
@@ -236,7 +274,7 @@ def run_real_build_and_test(generated_files: list[Path]) -> None:
                     else:
                         raise
  
-        # Rust
+        # 5. Rust Validation
         elif f.suffix == ".rs":
             is_external_rs = False
             try:
@@ -264,7 +302,7 @@ def run_real_build_and_test(generated_files: list[Path]) -> None:
                     else:
                         raise
  
-        # C++
+        # 6. C++ Validation
         elif f.suffix in (".cpp", ".cc"):
             # Unreal Engine C++ files require engine SDK headers and cannot compile standalone
             is_unreal = False
@@ -299,7 +337,7 @@ def run_real_build_and_test(generated_files: list[Path]) -> None:
                     else:
                         raise
  
-        # Java
+        # 7. Java Validation
         elif f.suffix == ".java":
             is_external_java = False
             try:
@@ -431,7 +469,7 @@ def verify_cli_with_rubric(prompt: str, domain: str = "generate_files") -> None:
             "ask", prompt,
             "--raw",
             "--agent",
-            "--model", "openrouter:meta-llama/llama-3.3-70b-instruct:free"
+            
         ])
         
         # Verify exit code
@@ -471,7 +509,7 @@ def verify_sms_with_rubric(prompt: str, tmp_path: Path) -> None:
     cfg = SMSConfig(
         computer_name="TestPC",
         working_dir=str(tmp_path),
-        model="openrouter:meta-llama/llama-3.3-70b-instruct:free"
+        model="cloud:qwen3-coder"
     )
     
     # Configure PYTHONPATH environment so the spawned subprocess finds our modules
@@ -528,7 +566,7 @@ def verify_website_with_rubric(prompt: str) -> None:
     client = TestClient(backend_app)
     payload = {
         "messages": [{"role": "user", "content": prompt}],
-        "model_id": "openrouter:meta-llama/llama-3.3-70b-instruct:free",
+        "model_id": "cloud:qwen3-coder",
         "conversation_id": "test_conv",
         "temperature": 0.7,
         "stream": False

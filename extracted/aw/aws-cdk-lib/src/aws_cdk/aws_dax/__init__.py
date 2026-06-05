@@ -592,7 +592,7 @@ class CfnCluster(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_dax as dax
                 
-                s_sESpecification_property = dax.CfnCluster.SSESpecificationProperty(
+                s_se_specification_property = dax.CfnCluster.SSESpecificationProperty(
                     sse_enabled=False
                 )
             '''

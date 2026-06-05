@@ -3,43 +3,67 @@
 from __future__ import annotations
 
 import json
-import sys
+import os
 from pathlib import Path
 
 from .base import HarnessContext
+from .hook_python import package_root_from_python, resolve_guard_hook_python
 
 PLUGIN_FILENAME = "hol-guard-pretool.ts"
 _INTERCEPT_TOOLS = ("bash", "shell", "sh", "zsh", "terminal")
+_HOOK_ARGV_ENV = "HOL_GUARD_HOOK_ARGV"
+_INHERIT_ENV_KEYS = ("PATH", "HOME", "USER", "TMPDIR", "TEMP", "TMP", "LANG", "LC_ALL", "SYSTEMROOT")
 
 _PLUGIN_TEMPLATE = """// Managed by HOL Guard. Re-run `hol-guard install opencode` after moving Guard home.
 const GUARD_HOME = __GUARD_HOME__;
 const GUARD_PYTHON = __GUARD_PYTHON__;
+const GUARD_HOOK_LAUNCHER = __GUARD_HOOK_LAUNCHER__;
+const GUARD_HOOK_ENV = __GUARD_HOOK_ENV__;
+const GUARD_INHERIT_ENV_KEYS = __GUARD_INHERIT_ENV_KEYS__;
 const INTERCEPT_TOOLS = new Set(__INTERCEPT_TOOLS__);
+
+function hookProcessEnv(guardArgv: string[]) {
+  const env: Record<string, string> = { ...GUARD_HOOK_ENV };
+  for (const key of GUARD_INHERIT_ENV_KEYS) {
+    const value = process.env[key];
+    if (typeof value === "string" && value.length > 0) {
+      env[key] = value;
+    }
+  }
+  env.__HOOK_ARGV_ENV__ = JSON.stringify(guardArgv);
+  return env;
+}
+
+function normalizeCommand(command: unknown): string | null {
+  if (typeof command === "string" && command.trim()) {
+    return command.trim();
+  }
+  if (Array.isArray(command) && command.length > 0 && command.every((part) => typeof part === "string")) {
+    return command.join(" ");
+  }
+  return null;
+}
 
 async function runGuardHook(directory: string, payload: Record<string, unknown>) {
   const workspace = directory?.trim() || process.cwd();
-  const proc = Bun.spawn(
-    [
-      GUARD_PYTHON,
-      "-m",
-      "codex_plugin_scanner.cli",
-      "guard",
-      "hook",
-      "--guard-home",
-      GUARD_HOME,
-      "--harness",
-      "opencode",
-      "--workspace",
-      workspace,
-      "--json",
-    ],
-    {
-      cwd: workspace,
-      stdin: new Blob([JSON.stringify(payload)]).stream(),
-      stdout: "pipe",
-      stderr: "pipe",
-    },
-  );
+  const guardArgv = [
+    "guard",
+    "hook",
+    "--guard-home",
+    GUARD_HOME,
+    "--harness",
+    "opencode",
+    "--workspace",
+    workspace,
+    "--json",
+  ];
+  const proc = Bun.spawn([GUARD_PYTHON, "-c", GUARD_HOOK_LAUNCHER], {
+    cwd: GUARD_HOME,
+    env: hookProcessEnv(guardArgv),
+    stdin: new Blob([JSON.stringify(payload)]),
+    stdout: "pipe",
+    stderr: "pipe",
+  });
   const stdoutPromise = new Response(proc.stdout).text();
   const stderrPromise = new Response(proc.stderr).text();
   const exitCode = await proc.exited;
@@ -80,8 +104,8 @@ export const HolGuardPretoolPlugin = async ({
       if (!INTERCEPT_TOOLS.has(input.tool)) {
         return;
       }
-      const command = output.args?.command;
-      if (typeof command !== "string" || !command.trim()) {
+      const command = normalizeCommand(output.args?.command);
+      if (command === null) {
         return;
       }
       const workspace = directory?.trim() || process.cwd();
@@ -118,6 +142,28 @@ export const HolGuardPretoolPlugin = async ({
 """
 
 
+def _trusted_pythonpath_entries(package_root: str) -> list[str]:
+    trimmed = package_root.strip()
+    return [trimmed] if trimmed else []
+
+
+def _pretool_hook_launcher_code(*, package_root: str) -> str:
+    trusted_entries = _trusted_pythonpath_entries(package_root)
+    return (
+        "import json,os,sys;"
+        f"sys.path[:0]={json.dumps(trusted_entries)};"
+        "from codex_plugin_scanner.cli import main;"
+        f"raise SystemExit(main(json.loads(os.environ[{_HOOK_ARGV_ENV!r}])))"
+    )
+
+
+def _pretool_hook_env(*, package_root: str) -> dict[str, str]:
+    entries = _trusted_pythonpath_entries(package_root)
+    if not entries:
+        return {}
+    return {"PYTHONPATH": os.pathsep.join(entries)}
+
+
 def managed_plugin_path(context: HarnessContext) -> Path:
     return context.guard_home / "opencode" / "plugins" / PLUGIN_FILENAME
 
@@ -127,9 +173,15 @@ def global_plugin_path(context: HarnessContext) -> Path:
 
 
 def pretool_plugin_source(context: HarnessContext) -> str:
+    guard_python = resolve_guard_hook_python(context)
+    package_root = package_root_from_python(guard_python)
+    template = _PLUGIN_TEMPLATE.replace("__HOOK_ARGV_ENV__", _HOOK_ARGV_ENV)
     return (
-        _PLUGIN_TEMPLATE.replace("__GUARD_HOME__", json.dumps(str(context.guard_home.resolve())))
-        .replace("__GUARD_PYTHON__", json.dumps(str(Path(sys.executable).resolve())))
+        template.replace("__GUARD_HOME__", json.dumps(str(context.guard_home.resolve())))
+        .replace("__GUARD_PYTHON__", json.dumps(str(guard_python)))
+        .replace("__GUARD_HOOK_LAUNCHER__", json.dumps(_pretool_hook_launcher_code(package_root=package_root)))
+        .replace("__GUARD_HOOK_ENV__", json.dumps(_pretool_hook_env(package_root=package_root)))
+        .replace("__GUARD_INHERIT_ENV_KEYS__", json.dumps(list(_INHERIT_ENV_KEYS)))
         .replace("__INTERCEPT_TOOLS__", json.dumps(list(_INTERCEPT_TOOLS)))
     )
 

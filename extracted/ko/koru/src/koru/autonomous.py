@@ -137,13 +137,28 @@ from koru.scan import ScanResult, run_scan
 from koru.stdio_events import default_stdio_format_from_env, write_stdio_event
 from koru.tasks import create_nl_task
 from koru.topology import is_component_enabled, is_pipeline_enabled
-from koruide import os_injector as _os_injector_module
+from gillm.injection import os_injector as _os_injector_module
 from koruide.daemon import AutopilotDaemon
-from koruide.drive_orchestrator import DriveOrchestrator
-from koruide.os_injector import OsInjectorError, inject_with_profile, load_profile
+from koruide.drive_policy import DrivePolicy as DriveOrchestrator
+from gillm.injection.os_injector import OsInjectorError, inject_with_profile, load_profile
 
 _ORIGINAL_LOAD_PROFILE = load_profile
 _ORIGINAL_INJECT_WITH_PROFILE = inject_with_profile
+
+
+def _try_gillm_gui_fallback(
+    prompt: str,
+    *,
+    submit: bool,
+    ide: str,
+    project: Path | None = None,
+) -> dict[str, Any] | None:
+    return _autonomous_cycle_gate.try_gillm_gui_fallback(
+        prompt,
+        submit=submit,
+        ide=ide,
+        project=project,
+    )
 
 
 def _try_os_injector_fallback(prompt: str, *, submit: bool) -> dict[str, Any] | None:
@@ -475,6 +490,7 @@ def _run_cycle(**kwargs: Any) -> tuple[ScanResult | None, QueueLoopResult, str, 
             "is_component_enabled": is_component_enabled,
             "is_pipeline_enabled": is_pipeline_enabled,
             "_run_idle_diagnostics": _run_idle_diagnostics,
+            "_try_gillm_gui_fallback": _try_gillm_gui_fallback,
             "_try_os_injector_fallback": _try_os_injector_fallback,
         },
     )
@@ -972,6 +988,9 @@ def _parse_autonomous_args(argv: list[str], *, invoked_as_auto: bool) -> argpars
     args._auto_user_options = auto_user_options
     _apply_replace_existing_flags(args, invoked_as_auto)
     _autonomous_cli_config.apply_autonomy_strategy_defaults(args)
+    from koru.scan import apply_scan_path_environ
+
+    apply_scan_path_environ(getattr(args, "paths", None))
     return args
 
 

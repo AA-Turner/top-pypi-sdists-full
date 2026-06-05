@@ -1,5 +1,5 @@
 //
-// SPDX-FileCopyrightText: Copyright 2021-2025 Arm Limited and/or its affiliates <open-source-office@arm.com>
+// SPDX-FileCopyrightText: Copyright 2021-2026 Arm Limited and/or its affiliates <open-source-office@arm.com>
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -28,12 +28,14 @@
 #include "graph.hpp"
 #include "graph_optimiser.hpp"
 #include "lstm.hpp"
+#include "lut_util.hpp"
 #include "op_type.hpp"
 #include "operation.hpp"
 #include "optimiser_utils.hpp"
 #include "shape_util.hpp"
 #include "softmax.hpp"
 #include "tensor.hpp"
+#include "tflite/tflite_scaling.hpp"
 #include "tflite/tflite_schema_generated.hpp"
 
 #include <fixedpoint/fixedpoint.h>
@@ -397,50 +399,8 @@ static Operation *ConvertToInterpolatingLUT16(Operation *op, FUNC func, const st
     float ofmScale = float(ofmConn->quantization.scales[0].Dequantize());
     auto zpIn = ifmConn->quantization.zeroPoints[0];
     auto zpOut = ofmConn->quantization.zeroPoints[0];
-    float qMin = std::numeric_limits<int16_t>::min();
-    float qMax = std::numeric_limits<int16_t>::max();
-    float inputMin = ifmScale * (qMin - zpIn);
-    float inputMax = ifmScale * (qMax - zpIn);
-    float outputMin = ofmScale * (qMin - zpOut);
-    float outputMax = ofmScale * (qMax - zpOut);
-    const int steps = 512;
-    float step = (inputMax - inputMin) / steps;
-    float halfStep = step / 2.0f;
-    float outputScalingInv = (qMax - qMin + 1) / (outputMax - outputMin);
 
-    // Create 32-bit LUT represented by a 16-bit base and 16-bit slope.
-    auto lut = std::make_unique<uint32_t[]>(512);
-    int16_t prevLutResult = 0;
-    for ( int i = 0; i < steps; i++ )
-    {
-        float val = func(inputMin + i * step);
-        float valMidpoint = func(inputMin + i * step + halfStep);
-        float valNext = func(inputMin + (i + 1) * step);
-        float sampleVal = std::round(val * outputScalingInv);
-
-        float midpointInterpVal = std::round((valNext * outputScalingInv + sampleVal) / 2.0f);
-        float midpointVal = std::round(valMidpoint * outputScalingInv);
-        float midpointErr = midpointInterpVal - midpointVal;
-        float bias = std::round(midpointErr / 2.0f);
-
-        float clampedLutResult = std::clamp(sampleVal - bias, qMin, qMax);
-        int16_t lutResult = int16_t(clampedLutResult);
-
-        if ( i > 0 )
-        {
-            int16_t base = prevLutResult;
-            int16_t slope = lutResult - prevLutResult;
-            lut[i - 1] = uint16_t(base) + (uint16_t(slope) << 16);
-        }
-        prevLutResult = lutResult;
-    }
-    float val = float(std::round(func(inputMax) * outputScalingInv));
-    float clampedLutResult = std::clamp(val, qMin, qMax);
-    int16_t lutResult = int16_t(clampedLutResult);
-    uint32_t base = uint32_t(prevLutResult);
-    uint32_t slope = uint32_t(lutResult - prevLutResult);
-    lut[steps - 1] = base + (slope << 16);
-
+    auto lut = GenerateInterpolatingLUT16(func, ifmScale, ofmScale, zpIn, zpOut);
     auto lutTens = CreateConstTensor(name, DataType::Int32, std::make_shared<Buffer>(std::move(lut), 512));
     // The LUT must be applied without any preceding rescaling (the LUT itself performs the rescale),
     // so even if the OFM has a different scale than the IFM, the generated OFM scale instructions
@@ -567,7 +527,7 @@ Operation *TFLiteGraphOptimiser::ConvertExpToLUT(Graph *const graph, Operation *
     else if ( ifmType == DataType::Int16 )
     {
         returnOp = ConvertToInterpolatingLUT16(
-            operation, [](double x) -> float { return expf(float(x)); }, "Exp16(interp)");
+            operation, [](float x) -> float { return expf(x); }, "Exp16(interp)");
         RecordOptimisation(*operation, returnOp);
         operation->Disconnect();
     }
@@ -604,7 +564,7 @@ Operation *TFLiteGraphOptimiser::ConvertLogToLUT(Graph *const graph, Operation *
     else if ( ifmType == DataType::Int16 )
     {
         returnOp = ConvertToInterpolatingLUT16(
-            operation, [&](double x) -> float { return x <= 0.0f ? minVal : std::log(float(x)); }, "Log16(interp)");
+            operation, [&](float x) -> float { return x <= 0.0f ? minVal : std::log(x); }, "Log16(interp)");
         RecordOptimisation(*operation, returnOp);
         operation->Disconnect();
     }
@@ -2508,6 +2468,24 @@ Operation *TFLiteGraphOptimiser::ConvertPadV2(Graph *const graph, Operation *con
     return operation;
 }
 
+// Converts a Less[Equal] operator to a Greater[Equal] operator with swapped inputs
+Operation *TFLiteGraphOptimiser::ConvertLess(Graph *const graph, Operation *const operation)
+{
+    UNUSED(graph);
+    if ( operation->Type() == OpType::Less || operation->Type() == OpType::LessEqual )
+    {
+        auto greaterOp = std::make_shared<Operation>(operation->Type() == OpType::Less ? OpType::Greater : OpType::GreaterEqual);
+        greaterOp->CopyInput(TensorUsage::IFM0, *operation->Input(TensorUsage::IFM1));
+        greaterOp->CopyInput(TensorUsage::IFM1, *operation->Input(TensorUsage::IFM0));
+        greaterOp->CopyOutput(TensorUsage::OFM, *operation->Output(TensorUsage::OFM));
+
+        RecordOptimisation(*operation, greaterOp.get());
+        operation->Disconnect();
+        return greaterOp.get();
+    }
+    return operation;
+}
+
 void TFLiteGraphOptimiser::MakeMemoryCopyForMirrorPad(const Operation *operation, TensorConnection *ifmConn, const Shape &readShape,
     const Shape &readOffset, TensorConnection *ofmConn, const Shape &writeShape, const Shape &writeOffset, ReverseType reverseAxis)
 {
@@ -2745,77 +2723,312 @@ Operation *TFLiteGraphOptimiser::LegalizeAsymmetricQuantization(Graph *const gra
     return returnOp;
 }
 
+// Rewrite Concat to one MemoryCopy per IFM
+// The same pass runs for GraphIR but Concat has to be lowered here in order for its quantization
+// to be correctly converted from TFLITE to EXPLICIT.
+Operation *TFLiteGraphOptimiser::RewriteConcat(Graph *const graph, Operation *const operation)
+{
+    Operation *returnOp = operation;
+    const OpType opType = operation->Type();
+    if ( opType == OpType::Concat )
+    {
+        const auto *ofmConn = operation->Output(TensorUsage::OFM);
+        const auto *attr = operation->Attribute<axis_attr_t>();
+        auto axis = attr->axis;
+        if ( axis < 0 ) axis = ofmConn->shape.Size() + axis;
+
+        // Replace CONCAT with a memory copy per IFM that copies IFM to an offset into OFM
+        Shape ofmSliceOffset = ofmConn->shape.WithZeros();
+        for ( auto [usage, ifmConn] : operation->Inputs().pairs() )
+        {
+            if ( !IsIFM(usage) ) continue;
+
+            auto copyOp = std::make_shared<Operation>(OpType::MemoryCopy);
+            copyOp->CopyInput(TensorUsage::IFM, ifmConn);
+            copyOp->CopyOutput(TensorUsage::OFM, *ofmConn);
+            copyOp->Output(TensorUsage::OFM)->Set({ofmSliceOffset, ifmConn.shape});
+            copyOp->Output(TensorUsage::OFM)->Set(RoundMode::NATURAL);
+            RecordOptimisation(*operation, copyOp.get());
+            returnOp = copyOp.get();
+
+            ofmSliceOffset[axis] += ifmConn.shape[axis];
+        }
+        operation->Disconnect();
+    }
+    return returnOp;
+}
+
 Operation *TFLiteGraphOptimiser::ConvertQuantizationToExplicit(Graph *const graph, Operation *const operation)
 {
     UNUSED(graph);
-    if ( operation->Type() != OpType::Quantize && operation->Type() != OpType::Mul )
+    OpType opType = operation->Type();
+    if ( opType == OpType::Passthrough )
     {
         return operation;
     }
 
+    // Special handling of boolean comparison operators, since the boolean ofm tensor has no quantization
+    // but the ifm tensors may have TFLite quantization which requires adjusting.
+    switch ( opType )
+    {
+        case OpType::Less:
+        case OpType::Greater:
+        case OpType::Equal:
+        case OpType::NotEqual:
+        case OpType::LessEqual:
+        case OpType::GreaterEqual:
+        {
+            Quantization &ifm0Quant = operation->Input(TensorUsage::IFM0)->quantization;
+            Quantization &ifm1Quant = operation->Input(TensorUsage::IFM1)->quantization;
+            // Handle left shift by 8 in the reference by reducing the right shift of the
+            // input quantization scales by 8 to compensate.
+            if ( ifm0Quant.type == QuantizationType::TFLITE )
+            {
+                if ( !ifm0Quant.scales.empty() ) ifm0Quant.scales.front().shift -= 8;
+                ifm0Quant.type = QuantizationType::EXPLICIT;
+            }
+            if ( ifm1Quant.type == QuantizationType::TFLITE )
+            {
+                if ( !ifm1Quant.scales.empty() ) ifm1Quant.scales.front().shift -= 8;
+                ifm1Quant.type = QuantizationType::EXPLICIT;
+            }
+            break;
+        }
+        default:
+            // Do nothing, other ops are expected to be handled by the general logic below
+            break;
+    }
+
     auto ofmConn = operation->Output(TensorUsage::OFM);
     Quantization &ofmQuant = ofmConn->quantization;
-    QuantizedScale quantScale;
 
+    // Check if this operation already has explicit quantization
     if ( ofmConn->quantization.type == QuantizationType::EXPLICIT )
     {
         return operation;
     }
 
-    // TODO MLBEDSW-11392: Support per-channel quantization
-    if ( ofmQuant.scales.size() > 1 ) return operation;
-
-    switch ( operation->Type() )
+    switch ( opType )
     {
         case OpType::Quantize:
+        case OpType::MemoryCopy:
+        case OpType::Relu:
+        case OpType::Relu0To1:
+        case OpType::Relu6:
+        case OpType::ReluN1To1:
+        case OpType::ReluN:
         {
             Quantization &ifmQuant = operation->Input(TensorUsage::IFM)->quantization;
-            double ifmScale = ifmQuant.Scale().Dequantize();
-            double ofmScale = ofmQuant.Scale().Dequantize();
-            // Cast to float and back to double is necessary to match TFLite reference kernel
-            quantScale = double(float(ifmScale)) / double(float(ofmScale));
-
-            ifmQuant.scales.clear();
-            ifmQuant.scales.push_back(QuantizedScale::Unit());
-            ifmQuant.type = QuantizationType::EXPLICIT;
+            if ( ifmQuant.EqualScales(ofmQuant) || ifmQuant.scales.empty() || ofmQuant.scales.empty() )
+            {
+                // Empty or equal scales means unit scaling
+                ifmQuant.scales.clear();
+                ifmQuant.scales.push_back(QuantizedScale::Unit());
+                ofmQuant.scales.clear();
+                ofmQuant.scales.push_back(QuantizedScale::Unit());
+            }
+            else
+            {
+                float ifmScale = ifmQuant.Scale().Dequantize();
+                float ofmScale = ofmQuant.Scale().Dequantize();
+                ofmQuant.scales.clear();
+                if ( opType == OpType::MemoryCopy || opType == OpType::Quantize )
+                {
+                    // Cast to float and back to double is necessary to match TFLite reference kernel
+                    ofmQuant.scales.push_back(static_cast<double>(ifmScale) / static_cast<double>(ofmScale));
+                }
+                else
+                {
+                    // Relu requires float division to match TFLite reference kernel
+                    ofmQuant.scales.push_back(ifmScale / ofmScale);
+                }
+            }
             break;
         }
         case OpType::Mul:
         {
             Quantization &ifmQuant0 = operation->Input(TensorUsage::IFM0)->quantization;
             Quantization &ifmQuant1 = operation->Input(TensorUsage::IFM1)->quantization;
-
-            if ( ifmQuant0.scales.empty() || ofmQuant.scales.empty() || (ifmQuant1.scales.empty()) )
+            if ( !ifmQuant0.scales.empty() && !ifmQuant1.scales.empty() && !ofmQuant.scales.empty() )
             {
-                return operation;
+                double ifmScale1 = ifmQuant0.Scale().Dequantize();
+                double ifmScale2 = ifmQuant1.Scale().Dequantize();
+                double ofmScale = ofmQuant.Scale().Dequantize();
+                ofmQuant.scales.clear();
+                ofmQuant.scales.push_back(ElementwiseMulScale(ifmScale1, ifmScale2, ofmScale));
             }
+            break;
+        }
+        case OpType::Add:
+        case OpType::Sub:
+        {
+            Quantization &ifmQuant0 = operation->Input(TensorUsage::IFM0)->quantization;
+            Quantization &ifmQuant1 = operation->Input(TensorUsage::IFM1)->quantization;
+            // Set double rounding shift to compensate for the left shift used when calculating Add/Sub scales
+            int bitDepth = DataTypeSizeBits(operation->Input(TensorUsage::IFM)->tensor->Type());
+            operation->Attribute<double_round_shift_attr_t>()->shift = bitDepth == 8 ? 20 : 15;
 
-            double ifmScale1 = ifmQuant0.Scale().Dequantize();
-            double ifmScale2 = ifmQuant1.Scale().Dequantize();
-            double ofmScale = ofmQuant.Scale().Dequantize();
-            quantScale = ElementwiseMulScale(ifmScale1, ifmScale2, ofmScale);
-
-            ifmQuant0.scales.clear();
-            ifmQuant0.scales.push_back(QuantizedScale::Unit());
             ifmQuant0.type = QuantizationType::EXPLICIT;
-            ifmQuant1.scales.clear();
-            ifmQuant1.scales.push_back(QuantizedScale::Unit());
             ifmQuant1.type = QuantizationType::EXPLICIT;
+            if ( ifmQuant0.scales.empty() || ifmQuant1.scales.empty() || ofmQuant.scales.empty() )
+            {
+                // Empty scales means unit scaling but preserving zero-points
+                ifmQuant0.scales.clear();
+                ifmQuant0.scales.push_back(QuantizedScale::Unit());
+                ifmQuant1.scales.clear();
+                ifmQuant1.scales.push_back(QuantizedScale::Unit());
+                ofmQuant.scales.clear();
+                ofmQuant.scales.push_back(QuantizedScale::Unit());
+            }
+            else
+            {
+                double ifmScale1 = ifmQuant0.Scale().Dequantize();
+                double ifmScale2 = ifmQuant1.Scale().Dequantize();
+                double ofmScale = ofmQuant.Scale().Dequantize();
+
+                double input1Scale, input2Scale;
+                QuantizedScale ofmQuantScale;
+                ElementwiseAddSubScale(ifmScale1, ifmScale2, ofmScale, bitDepth, input1Scale, input2Scale, ofmQuantScale);
+
+                ifmQuant0.scales.clear();
+                ifmQuant0.scales.push_back(input1Scale);
+                ifmQuant1.scales.clear();
+                ifmQuant1.scales.push_back(input2Scale);
+                ofmQuant.scales.clear();
+                ofmQuant.scales.push_back(ofmQuantScale);
+            }
+            break;
+        }
+        case OpType::Abs:
+        {
+            Quantization &ifmQuant = operation->Input(TensorUsage::IFM0)->quantization;
+            auto outputScale = QuantizedScale(ifmQuant.Scale().Dequantize() / ofmQuant.Scale().Dequantize());
+            ofmQuant.scales.clear();
+            ofmQuant.scales.push_back(outputScale);
+            break;
+        }
+        case OpType::LeakyRelu:
+        {
+            // Preserve input scale
+            operation->Input(TensorUsage::IFM0)->quantization.type = QuantizationType::EXPLICIT;
+            break;
+        }
+        case OpType::AvgPool:
+        case OpType::ReduceSum:
+        {
+            Quantization &ifmQuant = operation->Input(TensorUsage::IFM0)->quantization;
+            if ( !ifmQuant.scales.empty() && !ofmQuant.scales.empty() )
+            {
+                ifmQuant.type = QuantizationType::EXPLICIT;
+                float ifmScale = ifmQuant.Scale().Dequantize();
+                float ofmScale = ofmQuant.Scale().Dequantize();
+                ofmQuant.scales.clear();
+                ofmQuant.scales.push_back(QuantizedScale(static_cast<double>(ifmScale) / static_cast<double>(ofmScale)));
+            }
+            break;
+        }
+        case OpType::ArgMax:
+        {
+            // ArgMax has to have unit quantization and should not preserve output zero-point
+            ofmQuant = Quantization::Unit();
+            break;
+        }
+        case OpType::MatMul:
+        {
+            auto ifm0Conn = operation->Input(TensorUsage::IFM0);
+            Quantization &ifm0Quant = ifm0Conn->quantization;
+            Quantization &ifm1Quant = operation->Input(TensorUsage::IFM1)->quantization;
+
+            if ( !ifm0Quant.scales.empty() && !ofmQuant.scales.empty() && !ifm1Quant.scales.empty() )
+            {
+                double ifm0Scale = ifm0Quant.Scale().Dequantize();
+                double ifm1Scale = ifm1Quant.Scale().Dequantize();
+                double ofmScale = ofmQuant.Scale().Dequantize();
+                ofmQuant.scales.clear();
+                if ( DataTypeSizeBits(ifm0Conn->tensor->Type()) != 8 )
+                {
+                    ofmQuant.scales.push_back(QuantizedScale((ifm0Scale * ifm1Scale) / ofmScale, true));
+                }
+                else
+                {
+                    ofmQuant.scales.push_back(ElementwiseMulScale<float, double>(ifm0Scale, ifm1Scale, ofmScale));
+                }
+            }
+            break;
+        }
+        case OpType::Conv2D:
+        case OpType::DepthwiseConv2D:
+        case OpType::TransposeConv2D:
+        case OpType::FullyConnected:
+        {
+            auto ifmConn = operation->Input(TensorUsage::IFM0);
+            auto scaleConn = operation->Input(TensorUsage::Scales);
+            DataType ifmType = ifmConn->tensor->Type();
+            DataType scaleType = scaleConn->tensor->Type();
+            Quantization &ifmQuant = ifmConn->quantization;
+            Quantization &weightQuant = operation->Input(TensorUsage::Weights)->quantization;
+
+            ofmQuant = RescalePerChannelToExplicit(ifmQuant, weightQuant, ofmQuant, scaleType, ifmType, opType);
+            break;
+        }
+        case OpType::Sigmoid:
+        case OpType::Tanh:
+        {
+            // Tanh which were fused in the source graph are handled in the reader and will already
+            // have EXPLICIT quantization and therefore never reach here.
+            Quantization &ifmQuant = operation->Input(TensorUsage::IFM)->quantization;
+
+            auto outputScale = TanhSigmoidScale(ifmQuant.Scale().Dequantize(), opType);
+            ofmQuant.scales.clear();
+            ofmQuant.scales.push_back(outputScale);
             break;
         }
         default:
+        {
+            // Default case is to set unit scaling but preserving zero points
+            ofmQuant.scales.clear();
+            ofmQuant.scales.push_back(QuantizedScale::Unit());
             break;
+        }
     }
 
-    ofmQuant.scales.clear();
-    ofmQuant.scales.push_back(quantScale);
+    bool hasEmptyFmScale = ofmQuant.scales.empty();
+    if ( opType != OpType::Add && opType != OpType::Sub && opType != OpType::LeakyRelu )
+    {
+        // Clear the input scales for all operations except Add, Sub, and LeakyRelu since those three are the
+        // only ones that use them. All other operations only use only EXPLICIT output scale and this way
+        // we only have non-unit quantized scales in the case where they actually have an effect.
+        for ( auto [usage, inputConn] : operation->Inputs().pairs() )
+        {
+            Quantization &inputQuant = inputConn.quantization;
+            if ( IsIFM(usage) )
+            {
+                hasEmptyFmScale = hasEmptyFmScale || inputQuant.scales.empty();
+            }
+
+            inputQuant.type = QuantizationType::EXPLICIT;
+            inputQuant.scales.clear();
+            inputQuant.scales.push_back(QuantizedScale::Unit());
+        }
+    }
+
+    // Maybe this should be checked at the start of the function as an early exit
+    // That would probably be more clear and has to run for every case anyway.
+    if ( hasEmptyFmScale )
+    {
+        // If any featuremap scale is empty it's incorrectly set and should be treated as unit scaling
+        ofmQuant.scales.clear();
+        ofmQuant.scales.push_back(QuantizedScale::Unit());
+    }
+
     ofmQuant.type = QuantizationType::EXPLICIT;
 
-    assert(ofmQuant.quantMax.empty());
-    assert(ofmQuant.quantMin.empty());
-
-    ofmQuant.quantMax = {int64_t(IntegerMax(ofmConn->tensor->Type()))};
-    ofmQuant.quantMin = {IntegerMin(ofmConn->tensor->Type())};
+    // Set quant min/max to ofm data type's min/max values if not set already
+    if ( ofmQuant.quantMax.empty() && ofmQuant.quantMin.empty() )
+    {
+        ofmQuant.quantMin = {IntegerMin(ofmConn->tensor->Type())};
+        ofmQuant.quantMax = {int64_t(IntegerMax(ofmConn->tensor->Type()))};
+    }
 
     return operation;
 }
@@ -2893,6 +3106,12 @@ void DisconnectActivation(Operation *const op)
 
 Operation *TFLiteGraphOptimiser::SupportedOperatorChecks(Graph *const graph, Operation *const operation)
 {
+    UNUSED(graph);
+    if ( operation->Type() == OpType::Passthrough )
+    {
+        return operation;
+    }
+
     Operation *returnOp = operation;
     if ( !_supportedOps->Check(operation) )
     {
@@ -3154,7 +3373,7 @@ TFLiteGraphOptimiser::TFLiteGraphOptimiser(IArchitectureConstraints *constraints
         GraphOptimiser(constraints, options, db)
 {
     _supportedOps = std::move(supportedOps);
-    _softmax = std::make_unique<Softmax>(db, constraints);
+    _softmax = std::make_unique<Softmax>(db, constraints, options.softmax.int16NegExpRange);
 }
 
 void TFLiteGraphOptimiser::OptimiseGraph(Graph *graph)

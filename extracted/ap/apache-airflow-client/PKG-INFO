@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apache-airflow-client
-Version: 3.2.1
+Version: 3.2.2
 Summary: Apache Airflow API (Stable)
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
 Project-URL: Changelog, https://github.com/apache/airflow-client-python/blob/main/CHANGELOG.md

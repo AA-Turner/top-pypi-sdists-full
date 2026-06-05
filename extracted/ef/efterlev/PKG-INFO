@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: efterlev
-Version: 0.1.215
+Version: 0.1.216
 Summary: Repo-native, agent-first compliance scanner for FedRAMP and DoD Impact Levels
 Project-URL: Homepage, https://efterlev.org
 Project-URL: Documentation, https://docs.efterlev.org
@@ -29,6 +29,7 @@ Requires-Dist: pathspec<2,>=0.12
 Requires-Dist: platformdirs<5,>=4.0
 Requires-Dist: prompt-toolkit<4,>=3.0
 Requires-Dist: pydantic<3,>=2.6
+Requires-Dist: pyjwt<3,>=2.13.0
 Requires-Dist: python-hcl2<6,>=4.3
 Requires-Dist: python-multipart<1,>=0.0.27
 Requires-Dist: pyyaml<7,>=6.0.3
@@ -114,29 +115,38 @@ This is an unusual onboarding pattern for a security tool — most ship docs or 
 
 Cost (first run): ~$1–5 on Sonnet 4.6 / Anthropic API, or ~$3–10 on Opus, or **$0 on Claude Code Pro/Max subscription**. Cache hits on re-runs are free on every backend (v0.1.151+). Wall time: 10–25 minutes for the first run, subsecond per stage on cache hit.
 
-**Or run it yourself.** Efterlev needs Python 3.12+. The cleanest install on any machine is [`uv`](https://docs.astral.sh/uv/): it fetches the right Python for you, and the only prerequisite is `curl` (already on macOS and most Linux). A plain `pip install` fails on a stock Mac or an Anaconda `(base)` env because their default Python is older than 3.12 — `uv` sidesteps that.
+**Or run it yourself.** One line installs everything — `uv` if you don't have it (which fetches Python 3.12 for you), then the `efterlev` CLI. The only prerequisite is `curl`, already on macOS and most Linux:
 
 ```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh    # skip if you already have uv
+curl -LsSf https://docs.efterlev.org/install.sh | sh
 ```
 
-Then pick your commitment level:
+Then:
 
 ```bash
-# 1. Just see it. No API key, nothing installed permanently:
-uvx efterlev studio                        # runs in a throwaway env; opens a local browser app on sample data
+efterlev studio                            # local browser app on sample data — no API key, no setup
+efterlev quickstart                        # full pipeline on a bundled sample (needs an LLM key — see below)
 
-# 2. Run the full pipeline (needs an LLM key — see below):
-uv tool install efterlev
-efterlev quickstart                        # bundled sample; init+scan are keyless, the AI stages need a key
-
-# 3. Run it against your own repo:
+# ...or against your own repo:
 cd path/to/your-repo                       # repo root, NOT a Terraform subdir
 efterlev init --target . --force --llm-backend=anthropic   # or openai / claude_code / bedrock
 efterlev report run                        # init → scan → gap → document → poam → oscal
 ```
 
-> **Already on pip?** If you have Python 3.12+, `pipx install efterlev` (or `pip install efterlev`) works fine. `uv` is the lead only because it removes the Python-version wall that bites a fresh laptop.
+<details>
+<summary>Prefer to install it yourself (or see it with zero install)?</summary>
+
+Efterlev needs Python 3.12+. [`uv`](https://docs.astral.sh/uv/) fetches the right Python for you — a plain `pip install` fails on a stock Mac or an Anaconda `(base)` env where the default Python is older than 3.12:
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh    # install uv (skip if you have it)
+uvx efterlev studio                                # zero-install, keyless demo in a throwaway env
+uv tool install efterlev                           # ...or a permanent install
+```
+
+Already have Python 3.12+? `pipx install efterlev` (or `pip install efterlev`) works too.
+
+</details>
 
 **Which steps need an LLM key?** `efterlev studio` and the `init` / `scan` steps are fully keyless. The AI stages (`gap`, `document`, `poam`, `report run`, and `quickstart`'s classification) need exactly one backend: an `ANTHROPIC_API_KEY` or `OPENAI_API_KEY`, AWS Bedrock, or a Claude Code Pro/Max subscription ($0 per call). Configure it with `efterlev init --llm-backend …`.
 
@@ -172,17 +182,23 @@ What they actually need is something that reads their infrastructure-as-code —
 
 Efterlev is that tool.
 
-It targets **FedRAMP 20x** — the new authorization track that replaces narrative-heavy System Security Plans with measurable outcomes called **Key Security Indicators**. KSIs are concrete things ("encrypt network traffic," "enforce phishing-resistant MFA") that can be assessed against actual evidence rather than long descriptions of intent. Most new SaaS authorizations starting in 2026 will target this track. Efterlev's primary internal abstraction is the KSI; **FRMR** (the machine-readable format FedRAMP 20x is standardizing on) is the primary output.
+It targets **FedRAMP 20x** — the new authorization track that replaces narrative-heavy System Security Plans with measurable outcomes called **Key Security Indicators**. KSIs are concrete things ("encrypt network traffic," "enforce phishing-resistant MFA") that can be assessed against actual evidence rather than long descriptions of intent. Most new SaaS authorizations starting in 2026 will target this track. Efterlev's primary internal abstraction is the KSI; it reads the machine-readable **FRMR** rules and emits FRMR-compatible attestation drafts, aligning toward FedRAMP's emerging submission artifact (the **Security Decision Record** — more on that below).
 
 ### Built for 20x. Not retrofitted from Rev 5.
 
 Most compliance tooling was architected for Rev 5 — narrative SSPs, manually-assembled evidence packages, GRC exports compiled around quarterly assessment windows — then bolted onto KSI workflows after FedRAMP announced 20x. That retrofit works for documentation transformation. It breaks down for persistent validation, where assessors evaluate the validation process itself — pipelines, code, automation — rather than compiled artifact packages.
 
-Efterlev was architected for the KSI/FRMR target from day one. KSI is the primary internal abstraction. FRMR is the primary output. The detectors are deterministic and replayable; the agent prompts are plain `.md` files an assessor can read; the provenance chain walks back from any claim to the exact file and line that produced it. Not a Rev 5 tool wearing a 20x hat.
+Efterlev was architected for the KSI target from day one. KSI is the primary internal abstraction. The detectors are deterministic and replayable; the agent prompts are plain `.md` files an assessor can read; the provenance chain walks back from any claim to the exact file, line, and commit that produced it. Not a Rev 5 tool wearing a 20x hat.
 
 ### Compliance falls out of your security program, not alongside it.
 
-GRC has historically been a parallel workstream — something you run next to your security program to produce compliance artifacts. Efterlev inverts that. Security signals are structured, reusable, and continuously produced; the FRMR package is the byproduct, not the goal. When you ship a Terraform change, the attestation updates. When CI runs on a PR, the KSI verdicts move. The compliance output follows the evidence automatically — continuous proof replaces periodic documentation.
+GRC has historically been a parallel workstream — something you run next to your security program to produce compliance artifacts. Efterlev inverts that. Security signals are structured, reusable, and continuously produced; the compliance package is the byproduct, not the goal. When you ship a Terraform change, the attestation updates. When CI runs on a PR, the KSI verdicts move. The output follows the security work automatically — continuous validation replaces periodic documentation.
+
+### What FedRAMP 20x actually grades
+
+FedRAMP 20x doesn't grade a folder of config screenshots. A Terraform block on its own is just text that can be swapped out at any time, so an assessor doesn't treat it as proof. What they confirm is that your *process* persistently verifies and validates each KSI: changes traced to approvals, who's allowed to modify what, integrity of the code that's actually deployed, and that reality matches your IaC. The provider attests; an independent assessor confirms within the provider's own structure.
+
+Efterlev is built for that model. The deterministic detectors are the **signal**, not the deliverable — the persistent-validation surface is the rest: the provenance chain (claim → file → line → commit), the change-control detectors (branch protection, required reviews, SDLC gates), continuous re-scan on every PR, and runtime-finding ingestion (AWS Security Hub / Config / Prowler). FedRAMP's emerging canonical artifact is the **Security Decision Record** — a simple machine-readable motive, goal, and description linked to each rule and KSI; Efterlev emits FRMR-compatible attestation drafts today and is aligning its output to the SDR as the structure firms up. (Honest scope: IaC-vs-deployed-reality drift detection is on the roadmap — Efterlev ingests the runtime side today; the comparison is the next build.)
 
 ---
 
@@ -363,7 +379,7 @@ In this repo:
 - [`docs/icp.md`](./docs/icp.md) — Ideal Customer Profile; the lens behind every product decision
 - [`docs/followups.md`](./docs/followups.md) — tracked work, deferred items, what's shipped vs pending
 - [`docs/v0.2-eval-harness-plan.md`](./docs/v0.2-eval-harness-plan.md) — design sketch for the v0.2 agent-quality harness
-- [`CHANGELOG.md`](./CHANGELOG.md) — release-by-release record (200+ patch versions, v0.1.215 current)
+- [`CHANGELOG.md`](./CHANGELOG.md) — release-by-release record (200+ patch versions, v0.1.216 current)
 - [`docs/benchmark-2026-05.md`](./docs/benchmark-2026-05.md) — time-to-FRMR benchmark methodology (numbers populated by maintainer dispatch)
 - [`docs/cfn-detector-parity.md`](./docs/cfn-detector-parity.md) + [`docs/cfn-detector-parity.csv`](./docs/cfn-detector-parity.csv) — per-detector CFN coverage matrix (regenerated by `scripts/build_cfn_parity_table.py`)
 - [`DECISIONS.md`](./DECISIONS.md) — append-only design-decision log
@@ -380,7 +396,7 @@ We want contributors. The detector library is designed to make the common contri
 
 ## Status, governance, license
 
-**Status:** v0.1.215 is current — 200+ patch releases since v0.1.0 (2026-04-29), each shipped under a per-fix regression-test discipline and the full CI gate (mypy strict, ruff, doc-drift check, real-API E2E smoke). The scanner reads Terraform, CloudFormation (default-on since v0.1.99), and Python CDK source (v0.1.131); the agents emit FRMR attestations plus OSCAL 1.0.4 POA&M and Component-Definition; and runtime-tool findings (AWS Security Hub / Config / Prowler) ingest into the same provenance store (v0.1.124). Classification quality is maintainer-validated at 100% precision + 100% recall on the Terraform fixtures (67/67 across 3) and 44/44 on the CloudFormation fixtures, with Bedrock Claude Haiku 4.5 confirmed quality-neutral for GovCloud deployments. The CloudFormation validation detail is in [`evals/PHASE_2_LITE_CFN_VALIDATION.md`](./evals/PHASE_2_LITE_CFN_VALIDATION.md); per-detector CFN coverage in [`docs/cfn-detector-parity.md`](./docs/cfn-detector-parity.md). Per-release detail is in [`CHANGELOG.md`](./CHANGELOG.md); verify a published artifact with `bash scripts/verify-release.sh v0.1.207` (PEP 740 PyPI attestations + cosign keyless OIDC + SLSA provenance on `ghcr.io/efterlev/efterlev`).
+**Status:** v0.1.216 is current — 200+ patch releases since v0.1.0 (2026-04-29), each shipped under a per-fix regression-test discipline and the full CI gate (mypy strict, ruff, doc-drift check, real-API E2E smoke). The scanner reads Terraform, CloudFormation (default-on since v0.1.99), and Python CDK source (v0.1.131); the agents emit FRMR attestations plus OSCAL 1.0.4 POA&M and Component-Definition; and runtime-tool findings (AWS Security Hub / Config / Prowler) ingest into the same provenance store (v0.1.124). Classification quality is maintainer-validated at 100% precision + 100% recall on the Terraform fixtures (67/67 across 3) and 44/44 on the CloudFormation fixtures, with Bedrock Claude Haiku 4.5 confirmed quality-neutral for GovCloud deployments. The CloudFormation validation detail is in [`evals/PHASE_2_LITE_CFN_VALIDATION.md`](./evals/PHASE_2_LITE_CFN_VALIDATION.md); per-detector CFN coverage in [`docs/cfn-detector-parity.md`](./docs/cfn-detector-parity.md). Per-release detail is in [`CHANGELOG.md`](./CHANGELOG.md); verify a published artifact with `bash scripts/verify-release.sh v0.1.207` (PEP 740 PyPI attestations + cosign keyless OIDC + SLSA provenance on `ghcr.io/efterlev/efterlev`).
 
 **Governance:** Benevolent-dictator model today (`@lhassa8`), transitioning to a technical steering committee at 10 sustained-activity contributors. Full model in [GOVERNANCE.md](./GOVERNANCE.md). Architectural decisions: [DECISIONS.md](./DECISIONS.md). The project may eventually be donated to a neutral foundation (OpenSSF / Linux Foundation / CNCF) if contributor diversity warrants — that decision is not made and not time-boxed.
 

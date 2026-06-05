@@ -1,8 +1,10 @@
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
-from typing import Dict, List, Optional
+from typing import Dict, List, Union, Optional
 from datetime import datetime
+from typing_extensions import Literal, Annotated, TypeAlias
 
+from ..._utils import PropertyInfo
 from ..._models import BaseModel
 from .external_llm import ExternalLlm
 from .observability import Observability
@@ -22,7 +24,379 @@ from .transcription_settings import TranscriptionSettings
 from .post_conversation_settings import PostConversationSettings
 from .inference_embedding_interruption_settings import InferenceEmbeddingInterruptionSettings
 
-__all__ = ["InferenceEmbedding"]
+__all__ = [
+    "InferenceEmbedding",
+    "ConversationFlow",
+    "ConversationFlowNode",
+    "ConversationFlowNodeFlowNode",
+    "ConversationFlowNodeFlowNodePosition",
+    "ConversationFlowNodeToolNode",
+    "ConversationFlowNodeToolNodePosition",
+    "ConversationFlowEdge",
+    "ConversationFlowEdgeCondition",
+    "ConversationFlowEdgeConditionLlmCondition",
+    "ConversationFlowEdgeConditionExpressionCondition",
+    "ConversationFlowEdgeConditionExpressionConditionExpression",
+    "ConversationFlowEdgeConditionExpressionConditionExpressionDynamicVariableExpression",
+    "ConversationFlowEdgeConditionExpressionConditionExpressionStringLiteralExpression",
+    "ConversationFlowEdgeConditionExpressionConditionExpressionNumberLiteralExpression",
+    "ConversationFlowEdgeConditionExpressionConditionExpressionBooleanLiteralExpression",
+    "ConversationFlowEdgeTarget",
+    "ConversationFlowEdgeTargetNodeTarget",
+    "ConversationFlowEdgeTargetAssistantTarget",
+    "ConversationFlowEdgeTargetAssistantTargetPosition",
+]
+
+
+class ConversationFlowNodeFlowNodePosition(BaseModel):
+    """Optional canvas coordinates used by authoring UIs to lay out the graph.
+
+    Ignored by the runtime; round-trips so frontends can persist graph layout across reloads.
+    """
+
+    x: float
+    """Horizontal coordinate in the authoring canvas."""
+
+    y: float
+    """Vertical coordinate in the authoring canvas."""
+
+
+class ConversationFlowNodeFlowNode(BaseModel):
+    """One step in a conversation flow, as returned by the API."""
+
+    id: str
+    """Caller-supplied unique identifier for this node within the flow."""
+
+    instructions: str
+    """Prompt that drives the LLM while this node is active. Required."""
+
+    external_llm: Optional[ExternalLlm] = None
+    """Override for `Assistant.external_llm` while this node is active.
+
+    Use this to route a node's turns to a different external LLM (different `model`,
+    `base_url`, credentials). Part of the LLM bundle — see `model` for cascade
+    semantics. Mutually exclusive with `model` on the node (a single LLM identity
+    per node).
+    """
+
+    instructions_mode: Optional[Literal["replace", "append"]] = None
+    """How `instructions` combine with the assistant-level instructions.
+
+    `replace` (default): the node's instructions are used alone. `append`: the
+    node's instructions are concatenated after the assistant's instructions.
+    """
+
+    llm_api_key_ref: Optional[str] = None
+    """Override for `Assistant.llm_api_key_ref` while this node is active.
+
+    Part of the LLM bundle — see `model` for cascade semantics.
+    """
+
+    model: Optional[str] = None
+    """Override for `Assistant.model` while this node is active.
+
+    Part of the LLM bundle (`model` + `llm_api_key_ref` + `external_llm`): when any
+    of the three is set on the node, all three are taken from the node and the
+    assistant-level LLM identity is not consulted. When none of the three is set,
+    the assistant's bundle cascades unchanged.
+    """
+
+    name: Optional[str] = None
+    """Optional human-readable label, displayed in authoring UIs."""
+
+    position: Optional[ConversationFlowNodeFlowNodePosition] = None
+    """Optional canvas coordinates used by authoring UIs to lay out the graph.
+
+    Ignored by the runtime; round-trips so frontends can persist graph layout across
+    reloads.
+    """
+
+    shared_tool_ids: Optional[List[str]] = None
+    """IDs of shared (org-level) tools available at this node.
+
+    Knowledge bases are attached the same way — via a shared retrieval tool. Tools
+    not listed here are not callable while this node is active.
+    """
+
+    tools: Optional[List[List[AssistantTool]]] = None
+    """Full tool definitions for this node, resolved from `shared_tool_ids`
+    server-side.
+
+    Populated on responses so clients can render the flow without a follow-up fetch
+    per shared tool. Ignored on input — set `shared_tool_ids` to configure a node's
+    tools.
+    """
+
+    tools_mode: Optional[Literal["replace", "append"]] = None
+    """How `shared_tool_ids` combine with the assistant-level tool set.
+
+    `replace` (default): only the node's tools are callable. `append`: the node's
+    tools are added to the assistant's tools. Ignored when `shared_tool_ids` is
+    null.
+    """
+
+    transcription: Optional[TranscriptionSettings] = None
+    """Per-node transcription override (response form)."""
+
+    type: Optional[Literal["prompt"]] = None
+    """Node kind discriminator. `prompt` is an LLM-driven step."""
+
+    voice_settings: Optional[VoiceSettings] = None
+    """Per-node voice override (response form)."""
+
+
+class ConversationFlowNodeToolNodePosition(BaseModel):
+    """Optional canvas coordinates used by authoring UIs to lay out the graph.
+
+    Ignored by the runtime; round-trips so frontends can persist graph layout across reloads.
+    """
+
+    x: float
+    """Horizontal coordinate in the authoring canvas."""
+
+    y: float
+    """Vertical coordinate in the authoring canvas."""
+
+
+class ConversationFlowNodeToolNode(BaseModel):
+    """A standalone tool step in a conversation flow, as returned by the API."""
+
+    id: str
+    """Caller-supplied unique identifier for this node within the flow."""
+
+    shared_tool_id: str
+    """ID of the single shared (org-level) tool this node executes.
+
+    When the flow reaches this node the tool runs as a deliberate step (no LLM
+    turn); its outgoing `tool_result` edges then route on the outcome. Arguments are
+    filled from the conversation's dynamic variables by name — a dynamic variable
+    whose name matches one of the tool's parameters supplies that argument.
+    Cross-validated against the org's shared tools on write.
+    """
+
+    name: Optional[str] = None
+    """Optional human-readable label, displayed in authoring UIs."""
+
+    position: Optional[ConversationFlowNodeToolNodePosition] = None
+    """Optional canvas coordinates used by authoring UIs to lay out the graph.
+
+    Ignored by the runtime; round-trips so frontends can persist graph layout across
+    reloads.
+    """
+
+    tool: Optional[List[AssistantTool]] = None
+    """Full tool definition resolved from `shared_tool_id` server-side.
+
+    Populated on responses so clients can render the node without a follow-up fetch.
+    Ignored on input — set `shared_tool_id`.
+    """
+
+    type: Optional[Literal["tool"]] = None
+    """Node kind discriminator. Always `tool` for a tool node."""
+
+
+ConversationFlowNode: TypeAlias = Annotated[
+    Union[ConversationFlowNodeFlowNode, ConversationFlowNodeToolNode], PropertyInfo(discriminator="type")
+]
+
+
+class ConversationFlowEdgeConditionLlmCondition(BaseModel):
+    """Edge condition evaluated by the LLM from a natural-language prompt.
+
+    The model is asked to judge the prompt against conversation context and
+    returns true/false. Use this for fuzzy intents that aren't expressible as
+    a deterministic expression (e.g. 'user wants to escalate to a human').
+    """
+
+    prompt: str
+    """Natural-language criterion the LLM judges as true/false."""
+
+    type: Literal["llm"]
+
+
+class ConversationFlowEdgeConditionExpressionConditionExpressionDynamicVariableExpression(BaseModel):
+    """Reference a dynamic variable by name.
+
+    Resolved at runtime from the assistant's dynamic-variables context (see
+    `Assistant.dynamic_variables` and the dynamic-variables webhook).
+    """
+
+    name: str
+    """Variable name to look up in the runtime context."""
+
+    type: Literal["variable"]
+
+
+class ConversationFlowEdgeConditionExpressionConditionExpressionStringLiteralExpression(BaseModel):
+    """Constant string value."""
+
+    type: Literal["string_literal"]
+
+    value: str
+    """Literal string value."""
+
+
+class ConversationFlowEdgeConditionExpressionConditionExpressionNumberLiteralExpression(BaseModel):
+    """Constant numeric value (float; integers are accepted and stored as float)."""
+
+    type: Literal["number_literal"]
+
+    value: float
+    """Literal numeric value."""
+
+
+class ConversationFlowEdgeConditionExpressionConditionExpressionBooleanLiteralExpression(BaseModel):
+    """Constant boolean value. Useful for unconditional ('always') edges."""
+
+    type: Literal["bool_literal"]
+
+    value: bool
+    """Literal boolean value."""
+
+
+ConversationFlowEdgeConditionExpressionConditionExpression: TypeAlias = Union[
+    ConversationFlowEdgeConditionExpressionConditionExpressionDynamicVariableExpression,
+    ConversationFlowEdgeConditionExpressionConditionExpressionStringLiteralExpression,
+    ConversationFlowEdgeConditionExpressionConditionExpressionNumberLiteralExpression,
+    ConversationFlowEdgeConditionExpressionConditionExpressionBooleanLiteralExpression,
+    object,
+]
+
+
+class ConversationFlowEdgeConditionExpressionCondition(BaseModel):
+    """Edge condition evaluated as a deterministic expression AST.
+
+    The expression is computed against runtime dynamic variables and must
+    evaluate to a boolean. Prefer this over `LLMCondition` when the rule is
+    a clean function of known variables — it's cheaper and predictable.
+    """
+
+    expression: ConversationFlowEdgeConditionExpressionConditionExpression
+    """A node in a deterministic expression AST.
+
+    Exactly one variant is selected by the `type` discriminator. Terminal variants
+    (`number_literal`, `string_literal`, `bool_literal`, `variable`) bottom out the
+    recursion; `arithmetic`, `bool_op`, and `comparison` nest further
+    sub-expressions.
+
+    Extracted into a single named schema so the recursive union is defined once (was
+    previously inlined at every operand site).
+    """
+
+    type: Literal["expression"]
+
+
+ConversationFlowEdgeCondition: TypeAlias = Annotated[
+    Union[ConversationFlowEdgeConditionLlmCondition, ConversationFlowEdgeConditionExpressionCondition],
+    PropertyInfo(discriminator="type"),
+]
+
+
+class ConversationFlowEdgeTargetNodeTarget(BaseModel):
+    """Edge target referencing another node within the same flow.
+
+    The runtime transitions the active node to `node_id` and continues
+    processing within the current assistant's flow.
+    """
+
+    node_id: str
+    """ID of the node this edge transitions into."""
+
+    type: Literal["node"]
+
+
+class ConversationFlowEdgeTargetAssistantTargetPosition(BaseModel):
+    """
+    Optional canvas coordinates for rendering the target assistant as a node in authoring UIs. Pure presentation — the runtime ignores it; round-trips so frontends can persist graph layout across reloads. When multiple edges target the same assistant, each edge's `position` is independent (frontends typically use the first non-null one).
+    """
+
+    x: float
+    """Horizontal coordinate in the authoring canvas."""
+
+    y: float
+    """Vertical coordinate in the authoring canvas."""
+
+
+class ConversationFlowEdgeTargetAssistantTarget(BaseModel):
+    """Edge target referencing a different assistant.
+
+    When the edge fires, the conversation hands off to `assistant_id`: the
+    active assistant on the conversation row is rewritten and the new
+    assistant's flow starts at its own `start_node_id`. The current turn's
+    LLM response is delivered to the user as-is; subsequent turns route
+    to the new assistant.
+    """
+
+    assistant_id: str
+    """ID of the assistant the conversation transitions to."""
+
+    type: Literal["assistant"]
+
+    position: Optional[ConversationFlowEdgeTargetAssistantTargetPosition] = None
+    """
+    Optional canvas coordinates for rendering the target assistant as a node in
+    authoring UIs. Pure presentation — the runtime ignores it; round-trips so
+    frontends can persist graph layout across reloads. When multiple edges target
+    the same assistant, each edge's `position` is independent (frontends typically
+    use the first non-null one).
+    """
+
+    voice_mode: Optional[Literal["unified", "distinct"]] = None
+    """
+    Voice behavior when handing off to the target assistant, mirroring the handoff
+    tool's `voice_mode`. `unified` (default) keeps the current voice across the
+    handoff; `distinct` lets the target assistant speak with its own configured
+    voice. Only applies to assistant targets — node targets override voice via the
+    node's own `voice_settings`.
+    """
+
+
+ConversationFlowEdgeTarget: TypeAlias = Annotated[
+    Union[ConversationFlowEdgeTargetNodeTarget, ConversationFlowEdgeTargetAssistantTarget],
+    PropertyInfo(discriminator="type"),
+]
+
+
+class ConversationFlowEdge(BaseModel):
+    """Directed transition from one node to a target, gated by a condition.
+
+    The target is either another node in the same flow (`NodeTarget`) or a
+    different assistant (`AssistantTarget`). Multiple edges may share a
+    `start_node_id`; the runtime evaluates them in the order they're
+    declared and takes the first whose condition is true.
+    """
+
+    id: str
+    """Caller-supplied unique identifier for this edge within the flow."""
+
+    condition: ConversationFlowEdgeCondition
+    """Condition that gates the transition.
+
+    Discriminated by `type`: `llm`, `expression`.
+    """
+
+    start_node_id: str
+    """ID of the node this edge transitions away from."""
+
+    target: ConversationFlowEdgeTarget
+    """Destination of the transition.
+
+    Discriminated by `type`: `node` (jump to another node in this flow) or
+    `assistant` (hand off to a different assistant).
+    """
+
+
+class ConversationFlow(BaseModel):
+    """Conversation flow as returned by the API."""
+
+    nodes: List[ConversationFlowNode]
+    """All nodes in the flow."""
+
+    start_node_id: str
+    """ID of the node where the conversation begins."""
+
+    edges: Optional[List[ConversationFlowEdge]] = None
+    """Directed transitions between nodes."""
 
 
 class InferenceEmbedding(BaseModel):
@@ -48,6 +422,9 @@ class InferenceEmbedding(BaseModel):
     """
 
     name: str
+
+    conversation_flow: Optional[ConversationFlow] = None
+    """Conversation flow as returned by the API."""
 
     description: Optional[str] = None
 

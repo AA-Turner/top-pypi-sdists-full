@@ -240,3 +240,28 @@ def parse_auto_decision(task_dir: Path, iteration: int,
         "defer_to_user": confidence < _CONFIDENCE_THRESHOLD or decision == "defer_to_user",
         "raw": data,
     }
+
+
+def dispatch_decision(fs, config, task_id: str, decision: dict) -> dict | None:
+    """Auto-execute a parsed decision. Returns dispatch result or None if skipped.
+
+    Only dispatches when confidence >= threshold and defer_to_user is False.
+    """
+    if not decision:
+        return None
+    if decision.get("defer_to_user", True):
+        return None
+    if decision.get("confidence", 0) < _CONFIDENCE_THRESHOLD:
+        return None
+
+    action = decision.get("action")
+    if not action:
+        return None
+
+    try:
+        from kanban_framework.cli.run import cmd_decide
+        result = cmd_decide([task_id, "--action", action])
+        result["auto_dispatched"] = True
+        return result
+    except Exception as exc:
+        return {"auto_dispatched": False, "error": str(exc)}

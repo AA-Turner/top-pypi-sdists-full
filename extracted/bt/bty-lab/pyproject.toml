@@ -1,12 +1,12 @@
 [project]
 name = "bty-lab"
-version = "0.34.0"
+version = "0.35.0"
 description = "Flash images onto target disks, offline or networked with and without PXE"
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [{ name = "Simon A. F. Lund", email = "os@safl.dk" }]
 license = "GPL-3.0-only"
-keywords = ["bare-metal", "imaging", "ipxe", "pxe", "flashing", "appliance"]
+keywords = ["bare-metal", "imaging", "ipxe", "pxe", "flashing"]
 classifiers = [
     "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
     "Programming Language :: Python :: 3",
@@ -34,11 +34,6 @@ web = [
     "jinja2>=3.1",
     # Required by FastAPI's ``Form()`` parsing for the bty-web UI.
     "python-multipart>=0.0.9",
-    # PAM password verification for /ui/login. Pure-Python ctypes
-    # wrapper around libpam (used by JupyterHub); libpam-modules ships
-    # the setuid unix_chkpwd helper that does the privileged shadow
-    # read so the bty service user stays unprivileged.
-    "pamela>=1.1",
     # Required by Starlette's SessionMiddleware to sign the session
     # cookie. Pulled in as a transitive of fastapi sometimes; pin
     # explicitly so the cookie path can't disappear on a slim install.
@@ -50,7 +45,6 @@ all = [
     "uvicorn[standard]>=0.30",
     "jinja2>=3.1",
     "python-multipart>=0.0.9",
-    "pamela>=1.1",
     "itsdangerous>=2.1",
 ]
 
@@ -97,13 +91,6 @@ python_version = "3.11"
 strict = true
 explicit_package_bases = true
 mypy_path = "src"
-
-[[tool.mypy.overrides]]
-# pamela is a pure-Python ctypes wrapper around libpam (no py.typed
-# marker shipped). We only call ``authenticate``; the lack of stubs
-# is fine.
-module = ["pamela", "pamela.*"]
-ignore_missing_imports = true
 
 [tool.pyright]
 include = ["src", "tests", "docs/tooling/src"]

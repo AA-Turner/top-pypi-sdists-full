@@ -14,6 +14,7 @@
 
 #pragma once
 #include <cmath>
+#include <functional>
 #include <limits>
 #include <memory>
 #include <vector>
@@ -27,6 +28,16 @@
 #include "linalg.h"
 
 namespace manifold {
+
+// Forward decls for ExecutionContext factory methods (full defs in
+// manifold.h / mesh.h).
+class Manifold;
+template <typename Precision, typename I = uint32_t>
+struct MeshGLP;
+using MeshGL = MeshGLP<float>;
+using MeshGL64 = MeshGLP<double, uint64_t>;
+struct Box;  // defined below; needed by ExecutionContext::LevelSet
+
 /** @addtogroup Math
  * @ingroup Core
  * @brief Simple math operations.
@@ -249,6 +260,31 @@ class ExecutionContext {
   /// evaluate, and `Progress()` called before any `Status(ctx)` reflects
   /// the same "no pending work" state).
   double Progress() const;
+
+  /// Eager ctx-aware `Manifold(MeshGL)`. The heavy ingest steps check
+  /// cancel and credit `Progress()` between phases. Precedence: a
+  /// Cancel() before this call wins over empty/malformed input;
+  /// validation errors win over a Cancel() that races in after that.
+  /// Concurrent calls on the same ctx produce undefined progress
+  /// values; the returned Manifolds remain valid.
+  Manifold FromMeshGL(const MeshGL& mesh);
+  Manifold FromMeshGL(const MeshGL64& mesh);
+
+  /// Eager ctx-aware `Manifold::Smooth(MeshGL[64])`. The ingest phases
+  /// plus the tangent-creation phases check cancel and credit
+  /// `Progress()` between phases. Same cancel-vs-validation precedence
+  /// as `FromMeshGL`.
+  Manifold Smooth(const MeshGL& mesh,
+                  const std::vector<Smoothness>& sharpenedEdges = {});
+  Manifold Smooth(const MeshGL64& mesh,
+                  const std::vector<Smoothness>& sharpenedEdges = {});
+
+  /// Eager ctx-aware `Manifold::LevelSet`. The voxel-sampling and
+  /// mesh-extraction phases check cancel and credit `Progress()` between
+  /// phases. A Cancel() before or during the call yields a Cancelled result.
+  Manifold LevelSet(std::function<double(vec3)> sdf, Box bounds,
+                    double edgeLength, double level = 0, double tolerance = -1,
+                    bool canParallel = true);
 
   /// @internal Opaque implementation. Defined in src/execution_impl.h;
   /// accessible only to internal code that includes that header.

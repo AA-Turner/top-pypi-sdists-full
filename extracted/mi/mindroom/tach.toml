@@ -1171,11 +1171,10 @@ visibility = ["mindroom.memory.functions"]
 [[modules]]
 path = "mindroom.memory._semantic_file_search"
 depends_on = [
-    "mindroom.chunking",
-    "mindroom.embedding_factory",
+    "mindroom.knowledge",
     "mindroom.logging_config",
     "mindroom.memory._shared",
-    "mindroom.path_globs",
+    "mindroom.timing",
 ]
 visibility = ["mindroom.memory._file_backend"]
 
@@ -1569,6 +1568,7 @@ visibility = [
     "mindroom.matrix.stale_stream_cleanup",
     "mindroom.response_runner",
     "mindroom.routing",
+    "mindroom.thread_export",
 ]
 
 [[modules]]
@@ -1618,6 +1618,22 @@ visibility = [
     "mindroom.matrix.client",
     "mindroom.matrix.conversation_cache",
     "mindroom.matrix.thread_room_scan",
+    "mindroom.thread_export",
+]
+
+[[modules]]
+path = "mindroom.thread_export"
+depends_on = [
+    "mindroom.constants",
+    "mindroom.entity_resolution",
+    "mindroom.logging_config",
+    "mindroom.matrix.client_thread_history",
+    "mindroom.matrix.client_visible_messages",
+    "mindroom.matrix.identity",
+    "mindroom.matrix.state",
+    "mindroom.matrix.users",
+    "mindroom.matrix_identifiers",
+    "mindroom.runtime_support",
 ]
 
 [[modules]]
@@ -1827,6 +1843,7 @@ depends_on = [
     "mindroom.error_handling",
     "mindroom.frontend_assets",
     "mindroom.orchestrator",
+    "mindroom.thread_export",
 ]
 
 [[modules]]
@@ -2460,6 +2477,7 @@ from = ["mindroom.model_loading"]
 [[interfaces]]
 expose = [
     "KnowledgeAccessSupport",
+    "KnowledgeBaseAccessResolution",
     "KnowledgeManager",
     "KnowledgeRefreshScheduler",
     "format_knowledge_availability_notice",
@@ -2467,10 +2485,12 @@ expose = [
     "KnowledgeAvailability",
     "KnowledgeAvailabilityDetail",
     "KnowledgeResolution",
+    "list_knowledge_files",
     "OrchestratorKnowledgeRefreshScheduler",
     "PerBindingKnowledgeRefreshScheduler",
     "reconcile_knowledge_mode_transition_states",
     "resolve_agent_knowledge_access",
+    "resolve_knowledge_base_access",
     "StandaloneKnowledgeRefreshScheduler",
 ]
 from = ["mindroom.knowledge"]

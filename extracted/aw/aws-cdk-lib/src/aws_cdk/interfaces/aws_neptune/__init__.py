@@ -53,7 +53,7 @@ class DBClusterParameterGroupReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_neptune as interfaces_neptune
             
-            d_bCluster_parameter_group_reference = interfaces_neptune.DBClusterParameterGroupReference(
+            d_b_cluster_parameter_group_reference = interfaces_neptune.DBClusterParameterGroupReference(
                 db_cluster_parameter_group_name="dbClusterParameterGroupName"
             )
         '''
@@ -102,7 +102,7 @@ class DBClusterReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_neptune as interfaces_neptune
             
-            d_bCluster_reference = interfaces_neptune.DBClusterReference(
+            d_b_cluster_reference = interfaces_neptune.DBClusterReference(
                 db_cluster_identifier="dbClusterIdentifier"
             )
         '''
@@ -151,7 +151,7 @@ class DBInstanceReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_neptune as interfaces_neptune
             
-            d_bInstance_reference = interfaces_neptune.DBInstanceReference(
+            d_b_instance_reference = interfaces_neptune.DBInstanceReference(
                 db_instance_identifier="dbInstanceIdentifier"
             )
         '''
@@ -200,7 +200,7 @@ class DBParameterGroupReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_neptune as interfaces_neptune
             
-            d_bParameter_group_reference = interfaces_neptune.DBParameterGroupReference(
+            d_b_parameter_group_reference = interfaces_neptune.DBParameterGroupReference(
                 db_parameter_group_name="dbParameterGroupName"
             )
         '''
@@ -249,7 +249,7 @@ class DBSubnetGroupReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_neptune as interfaces_neptune
             
-            d_bSubnet_group_reference = interfaces_neptune.DBSubnetGroupReference(
+            d_b_subnet_group_reference = interfaces_neptune.DBSubnetGroupReference(
                 db_subnet_group_name="dbSubnetGroupName"
             )
         '''

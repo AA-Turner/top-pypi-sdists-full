@@ -54,7 +54,7 @@ class APIKeyReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_location as interfaces_location
             
-            a_pIKey_reference = interfaces_location.APIKeyReference(
+            a_pi_key_reference = interfaces_location.APIKeyReference(
                 api_key_arn="apiKeyArn",
                 key_name="keyName"
             )

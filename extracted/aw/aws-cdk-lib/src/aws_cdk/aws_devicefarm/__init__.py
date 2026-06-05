@@ -2651,7 +2651,7 @@ class CfnVPCEConfiguration(
         # The values are placeholders you should change.
         from aws_cdk import aws_devicefarm as devicefarm
         
-        cfn_vPCEConfiguration = devicefarm.CfnVPCEConfiguration(self, "MyCfnVPCEConfiguration",
+        cfn_vpce_configuration = devicefarm.CfnVPCEConfiguration(self, "MyCfnVPCEConfiguration",
             service_dns_name="serviceDnsName",
             vpce_configuration_name="vpceConfigurationName",
             vpce_service_name="vpceServiceName",
@@ -2897,7 +2897,7 @@ class CfnVPCEConfigurationProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_devicefarm as devicefarm
             
-            cfn_vPCEConfiguration_props = devicefarm.CfnVPCEConfigurationProps(
+            cfn_vpce_configuration_props = devicefarm.CfnVPCEConfigurationProps(
                 service_dns_name="serviceDnsName",
                 vpce_configuration_name="vpceConfigurationName",
                 vpce_service_name="vpceServiceName",

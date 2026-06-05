@@ -154,10 +154,33 @@ const STEP_DEFINITIONS = {
   "archive.cleanup": { description: "清理 worktree", agent_type: null },
 };
 
+// --- Helper: discover agent types from .claude/agents/ directory ---
+function discoverAgentTypes() {
+  const agentTypes = new Set(['general-purpose']);
+  // Scan project .claude/agents/*.md — each file defines an agent type
+  const agentsDir = path.join(PROJECT_ROOT, '.claude', 'agents');
+  if (fs.existsSync(agentsDir)) {
+    try {
+      for (const f of fs.readdirSync(agentsDir)) {
+        if (!f.endsWith('.md')) continue;
+        try {
+          const content = fs.readFileSync(path.join(agentsDir, f), 'utf-8');
+          // Extract name from frontmatter (e.g. "---\nname: kanban-executor\n---")
+          const nameMatch = content.match(/^---\s*\n\s*name:\s*(.+?)\s*$/m);
+          if (nameMatch) {
+            agentTypes.add(nameMatch[1].trim());
+          }
+        } catch (_) {}
+      }
+    } catch (_) {}
+  }
+  return Array.from(agentTypes).sort();
+}
+
 // --- API: step definitions for visual step editor ---
 app.get('/api/step-definitions', (req, res) => {
   const phases = ['plan', 'plan_review', 'qa_spec', 'spec_review', 'execute', 'evaluate', 'retrospective', 'archive'];
-  const agent_types = ['general-purpose', 'kanban-executor'];
+  const agent_types = discoverAgentTypes();
   try {
     const workflowPath = path.join(KANBAN_ROOT, 'workflow.json');
     if (fs.existsSync(workflowPath)) {

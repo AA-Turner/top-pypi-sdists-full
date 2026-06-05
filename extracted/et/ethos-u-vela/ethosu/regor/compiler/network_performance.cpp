@@ -350,20 +350,22 @@ void NetworkPerformance::AddToDatabase(const PerformanceResult &perf, SchedulerO
     shapeToStrings(schedOp->TryIFM(1) ? cost->stripeInput[1] : Shape());
     shapeToStrings(cost->stripe);
 
+    const auto opGroup = schedOp->OpGroup();
+
     // clang-format off
     row.insert(row.end(), {
         // FM Memory
-        fmt::format("{}", schedOp->IFM(0)->tensor->memArea.memory->Name()),
-        fmt::format("{}", schedOp->TryIFM(1) ? schedOp->IFM(1)->tensor->memArea.memory->Name() : ""),
-        fmt::format("{}", schedOp->OFM()->tensor->memArea.memory->Name()),
+        ((opGroup && opGroup->NeedsAllocation(schedOp->IFM(0)->tensor->uid)) ? schedOp->IFM(0)->tensor->memArea.memory->Name() : ""),
+        (schedOp->TryIFM(1) ? ((opGroup && opGroup->NeedsAllocation(schedOp->IFM(1)->tensor->uid)) ? schedOp->IFM(1)->tensor->memArea.memory->Name() : "") : ""),
+        ((opGroup && opGroup->NeedsAllocation(schedOp->OFM()->tensor->uid)) ? schedOp->OFM()->tensor->memArea.memory->Name() : ""),
         // Formats
-        fmt::format("{}", EnumToString(schedOp->IFM(0)->tensor->format)),
-        fmt::format("{}", schedOp->TryIFM(1) ? EnumToString(schedOp->IFM(1)->tensor->format) : ""),
-        fmt::format("{}", EnumToString(schedOp->OFM()->tensor->format)),
+        EnumToString(schedOp->IFM(0)->tensor->format),
+        schedOp->TryIFM(1) ? EnumToString(schedOp->IFM(1)->tensor->format) : "",
+        EnumToString(schedOp->OFM()->tensor->format),
         // Data types
-        fmt::format("{}", EnumToString(schedOp->IFM(0)->Type())),
-        fmt::format("{}", schedOp->TryIFM(1) ? EnumToString(schedOp->IFM(1)->Type()) : ""),
-        fmt::format("{}", EnumToString(schedOp->OFM()->Type())),
+        EnumToString(schedOp->IFM(0)->Type()),
+        schedOp->TryIFM(1) ? EnumToString(schedOp->IFM(1)->Type()) : "",
+        EnumToString(schedOp->OFM()->Type()),
         // IFM Buffering
         std::to_string(schedOp->IFM(0)->preBuffer),
         schedOp->TryIFM(1) ? std::to_string(schedOp->IFM(1)->preBuffer) : "",
@@ -390,9 +392,9 @@ void NetworkPerformance::AddToDatabase(const PerformanceResult &perf, SchedulerO
         cost->npuScalesTensor ? std::to_string(cost->npuScalesTensor->maxRangeBytes) : "",
         // Weight Buffering
         fmt::format("{}", fmt::join(cost->ofmDepthSlices, "|")),
-        cost->bufferedWeightTensor.tensor ? std::to_string(cost->bufferedWeightTensor.preBuffer) : "",
-        cost->bufferedWeightTensor.tensor ? EnumToString(cost->bufferedWeightTensor.buffering) : "",
-        cost->bufferedWeightTensor.tensor ? std::to_string(cost->fullWeightTransferCycles) : "",
+        cost->bufferedWeightTensor.tensor[0] ? std::to_string(cost->bufferedWeightTensor.preBuffer) : "",
+        cost->bufferedWeightTensor.tensor[0] ? EnumToString(cost->bufferedWeightTensor.buffering) : "",
+        cost->bufferedWeightTensor.tensor[0] ? std::to_string(cost->fullWeightTransferCycles) : "",
         // Kernel
         std::to_string(schedOp->Type() == OpType::DepthwiseConv2D ?
                        schedOp->OFM()->SliceShape().Depth() /  schedOp->IFM(0)->SliceShape().Depth() : 1 ),
@@ -552,7 +554,7 @@ PerformanceResult NetworkPerformance::EstimateFullOpPerformance(SchedulerOperati
         }
     }
 
-    if ( weightsMemory && cost->bufferedWeightTensor.tensor )
+    if ( weightsMemory && cost->bufferedWeightTensor.tensor[0] )
     {
         // DMA Weight Transfer
         int initialSize = 0;
@@ -568,7 +570,7 @@ PerformanceResult NetworkPerformance::EstimateFullOpPerformance(SchedulerOperati
         }
 
         auto srcWeightMem = weightsMemory;
-        auto dstWeightMem = cost->bufferedWeightTensor.tensor->memArea.memory;
+        auto dstWeightMem = cost->bufferedWeightTensor.tensor[0]->memArea.memory;
         assert(srcWeightMem != dstWeightMem);
 
         weightsMemory = dstWeightMem;  // Update source to use buffered weight memory

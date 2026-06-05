@@ -14,6 +14,8 @@ from chalk._gen.chalk.runtime.v1.remote_python_call_pb2 import (
     EnqueueRemoteCallResponse,
     GetCallCountRequest,
     GetCallCountResponse,
+    GetCallResultsRequest,
+    GetCallResultsResponse,
     GetRecentCallsRequest,
     GetRecentCallsResponse,
     PollRemoteCallRequest,
@@ -105,6 +107,11 @@ class FunctionQueueMetaServiceStub:
         GetRecentCallsResponse,
     ]
     """Return the most recent k calls to a function, ordered newest-first."""
+    GetCallResults: UnaryUnaryMultiCallable[
+        GetCallResultsRequest,
+        GetCallResultsResponse,
+    ]
+    """Return current status and accumulated result chunks for specific calls."""
     GetCallCount: UnaryUnaryMultiCallable[
         GetCallCountRequest,
         GetCallCountResponse,
@@ -119,6 +126,13 @@ class FunctionQueueMetaServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> GetRecentCallsResponse:
         """Return the most recent k calls to a function, ordered newest-first."""
+    @abstractmethod
+    def GetCallResults(
+        self,
+        request: GetCallResultsRequest,
+        context: ServicerContext,
+    ) -> GetCallResultsResponse:
+        """Return current status and accumulated result chunks for specific calls."""
     @abstractmethod
     def GetCallCount(
         self,

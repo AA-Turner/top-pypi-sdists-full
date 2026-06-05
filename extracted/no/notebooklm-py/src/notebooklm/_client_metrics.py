@@ -1,9 +1,9 @@
-"""Observability metrics helper for :class:`Session`.
+"""Observability metrics helper for the NotebookLM client runtime.
 
 Owns the cumulative ``ClientMetricsSnapshot`` counters, the threading lock that
-guards them, and the optional ``on_rpc_event`` telemetry callback. Lifted out of
-``_core.py`` so the metrics surface has one home (this file) instead of being
-woven into ``Session.__init__`` alongside drain, reqid, and auth state.
+guards them, and the optional ``on_rpc_event`` telemetry callback. The metrics
+surface has one home (this file) instead of being woven into the runtime
+composition root alongside drain, reqid, and auth state.
 
 Design constraints (load-bearing — see ``tests/unit/test_swallow_observability.py``
 and ``tests/unit/test_observability.py``):
@@ -11,7 +11,7 @@ and ``tests/unit/test_observability.py``):
 * ``__init__`` MUST be event-loop-agnostic — it constructs only a
   ``threading.Lock`` and a plain dataclass. Never call
   ``asyncio.get_running_loop()`` or instantiate any ``asyncio.*`` primitive
-  here. ``Session`` is routinely built outside a running loop.
+  here. ``NotebookLMClient`` is routinely built outside a running loop.
 
 * :meth:`emit_rpc_event` MUST stay ``async def`` and ``await
   maybe_await_callback(...)``. The await is the back-pressure mechanism: a
@@ -32,7 +32,7 @@ from collections.abc import Callable
 from dataclasses import replace
 
 from ._callbacks import maybe_await_callback
-from ._session_config import CORE_LOGGER_NAME
+from ._runtime.config import CORE_LOGGER_NAME
 from .types import ClientMetricsSnapshot, RpcTelemetryEvent
 
 # Logger name pinned via :data:`CORE_LOGGER_NAME` so users and tests
@@ -57,10 +57,8 @@ class ClientMetrics:
     * ``_on_rpc_event`` — the user-supplied telemetry callback, or ``None``.
       Read at emit time so test fixtures can swap it after construction.
 
-    Field names are deliberately the same as the legacy ``Session`` ivars
-    (``_metrics_lock``, ``_metrics``, ``_on_rpc_event``) so the compat
-    ``@property`` bridges on ``Session`` can delegate with
-    ``return self._metrics_obj._<attr>`` and stay readable.
+    Field names (``_metrics_lock``, ``_metrics``, ``_on_rpc_event``) are
+    kept stable for grep-discoverability across the test suite.
     """
 
     def __init__(

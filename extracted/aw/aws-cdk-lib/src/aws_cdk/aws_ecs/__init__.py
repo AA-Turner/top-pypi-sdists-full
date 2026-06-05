@@ -230,13 +230,13 @@ It's useful when you want to grant permissions to a task to access other AWS res
 # cluster: ecs.Cluster
 # task_definition: ecs.TaskDefinition
 
-task_aRNs = cluster.arn_for_tasks("*") # arn:aws:ecs:<region>:<regionId>:task/<clusterName>/*
+task_ar_ns = cluster.arn_for_tasks("*") # arn:aws:ecs:<region>:<regionId>:task/<clusterName>/*
 
 # Grant the task permission to access other AWS resources
 task_definition.add_to_task_role_policy(
     iam.PolicyStatement(
         actions=["ecs:UpdateTaskProtection"],
-        resources=[task_aRNs]
+        resources=[task_ar_ns]
     ))
 ```
 
@@ -1897,7 +1897,7 @@ mi_capacity_provider = ecs.ManagedInstancesCapacityProvider(self, "MICapacityPro
         # Storage requirements
         local_storage=ec2.LocalStorage.REQUIRED,
         local_storage_types=[ec2.LocalStorageType.SSD],
-        total_local_storage_gBMin=100,
+        total_local_storage_gb_min=100,
 
         # Network requirements
         network_interface_count_min=2,
@@ -2259,7 +2259,7 @@ container = task_definition.add_container("web",
 
 volume = ecs.ServiceManagedVolume(self, "EBSVolume",
     name="ebs1",
-    managed_eBSVolume=ecs.ServiceManagedEBSVolumeConfiguration(
+    managed_ebs_volume=ecs.ServiceManagedEBSVolumeConfiguration(
         size=Size.gibibytes(15),
         volume_type=ec2.EbsDeviceVolumeType.GP3,
         file_system_type=ecs.FileSystemType.XFS,
@@ -2298,7 +2298,7 @@ To create an EBS volume from an existing snapshot by specifying the `snapShotId`
 
 volume_from_snapshot = ecs.ServiceManagedVolume(self, "EBSVolume",
     name="nginx-vol",
-    managed_eBSVolume=ecs.ServiceManagedEBSVolumeConfiguration(
+    managed_ebs_volume=ecs.ServiceManagedEBSVolumeConfiguration(
         snap_shot_id="snap-066877671789bd71b",
         volume_type=ec2.EbsDeviceVolumeType.GP3,
         file_system_type=ecs.FileSystemType.XFS,
@@ -2595,6 +2595,7 @@ import abc
 import builtins
 import datetime
 import enum
+import importlib as _importlib
 import typing
 
 import jsii
@@ -4044,10 +4045,10 @@ class AppMeshProxyConfigurationConfigProps:
                     proxy_ingress_port=123,
             
                     # the properties below are optional
-                    egress_ignored_iPs=["egressIgnoredIPs"],
+                    egress_ignored_i_ps=["egressIgnoredIPs"],
                     egress_ignored_ports=[123],
-                    ignored_gID=123,
-                    ignored_uID=123
+                    ignored_gid=123,
+                    ignored_uid=123
                 )
             )
         '''
@@ -4137,10 +4138,10 @@ class AppMeshProxyConfigurationProps:
                 proxy_ingress_port=123,
             
                 # the properties below are optional
-                egress_ignored_iPs=["egressIgnoredIPs"],
+                egress_ignored_i_ps=["egressIgnoredIPs"],
                 egress_ignored_ports=[123],
-                ignored_gID=123,
-                ignored_uID=123
+                ignored_gid=123,
+                ignored_uid=123
             )
         '''
         if __debug__:
@@ -5921,7 +5922,7 @@ class BaseServiceOptions:
                 ),
                 deployment_strategy=ecs.DeploymentStrategy.ROLLING,
                 desired_count=123,
-                enable_eCSManaged_tags=False,
+                enable_ecs_managed_tags=False,
                 enable_execute_command=False,
                 health_check_grace_period=cdk.Duration.minutes(30),
                 lifecycle_hooks=[deployment_lifecycle_hook_target],
@@ -6431,7 +6432,7 @@ class BaseServiceProps(BaseServiceOptions):
                 ),
                 deployment_strategy=ecs.DeploymentStrategy.ROLLING,
                 desired_count=123,
-                enable_eCSManaged_tags=False,
+                enable_ecs_managed_tags=False,
                 enable_execute_command=False,
                 health_check_grace_period=cdk.Duration.minutes(30),
                 lifecycle_hooks=[deployment_lifecycle_hook_target],
@@ -7392,7 +7393,7 @@ class CfnCapacityProvider(
                         local_storage="localStorage",
                         local_storage_types=["localStorageTypes"],
                         max_spot_price_as_percentage_of_optimal_on_demand_price=123,
-                        memory_gi_bPer_vCpu=ecs.CfnCapacityProvider.MemoryGiBPerVCpuRequestProperty(
+                        memory_gi_b_per_v_cpu=ecs.CfnCapacityProvider.MemoryGiBPerVCpuRequestProperty(
                             max=123,
                             min=123
                         ),
@@ -7751,7 +7752,7 @@ class CfnCapacityProvider(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_ecs as ecs
                 
-                accelerator_total_memory_mi_bRequest_property = ecs.CfnCapacityProvider.AcceleratorTotalMemoryMiBRequestProperty(
+                accelerator_total_memory_mi_b_request_property = ecs.CfnCapacityProvider.AcceleratorTotalMemoryMiBRequestProperty(
                     max=123,
                     min=123
                 )
@@ -8297,7 +8298,7 @@ class CfnCapacityProvider(
                         local_storage="localStorage",
                         local_storage_types=["localStorageTypes"],
                         max_spot_price_as_percentage_of_optimal_on_demand_price=123,
-                        memory_gi_bPer_vCpu=ecs.CfnCapacityProvider.MemoryGiBPerVCpuRequestProperty(
+                        memory_gi_b_per_v_cpu=ecs.CfnCapacityProvider.MemoryGiBPerVCpuRequestProperty(
                             max=123,
                             min=123
                         ),
@@ -8634,7 +8635,7 @@ class CfnCapacityProvider(
                     local_storage="localStorage",
                     local_storage_types=["localStorageTypes"],
                     max_spot_price_as_percentage_of_optimal_on_demand_price=123,
-                    memory_gi_bPer_vCpu=ecs.CfnCapacityProvider.MemoryGiBPerVCpuRequestProperty(
+                    memory_gi_b_per_v_cpu=ecs.CfnCapacityProvider.MemoryGiBPerVCpuRequestProperty(
                         max=123,
                         min=123
                     ),
@@ -9261,7 +9262,7 @@ class CfnCapacityProvider(
                             local_storage="localStorage",
                             local_storage_types=["localStorageTypes"],
                             max_spot_price_as_percentage_of_optimal_on_demand_price=123,
-                            memory_gi_bPer_vCpu=ecs.CfnCapacityProvider.MemoryGiBPerVCpuRequestProperty(
+                            memory_gi_b_per_v_cpu=ecs.CfnCapacityProvider.MemoryGiBPerVCpuRequestProperty(
                                 max=123,
                                 min=123
                             ),
@@ -9610,7 +9611,7 @@ class CfnCapacityProvider(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_ecs as ecs
                 
-                memory_gi_bPer_vCpu_request_property = ecs.CfnCapacityProvider.MemoryGiBPerVCpuRequestProperty(
+                memory_gi_b_per_v_cpu_request_property = ecs.CfnCapacityProvider.MemoryGiBPerVCpuRequestProperty(
                     max=123,
                     min=123
                 )
@@ -9686,7 +9687,7 @@ class CfnCapacityProvider(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_ecs as ecs
                 
-                memory_mi_bRequest_property = ecs.CfnCapacityProvider.MemoryMiBRequestProperty(
+                memory_mi_b_request_property = ecs.CfnCapacityProvider.MemoryMiBRequestProperty(
                     min=123,
                 
                     # the properties below are optional
@@ -9917,7 +9918,7 @@ class CfnCapacityProvider(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_ecs as ecs
                 
-                total_local_storage_gBRequest_property = ecs.CfnCapacityProvider.TotalLocalStorageGBRequestProperty(
+                total_local_storage_gb_request_property = ecs.CfnCapacityProvider.TotalLocalStorageGBRequestProperty(
                     max=123,
                     min=123
                 )
@@ -10156,7 +10157,7 @@ class CfnCapacityProviderProps:
                             local_storage="localStorage",
                             local_storage_types=["localStorageTypes"],
                             max_spot_price_as_percentage_of_optimal_on_demand_price=123,
-                            memory_gi_bPer_vCpu=ecs.CfnCapacityProvider.MemoryGiBPerVCpuRequestProperty(
+                            memory_gi_b_per_v_cpu=ecs.CfnCapacityProvider.MemoryGiBPerVCpuRequestProperty(
                                 max=123,
                                 min=123
                             ),
@@ -13994,7 +13995,7 @@ class CfnDaemonTaskDefinition(
         def __init__(
             self,
             *,
-            options: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             type: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The FireLens configuration for the container.
@@ -14033,7 +14034,7 @@ class CfnDaemonTaskDefinition(
         @builtins.property
         def options(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''The options to use when configuring the log router.
 
             This field is optional and can be used to specify a custom configuration file or to add additional metadata, such as the task, task definition, cluster, and container instance details to the log event. If specified, the syntax to use is ``"options":{"enable-ecs-log-metadata":"true|false","config-file-type:"s3|file","config-file-value":"arn:aws:s3:::mybucket/fluent.conf|filepath"}``. For more information, see `Creating a task definition that uses a FireLens configuration <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/using_firelens.html#firelens-taskdef>`_ in the *Amazon Elastic Container Service Developer Guide*.
@@ -14042,7 +14043,7 @@ class CfnDaemonTaskDefinition(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-firelensconfiguration.html#cfn-ecs-daemontaskdefinition-firelensconfiguration-options
             '''
             result = self._values.get("options")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def type(self) -> typing.Optional[builtins.str]:
@@ -14638,7 +14639,7 @@ class CfnDaemonTaskDefinition(
             self,
             *,
             log_driver: builtins.str,
-            options: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             secret_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDaemonTaskDefinition.SecretProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''The log configuration for the container.
@@ -14712,7 +14713,7 @@ class CfnDaemonTaskDefinition(
         @builtins.property
         def options(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''The configuration options to send to the log driver.
 
             The options you can specify depend on the log driver. Some of the options you can specify when you use the ``awslogs`` log driver to route logs to Amazon CloudWatch include the following:
@@ -14731,7 +14732,7 @@ class CfnDaemonTaskDefinition(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-logconfiguration.html#cfn-ecs-daemontaskdefinition-logconfiguration-options
             '''
             result = self._values.get("options")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def secret_options(
@@ -16389,7 +16390,7 @@ class CfnExpressGatewayService(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_ecs as ecs
                 
-                e_cSManaged_resource_arns_property = ecs.CfnExpressGatewayService.ECSManagedResourceArnsProperty(
+                e_cs_managed_resource_arns_property = ecs.CfnExpressGatewayService.ECSManagedResourceArnsProperty(
                     auto_scaling=ecs.CfnExpressGatewayService.AutoScalingArnsProperty(
                         application_auto_scaling_policies=["applicationAutoScalingPolicies"],
                         scalable_target="scalableTarget"
@@ -19549,7 +19550,12 @@ class CfnService(
                         # the properties below are optional
                         hook_details=hook_details,
                         hook_target_arn="hookTargetArn",
-                        role_arn="roleArn"
+                        role_arn="roleArn",
+                        target_type="targetType",
+                        timeout_configuration=ecs.CfnService.HookTimeoutConfigProperty(
+                            action="action",
+                            timeout_in_minutes=123
+                        )
                     )],
                     linear_configuration=ecs.CfnService.LinearConfigurationProperty(
                         step_bake_time_in_minutes=123,
@@ -19854,6 +19860,8 @@ class CfnService(
             "hook_details": "hookDetails",
             "hook_target_arn": "hookTargetArn",
             "role_arn": "roleArn",
+            "target_type": "targetType",
+            "timeout_configuration": "timeoutConfiguration",
         },
     )
     class DeploymentLifecycleHookProperty:
@@ -19864,6 +19872,8 @@ class CfnService(
             hook_details: typing.Any = None,
             hook_target_arn: typing.Optional[builtins.str] = None,
             role_arn: typing.Optional[builtins.str] = None,
+            target_type: typing.Optional[builtins.str] = None,
+            timeout_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.HookTimeoutConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''A deployment lifecycle hook runs custom logic at specific stages of the deployment process.
 
@@ -19875,6 +19885,8 @@ class CfnService(
             :param hook_details: Use this field to specify custom parameters that Amazon ECS passes to your hook target invocations (such as a Lambda function). This field must be a JSON object as a string.
             :param hook_target_arn: The Amazon Resource Name (ARN) of the hook target. Currently, only Lambda function ARNs are supported. You must provide this parameter when configuring a deployment lifecycle hook.
             :param role_arn: The Amazon Resource Name (ARN) of the IAM role that grants Amazon ECS permission to call Lambda functions on your behalf. For more information, see `Permissions required for Lambda functions in Amazon ECS blue/green deployments <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/blue-green-permissions.html>`_ in the *Amazon Elastic Container Service Developer Guide* .
+            :param target_type: The type of action the lifecycle hook performs. Valid values are: - ``AWS_LAMBDA`` - Invokes a Lambda function at the specified lifecycle stage. This is the default value. - ``PAUSE`` - Pauses the deployment at the specified lifecycle stage until you call ``ContinueServiceDeployment`` to continue or roll back. This field is optional. If not specified, the default value is ``AWS_LAMBDA``.
+            :param timeout_configuration: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-deploymentlifecyclehook.html
             :exampleMetadata: fixture=_generated
@@ -19893,7 +19905,12 @@ class CfnService(
                     # the properties below are optional
                     hook_details=hook_details,
                     hook_target_arn="hookTargetArn",
-                    role_arn="roleArn"
+                    role_arn="roleArn",
+                    target_type="targetType",
+                    timeout_configuration=ecs.CfnService.HookTimeoutConfigProperty(
+                        action="action",
+                        timeout_in_minutes=123
+                    )
                 )
             '''
             if __debug__:
@@ -19902,6 +19919,8 @@ class CfnService(
                 check_type(argname="argument hook_details", value=hook_details, expected_type=type_hints["hook_details"])
                 check_type(argname="argument hook_target_arn", value=hook_target_arn, expected_type=type_hints["hook_target_arn"])
                 check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+                check_type(argname="argument target_type", value=target_type, expected_type=type_hints["target_type"])
+                check_type(argname="argument timeout_configuration", value=timeout_configuration, expected_type=type_hints["timeout_configuration"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "lifecycle_stages": lifecycle_stages,
             }
@@ -19911,6 +19930,10 @@ class CfnService(
                 self._values["hook_target_arn"] = hook_target_arn
             if role_arn is not None:
                 self._values["role_arn"] = role_arn
+            if target_type is not None:
+                self._values["target_type"] = target_type
+            if timeout_configuration is not None:
+                self._values["timeout_configuration"] = timeout_configuration
 
         @builtins.property
         def lifecycle_stages(self) -> typing.List[builtins.str]:
@@ -19999,6 +20022,32 @@ class CfnService(
             result = self._values.get("role_arn")
             return typing.cast(typing.Optional[builtins.str], result)
 
+        @builtins.property
+        def target_type(self) -> typing.Optional[builtins.str]:
+            '''The type of action the lifecycle hook performs.
+
+            Valid values are:
+
+            - ``AWS_LAMBDA`` - Invokes a Lambda function at the specified lifecycle stage. This is the default value.
+            - ``PAUSE`` - Pauses the deployment at the specified lifecycle stage until you call ``ContinueServiceDeployment`` to continue or roll back.
+
+            This field is optional. If not specified, the default value is ``AWS_LAMBDA``.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-deploymentlifecyclehook.html#cfn-ecs-service-deploymentlifecyclehook-targettype
+            '''
+            result = self._values.get("target_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def timeout_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.HookTimeoutConfigProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-deploymentlifecyclehook.html#cfn-ecs-service-deploymentlifecyclehook-timeoutconfiguration
+            '''
+            result = self._values.get("timeout_configuration")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.HookTimeoutConfigProperty"]], result)
+
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -20043,7 +20092,7 @@ class CfnService(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_ecs as ecs
                 
-                e_bSTag_specification_property = ecs.CfnService.EBSTagSpecificationProperty(
+                e_bs_tag_specification_property = ecs.CfnService.EBSTagSpecificationProperty(
                     resource_type="resourceType",
                 
                     # the properties below are optional
@@ -20191,6 +20240,73 @@ class CfnService(
 
         def __repr__(self) -> str:
             return "ForceNewDeploymentProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ecs.CfnService.HookTimeoutConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"action": "action", "timeout_in_minutes": "timeoutInMinutes"},
+    )
+    class HookTimeoutConfigProperty:
+        def __init__(
+            self,
+            *,
+            action: typing.Optional[builtins.str] = None,
+            timeout_in_minutes: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''
+            :param action: 
+            :param timeout_in_minutes: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-hooktimeoutconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ecs as ecs
+                
+                hook_timeout_config_property = ecs.CfnService.HookTimeoutConfigProperty(
+                    action="action",
+                    timeout_in_minutes=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__75904fd5a5e607100063cc7fb01449a25c3f145dbd1b531cc444cf03a335c285)
+                check_type(argname="argument action", value=action, expected_type=type_hints["action"])
+                check_type(argname="argument timeout_in_minutes", value=timeout_in_minutes, expected_type=type_hints["timeout_in_minutes"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if action is not None:
+                self._values["action"] = action
+            if timeout_in_minutes is not None:
+                self._values["timeout_in_minutes"] = timeout_in_minutes
+
+        @builtins.property
+        def action(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-hooktimeoutconfig.html#cfn-ecs-service-hooktimeoutconfig-action
+            '''
+            result = self._values.get("action")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def timeout_in_minutes(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-hooktimeoutconfig.html#cfn-ecs-service-hooktimeoutconfig-timeoutinminutes
+            '''
+            result = self._values.get("timeout_in_minutes")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "HookTimeoutConfigProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -20449,7 +20565,7 @@ class CfnService(
             self,
             *,
             log_driver: typing.Optional[builtins.str] = None,
-            options: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             secret_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.SecretProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''The log configuration for the container.
@@ -20530,7 +20646,7 @@ class CfnService(
         @builtins.property
         def options(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''The configuration options to send to the log driver.
 
             The options you can specify depend on the log driver. Some of the options you can specify when you use the ``awslogs`` log driver to route logs to Amazon CloudWatch include the following:
@@ -20629,7 +20745,7 @@ class CfnService(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-logconfiguration.html#cfn-ecs-service-logconfiguration-options
             '''
             result = self._values.get("options")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def secret_options(
@@ -21974,7 +22090,7 @@ class CfnService(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_ecs as ecs
                 
-                service_managed_eBSVolume_configuration_property = ecs.CfnService.ServiceManagedEBSVolumeConfigurationProperty(
+                service_managed_ebs_volume_configuration_property = ecs.CfnService.ServiceManagedEBSVolumeConfigurationProperty(
                     role_arn="roleArn",
                 
                     # the properties below are optional
@@ -22747,7 +22863,12 @@ class CfnServiceProps:
                         # the properties below are optional
                         hook_details=hook_details,
                         hook_target_arn="hookTargetArn",
-                        role_arn="roleArn"
+                        role_arn="roleArn",
+                        target_type="targetType",
+                        timeout_configuration=ecs.CfnService.HookTimeoutConfigProperty(
+                            action="action",
+                            timeout_in_minutes=123
+                        )
                     )],
                     linear_configuration=ecs.CfnService.LinearConfigurationProperty(
                         step_bake_time_in_minutes=123,
@@ -24225,7 +24346,7 @@ class CfnTaskDefinition(
             disable_networking: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             dns_search_domains: typing.Optional[typing.Sequence[builtins.str]] = None,
             dns_servers: typing.Optional[typing.Sequence[builtins.str]] = None,
-            docker_labels: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            docker_labels: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             docker_security_options: typing.Optional[typing.Sequence[builtins.str]] = None,
             entry_point: typing.Optional[typing.Sequence[builtins.str]] = None,
             environment: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTaskDefinition.KeyValuePairProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -24744,7 +24865,7 @@ class CfnTaskDefinition(
         @builtins.property
         def docker_labels(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''A key/value map of labels to add to the container.
 
             This parameter maps to ``Labels`` in the docker container create command and the ``--label`` option to docker run. This parameter requires version 1.18 of the Docker Remote API or greater on your container instance. To check the Docker Remote API version on your container instance, log in to your container instance and run the following command: ``sudo docker version --format '{{.Server.APIVersion}}'``
@@ -24752,7 +24873,7 @@ class CfnTaskDefinition(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-containerdefinition.html#cfn-ecs-taskdefinition-containerdefinition-dockerlabels
             '''
             result = self._values.get("docker_labels")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def docker_security_options(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -25465,8 +25586,8 @@ class CfnTaskDefinition(
             *,
             autoprovision: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             driver: typing.Optional[builtins.str] = None,
-            driver_opts: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
-            labels: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            driver_opts: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
+            labels: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             scope: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The ``DockerVolumeConfiguration`` property specifies a Docker volume configuration and is used when you use Docker volumes.
@@ -25548,7 +25669,7 @@ class CfnTaskDefinition(
         @builtins.property
         def driver_opts(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''A map of Docker driver-specific options passed through.
 
             This parameter maps to ``DriverOpts`` in the docker create-volume command and the ``xxopt`` option to docker volume create.
@@ -25556,12 +25677,12 @@ class CfnTaskDefinition(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-dockervolumeconfiguration.html#cfn-ecs-taskdefinition-dockervolumeconfiguration-driveropts
             '''
             result = self._values.get("driver_opts")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def labels(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''Custom metadata to add to your Docker volume.
 
             This parameter maps to ``Labels`` in the docker container create command and the ``xxlabel`` option to docker volume create.
@@ -25569,7 +25690,7 @@ class CfnTaskDefinition(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-dockervolumeconfiguration.html#cfn-ecs-taskdefinition-dockervolumeconfiguration-labels
             '''
             result = self._values.get("labels")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def scope(self) -> typing.Optional[builtins.str]:
@@ -25633,7 +25754,7 @@ class CfnTaskDefinition(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_ecs as ecs
                 
-                e_fSVolume_configuration_property = ecs.CfnTaskDefinition.EFSVolumeConfigurationProperty(
+                e_fs_volume_configuration_property = ecs.CfnTaskDefinition.EFSVolumeConfigurationProperty(
                     filesystem_id="filesystemId",
                 
                     # the properties below are optional
@@ -26071,7 +26192,7 @@ class CfnTaskDefinition(
         def __init__(
             self,
             *,
-            options: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             type: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The FireLens configuration for the container.
@@ -26110,7 +26231,7 @@ class CfnTaskDefinition(
         @builtins.property
         def options(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''The options to use when configuring the log router.
 
             This field is optional and can be used to add additional metadata, such as the task, task definition, cluster, and container instance details to the log event.
@@ -26124,7 +26245,7 @@ class CfnTaskDefinition(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-firelensconfiguration.html#cfn-ecs-taskdefinition-firelensconfiguration-options
             '''
             result = self._values.get("options")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def type(self) -> typing.Optional[builtins.str]:
@@ -26891,7 +27012,7 @@ class CfnTaskDefinition(
             self,
             *,
             log_driver: builtins.str,
-            options: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             secret_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTaskDefinition.SecretProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''The ``LogConfiguration`` property specifies log configuration options to send to a custom log driver for the container.
@@ -26959,7 +27080,7 @@ class CfnTaskDefinition(
         @builtins.property
         def options(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''The configuration options to send to the log driver.
 
             The options you can specify depend on the log driver. Some of the options you can specify when you use the ``awslogs`` log driver to route logs to Amazon CloudWatch include the following:
@@ -27058,7 +27179,7 @@ class CfnTaskDefinition(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-logconfiguration.html#cfn-ecs-taskdefinition-logconfiguration-options
             '''
             result = self._values.get("options")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def secret_options(
@@ -34227,7 +34348,7 @@ class ContainerMountPoint(BaseMountPoint):
             
             volume = ecs.ServiceManagedVolume(self, "EBSVolume",
                 name="ebs1",
-                managed_eBSVolume=ecs.ServiceManagedEBSVolumeConfiguration(
+                managed_ebs_volume=ecs.ServiceManagedEBSVolumeConfiguration(
                     size=Size.gibibytes(15),
                     volume_type=ec2.EbsDeviceVolumeType.GP3,
                     file_system_type=ecs.FileSystemType.XFS,
@@ -35574,7 +35695,7 @@ class EBSTagSpecification:
             # The values are placeholders you should change.
             from aws_cdk import aws_ecs as ecs
             
-            e_bSTag_specification = ecs.EBSTagSpecification(
+            e_bs_tag_specification = ecs.EBSTagSpecification(
                 propagate_tags=ecs.EbsPropagatedTagSource.SERVICE,
                 tags={
                     "tags_key": "tags"
@@ -35645,7 +35766,7 @@ class EbsPropagatedTagSource(enum.Enum):
         
         volume = ecs.ServiceManagedVolume(self, "EBSVolume",
             name="ebs1",
-            managed_eBSVolume=ecs.ServiceManagedEBSVolumeConfiguration(
+            managed_ebs_volume=ecs.ServiceManagedEBSVolumeConfiguration(
                 size=Size.gibibytes(15),
                 volume_type=ec2.EbsDeviceVolumeType.GP3,
                 file_system_type=ecs.FileSystemType.XFS,
@@ -39775,7 +39896,7 @@ class FileSystemType(enum.Enum):
         
         volume = ecs.ServiceManagedVolume(self, "EBSVolume",
             name="ebs1",
-            managed_eBSVolume=ecs.ServiceManagedEBSVolumeConfiguration(
+            managed_ebs_volume=ecs.ServiceManagedEBSVolumeConfiguration(
                 size=Size.gibibytes(15),
                 volume_type=ec2.EbsDeviceVolumeType.GP3,
                 file_system_type=ecs.FileSystemType.XFS,
@@ -39999,7 +40120,7 @@ class FirelensConfig:
                 options=ecs.FirelensOptions(
                     config_file_type=ecs.FirelensConfigFileType.S3,
                     config_file_value="configFileValue",
-                    enable_eCSLog_metadata=False
+                    enable_ecs_log_metadata=False
                 )
             )
         '''
@@ -40092,7 +40213,7 @@ class FirelensLogRouter(
                 options=ecs.FirelensOptions(
                     config_file_type=ecs.FirelensConfigFileType.S3,
                     config_file_value="configFileValue",
-                    enable_eCSLog_metadata=False
+                    enable_ecs_log_metadata=False
                 )
             ),
             image=container_image,
@@ -40501,7 +40622,7 @@ class FirelensLogRouterDefinitionOptions(ContainerDefinitionOptions):
                     options=ecs.FirelensOptions(
                         config_file_type=ecs.FirelensConfigFileType.S3,
                         config_file_value="configFileValue",
-                        enable_eCSLog_metadata=False
+                        enable_ecs_log_metadata=False
                     )
                 ),
                 image=container_image,
@@ -41319,7 +41440,7 @@ class FirelensLogRouterProps(ContainerDefinitionProps):
                     options=ecs.FirelensOptions(
                         config_file_type=ecs.FirelensConfigFileType.S3,
                         config_file_value="configFileValue",
-                        enable_eCSLog_metadata=False
+                        enable_ecs_log_metadata=False
                     )
                 ),
                 image=container_image,
@@ -42034,7 +42155,7 @@ class FirelensOptions:
             firelens_options = ecs.FirelensOptions(
                 config_file_type=ecs.FirelensConfigFileType.S3,
                 config_file_value="configFileValue",
-                enable_eCSLog_metadata=False
+                enable_ecs_log_metadata=False
             )
         '''
         if __debug__:
@@ -48500,7 +48621,7 @@ class ServiceManagedEBSVolumeConfiguration:
             
             volume = ecs.ServiceManagedVolume(self, "EBSVolume",
                 name="ebs1",
-                managed_eBSVolume=ecs.ServiceManagedEBSVolumeConfiguration(
+                managed_ebs_volume=ecs.ServiceManagedEBSVolumeConfiguration(
                     size=Size.gibibytes(15),
                     volume_type=ec2.EbsDeviceVolumeType.GP3,
                     file_system_type=ecs.FileSystemType.XFS,
@@ -48742,7 +48863,7 @@ class ServiceManagedVolume(
         
         volume = ecs.ServiceManagedVolume(self, "EBSVolume",
             name="ebs1",
-            managed_eBSVolume=ecs.ServiceManagedEBSVolumeConfiguration(
+            managed_ebs_volume=ecs.ServiceManagedEBSVolumeConfiguration(
                 size=Size.gibibytes(15),
                 volume_type=ec2.EbsDeviceVolumeType.GP3,
                 file_system_type=ecs.FileSystemType.XFS,
@@ -48881,7 +49002,7 @@ class ServiceManagedVolumeProps:
             
             volume = ecs.ServiceManagedVolume(self, "EBSVolume",
                 name="ebs1",
-                managed_eBSVolume=ecs.ServiceManagedEBSVolumeConfiguration(
+                managed_ebs_volume=ecs.ServiceManagedEBSVolumeConfiguration(
                     size=Size.gibibytes(15),
                     volume_type=ec2.EbsDeviceVolumeType.GP3,
                     file_system_type=ecs.FileSystemType.XFS,
@@ -51892,7 +52013,7 @@ class Volume:
             
             volume_from_snapshot = ecs.ServiceManagedVolume(self, "EBSVolume",
                 name="nginx-vol",
-                managed_eBSVolume=ecs.ServiceManagedEBSVolumeConfiguration(
+                managed_ebs_volume=ecs.ServiceManagedEBSVolumeConfiguration(
                     snap_shot_id="snap-066877671789bd71b",
                     volume_type=ec2.EbsDeviceVolumeType.GP3,
                     file_system_type=ecs.FileSystemType.XFS,
@@ -52202,10 +52323,10 @@ class AppMeshProxyConfiguration(
                 proxy_ingress_port=123,
         
                 # the properties below are optional
-                egress_ignored_iPs=["egressIgnoredIPs"],
+                egress_ignored_i_ps=["egressIgnoredIPs"],
                 egress_ignored_ports=[123],
-                ignored_gID=123,
-                ignored_uID=123
+                ignored_gid=123,
+                ignored_uid=123
             )
         )
     '''
@@ -52303,7 +52424,7 @@ class AssetEnvironmentFile(
             follow_symlinks=cdk.SymlinkFollowMode.NEVER,
             ignore_mode=cdk.IgnoreMode.GLOB,
             readers=[grantable],
-            source_kMSKey=key_ref
+            source_kms_key=key_ref
         )
     '''
 
@@ -56542,10 +56663,30 @@ __all__ = [
     "mixins",
 ]
 
+# Type-checking-only imports for static analyzers (pyright/mypy).
+# At runtime TYPE_CHECKING is False, preserving lazy loading.
+if typing.TYPE_CHECKING:
+    from . import mixins as mixins
+
 publication.publish()
 
-# Loading modules to ensure their types are registered with the jsii runtime library
-from . import mixins
+_SUBMODULES = {
+    "mixins",
+}
+
+def __getattr__(name: str) -> object:
+    if name in _SUBMODULES:
+        mod = _importlib.import_module(f".{name}", __name__)
+        globals()[name] = mod
+        return mod
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+def __dir__() -> "list[str]":
+    return [*__all__, *_SUBMODULES]
+
+import sys as _sys
+setattr(_sys.modules[__name__], "__getattr__", __getattr__)
+setattr(_sys.modules[__name__], "__dir__", __dir__)
 
 def _typecheckingstub__3bb1c2028b85a0ebcdd5cb2aa74890cddceee7c79afaa8e5e920a35f05c1dd6a(
     *,
@@ -57661,7 +57802,7 @@ def _typecheckingstub__ab18b2cf0429f6f7c72c8e9a575159004ba822bbe75fb125d17e3d9e0
 
 def _typecheckingstub__c4e49d3d5b22bcd2c2ac6ace3b8fd2a6b8d134eba28bf7bbe0130a8a97507833(
     *,
-    options: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     type: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -57714,7 +57855,7 @@ def _typecheckingstub__85677654708b7e668fcd228ab119d542215e588c9b69f865271f4f975
 def _typecheckingstub__3fe1e11a28d614f592d1b30aca089b75d4f20edba9b1261711f3cb30799b5629(
     *,
     log_driver: builtins.str,
-    options: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     secret_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDaemonTaskDefinition.SecretProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -58405,6 +58546,8 @@ def _typecheckingstub__81d51cf744a434ad2ba13fc9f3dea23611c28b28f4a9414d8324cf577
     hook_details: typing.Any = None,
     hook_target_arn: typing.Optional[builtins.str] = None,
     role_arn: typing.Optional[builtins.str] = None,
+    target_type: typing.Optional[builtins.str] = None,
+    timeout_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.HookTimeoutConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -58422,6 +58565,14 @@ def _typecheckingstub__61f79b8cfbfd89da452531f374d2c8ed25d98693945205dbbe670de81
     *,
     enable_force_new_deployment: typing.Union[builtins.bool, _IResolvable_da3f097b],
     force_new_deployment_nonce: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__75904fd5a5e607100063cc7fb01449a25c3f145dbd1b531cc444cf03a335c285(
+    *,
+    action: typing.Optional[builtins.str] = None,
+    timeout_in_minutes: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -58448,7 +58599,7 @@ def _typecheckingstub__251c3999c1586967f7c9091782e6a113831e05b5f853b910cad8c8e75
 def _typecheckingstub__dc71ad10c4d7e167753ff81a7c450165b3118a6f5f0f8c2ad282bc4bc057a60b(
     *,
     log_driver: typing.Optional[builtins.str] = None,
-    options: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     secret_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.SecretProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -58824,7 +58975,7 @@ def _typecheckingstub__d367f5be98d90056ca7f199c577c5744b20417ce5d1c8ad339824ec9d
     disable_networking: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     dns_search_domains: typing.Optional[typing.Sequence[builtins.str]] = None,
     dns_servers: typing.Optional[typing.Sequence[builtins.str]] = None,
-    docker_labels: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    docker_labels: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     docker_security_options: typing.Optional[typing.Sequence[builtins.str]] = None,
     entry_point: typing.Optional[typing.Sequence[builtins.str]] = None,
     environment: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTaskDefinition.KeyValuePairProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -58882,8 +59033,8 @@ def _typecheckingstub__fa8da109bc6888a0534920dcd1b365d2de33c75ccc0bbb15b5246ab75
     *,
     autoprovision: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     driver: typing.Optional[builtins.str] = None,
-    driver_opts: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-    labels: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    driver_opts: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
+    labels: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     scope: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -58934,7 +59085,7 @@ def _typecheckingstub__ef74e299375c10c97a6bb4455d35f14ea7c21e10b612cd0fb3958fd12
 
 def _typecheckingstub__6a1cd84d62e34083a37bc4c25d849ac547dacc5fe8a4db04170cf83e3cd1e9d3(
     *,
-    options: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     type: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -59006,7 +59157,7 @@ def _typecheckingstub__c0aaf73788be7f1d342c8a05599189d471843835d7b8d191218db6717
 def _typecheckingstub__21877ca71c2d5ead7d497c9d9a61ebef73ab6b2fcae2f5452db9d1dec56c00aa(
     *,
     log_driver: builtins.str,
-    options: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     secret_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTaskDefinition.SecretProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""

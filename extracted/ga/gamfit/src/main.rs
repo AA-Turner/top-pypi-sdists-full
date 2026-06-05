@@ -86,9 +86,10 @@ use gam::survival_construction::{
     optimize_survival_baseline_config_with_gradient,
     optimize_survival_baseline_config_with_gradient_only, parse_survival_distribution,
     parse_survival_likelihood_mode, parse_survival_time_basis_config, positive_survival_time_seed,
-    require_structural_survival_time_basis, resolve_survival_time_anchor_value,
-    resolved_survival_time_basis_config_from_build, survival_baseline_targetname,
-    survival_derivative_guard_for_likelihood, survival_likelihood_modename,
+    require_structural_survival_time_basis, resolve_survival_marginal_slope_time_anchor_value,
+    resolve_survival_time_anchor_value, resolved_survival_time_basis_config_from_build,
+    survival_baseline_targetname, survival_derivative_guard_for_likelihood,
+    survival_likelihood_modename,
 };
 use gam::survival_location_scale::{
     SurvivalCovariateTermBlockTemplate, SurvivalLocationScalePredictInput,
@@ -370,7 +371,7 @@ struct FitArgs {
     #[arg(
         value_name = "FORMULA",
         help = "Model formula, e.g. 'y ~ x + smooth(age) + bounded(mu_hat, min=0, max=1)'",
-        long_help = "Model formula using linear columns and term wrappers.\n\nSupported wrappers:\n- x or linear(x): ordinary penalized linear term (all non-intercept linear coefficients are ridge-penalized by default)\n- linear(x, min=..., max=...): penalized linear term with coefficient box constraints via the active-set solver\n- constrain(x, min=..., max=...) / nonnegative(x) / nonpositive(x): sugar for penalized generic coefficient constraints\n- bounded(x, min=..., max=...): bounded linear coefficient with exact interval transform and no extra prior\n- bounded(x, ..., prior=\"uniform\"): flat prior on the bounded user-scale coefficient (implemented via the latent log-Jacobian correction)\n- bounded(x, ..., prior=\"log-jacobian\"): alias for prior=\"uniform\"\n- bounded(x, ..., prior=\"center\"): symmetric interior Beta prior\n- smooth(x), cyclic(x), thinplate(x1, x2), matern(pc1, pc2, ...), tensor(x, z), group(id), duchon(...)\n\nNumerics:\n- penalized linear columns are centered/scaled internally during fitting for conditioning and then mapped back to the original coefficient scale in summaries, prediction, and saved models\n- `type=cyclic` / `cyclic(x)` uses periodic cubic P-spline boundaries; `duchon(x, cyclic=true)` uses periodic 1D Duchon distances; `type=duchon` is pure scale-free Duchon by default; add `length_scale=...` only to opt into the hybrid Duchon-Matern variant\n\nExamples:\n- 'y ~ age + smooth(bmi) + group(site)'\n- 'y ~ nonnegative(mu_hat) + matern(pc1, pc2, pc3)'\n- 'y ~ s(pc1, pc2, type=duchon, centers=12)'\n- 'y ~ s(pc1, pc2, type=duchon, centers=12, length_scale=0.7)'\n- 'y ~ linear(effect, min=0, max=1) + z'\n- 'y ~ bounded(logv_hat, min=0, max=2, target=1, strength=5) + x'"
+        long_help = "Model formula using linear columns and term wrappers.\n\nSupported wrappers:\n- x or linear(x): ordinary unpenalized parametric linear term (MLE by default)\n- linear(x, min=..., max=...): unpenalized linear term with coefficient box constraints via the active-set solver\n- constrain(x, min=..., max=...) / nonnegative(x) / nonpositive(x): sugar for generic coefficient constraints\n- bounded(x, min=..., max=...): bounded linear coefficient with exact interval transform and no extra prior\n- bounded(x, ..., prior=\"uniform\"): flat prior on the bounded user-scale coefficient (implemented via the latent log-Jacobian correction)\n- bounded(x, ..., prior=\"log-jacobian\"): alias for prior=\"uniform\"\n- bounded(x, ..., prior=\"center\"): symmetric interior Beta prior\n- smooth(x), cyclic(x), thinplate(x1, x2), matern(pc1, pc2, ...), tensor(x, z), group(id), duchon(...)\n\nNumerics:\n- linear columns are centered/scaled internally during fitting for conditioning and then mapped back to the original coefficient scale in summaries, prediction, and saved models\n- `type=cyclic` / `cyclic(x)` uses periodic cubic P-spline boundaries; `duchon(x, cyclic=true)` uses periodic 1D Duchon distances; `type=duchon` is pure scale-free Duchon by default; add `length_scale=...` only to opt into the hybrid Duchon-Matern variant\n\nExamples:\n- 'y ~ age + smooth(bmi) + group(site)'\n- 'y ~ nonnegative(mu_hat) + matern(pc1, pc2, pc3)'\n- 'y ~ s(pc1, pc2, type=duchon, centers=12)'\n- 'y ~ s(pc1, pc2, type=duchon, centers=12, length_scale=0.7)'\n- 'y ~ linear(effect, min=0, max=1) + z'\n- 'y ~ bounded(logv_hat, min=0, max=2, target=1, strength=5) + x'"
     )]
     formula_positional: String,
     /// Fit a second RHS-only formula for the scale/noise block in
@@ -421,6 +422,13 @@ struct FitArgs {
     /// non-binomial families.
     #[arg(long = "firth", default_value_t = false)]
     firth: bool,
+    /// Universal under-identification robustness policy: `off` (default),
+    /// `auto`, or `force`. When set, the solver applies link-general
+    /// Jeffreys/Firth regularization on the under-identified span and exact
+    /// orthogonalization of structural confounds. `off` leaves behavior
+    /// byte-identical to the released solver.
+    #[arg(long = "robust-identification", default_value = "off")]
+    robust_identification: String,
     /// Explicit response family. Use `auto` to infer the family.
     #[arg(long = "family", value_enum, default_value_t = FamilyArg::Auto)]
     family: FamilyArg,
@@ -969,32 +977,6 @@ fn compact_fit_result_for_batch(fit: &mut UnifiedFitResult) {
     };
 }
 
-fn gaussian_saved_fit_scale_for_role(role: BlockRole, response_scale: f64) -> f64 {
-    match role {
-        BlockRole::Mean | BlockRole::Location | BlockRole::LinkWiggle => response_scale,
-        BlockRole::Scale | BlockRole::Time | BlockRole::Threshold => 1.0,
-    }
-}
-
-fn scale_covariance_by_block_role(
-    cov: &Array2<f64>,
-    blocks: &[gam::estimate::FittedBlock],
-    response_scale: f64,
-) -> Array2<f64> {
-    let mut scaled = cov.clone();
-    let mut scales = Vec::with_capacity(cov.nrows());
-    for block in blocks {
-        let factor = gaussian_saved_fit_scale_for_role(block.role.clone(), response_scale);
-        scales.extend(std::iter::repeat_n(factor, block.beta.len()));
-    }
-    for i in 0..scaled.nrows() {
-        for j in 0..scaled.ncols() {
-            scaled[[i, j]] *= scales[i] * scales[j];
-        }
-    }
-    scaled
-}
-
 fn run_fit(args: FitArgs) -> Result<(), String> {
     let formula_text = choose_formula(&args)?;
     let parsed = parse_formula(&formula_text)?;
@@ -1425,6 +1407,13 @@ fn run_fit(args: FitArgs) -> Result<(), String> {
         }
         None
     };
+    let robust_identification = gam::RobustIdentification::parse(&args.robust_identification)
+        .ok_or_else(|| {
+            format!(
+                "invalid --robust-identification '{}'; expected off, auto, or force",
+                args.robust_identification
+            )
+        })?;
     let base_fit_options = FitOptions {
         latent_cloglog: latent_cloglog_state,
         mixture_link: mixture_linkspec.clone(),
@@ -1448,6 +1437,7 @@ fn run_fit(args: FitArgs) -> Result<(), String> {
         nullspace_dims: vec![],
         linear_constraints: None,
         firth_bias_reduction: false,
+        robust_identification,
         adaptive_regularization: adaptive_opts,
         penalty_shrinkage_floor: Some(1e-6),
         rho_prior: Default::default(),
@@ -1525,6 +1515,7 @@ fn run_fit(args: FitArgs) -> Result<(), String> {
                 nullspace_dims: design.nullspace_dims.clone(),
                 linear_constraints: design.linear_constraints.clone(),
                 firth_bias_reduction: Some(true),
+                robust_identification,
                 penalty_shrinkage_floor: Some(1e-6),
                 rho_prior: Default::default(),
                 kronecker_penalty_system: None,
@@ -2177,8 +2168,11 @@ fn run_fitwith_predict_noise(
     let mean_offset = resolve_offset_column(ds, col_map, args.offset_column.as_deref())?;
     let noise_offset = resolve_offset_column(ds, col_map, args.noise_offset_column.as_deref())?;
     if family == LikelihoodSpec::gaussian_identity() {
-        let response_scale = sample_std(y.view()).max(1e-6);
-        let y_scaled = y.mapv(|v| v / response_scale);
+        // Response standardization (and the inverse remap back to raw units) now
+        // lives in the single Gaussian location-scale model entry point
+        // (`fit_gaussian_location_scale_model`), so the CLI hands it the RAW
+        // response and receives coefficients/covariance/summary already in raw
+        // response units — there is no CLI-side prefit or post-fit rescaling.
         let options = blockwise_options_from_fit_args()?;
         progress.set_stage("fit", "optimizing gaussian location-scale model");
         let phase_start = std::time::Instant::now();
@@ -2190,7 +2184,7 @@ fn run_fitwith_predict_noise(
             GaussianLocationScaleFitRequest {
                 data: ds.values.view(),
                 spec: GaussianLocationScaleTermSpec {
-                    y: y_scaled,
+                    y: y.clone(),
                     weights: weights.clone(),
                     meanspec: meanspec.clone(),
                     log_sigmaspec: noisespec.clone(),
@@ -2258,30 +2252,21 @@ fn run_fitwith_predict_noise(
         print_spatial_aniso_scales(&noisespec_resolved);
         if let Some(out) = args.out.as_ref() {
             progress.set_stage("fit", "writing gaussian location-scale model");
-            let mut blocks = fit.blocks.clone();
-            for block in &mut blocks {
-                let factor = gaussian_saved_fit_scale_for_role(block.role.clone(), response_scale);
-                if factor != 1.0 {
-                    block.beta.mapv_inplace(|value| value * factor);
-                }
-            }
-            let beta_covariance = fit
-                .covariance_conditional
-                .as_ref()
-                .map(|cov| scale_covariance_by_block_role(cov, &blocks, response_scale));
-            let beta_covariance_corrected = fit
-                .covariance_corrected
-                .as_ref()
-                .map(|cov| scale_covariance_by_block_role(cov, &blocks, response_scale));
+            // `fit` already carries raw-unit coefficients, covariance, and a
+            // raw-unit residual-scale summary (the standardization and its
+            // inverse remap live in `fit_gaussian_location_scale_model`), so the
+            // save path persists them verbatim and records
+            // `gaussian_response_scale = 1.0` — predict reconstructs raw σ as
+            // `0.01 + exp(Xβ)` with no further multiply, applying the response
+            // scale exactly once (inside the fit).
             let fit_result = compact_saved_multiblock_fit_result(
-                blocks,
+                fit.blocks.clone(),
                 fit.lambdas.clone(),
                 1.0,
-                beta_covariance,
-                beta_covariance_corrected,
+                fit.covariance_conditional.clone(),
+                fit.covariance_corrected.clone(),
                 fit.geometry.clone(),
-                SavedFitSummary::from_blockwise_fit(&fit)?
-                    .rescaled_gaussian_location_scale(response_scale, y.len())?,
+                SavedFitSummary::from_blockwise_fit(&fit)?,
             );
             let resolved_base_link = link_choice
                 .map(|choice| {
@@ -2289,15 +2274,11 @@ fn run_fitwith_predict_noise(
                         .map(InverseLink::Standard)
                 })
                 .transpose()?;
-            // The Gaussian save path rescales the link-wiggle knots/beta back to
-            // the original response units before persisting them.
+            // Knots/coefficients are already in raw response units.
             let wiggle = wiggle_meta.map(|(knots, degree, beta_link_wiggle)| LocationScaleWiggle {
-                knots: knots.mapv(|v| v * response_scale).to_vec(),
+                knots: knots.to_vec(),
                 degree,
-                beta_link_wiggle: beta_link_wiggle
-                    .into_iter()
-                    .map(|coef| coef * response_scale)
-                    .collect(),
+                beta_link_wiggle,
             });
             let payload = assemble_location_scale_payload(
                 LocationScaleInputs {
@@ -2313,7 +2294,7 @@ fn run_fitwith_predict_noise(
                     wiggle,
                 },
                 LocationScaleResponse::Gaussian {
-                    response_scale,
+                    response_scale: 1.0,
                     base_link: resolved_base_link,
                 },
                 SavedModelSourceMetadata {
@@ -3990,6 +3971,7 @@ fn run_diagnose(args: DiagnoseArgs) -> Result<(), String> {
                 nullspace_dims: design.nullspace_dims.clone(),
                 linear_constraints: design.linear_constraints.clone(),
                 firth_bias_reduction: false,
+                robust_identification: gam::RobustIdentification::Off,
                 adaptive_regularization: None,
                 penalty_shrinkage_floor: Some(1e-6),
                 rho_prior: Default::default(),
@@ -4456,7 +4438,22 @@ fn run_survival(args: SurvivalArgs) -> Result<(), String> {
                 .to_string(),
         );
     }
-    let time_anchor = resolve_survival_time_anchor_value(&age_entry, args.survival_time_anchor)?;
+    // Marginal-slope centers the baseline-hazard I-spline at a robust interior
+    // exit-scale time (median exit) instead of the earliest entry age; under
+    // left truncation the earliest entry is a positive left-tail point and
+    // centering there inflates the unpenalized linear-trend column, blowing up
+    // the time-block seed score so REML rejects every seed (issue #751). The
+    // location-scale path keeps the earliest-entry anchor. An explicit
+    // `--survival-time-anchor` is honored by both.
+    let time_anchor = if likelihood_mode == SurvivalLikelihoodMode::MarginalSlope {
+        resolve_survival_marginal_slope_time_anchor_value(
+            &age_entry,
+            &age_exit,
+            args.survival_time_anchor,
+        )?
+    } else {
+        resolve_survival_time_anchor_value(&age_entry, args.survival_time_anchor)?
+    };
     let exact_derivative_guard = survival_derivative_guard_for_likelihood(likelihood_mode);
     if likelihood_mode != SurvivalLikelihoodMode::Weibull {
         inference_notes.push(format!(
@@ -7592,20 +7589,6 @@ impl SavedFitSummary {
         .validated()
     }
 
-    fn rescaled_gaussian_location_scale(
-        mut self,
-        response_scale: f64,
-        nobs: usize,
-    ) -> Result<Self, String> {
-        let n = nobs as f64;
-        let log_scale = response_scale.max(1e-12).ln();
-        self.log_likelihood -= n * log_scale;
-        self.deviance += 2.0 * n * log_scale;
-        self.reml_score += n * log_scale;
-        self.max_abs_eta *= response_scale;
-        self.validated()
-    }
-
     fn from_survivalworking_summary(
         summary: &gam::pirls::WorkingModelPirlsResult,
         state: &gam::pirls::WorkingState,
@@ -8164,24 +8147,6 @@ fn load_datasetwith_schema(
     schema: &DataSchema,
 ) -> Result<Dataset, gam::inference::data::DataError> {
     load_dataset_auto_with_schema(path, schema, UnseenCategoryPolicy::Error)
-}
-
-fn sample_std(v: ArrayView1<'_, f64>) -> f64 {
-    if v.is_empty() {
-        return 0.0;
-    }
-    let n = v.len() as f64;
-    let mean = v.iter().copied().sum::<f64>() / n;
-    let var = v
-        .iter()
-        .copied()
-        .map(|x| {
-            let d = x - mean;
-            d * d
-        })
-        .sum::<f64>()
-        / n.max(1.0);
-    var.max(0.0).sqrt()
 }
 
 /// Canonical family name for a CLI `--family` selection.
@@ -10020,6 +9985,7 @@ mod tests {
             hazard_loading: None,
             transformation_normal: false,
             firth: false,
+            robust_identification: "off".to_string(),
             family: FamilyArg::Auto,
             negative_binomial_theta: None,
             survival_likelihood: "transformation".to_string(),
@@ -10486,6 +10452,7 @@ mod tests {
             hazard_loading: None,
             transformation_normal: false,
             firth: false,
+            robust_identification: "off".to_string(),
             family: FamilyArg::Auto,
             negative_binomial_theta: None,
             survival_likelihood: "transformation".to_string(),
@@ -10685,6 +10652,7 @@ mod tests {
             hazard_loading: None,
             transformation_normal: false,
             firth: false,
+            robust_identification: "off".to_string(),
             family: FamilyArg::Auto,
             negative_binomial_theta: None,
             survival_likelihood: "transformation".to_string(),
@@ -10767,6 +10735,7 @@ mod tests {
             hazard_loading: None,
             transformation_normal: false,
             firth: false,
+            robust_identification: "off".to_string(),
             family: FamilyArg::Auto,
             negative_binomial_theta: None,
             survival_likelihood: "transformation".to_string(),
@@ -10816,6 +10785,7 @@ mod tests {
             hazard_loading: None,
             transformation_normal: false,
             firth: false,
+            robust_identification: "off".to_string(),
             family: FamilyArg::Auto,
             negative_binomial_theta: None,
             survival_likelihood: "transformation".to_string(),
@@ -11070,6 +11040,7 @@ mod tests {
             hazard_loading: None,
             transformation_normal: false,
             firth: false,
+            robust_identification: "off".to_string(),
             family: FamilyArg::Auto,
             negative_binomial_theta: None,
             survival_likelihood: "transformation".to_string(),
@@ -11163,6 +11134,7 @@ mod tests {
             hazard_loading: None,
             transformation_normal: false,
             firth: true,
+            robust_identification: "off".to_string(),
             family: FamilyArg::Auto,
             negative_binomial_theta: None,
             survival_likelihood: "transformation".to_string(),
@@ -12227,7 +12199,7 @@ mod tests {
     }
 
     #[test]
-    fn build_termspec_penalizes_all_non_intercept_linear_terms_by_default() {
+    fn build_termspec_leaves_parametric_linear_terms_unpenalized_by_default() {
         let parsed = parse_formula("y ~ x + linear(z) + nonnegative(w)").expect("formula");
         let ds = Dataset {
             headers: vec!["x".to_string(), "z".to_string(), "w".to_string()],
@@ -12274,8 +12246,8 @@ mod tests {
 
         assert_eq!(spec.linear_terms.len(), 3);
         assert!(
-            spec.linear_terms.iter().all(|term| term.double_penalty),
-            "all non-intercept linear terms should be penalized by default: {:?}",
+            spec.linear_terms.iter().all(|term| !term.double_penalty),
+            "parametric linear terms should be unpenalized by default: {:?}",
             spec.linear_terms
                 .iter()
                 .map(|term| (&term.name, term.double_penalty))
@@ -13520,13 +13492,12 @@ mod tests {
         // Directly test the CSV output for Gaussian location-scale predictions.
         // This model class now always goes through the unified PredictableModel path.
         let beta_mu: f64 = 12.0;
-        let beta_log_sigma: f64 = (0.5f64).ln();
-        let response_scale: f64 = 10.0;
+        let beta_log_sigma: f64 = (5.0f64).ln();
         let td = tempdir().expect("tempdir");
         let out_path = td.path().join("pred.csv");
         let eta = array![beta_mu];
         let mean = eta.clone();
-        let sigma = array![beta_log_sigma.exp() * response_scale];
+        let sigma = array![beta_log_sigma.exp()];
         write_gaussian_location_scale_prediction_csv(
             &out_path,
             eta.view(),

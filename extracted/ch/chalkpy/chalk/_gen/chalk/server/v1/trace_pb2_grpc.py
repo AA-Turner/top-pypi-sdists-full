@@ -25,6 +25,16 @@ class TraceServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_trace__pb2.ListTraceRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_trace__pb2.ListTraceResponse.FromString,
         )
+        self.SearchTraceSummaries = channel.unary_unary(
+            "/chalk.server.v1.TraceService/SearchTraceSummaries",
+            request_serializer=chalk_dot_server_dot_v1_dot_trace__pb2.SearchTraceSummariesRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_trace__pb2.SearchTraceSummariesResponse.FromString,
+        )
+        self.GetTraceCallGraph = channel.unary_unary(
+            "/chalk.server.v1.TraceService/GetTraceCallGraph",
+            request_serializer=chalk_dot_server_dot_v1_dot_trace__pb2.GetTraceCallGraphRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_trace__pb2.GetTraceCallGraphResponse.FromString,
+        )
         self.GetSpan = channel.unary_unary(
             "/chalk.server.v1.TraceService/GetSpan",
             request_serializer=chalk_dot_server_dot_v1_dot_trace__pb2.GetSpanRequest.SerializeToString,
@@ -68,6 +78,18 @@ class TraceServiceServicer(object):
 
     def ListTrace(self, request, context):
         """ListTrace retrieves a list of traces with optional filtering"""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def SearchTraceSummaries(self, request, context):
+        """SearchTraceSummaries retrieves traces using indexed trace summary filters"""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetTraceCallGraph(self, request, context):
+        """GetTraceCallGraph retrieves the pre-indexed trace data needed to render a call graph."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
@@ -120,6 +142,16 @@ def add_TraceServiceServicer_to_server(servicer, server):
             servicer.ListTrace,
             request_deserializer=chalk_dot_server_dot_v1_dot_trace__pb2.ListTraceRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_trace__pb2.ListTraceResponse.SerializeToString,
+        ),
+        "SearchTraceSummaries": grpc.unary_unary_rpc_method_handler(
+            servicer.SearchTraceSummaries,
+            request_deserializer=chalk_dot_server_dot_v1_dot_trace__pb2.SearchTraceSummariesRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_trace__pb2.SearchTraceSummariesResponse.SerializeToString,
+        ),
+        "GetTraceCallGraph": grpc.unary_unary_rpc_method_handler(
+            servicer.GetTraceCallGraph,
+            request_deserializer=chalk_dot_server_dot_v1_dot_trace__pb2.GetTraceCallGraphRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_trace__pb2.GetTraceCallGraphResponse.SerializeToString,
         ),
         "GetSpan": grpc.unary_unary_rpc_method_handler(
             servicer.GetSpan,
@@ -208,6 +240,64 @@ class TraceService(object):
             "/chalk.server.v1.TraceService/ListTrace",
             chalk_dot_server_dot_v1_dot_trace__pb2.ListTraceRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_trace__pb2.ListTraceResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def SearchTraceSummaries(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.TraceService/SearchTraceSummaries",
+            chalk_dot_server_dot_v1_dot_trace__pb2.SearchTraceSummariesRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_trace__pb2.SearchTraceSummariesResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetTraceCallGraph(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.TraceService/GetTraceCallGraph",
+            chalk_dot_server_dot_v1_dot_trace__pb2.GetTraceCallGraphRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_trace__pb2.GetTraceCallGraphResponse.FromString,
             options,
             channel_credentials,
             insecure,

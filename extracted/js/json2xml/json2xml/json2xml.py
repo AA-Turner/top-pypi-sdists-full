@@ -1,10 +1,8 @@
-from pyexpat import ExpatError
 from typing import Any
 
-from defusedxml.minidom import parseString
+__lazy_modules__ = ["defusedxml.minidom", "pyexpat"]
 
-from json2xml import dicttoxml
-
+from . import dicttoxml_fast as dicttoxml
 from .types import JSONValue
 from .utils import InvalidDataError
 
@@ -54,6 +52,10 @@ class Json2xml:
                 list_headers=self.list_headers,
             )
             if self.pretty:
+                from pyexpat import ExpatError
+
+                from defusedxml.minidom import parseString
+
                 try:
                     result = parseString(xml_data).toprettyxml(encoding="UTF-8").decode()
                 except ExpatError:

@@ -29,6 +29,8 @@ use opentelemetry::ContextGuard;
 use opentelemetry::trace::Status;
 use opentelemetry::trace::{Tracer, TracerProvider as _};
 use opentelemetry::{Context, KeyValue};
+use opentelemetry_otlp::WithExportConfig;
+use opentelemetry_otlp::WithHttpConfig;
 use opentelemetry_otlp::WithTonicConfig;
 use opentelemetry_otlp::tonic_types::metadata::MetadataMap;
 use opentelemetry_sdk::Resource;
@@ -65,6 +67,19 @@ pub enum LogFormat {
     Json,
 }
 
+/// Transport used for OTLP trace export. Mirrors the OpenTelemetry
+/// `OTEL_EXPORTER_OTLP_PROTOCOL` spec values, restricted to the two transports
+/// we actually wire up: gRPC (over tonic) and HTTP with protobuf payloads.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, ValueEnum)]
+pub enum OtlpProtocol {
+    /// gRPC over HTTP/2 using `tonic`. The default OTLP transport.
+    #[default]
+    Grpc,
+    /// HTTP/1.1 with protobuf-encoded payloads (`http/protobuf` in the OTel
+    /// spec). Uses `reqwest` under the hood.
+    HttpBinary,
+}
+
 /// Knobs that used to be hardcoded inside this crate. Callers pass these in so
 /// the same plumbing can drive any gateway — `service.name`, the tracer name,
 /// the overhead histogram label, and the env-filter directives all come from
@@ -79,6 +94,15 @@ pub struct ObservabilitySettings {
     /// Histogram name recorded by [`OverheadTimingLayer`]. Only used when
     /// `register_overhead_layer` is true.
     pub overhead_metric_name: &'static str,
+    /// Base prefix for the custom OTLP header families that callers attach to
+    /// incoming requests. The full prefixes are formed by joining this value, a
+    /// `-` separator, and a fixed suffix, e.g.
+    /// `{otlp_header_prefix}-otlp-traces-extra-header-`,
+    /// `{otlp_header_prefix}-otlp-traces-extra-resource-`, and
+    /// `{otlp_header_prefix}-otlp-traces-extra-attribute-`. Defaults to
+    /// [`DEFAULT_OTLP_HEADER_PREFIX`] (`"tensorzero"`); downstream consumers
+    /// can rebrand by setting their own value (without a trailing `-`).
+    pub otlp_header_prefix: &'static str,
     /// Default `EnvFilter` directives used when `RUST_LOG` is unset and debug
     /// logging is not enabled. Should be a comma-separated set of
     /// `target=level` pairs (e.g. `"warn,gateway=info"`).
@@ -91,6 +115,11 @@ pub struct ObservabilitySettings {
     /// non-HTTP entry points (e.g. embedded clients) where no top-level
     /// overhead span exists.
     pub register_overhead_layer: bool,
+    /// Transport to use for OTLP trace export. Controls whether the
+    /// underlying `SpanExporter` is built with `.with_tonic()` (gRPC) or
+    /// `.with_http()` (HTTP/protobuf). The endpoint and other knobs are still
+    /// read from the standard `OTEL_*` environment variables.
+    pub otlp_protocol: OtlpProtocol,
 }
 
 /// TensorZero gateway defaults — preserves the strings that lived inside this
@@ -100,9 +129,11 @@ pub const TENSORZERO_DEFAULTS: ObservabilitySettings = ObservabilitySettings {
     service_name: "tensorzero-gateway",
     tracer_name: "tensorzero",
     overhead_metric_name: "tensorzero_inference_latency_overhead_seconds",
+    otlp_header_prefix: DEFAULT_OTLP_HEADER_PREFIX,
     default_log_directives: "warn,gateway=info,tensorzero_core=info,tensorzero_otel=info",
     debug_log_directives: "warn,gateway=debug,tensorzero_core=debug,tensorzero_otel=debug",
     register_overhead_layer: true,
+    otlp_protocol: OtlpProtocol::Grpc,
 };
 
 /// Same as [`TENSORZERO_DEFAULTS`] but with `register_overhead_layer = false`,
@@ -111,9 +142,11 @@ pub const TENSORZERO_EMBEDDED_DEFAULTS: ObservabilitySettings = ObservabilitySet
     service_name: TENSORZERO_DEFAULTS.service_name,
     tracer_name: TENSORZERO_DEFAULTS.tracer_name,
     overhead_metric_name: TENSORZERO_DEFAULTS.overhead_metric_name,
+    otlp_header_prefix: TENSORZERO_DEFAULTS.otlp_header_prefix,
     default_log_directives: TENSORZERO_DEFAULTS.default_log_directives,
     debug_log_directives: TENSORZERO_DEFAULTS.debug_log_directives,
     register_overhead_layer: false,
+    otlp_protocol: TENSORZERO_DEFAULTS.otlp_protocol,
 };
 
 #[derive(Clone, Debug)]
@@ -295,16 +328,11 @@ fn build_tracer<T: SpanExporter + 'static>(
     override_exporter: Option<T>,
     settings: &ObservabilitySettings,
 ) -> Result<(SdkTracerProvider, SdkTracer), Error> {
-    let tls_config = tonic::transport::ClientTlsConfig::new().with_enabled_roots();
-    #[cfg(feature = "e2e_tests")]
-    let tls_config = add_local_self_signed_cert(tls_config);
-
-    let exporter = opentelemetry_otlp::SpanExporter::builder()
-        .with_tonic()
-        .with_metadata(key.extra_headers)
-        .with_tls_config(tls_config)
-        .build()
-        .map_err(|e| Error::observability(format!("Failed to create OTLP exporter: {e}")))?;
+    let CustomTracerKey {
+        extra_headers,
+        extra_resources,
+        extra_attributes,
+    } = key;
 
     // Per the OTel spec, `OTEL_SERVICE_NAME` overrides any service.name set
     // in code. Honor that — callers' `settings.service_name` is the default,
@@ -319,25 +347,69 @@ fn build_tracer<T: SpanExporter + 'static>(
                 opentelemetry_semantic_conventions::resource::SERVICE_NAME,
                 service_name,
             ))
-            .with_attributes(key.extra_resources)
+            .with_attributes(extra_resources)
             .build(),
     );
 
     if let Some(override_exporter) = override_exporter {
         builder = builder.with_simple_exporter(TensorZeroExporterWrapper::new(
             override_exporter,
-            key.extra_attributes,
+            extra_attributes,
         ));
     } else {
-        builder = builder.with_batch_exporter(TensorZeroExporterWrapper::new(
-            exporter,
-            key.extra_attributes,
-        ));
+        builder = match settings.otlp_protocol {
+            OtlpProtocol::Grpc => {
+                let tls_config = tonic::transport::ClientTlsConfig::new().with_enabled_roots();
+                #[cfg(feature = "e2e_tests")]
+                let tls_config = add_local_self_signed_cert(tls_config);
+                let exporter = opentelemetry_otlp::SpanExporter::builder()
+                    .with_tonic()
+                    .with_metadata(extra_headers)
+                    .with_tls_config(tls_config)
+                    .build()
+                    .map_err(|e| {
+                        Error::observability(format!("Failed to create OTLP gRPC exporter: {e}"))
+                    })?;
+                builder
+                    .with_batch_exporter(TensorZeroExporterWrapper::new(exporter, extra_attributes))
+            }
+            OtlpProtocol::HttpBinary => {
+                let headers = metadata_to_http_headers(&extra_headers)?;
+                let exporter = opentelemetry_otlp::SpanExporter::builder()
+                    .with_http()
+                    .with_headers(headers)
+                    .with_protocol(opentelemetry_otlp::Protocol::HttpBinary)
+                    .build()
+                    .map_err(|e| {
+                        Error::observability(format!("Failed to create OTLP HTTP exporter: {e}"))
+                    })?;
+                builder
+                    .with_batch_exporter(TensorZeroExporterWrapper::new(exporter, extra_attributes))
+            }
+        };
     }
     let provider = builder.build();
 
     let tracer = provider.tracer(settings.tracer_name);
     Ok((provider, tracer))
+}
+
+/// Convert a tonic `MetadataMap` (the gRPC OTLP exporter's native header shape)
+/// into the `HashMap<String, String>` that the HTTP OTLP exporter expects.
+/// Binary metadata values (`*-bin` keys) aren't valid HTTP header values and
+/// will produce an error rather than being silently dropped.
+fn metadata_to_http_headers(metadata: &MetadataMap) -> Result<HashMap<String, String>, Error> {
+    let mut out = HashMap::with_capacity(metadata.len());
+    for (name, value) in metadata.as_ref() {
+        let value_str = value.to_str().map_err(|e| {
+            Error::observability(format!(
+                "Failed to convert OTLP header `{}` value to string for HTTP export: {e}",
+                name.as_str()
+            ))
+        })?;
+        out.insert(name.as_str().to_string(), value_str.to_string());
+    }
+    Ok(out)
 }
 
 impl Tracer for TracerWrapper {
@@ -570,11 +642,12 @@ pub trait RouterExt<S> {
 }
 
 /// A special header prefix used to attach an additional header to the OTLP export for this trace.
-/// The format is: `tensorzero-otlp-traces-extra-header-HEADER_NAME: HEADER_VALUE`
-/// For each header with the `tensorzero-otlp-traces-extra-header-`, we add `HEADER_NAME: HEADER_VALUE`
+/// The format is: `{prefix}-otlp-traces-extra-header-HEADER_NAME: HEADER_VALUE`, where `{prefix}`
+/// is [`ObservabilitySettings::otlp_header_prefix`] (default `tensorzero`).
+/// For each header with the `{prefix}-otlp-traces-extra-header-` prefix, we add `HEADER_NAME: HEADER_VALUE`
 /// to the OTLP export HTTP/gRPC request headers.
 ///
-/// When an incoming request has a `tensorzero-otlp-traces-extra-header-`, we handle it through
+/// When an incoming request has a `{prefix}-otlp-traces-extra-header-` header, we handle it through
 /// the following sequence of events:
 /// 1. The `tensorzero_otlp_headers_middleware` function extracts the headers from the request,
 ///    validates them, and attaches a `CustomTracerKey` to the request extensions.
@@ -595,9 +668,51 @@ pub trait RouterExt<S> {
 ///    (which exports without any extra headers set).
 ///
 /// 5. The custom `SdkTracer` is preserved in a `moka::Cache` for subsequent requests.
+///
+/// The leading `tensorzero` portion of these prefixes is configurable via
+/// [`ObservabilitySettings::otlp_header_prefix`]; the `-` separator and the
+/// fixed suffixes below are not.
+const OTLP_TRACES_EXTRA_HEADER_SUFFIX: &str = "otlp-traces-extra-header-";
+const OTLP_TRACES_EXTRA_RESOURCE_SUFFIX: &str = "otlp-traces-extra-resource-";
+const OTLP_TRACES_EXTRA_ATTRIBUTE_SUFFIX: &str = "otlp-traces-extra-attribute-";
+
+/// Default value for [`ObservabilitySettings::otlp_header_prefix`]. Downstream
+/// consumers can override this to rebrand the custom OTLP header families. The
+/// `-` separator before the suffix is appended automatically, so this value
+/// should not include a trailing `-`.
+pub const DEFAULT_OTLP_HEADER_PREFIX: &str = "tensorzero";
+
+// The full custom OTLP header-family prefixes for a default (`tensorzero`)
+// deployment. These are kept as public constants so clients targeting a default
+// TensorZero gateway can prefix their headers without recomputing the strings.
+// A gateway built with a custom `otlp_header_prefix` derives its own prefixes at
+// runtime via `OtlpHeaderPrefixes::from_base`; the unit tests below assert these
+// constants stay in sync with `DEFAULT_OTLP_HEADER_PREFIX` plus the suffixes.
 pub const TENSORZERO_OTLP_HEADERS_PREFIX: &str = "tensorzero-otlp-traces-extra-header-";
 pub const TENSORZERO_OTLP_RESOURCE_PREFIX: &str = "tensorzero-otlp-traces-extra-resource-";
 pub const TENSORZERO_OTLP_ATTRIBUTE_PREFIX: &str = "tensorzero-otlp-traces-extra-attribute-";
+
+/// The three custom OTLP header-family prefixes, derived from a configurable
+/// base prefix (e.g. `tensorzero`), a `-` separator, and the fixed suffixes.
+/// Built per request in [`extract_tensorzero_headers`] from
+/// [`ObservabilitySettings::otlp_header_prefix`].
+struct OtlpHeaderPrefixes {
+    header: String,
+    resource: String,
+    attribute: String,
+}
+
+impl OtlpHeaderPrefixes {
+    fn from_base(base: &str) -> Self {
+        // The `-` separator between the base prefix and the suffix is appended
+        // here, so callers configure the base without a trailing `-`.
+        Self {
+            header: format!("{base}-{OTLP_TRACES_EXTRA_HEADER_SUFFIX}"),
+            resource: format!("{base}-{OTLP_TRACES_EXTRA_RESOURCE_SUFFIX}"),
+            attribute: format!("{base}-{OTLP_TRACES_EXTRA_ATTRIBUTE_SUFFIX}"),
+        }
+    }
+}
 
 /// Converts a HashMap of config headers to a MetadataMap
 fn config_headers_to_metadata(
@@ -639,14 +754,20 @@ fn json_to_otel_value(value: serde_json::Value) -> Result<opentelemetry::Value, 
     }
 }
 
-// Removes all of the headers prefixed with `TENSORZERO_OTLP_HEADERS_PREFIX`.
-// If any are present (or we have static config headers), constructs a `CustomTracerKey` with all of the  matching header/value pairs
-// (with `TENSORZERO_OTLP_HEADERS_PREFIX` removed from the header name).
+// Removes all of the headers prefixed with the `otlp-traces-extra-header-` family
+// (using the configurable base prefix from `ObservabilitySettings::otlp_header_prefix`).
+// If any are present (or we have static config headers), constructs a `CustomTracerKey` with all of the matching header/value pairs
+// (with the prefix removed from the header name).
 // We also apply any static custom OTLP headers set in the `TracerWrapper`.
 fn extract_tensorzero_headers(
     tracer_wrapper: &TracerWrapper,
     headers: &HeaderMap,
 ) -> Result<Option<CustomTracerKey>, Error> {
+    let OtlpHeaderPrefixes {
+        header: header_prefix,
+        resource: resource_prefix,
+        attribute: attribute_prefix,
+    } = OtlpHeaderPrefixes::from_base(tracer_wrapper.settings.otlp_header_prefix);
     // Merge config headers with dynamic headers (dynamic takes precedence)
     let mut metadata = tracer_wrapper
         .static_otlp_traces_extra_headers
@@ -656,34 +777,36 @@ fn extract_tensorzero_headers(
     let mut extra_resources = vec![];
     let mut extra_attributes = vec![];
     for (name, value) in headers {
-        if let Some(suffix) = name.as_str().strip_prefix(TENSORZERO_OTLP_HEADERS_PREFIX) {
+        if let Some(suffix) = name.as_str().strip_prefix(header_prefix.as_str()) {
             let key: AsciiMetadataKey = suffix.parse().map_err(|e| {
-                Error::observability(format!("Failed to parse `{TENSORZERO_OTLP_HEADERS_PREFIX}` header `{suffix}` as valid metadata key: {e}"))
+                Error::observability(format!(
+                    "Failed to parse `{header_prefix}` header `{suffix}` as valid metadata key: {e}"
+                ))
             })?;
             let value = MetadataValue::from_str(value.to_str().map_err(|e| {
-                Error::observability(format!("Failed to parse `{TENSORZERO_OTLP_HEADERS_PREFIX}` header `{suffix}` value as valid string: {e}"))
+                Error::observability(format!("Failed to parse `{header_prefix}` header `{suffix}` value as valid string: {e}"))
             })?).map_err(|e| {
-                Error::observability(format!("Failed to parse `{TENSORZERO_OTLP_HEADERS_PREFIX}` header `{suffix}` value as valid metadata value: {e}"))
+                Error::observability(format!("Failed to parse `{header_prefix}` header `{suffix}` value as valid metadata value: {e}"))
             })?;
             metadata.insert(key, value);
         }
-        if let Some(suffix) = name.as_str().strip_prefix(TENSORZERO_OTLP_RESOURCE_PREFIX) {
+        if let Some(suffix) = name.as_str().strip_prefix(resource_prefix.as_str()) {
             let key = suffix.to_string();
             let value = value.to_str().map_err(|e| {
-                Error::invalid_request(format!("Failed to parse `{TENSORZERO_OTLP_RESOURCE_PREFIX}` header `{suffix}` value as valid string: {e}"))
+                Error::invalid_request(format!("Failed to parse `{resource_prefix}` header `{suffix}` value as valid string: {e}"))
             })?.to_string();
             extra_resources.push(KeyValue::new(key, value));
         }
-        if let Some(suffix) = name.as_str().strip_prefix(TENSORZERO_OTLP_ATTRIBUTE_PREFIX) {
+        if let Some(suffix) = name.as_str().strip_prefix(attribute_prefix.as_str()) {
             let key = suffix.to_string();
             let value = value.to_str().map_err(|e| {
-                Error::invalid_request(format!("Failed to parse `{TENSORZERO_OTLP_ATTRIBUTE_PREFIX}` header `{suffix}` value as valid string: {e}"))
+                Error::invalid_request(format!("Failed to parse `{attribute_prefix}` header `{suffix}` value as valid string: {e}"))
             })?;
             let value_json = serde_json::from_str::<serde_json::Value>(value).map_err(|e| {
-                Error::invalid_request(format!("Failed to parse `{TENSORZERO_OTLP_ATTRIBUTE_PREFIX}` header `{suffix}` value as valid JSON: {e}"))
+                Error::invalid_request(format!("Failed to parse `{attribute_prefix}` header `{suffix}` value as valid JSON: {e}"))
             })?;
             let value_otel = json_to_otel_value(value_json).map_err(|e| {
-                Error::invalid_request(format!("Failed to convert `{TENSORZERO_OTLP_ATTRIBUTE_PREFIX}` header `{suffix}` value to OpenTelemetry attribute value: {e}"))
+                Error::invalid_request(format!("Failed to convert `{attribute_prefix}` header `{suffix}` value to OpenTelemetry attribute value: {e}"))
             })?;
             extra_attributes.push(KeyValue::new(key, value_otel));
         }
@@ -1305,4 +1428,45 @@ pub fn setup_metrics(
     }
 
     Ok(metrics_handle)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        DEFAULT_OTLP_HEADER_PREFIX, OtlpHeaderPrefixes, TENSORZERO_DEFAULTS,
+        TENSORZERO_OTLP_ATTRIBUTE_PREFIX, TENSORZERO_OTLP_HEADERS_PREFIX,
+        TENSORZERO_OTLP_RESOURCE_PREFIX,
+    };
+    use googletest::prelude::*;
+
+    /// The public `TENSORZERO_OTLP_*_PREFIX` constants are used by clients targeting a
+    /// default gateway. Ensure they stay in sync with the prefixes derived from
+    /// `DEFAULT_OTLP_HEADER_PREFIX` plus the fixed suffixes, so a default gateway and a
+    /// default client agree on the header names.
+    #[gtest]
+    fn default_prefix_constants_match_derived_prefixes() {
+        let prefixes = OtlpHeaderPrefixes::from_base(DEFAULT_OTLP_HEADER_PREFIX);
+        expect_that!(prefixes.header, eq(TENSORZERO_OTLP_HEADERS_PREFIX));
+        expect_that!(prefixes.resource, eq(TENSORZERO_OTLP_RESOURCE_PREFIX));
+        expect_that!(prefixes.attribute, eq(TENSORZERO_OTLP_ATTRIBUTE_PREFIX));
+    }
+
+    /// The default `ObservabilitySettings` should use the default base prefix.
+    #[gtest]
+    fn tensorzero_defaults_use_default_prefix() {
+        expect_that!(
+            TENSORZERO_DEFAULTS.otlp_header_prefix,
+            eq(DEFAULT_OTLP_HEADER_PREFIX)
+        );
+    }
+
+    /// A custom base prefix is reflected in all three derived header families, with the
+    /// `-` separator appended automatically (the base carries no trailing `-`).
+    #[gtest]
+    fn custom_prefix_is_applied_to_all_families() {
+        let prefixes = OtlpHeaderPrefixes::from_base("acme");
+        expect_that!(prefixes.header, eq("acme-otlp-traces-extra-header-"));
+        expect_that!(prefixes.resource, eq("acme-otlp-traces-extra-resource-"));
+        expect_that!(prefixes.attribute, eq("acme-otlp-traces-extra-attribute-"));
+    }
 }

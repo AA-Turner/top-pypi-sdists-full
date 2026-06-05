@@ -99,15 +99,14 @@ struct HLCWeights
     MemArea memArea;
     Buffering buffering;
     Flags<WeightFormat> format;
-    Address address = -1;
-    int doubleBufferOffset;  // When double buffering: offset to second buffer
+    Address address[2] = {-1, -1};  // Address of both buffers
     int subStreams = 1;
     std::unordered_map<int, WeightRange> encodedRanges;
 
     std::string ToString() const
     {
-        return fmt::format("{} ranges, buffering: {}, {}:{}, address: 0x{:x}, format: {}", encodedRanges.size(),
-            int(buffering), memArea.memory->Name(), memArea.usage, address, format.ToString());
+        return fmt::format("{} ranges, buffering: {}, {}:{}, address: 0x{:x}, 0x{:x}, format: {}", encodedRanges.size(),
+            EnumToString(buffering), memArea.memory->Name(), memArea.usage, address[0], address[1], format.ToString());
     }
 };
 
@@ -145,9 +144,8 @@ union HLCParameters
 
     struct
     {
-        int axis;
-        int multiplier;
-    } tile;
+        int shift;
+    } double_round;
 };
 
 struct StripeArea
@@ -171,7 +169,7 @@ struct HLCSubOperation
     UniqueId srcId = 0;
     HLCSubOperation() = default;
     HLCSubOperation(const HLCSubOperation &other) { *this = other; }
-    void operator=(const HLCSubOperation &other)
+    HLCSubOperation &operator=(const HLCSubOperation &other)
     {
         type = other.type;
         ifm = other.ifm;
@@ -179,8 +177,13 @@ struct HLCSubOperation
         // Compilers disagree on whether the union is copyable.
         if ( other.type == OpType::LUT || other.type == OpType::Sigmoid || other.type == OpType::Tanh )
             parameters.lut = other.parameters.lut;
-        else parameters.resize = other.parameters.resize;
+        else if ( other.type == OpType::Add || other.type == OpType::Sub )
+            parameters.double_round = other.parameters.double_round;
+        else if ( other.type == OpType::LeakyRelu ) parameters.leaky_relu = other.parameters.leaky_relu;
+        else if ( other.type == OpType::ArgMax ) parameters.argmax = other.parameters.argmax;
+        else if ( other.type == OpType::Resize ) parameters.resize = other.parameters.resize;
         srcId = other.srcId;
+        return *this;
     }
 };
 

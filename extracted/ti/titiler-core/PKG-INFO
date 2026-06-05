@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: titiler-core
-Version: 2.0.3
+Version: 2.0.4
 Summary: A modern dynamic tile server built on top of FastAPI and Rasterio/GDAL.
 Project-URL: Homepage, https://developmentseed.org/titiler/
 Project-URL: Documentation, https://developmentseed.org/titiler/

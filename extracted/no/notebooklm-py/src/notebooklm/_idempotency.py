@@ -30,7 +30,7 @@ baseline-diff; sources: url-match; ``add_text``: no probe possible — see
 This module is private (``_idempotency.py``); call sites live in the
 domain APIs (``_notebooks.py``, ``_sources.py``) and the RPC executor
 (``_rpc_executor.py``). The canonical home for the taxonomy itself and
-the per-RPC classification rationale is ADR-005
+the per-RPC classification rationale is ADR-0005
 (``docs/adr/0005-idempotency-taxonomy.md``).
 """
 
@@ -179,7 +179,7 @@ class IdempotencyPolicy(str, Enum):
 
     Five policies — no more, no fewer. The axis was sized to cover all
     realistic NotebookLM RPC shapes without inventing per-method special
-    cases. See ADR-005 (``docs/adr/0005-idempotency-taxonomy.md``) for
+    cases. See ADR-0005 (``docs/adr/0005-idempotency-taxonomy.md``) for
     the derivation and the per-policy rationale.
 
     Policies fall into three retry-safety bands:
@@ -474,9 +474,8 @@ IDEMPOTENCY_REGISTRY.register(
 #     ``(CREATE_NOTE, None)`` default mirrors the same policy so callers
 #     that omit ``operation_variant`` still get NON_IDEMPOTENT_NO_RETRY.
 #   * ``"saved_from_chat"`` — 7-element params from
-#     ``_chat_notes.save_chat_answer_as_note`` (issue #660). Used by
-#     ``ChatAPI.save_answer_as_note`` (and the deprecated
-#     ``NotesAPI.create_from_chat`` forwarder).
+#     ``_chat.notes.save_chat_answer_as_note`` (issue #660). Used by
+#     ``ChatAPI.save_answer_as_note``.
 # Both variants share the policy; explicit registration documents the
 # two distinct param shapes for future-classification work.
 IDEMPOTENCY_REGISTRY.register(
@@ -508,20 +507,20 @@ IDEMPOTENCY_REGISTRY._seed_defaults()
 # Active classifications — artifact and generation create patterns
 # ---------------------------------------------------------------------------
 #
-# CREATE_ARTIFACT (P0-3) — mutating create. Params are nested positional
+# CREATE_ARTIFACT — mutating create. Params are nested positional
 # lists shaped like ``[[2], notebook_id, [None, None, type_code,
 # source_ids_triple, ..., config]]`` for every artifact variant (audio,
-# video, report, quiz, etc.; see ``_artifact_generation.py`` lines 75-99,
-# 143-161, 266-291, ...). Every position is structural — there is no
-# caller-supplied client-token slot. The server allocates the artifact_id
-# in the response (``ArtifactGenerationService.parse_generation_result``
-# reads ``result[0][0]`` — see ``_artifact_generation.py``), so a
-# token-dedupe strategy is impossible.
+# video, report, quiz, etc.; see the ``generate_*`` methods and the
+# ``_artifact.payloads.build_*`` helpers in ``_artifacts.py``). Every
+# position is structural — there is no caller-supplied client-token slot.
+# The server allocates the artifact_id in the response
+# (``ArtifactsAPI._parse_generation_result`` reads ``result[0][0]`` — see
+# ``_artifacts.py``), so a token-dedupe strategy is impossible.
 #
 # PROBE_THEN_CREATE forces ``effective_disable_internal_retries=True``,
 # which suppresses ``_perform_authed_post``'s inner retry loop. Without
 # this, a 5xx between server-side commit and client-side response would
-# trigger a naive re-POST and duplicate the artifact (the original P0-3
+# trigger a naive re-POST and duplicate the artifact (the original
 # audit finding). Callers can layer a list-based probe + retry on top of
 # this foundation via ``idempotent_create`` in a follow-up; for B-generation
 # the classification alone removes the duplicate-write risk.
@@ -537,28 +536,28 @@ IDEMPOTENCY_REGISTRY.register(
     ),
 )
 
-# GENERATE_MIND_MAP (P0-3) — generation RPC with no client-token slot.
+# GENERATE_MIND_MAP — generation RPC with no client-token slot.
 # Params are ``[source_ids_nested, None, None, None, None,
 # ["interactive_mindmap", [["[CONTEXT]", instructions]], language], None,
-# [2, None, [1]]]`` (see ``_artifact_generation.py`` line 595-604). Every
-# slot is structural (sources, content config, language, mode triple). The
-# response carries the mind-map JSON directly (line 614-622 reads
-# ``result[0][0]``) — there is no task_id to probe with after the fact, so
-# token-dedupe is impossible here too.
+# [2, None, [1]]]`` (see ``ArtifactsAPI.generate_mind_map`` in
+# ``_artifacts.py`` and ``_artifact.payloads.build_mind_map_params``).
+# Every slot is structural (sources, content config, language, mode
+# triple). The response carries the mind-map JSON directly
+# (``generate_mind_map`` reads ``result[0][0]``) — there is no task_id to
+# probe with after the fact, so token-dedupe is impossible here too.
 #
 # Note: ``GENERATE_MIND_MAP`` itself does NOT persist the note server-side
 # (see ``tests/integration/test_mind_map_chain_vcr.py`` header). The actual
 # persistence is the subsequent ``CREATE_NOTE`` + ``UPDATE_NOTE`` chain in
-# ``NoteService.create_note`` (formerly ``_mind_map.create_note``, removed
-# in Phase 6). PROBE_THEN_CREATE here suppresses the inner retry loop on
+# ``NoteService.create_note``. PROBE_THEN_CREATE here suppresses the inner retry loop on
 # the *generation* RPC for two reasons: (a) a blind re-POST wastes the
 # expensive LLM inference, and (b) LLM nondeterminism means a retried
 # generation may return a *different* mind-map JSON, which would
 # silently mismatch what the client saw on the first commit before the
 # response was lost. Classifying CREATE_NOTE for the persisted-write side
 # of the chain is a separate follow-up (out of scope per the b-generation
-# task spec, which restricts edits to ``_artifact_generation.py`` and
-# ``_idempotency.py``).
+# task spec, which restricted edits to the artifact-generation path —
+# now folded into ``_artifacts.py`` — and ``_idempotency.py``).
 IDEMPOTENCY_REGISTRY.register(
     RPCMethod.GENERATE_MIND_MAP,
     IdempotencyPolicy.PROBE_THEN_CREATE,
@@ -580,7 +579,7 @@ IDEMPOTENCY_REGISTRY.register(
 #
 # These entries replace the UNCLASSIFIED placeholders for mutating RPCs whose
 # side-effect semantics are well-understood and stable. The full
-# audit decision matrix lives in ADR-005
+# audit decision matrix lives in ADR-0005
 # (``docs/adr/0005-idempotency-taxonomy.md``); the short version follows.
 #
 # CREATE_NOTEBOOK
@@ -613,8 +612,8 @@ IDEMPOTENCY_REGISTRY.register(
 #   list the current ACL, so the *correct* policy is ``PROBE_THEN_CREATE``
 #   — the transport must NOT retry blindly, and a future wrapper can
 #   ``get_status()`` to decide whether the prior call landed before
-#   re-issuing. Wave-2 scope is the classification (which suppresses the
-#   blind retry today); the caller-side probe-then-create wrapper is a
+#   re-issuing. Today only the classification is in place (which suppresses
+#   the blind retry); the caller-side probe-then-create wrapper is a
 #   follow-up.
 IDEMPOTENCY_REGISTRY.register(
     RPCMethod.CREATE_NOTEBOOK,
@@ -686,7 +685,7 @@ IDEMPOTENCY_REGISTRY.register(
 #
 # These entries force-disable blind transport retries via
 # ``resolve_effective_disable_internal_retries``. The per-API call sites in
-# ``_source_add.py`` / ``_source_upload.py`` own the executable probe loop for
+# ``_source/add.py`` / ``_source/upload.py`` own the executable probe loop for
 # the URL, Drive, and file variants.
 
 _RAW_ADD_SOURCE_NOT_IDEMPOTENT_NOTE = (
@@ -828,6 +827,18 @@ IDEMPOTENCY_REGISTRY.register(
         "divergent revision"
     ),
 )
+IDEMPOTENCY_REGISTRY.register(
+    RPCMethod.RETRY_ARTIFACT,
+    IdempotencyPolicy.NON_IDEMPOTENT_NO_RETRY,
+    notes=(
+        "in-place retry kicks off a fresh generation for an already-failed "
+        "artifact; the artifact_id is fixed and re-used, but the RPC has no "
+        "client-token slot and the response carries the same id whether or "
+        "not the kickoff committed, so a blind transport retry could re-launch "
+        "generation twice. Surface the first failure and let the caller decide "
+        "whether to re-invoke (issue #1319)"
+    ),
+)
 
 
 # ----------------------------------------------------------------------------
@@ -841,7 +852,7 @@ IDEMPOTENCY_REGISTRY.register(
 # of 30s mirrors the cadence of similar advisory-log throttles elsewhere in the
 # codebase.
 _AT_LEAST_ONCE_LOG_INTERVAL: float = 30.0
-# Audit CC6: single-loop-per-client invariant per ADR-004; not safe for multi-loop fan-out.
+# Single-loop-per-client invariant per ADR-0004; not safe for multi-loop fan-out.
 _at_least_once_last_logged: dict[tuple[RPCMethod, str | None], float] = {}
 
 

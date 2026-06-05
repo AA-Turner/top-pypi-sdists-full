@@ -10,7 +10,7 @@ def verify_sms_capability(domain, prompt, tmp_path):
     cfg = SMSConfig(
         computer_name="TestPC",
         working_dir=str(tmp_path),
-        model="openrouter:meta-llama/llama-3.3-70b-instruct:free"
+        model="cloud:qwen3-coder"
     )
     
     # Standard media output target path

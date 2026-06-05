@@ -597,7 +597,7 @@ class CfnDBCluster(
         # The values are placeholders you should change.
         from aws_cdk import aws_docdb as docdb
         
-        cfn_dBCluster = docdb.CfnDBCluster(self, "MyCfnDBCluster",
+        cfn_db_cluster = docdb.CfnDBCluster(self, "MyCfnDBCluster",
             availability_zones=["availabilityZones"],
             backup_retention_period=123,
             copy_tags_to_snapshot=False,
@@ -1424,7 +1424,7 @@ class CfnDBClusterParameterGroup(
         
         # parameters: Any
         
-        cfn_dBCluster_parameter_group = docdb.CfnDBClusterParameterGroup(self, "MyCfnDBClusterParameterGroup",
+        cfn_db_cluster_parameter_group = docdb.CfnDBClusterParameterGroup(self, "MyCfnDBClusterParameterGroup",
             description="description",
             family="family",
             parameters=parameters,
@@ -1654,7 +1654,7 @@ class CfnDBClusterParameterGroupProps:
             
             # parameters: Any
             
-            cfn_dBCluster_parameter_group_props = docdb.CfnDBClusterParameterGroupProps(
+            cfn_db_cluster_parameter_group_props = docdb.CfnDBClusterParameterGroupProps(
                 description="description",
                 family="family",
                 parameters=parameters,
@@ -1866,7 +1866,7 @@ class CfnDBClusterProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_docdb as docdb
             
-            cfn_dBCluster_props = docdb.CfnDBClusterProps(
+            cfn_db_cluster_props = docdb.CfnDBClusterProps(
                 availability_zones=["availabilityZones"],
                 backup_retention_period=123,
                 copy_tags_to_snapshot=False,
@@ -2444,7 +2444,7 @@ class CfnDBInstance(
         # The values are placeholders you should change.
         from aws_cdk import aws_docdb as docdb
         
-        cfn_dBInstance = docdb.CfnDBInstance(self, "MyCfnDBInstance",
+        cfn_db_instance = docdb.CfnDBInstance(self, "MyCfnDBInstance",
             db_cluster_identifier="dbClusterIdentifier",
             db_instance_class="dbInstanceClass",
         
@@ -2843,7 +2843,7 @@ class CfnDBInstanceProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_docdb as docdb
             
-            cfn_dBInstance_props = docdb.CfnDBInstanceProps(
+            cfn_db_instance_props = docdb.CfnDBInstanceProps(
                 db_cluster_identifier="dbClusterIdentifier",
                 db_instance_class="dbInstanceClass",
             
@@ -3062,7 +3062,7 @@ class CfnDBSubnetGroup(
         # The values are placeholders you should change.
         from aws_cdk import aws_docdb as docdb
         
-        cfn_dBSubnet_group = docdb.CfnDBSubnetGroup(self, "MyCfnDBSubnetGroup",
+        cfn_db_subnet_group = docdb.CfnDBSubnetGroup(self, "MyCfnDBSubnetGroup",
             db_subnet_group_description="dbSubnetGroupDescription",
             subnet_ids=["subnetIds"],
         
@@ -3271,7 +3271,7 @@ class CfnDBSubnetGroupProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_docdb as docdb
             
-            cfn_dBSubnet_group_props = docdb.CfnDBSubnetGroupProps(
+            cfn_db_subnet_group_props = docdb.CfnDBSubnetGroupProps(
                 db_subnet_group_description="dbSubnetGroupDescription",
                 subnet_ids=["subnetIds"],
             
@@ -5134,11 +5134,11 @@ class DatabaseInstanceProps:
             from aws_cdk.interfaces import aws_docdb as interfaces_docdb
             
             # ca_certificate: rds.CaCertificate
-            # d_bCluster_ref: interfaces_docdb.IDBClusterRef
+            # d_b_cluster_ref: interfaces_docdb.IDBClusterRef
             # instance_type: ec2.InstanceType
             
             database_instance_props = docdb.DatabaseInstanceProps(
-                cluster=d_bCluster_ref,
+                cluster=d_b_cluster_ref,
                 instance_type=instance_type,
             
                 # the properties below are optional
@@ -6500,11 +6500,11 @@ class DatabaseInstance(
         from aws_cdk.interfaces import aws_docdb as interfaces_docdb
         
         # ca_certificate: rds.CaCertificate
-        # d_bCluster_ref: interfaces_docdb.IDBClusterRef
+        # d_b_cluster_ref: interfaces_docdb.IDBClusterRef
         # instance_type: ec2.InstanceType
         
         database_instance = docdb.DatabaseInstance(self, "MyDatabaseInstance",
-            cluster=d_bCluster_ref,
+            cluster=d_b_cluster_ref,
             instance_type=instance_type,
         
             # the properties below are optional

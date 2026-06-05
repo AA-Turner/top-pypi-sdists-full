@@ -212,7 +212,7 @@ class CfnCatalog(
         description: typing.Optional[builtins.str] = None,
         federated_catalog: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCatalog.FederatedCatalogProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         overwrite_child_resource_permissions_with_default: typing.Optional[builtins.str] = None,
-        parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         target_redshift_catalog: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCatalog.TargetRedshiftCatalogProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -530,14 +530,14 @@ class CfnCatalog(
     @jsii.member(jsii_name="parameters")
     def parameters(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''A map of key-value pairs that define parameters and properties of the catalog.'''
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], jsii.get(self, "parameters"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "parameters"))
 
     @parameters.setter
     def parameters(
         self,
-        value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c559b5bb8c3dc9cdc70c7e9cb29321d8e9ab35cea80bb2bcfa859a88b009d9b1)
@@ -587,7 +587,7 @@ class CfnCatalog(
         def __init__(
             self,
             *,
-            custom_properties: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            custom_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             data_lake_access_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCatalog.DataLakeAccessPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''A structure that specifies data lake access properties and other custom properties.
@@ -633,13 +633,13 @@ class CfnCatalog(
         @builtins.property
         def custom_properties(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''Additional key-value properties for the catalog.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-catalog-catalogproperties.html#cfn-glue-catalog-catalogproperties-customproperties
             '''
             result = self._values.get("custom_properties")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def data_lake_access_properties(
@@ -1117,7 +1117,7 @@ class CfnCatalogProps:
         description: typing.Optional[builtins.str] = None,
         federated_catalog: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCatalog.FederatedCatalogProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         overwrite_child_resource_permissions_with_default: typing.Optional[builtins.str] = None,
-        parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         target_redshift_catalog: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCatalog.TargetRedshiftCatalogProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -1318,13 +1318,13 @@ class CfnCatalogProps:
     @builtins.property
     def parameters(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''A map of key-value pairs that define parameters and properties of the catalog.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-glue-catalog.html#cfn-glue-catalog-parameters
         '''
         result = self._values.get("parameters")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
@@ -2006,7 +2006,7 @@ class CfnClassifier(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_glue as glue
                 
-                x_mLClassifier_property = glue.CfnClassifier.XMLClassifierProperty(
+                x_ml_classifier_property = glue.CfnClassifier.XMLClassifierProperty(
                     classification="classification",
                     row_tag="rowTag",
                 
@@ -4364,7 +4364,7 @@ class CfnCrawler(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_glue as glue
                 
-                dynamo_dBTarget_property = glue.CfnCrawler.DynamoDBTargetProperty(
+                dynamo_db_target_property = glue.CfnCrawler.DynamoDBTargetProperty(
                     path="path",
                     scan_all=False,
                     scan_rate=123
@@ -4869,7 +4869,7 @@ class CfnCrawler(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_glue as glue
                 
-                mongo_dBTarget_property = glue.CfnCrawler.MongoDBTargetProperty(
+                mongo_db_target_property = glue.CfnCrawler.MongoDBTargetProperty(
                     connection_name="connectionName",
                     path="path"
                 )
@@ -8970,7 +8970,7 @@ class CfnIntegration(
         integration_name: builtins.str,
         source_arn: builtins.str,
         target_arn: builtins.str,
-        additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        additional_encryption_context: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         data_filter: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         integration_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnIntegration.IntegrationConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -9164,14 +9164,14 @@ class CfnIntegration(
     @jsii.member(jsii_name="additionalEncryptionContext")
     def additional_encryption_context(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''An optional set of non-secret key–value pairs that contains additional contextual information for encryption.'''
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], jsii.get(self, "additionalEncryptionContext"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "additionalEncryptionContext"))
 
     @additional_encryption_context.setter
     def additional_encryption_context(
         self,
-        value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fdae8fbf29465d3e784572b0b0cd509bd4b86fda352738668b16d2cf5b55debb)
@@ -9263,7 +9263,7 @@ class CfnIntegration(
             *,
             continuous_sync: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             refresh_interval: typing.Optional[builtins.str] = None,
-            source_properties: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            source_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         ) -> None:
             '''Properties associated with the integration.
 
@@ -9326,7 +9326,7 @@ class CfnIntegration(
         @builtins.property
         def source_properties(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''A collection of key-value pairs that specify additional properties for the integration source.
 
             These properties provide configuration options that can be used to customize the behavior of the ODB source during data integration operations.
@@ -9334,7 +9334,7 @@ class CfnIntegration(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-integration-integrationconfig.html#cfn-glue-integration-integrationconfig-sourceproperties
             '''
             result = self._values.get("source_properties")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9370,7 +9370,7 @@ class CfnIntegrationProps:
         integration_name: builtins.str,
         source_arn: builtins.str,
         target_arn: builtins.str,
-        additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        additional_encryption_context: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         data_filter: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         integration_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnIntegration.IntegrationConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -9486,7 +9486,7 @@ class CfnIntegrationProps:
     @builtins.property
     def additional_encryption_context(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''An optional set of non-secret key–value pairs that contains additional contextual information for encryption.
 
         This can only be provided if ``KMSKeyId`` is provided.
@@ -9494,7 +9494,7 @@ class CfnIntegrationProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-glue-integration.html#cfn-glue-integration-additionalencryptioncontext
         '''
         result = self._values.get("additional_encryption_context")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
     @builtins.property
     def data_filter(self) -> typing.Optional[builtins.str]:
@@ -11437,7 +11437,7 @@ class CfnMLTransform(
         
         # tags: Any
         
-        cfn_mLTransform = glue.CfnMLTransform(self, "MyCfnMLTransform",
+        cfn_ml_transform = glue.CfnMLTransform(self, "MyCfnMLTransform",
             input_record_tables=glue.CfnMLTransform.InputRecordTablesProperty(
                 glue_tables=[glue.CfnMLTransform.GlueTablesProperty(
                     database_name="databaseName",
@@ -12132,7 +12132,7 @@ class CfnMLTransform(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_glue as glue
                 
-                m_lUser_data_encryption_property = glue.CfnMLTransform.MLUserDataEncryptionProperty(
+                m_l_user_data_encryption_property = glue.CfnMLTransform.MLUserDataEncryptionProperty(
                     ml_user_data_encryption_mode="mlUserDataEncryptionMode",
                 
                     # the properties below are optional
@@ -12421,7 +12421,7 @@ class CfnMLTransformProps:
             
             # tags: Any
             
-            cfn_mLTransform_props = glue.CfnMLTransformProps(
+            cfn_ml_transform_props = glue.CfnMLTransformProps(
                 input_record_tables=glue.CfnMLTransform.InputRecordTablesProperty(
                     glue_tables=[glue.CfnMLTransform.GlueTablesProperty(
                         database_name="databaseName",
@@ -22015,7 +22015,7 @@ def _typecheckingstub__0a07ee451a608fb42438c018b7cb6e276511be6d53068500e35383ffc
     description: typing.Optional[builtins.str] = None,
     federated_catalog: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCatalog.FederatedCatalogProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     overwrite_child_resource_permissions_with_default: typing.Optional[builtins.str] = None,
-    parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     target_redshift_catalog: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCatalog.TargetRedshiftCatalogProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -22089,7 +22089,7 @@ def _typecheckingstub__626017bd17ccefc302a109575366777d47e9609a4e3f948a97b9bedfd
     pass
 
 def _typecheckingstub__c559b5bb8c3dc9cdc70c7e9cb29321d8e9ab35cea80bb2bcfa859a88b009d9b1(
-    value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22108,7 +22108,7 @@ def _typecheckingstub__1aee129aade4bae8d3a17027eaa2fe32e792bfe017f53562174644e63
 
 def _typecheckingstub__d531233ad58ced5460b464cc7ab8e253dc2303c1374f04f6a76f70745759bf2d(
     *,
-    custom_properties: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    custom_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     data_lake_access_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCatalog.DataLakeAccessPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -22168,7 +22168,7 @@ def _typecheckingstub__5ee7a7e009eccc26625e09e1177cd1257b2f0a950cd9987da2e77fbbb
     description: typing.Optional[builtins.str] = None,
     federated_catalog: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCatalog.FederatedCatalogProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     overwrite_child_resource_permissions_with_default: typing.Optional[builtins.str] = None,
-    parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     target_redshift_catalog: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCatalog.TargetRedshiftCatalogProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -23265,7 +23265,7 @@ def _typecheckingstub__ffac55aa81a7816fe9e423f20ae65fe96d6eaefe8319323ace391abf4
     integration_name: builtins.str,
     source_arn: builtins.str,
     target_arn: builtins.str,
-    additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    additional_encryption_context: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     data_filter: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     integration_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIntegration.IntegrationConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -23318,7 +23318,7 @@ def _typecheckingstub__6c90f32c3f4f977a6c57cf8067a12daa7ad826587da3931729e9041d1
     pass
 
 def _typecheckingstub__fdae8fbf29465d3e784572b0b0cd509bd4b86fda352738668b16d2cf5b55debb(
-    value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23357,7 +23357,7 @@ def _typecheckingstub__ae6c9dc8f813a3c3ee04db5d799231103e9e919054c51c98409891045
     *,
     continuous_sync: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     refresh_interval: typing.Optional[builtins.str] = None,
-    source_properties: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    source_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23367,7 +23367,7 @@ def _typecheckingstub__7f2b8d3a13e1abba572bec8e698443ba48d21c666cf9f1433d71d840e
     integration_name: builtins.str,
     source_arn: builtins.str,
     target_arn: builtins.str,
-    additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    additional_encryption_context: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     data_filter: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     integration_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIntegration.IntegrationConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,

@@ -1024,6 +1024,66 @@ def _extract_file_attachments(text: str, working_dir: Path) -> list[str]:
     return found
 
 
+def _filter_attachments_for_phone(file_paths: list[str], task_prompt: str) -> list[str]:
+    """Filter files so only Documents, Images, Videos, and Audio files are sent to the phone.
+    
+    Coding files (like .py, .js, .ts, etc.) are excluded unless specifically asked for.
+    """
+    prompt_lower = task_prompt.lower()
+    
+    # Check if specifically asked for coding/source/all files
+    import re
+    words = set(re.findall(r'[a-z0-9]+', prompt_lower))
+    
+    send_kws = {'send', 'attach', 'share', 'forward', 'text', 'message', 'email', 'get', 'transmit'}
+    code_kws = {'code', 'script', 'source', 'file', 'files', 'python', 'js', 'ts', 'html', 'css', 'java', 'go', 'rust', 'c', 'cpp', 'h', 'swift', 'kotlin'}
+    
+    specifically_asked = (
+        (not words.isdisjoint(send_kws) and not words.isdisjoint(code_kws)) or
+        "to phone" in prompt_lower or "to my phone" in prompt_lower
+    )
+    
+    if specifically_asked:
+        return file_paths
+        
+    # Standard coding extensions/names to exclude
+    coding_extensions = {
+        '.py', '.js', '.ts', '.tsx', '.jsx', '.java', '.go', '.rs', '.c', '.cpp', 
+        '.h', '.hpp', '.html', '.css', '.yaml', '.yml', '.toml', '.sh', '.bat', 
+        '.rb', '.php', '.pl', '.sql', '.swift', '.kt', '.kts', '.cs', '.pbxproj',
+        '.class', '.o', '.obj', '.dll', '.so', '.dylib', '.lock'
+    }
+    coding_filenames = {'dockerfile', 'makefile', 'gemfile', 'rakefile', 'pipfile'}
+    
+    # Standard allowed extensions for Documents, Images, Videos, and Audio
+    allowed_extensions = {
+        # Images
+        '.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.bmp', '.ico', '.tiff',
+        # Videos
+        '.mp4', '.mov', '.avi', '.mkv', '.webm', '.flv', '.mpeg', '.mpg',
+        # Audio
+        '.mp3', '.wav', '.m4a', '.flac', '.aac', '.ogg', '.wma',
+        # Documents
+        '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.txt', '.csv', '.md',
+    }
+    
+    filtered = []
+    for fp in file_paths:
+        p = Path(fp)
+        name_lower = p.name.lower()
+        suffix = p.suffix.lower()
+        
+        # If suffix is in coding_extensions or name is a known coding filename, exclude it.
+        if suffix in coding_extensions or name_lower in coding_filenames:
+            continue
+            
+        # If the suffix is in allowed_extensions, allow it.
+        if suffix in allowed_extensions:
+            filtered.append(fp)
+            
+    return filtered
+
+
 def _find_recent_files(working_dir: Path, start_time: float) -> list[str]:
     """Find files in the working directory modified since start_time, up to 50MB."""
     import os
@@ -2007,6 +2067,7 @@ class SAGEMessageBridge:
                 if fp not in seen_files:
                     seen_files.add(fp)
                     local_attachments.append(fp)
+            local_attachments = _filter_attachments_for_phone(local_attachments, task)
 
         body = f"[SAGE — {self.cfg.computer_name}] {output}"
         e164 = self._normalize_e164(sender)
@@ -2458,6 +2519,7 @@ class SAGEMessageBridge:
                 if fp not in seen_files:
                     seen_files.add(fp)
                     local_attachments.append(fp)
+            local_attachments = _filter_attachments_for_phone(local_attachments, task)
             if local_attachments:
                 self._log(f"Detected {len(local_attachments)} file attachment(s): {local_attachments}")
                 

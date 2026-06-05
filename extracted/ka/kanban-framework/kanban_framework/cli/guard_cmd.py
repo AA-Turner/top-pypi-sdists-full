@@ -26,7 +26,7 @@ def cmd_guard(args: list[str]) -> dict:
             return {"error": "task_id required"}
         task = tm.show(args[1])
         phase = Phase(args[2]) if len(args) > 2 else task.phase
-        result = guard.check_artifacts(task, phase, lightweight=task.lightweight)
+        result = guard.check_artifacts(task, phase)
         return {
             "subcommand": sub,
             "task_id": task.id,
@@ -41,7 +41,7 @@ def cmd_guard(args: list[str]) -> dict:
             return {"error": "task_id required"}
         task = tm.show(args[1])
         iteration = int(args[2]) if len(args) > 2 else task.iteration
-        result = guard.check_evaluation(task, iteration, lightweight=task.lightweight)
+        result = guard.check_evaluation(task, iteration)
         return {
             "subcommand": sub,
             "task_id": task.id,
@@ -144,7 +144,7 @@ def cmd_guard(args: list[str]) -> dict:
         if len(args) < 2:
             return {"error": "task_id required"}
         task = tm.show(args[1])
-        result = guard.check_phase_completeness(task, lightweight=task.lightweight)
+        result = guard.check_phase_completeness(task)
         return {
             "subcommand": sub,
             "task_id": task.id,

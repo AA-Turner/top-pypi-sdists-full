@@ -2,9 +2,11 @@
 
 This module provides a single entry point — :func:`make_fake_core` — that
 returns a ``FakeSession`` instance shaped to satisfy the **shared
-capability Protocols** in :mod:`notebooklm._session_contracts`
-(``RpcCaller``, ``LoopGuard``, ``OperationScopeProvider``,
-``AsyncWorkRuntime``, ``AuthMetadata``, ``Kernel``). Feature APIs that
+capability Protocols** in :mod:`notebooklm._runtime_contracts`
+(``RpcCaller``, ``LoopGuard``, ``Kernel``) plus the single-consumer
+Protocols inlined into their owning feature modules in issue #1327
+(``AuthMetadata`` in ``_source_upload``, ``OperationScopeProvider`` in
+``_artifact_polling``). Feature APIs that
 need more than one capability take their direct collaborators by
 keyword-only constructor argument (``ChatAPI`` in ``_chat.py``,
 ``ArtifactsAPI`` in ``_artifacts.py``, ``SourceUploadPipeline`` in
@@ -12,7 +14,7 @@ keyword-only constructor argument (``ChatAPI`` in ``_chat.py``,
 ``ArtifactsRuntime`` and ``UploadRuntime`` (and their adapter
 dataclasses) were retired once it was clear they only hid three stable
 collaborators with one production satisfier. (``ChatRuntime`` was
-deleted earlier on the same grounds — ADR-014 Rule 2 Corollary.) The
+deleted earlier on the same grounds — ADR-0014 Rule 2 Corollary.) The
 ``RpcCaller`` surface is exposed two ways: directly as
 ``fake.rpc_call`` (legacy single-attribute access path that some tests
 still use) AND as ``fake.rpc_executor.rpc_call`` mirroring the
@@ -29,7 +31,7 @@ Phase 7 (refactor-history.md §Migration Plan step 10) deleted the broad
 ``Session`` Protocol that this factory's defaults dict previously
 mirrored member-for-member. The dict now lists only the attribute slots
 features actually exercise — promoting an attribute requires a real
-test-site consumer, mirroring the ADR-013 promotion criterion for
+test-site consumer, mirroring the ADR-0013 promotion criterion for
 shared Protocols.
 
 See :doc:`docs/adr/0007-test-monkeypatch-policy.md` for the policy that
@@ -37,7 +39,7 @@ makes this factory the only sanctioned substitute for the forbidden
 ``monkeypatch.setattr("notebooklm.…")`` and
 ``target.rpc_call = AsyncMock(…)`` patterns.
 
-Design choices (documented in ADR-007 "Alternatives considered"):
+Design choices (documented in ADR-0007 "Alternatives considered"):
 
 - ``FakeSession`` is a plain class with explicit attribute storage
   (``types.SimpleNamespace``-shaped). It is *not* a spec-based
@@ -128,7 +130,7 @@ def make_fake_core(**overrides: Any) -> FakeSession:
     # the broad-Session-era 25+ entries to the minimum set that satisfies
     # the post-refactor capability and feature-local runtime Protocols.
     # New entries should only be added when a real test site exercises
-    # the attribute — mirroring the ADR-013 promotion criterion for
+    # the attribute — mirroring the ADR-0013 promotion criterion for
     # shared Protocols (≥2 consumers).
     # ``rpc_call`` is shared between the direct ``fake.rpc_call`` and the
     # ``fake.rpc_executor.rpc_call`` mirror so both attribute paths see
@@ -149,14 +151,15 @@ def make_fake_core(**overrides: Any) -> FakeSession:
         # bag-of-attributes.
         "rpc_call": rpc_call_mock,
         "rpc_executor": SimpleNamespace(rpc_call=rpc_call_mock),
-        # AsyncWorkRuntime (LoopGuard + OperationScopeProvider) — used by
-        # ArtifactsAPI polling and SourceUploadPipeline.
+        # LoopGuard + OperationScopeProvider (the latter inlined into
+        # ``_artifact_polling`` in #1327) — used by ArtifactsAPI polling
+        # and SourceUploadPipeline.
         "assert_bound_loop": MagicMock(return_value=None),
         "operation_scope": MagicMock(side_effect=_operation_scope),
         # DrainHookRegistration (local in ``_artifacts.py``) — close-time
         # hook the artifacts runtime registers against in
         # ``ArtifactsAPI.__init__``. Wave 2 of session-decoupling moved
-        # the storage onto ``TransportDrainTracker`` (ADR-014 Rule 1); we
+        # the storage onto ``TransportDrainTracker`` (ADR-0014 Rule 1); we
         # keep ``_drain_hooks`` as a public attribute on the fake so test
         # sites that previously read ``fake._drain_hooks["name"]`` still
         # work (the fake doesn't have a real ``_drain_tracker``).

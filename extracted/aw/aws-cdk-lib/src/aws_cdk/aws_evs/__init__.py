@@ -146,7 +146,7 @@ class CfnEnvironment(
                 placement_group_id="placementGroupId"
             )],
             initial_vlans=evs.CfnEnvironment.InitialVlansProperty(
-                edge_vTep=evs.CfnEnvironment.InitialVlanInfoProperty(
+                edge_v_tep=evs.CfnEnvironment.InitialVlanInfoProperty(
                     cidr="cidr"
                 ),
                 expansion_vlan1=evs.CfnEnvironment.InitialVlanInfoProperty(
@@ -1044,7 +1044,7 @@ class CfnEnvironment(
                 from aws_cdk import aws_evs as evs
                 
                 initial_vlans_property = evs.CfnEnvironment.InitialVlansProperty(
-                    edge_vTep=evs.CfnEnvironment.InitialVlanInfoProperty(
+                    edge_v_tep=evs.CfnEnvironment.InitialVlanInfoProperty(
                         cidr="cidr"
                     ),
                     expansion_vlan1=evs.CfnEnvironment.InitialVlanInfoProperty(
@@ -1771,7 +1771,7 @@ class CfnEnvironmentProps:
                     placement_group_id="placementGroupId"
                 )],
                 initial_vlans=evs.CfnEnvironment.InitialVlansProperty(
-                    edge_vTep=evs.CfnEnvironment.InitialVlanInfoProperty(
+                    edge_v_tep=evs.CfnEnvironment.InitialVlanInfoProperty(
                         cidr="cidr"
                     ),
                     expansion_vlan1=evs.CfnEnvironment.InitialVlanInfoProperty(

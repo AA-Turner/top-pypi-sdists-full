@@ -35,6 +35,11 @@ class ModelRegistryServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_model__registry__pb2.UpdateModelRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_model__registry__pb2.UpdateModelResponse.FromString,
         )
+        self.DeleteModel = channel.unary_unary(
+            "/chalk.server.v1.ModelRegistryService/DeleteModel",
+            request_serializer=chalk_dot_server_dot_v1_dot_model__registry__pb2.DeleteModelRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_model__registry__pb2.DeleteModelResponse.FromString,
+        )
         self.ListModelVersions = channel.unary_unary(
             "/chalk.server.v1.ModelRegistryService/ListModelVersions",
             request_serializer=chalk_dot_server_dot_v1_dot_model__registry__pb2.ListModelVersionsRequest.SerializeToString,
@@ -64,6 +69,11 @@ class ModelRegistryServiceStub(object):
             "/chalk.server.v1.ModelRegistryService/UpdateModelVersion",
             request_serializer=chalk_dot_server_dot_v1_dot_model__registry__pb2.UpdateModelVersionRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_model__registry__pb2.UpdateModelVersionResponse.FromString,
+        )
+        self.DeleteModelVersion = channel.unary_unary(
+            "/chalk.server.v1.ModelRegistryService/DeleteModelVersion",
+            request_serializer=chalk_dot_server_dot_v1_dot_model__registry__pb2.DeleteModelVersionRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_model__registry__pb2.DeleteModelVersionResponse.FromString,
         )
         self.DownloadModelArtifact = channel.unary_unary(
             "/chalk.server.v1.ModelRegistryService/DownloadModelArtifact",
@@ -124,6 +134,12 @@ class ModelRegistryServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def DeleteModel(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def ListModelVersions(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -155,6 +171,12 @@ class ModelRegistryServiceServicer(object):
         raise NotImplementedError("Method not implemented!")
 
     def UpdateModelVersion(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def DeleteModelVersion(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -219,6 +241,11 @@ def add_ModelRegistryServiceServicer_to_server(servicer, server):
             request_deserializer=chalk_dot_server_dot_v1_dot_model__registry__pb2.UpdateModelRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_model__registry__pb2.UpdateModelResponse.SerializeToString,
         ),
+        "DeleteModel": grpc.unary_unary_rpc_method_handler(
+            servicer.DeleteModel,
+            request_deserializer=chalk_dot_server_dot_v1_dot_model__registry__pb2.DeleteModelRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_model__registry__pb2.DeleteModelResponse.SerializeToString,
+        ),
         "ListModelVersions": grpc.unary_unary_rpc_method_handler(
             servicer.ListModelVersions,
             request_deserializer=chalk_dot_server_dot_v1_dot_model__registry__pb2.ListModelVersionsRequest.FromString,
@@ -248,6 +275,11 @@ def add_ModelRegistryServiceServicer_to_server(servicer, server):
             servicer.UpdateModelVersion,
             request_deserializer=chalk_dot_server_dot_v1_dot_model__registry__pb2.UpdateModelVersionRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_model__registry__pb2.UpdateModelVersionResponse.SerializeToString,
+        ),
+        "DeleteModelVersion": grpc.unary_unary_rpc_method_handler(
+            servicer.DeleteModelVersion,
+            request_deserializer=chalk_dot_server_dot_v1_dot_model__registry__pb2.DeleteModelVersionRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_model__registry__pb2.DeleteModelVersionResponse.SerializeToString,
         ),
         "DownloadModelArtifact": grpc.unary_unary_rpc_method_handler(
             servicer.DownloadModelArtifact,
@@ -394,6 +426,35 @@ class ModelRegistryService(object):
             "/chalk.server.v1.ModelRegistryService/UpdateModel",
             chalk_dot_server_dot_v1_dot_model__registry__pb2.UpdateModelRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_model__registry__pb2.UpdateModelResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def DeleteModel(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.ModelRegistryService/DeleteModel",
+            chalk_dot_server_dot_v1_dot_model__registry__pb2.DeleteModelRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_model__registry__pb2.DeleteModelResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -568,6 +629,35 @@ class ModelRegistryService(object):
             "/chalk.server.v1.ModelRegistryService/UpdateModelVersion",
             chalk_dot_server_dot_v1_dot_model__registry__pb2.UpdateModelVersionRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_model__registry__pb2.UpdateModelVersionResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def DeleteModelVersion(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.ModelRegistryService/DeleteModelVersion",
+            chalk_dot_server_dot_v1_dot_model__registry__pb2.DeleteModelVersionRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_model__registry__pb2.DeleteModelVersionResponse.FromString,
             options,
             channel_credentials,
             insecure,

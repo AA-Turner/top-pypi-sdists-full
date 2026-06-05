@@ -438,7 +438,7 @@ class CfnComponentVersion(
         def __init__(
             self,
             *,
-            attributes: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             name: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Contains information about a platform that a component supports.
@@ -475,7 +475,7 @@ class CfnComponentVersion(
         @builtins.property
         def attributes(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''A dictionary of attributes for the platform.
 
             The AWS IoT Greengrass Core software defines the ``os`` and ``platform`` by default. You can specify additional platform attributes for a core device when you deploy the AWS IoT Greengrass nucleus component. For more information, see the `AWS IoT Greengrass nucleus component <https://docs.aws.amazon.com/greengrass/v2/developerguide/greengrass-nucleus-component.html>`_ in the *AWS IoT Greengrass V2 Developer Guide* .
@@ -483,7 +483,7 @@ class CfnComponentVersion(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrassv2-componentversion-componentplatform.html#cfn-greengrassv2-componentversion-componentplatform-attributes
             '''
             result = self._values.get("attributes")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def name(self) -> typing.Optional[builtins.str]:
@@ -822,7 +822,7 @@ class CfnComponentVersion(
         def __init__(
             self,
             *,
-            environment_variables: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            environment_variables: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             event_sources: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponentVersion.LambdaEventSourceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             exec_args: typing.Optional[typing.Sequence[builtins.str]] = None,
             input_payload_encoding_type: typing.Optional[builtins.str] = None,
@@ -933,13 +933,13 @@ class CfnComponentVersion(
         @builtins.property
         def environment_variables(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''The map of environment variables that are available to the Lambda function when it runs.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrassv2-componentversion-lambdaexecutionparameters.html#cfn-greengrassv2-componentversion-lambdaexecutionparameters-environmentvariables
             '''
             result = self._values.get("environment_variables")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def event_sources(
@@ -2434,7 +2434,7 @@ class CfnDeployment(
                 
                 # rate_increase_criteria: Any
                 
-                deployment_io_tJob_configuration_property = greengrassv2.CfnDeployment.DeploymentIoTJobConfigurationProperty(
+                deployment_io_t_job_configuration_property = greengrassv2.CfnDeployment.DeploymentIoTJobConfigurationProperty(
                     abort_config=greengrassv2.CfnDeployment.IoTJobAbortConfigProperty(
                         criteria_list=[greengrassv2.CfnDeployment.IoTJobAbortCriteriaProperty(
                             action="action",
@@ -2647,7 +2647,7 @@ class CfnDeployment(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_greengrassv2 as greengrassv2
                 
-                io_tJob_abort_config_property = greengrassv2.CfnDeployment.IoTJobAbortConfigProperty(
+                io_t_job_abort_config_property = greengrassv2.CfnDeployment.IoTJobAbortConfigProperty(
                     criteria_list=[greengrassv2.CfnDeployment.IoTJobAbortCriteriaProperty(
                         action="action",
                         failure_type="failureType",
@@ -2726,7 +2726,7 @@ class CfnDeployment(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_greengrassv2 as greengrassv2
                 
-                io_tJob_abort_criteria_property = greengrassv2.CfnDeployment.IoTJobAbortCriteriaProperty(
+                io_t_job_abort_criteria_property = greengrassv2.CfnDeployment.IoTJobAbortCriteriaProperty(
                     action="action",
                     failure_type="failureType",
                     min_number_of_executed_things=123,
@@ -2832,7 +2832,7 @@ class CfnDeployment(
                 
                 # rate_increase_criteria: Any
                 
-                io_tJob_executions_rollout_config_property = greengrassv2.CfnDeployment.IoTJobExecutionsRolloutConfigProperty(
+                io_t_job_executions_rollout_config_property = greengrassv2.CfnDeployment.IoTJobExecutionsRolloutConfigProperty(
                     exponential_rate=greengrassv2.CfnDeployment.IoTJobExponentialRolloutRateProperty(
                         base_rate_per_minute=123,
                         increment_factor=123,
@@ -2916,7 +2916,7 @@ class CfnDeployment(
                 
                 # rate_increase_criteria: Any
                 
-                io_tJob_exponential_rollout_rate_property = greengrassv2.CfnDeployment.IoTJobExponentialRolloutRateProperty(
+                io_t_job_exponential_rollout_rate_property = greengrassv2.CfnDeployment.IoTJobExponentialRolloutRateProperty(
                     base_rate_per_minute=123,
                     increment_factor=123,
                     rate_increase_criteria=rate_increase_criteria
@@ -3002,7 +3002,7 @@ class CfnDeployment(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_greengrassv2 as greengrassv2
                 
-                io_tJob_timeout_config_property = greengrassv2.CfnDeployment.IoTJobTimeoutConfigProperty(
+                io_t_job_timeout_config_property = greengrassv2.CfnDeployment.IoTJobTimeoutConfigProperty(
                     in_progress_timeout_in_minutes=123
                 )
             '''
@@ -3409,7 +3409,7 @@ def _typecheckingstub__8c678ca853046a4f9a77f7c2dd92c2ab09d84c106fa6e8f450dca99e2
 
 def _typecheckingstub__868d55cb9cd63d9081a8bb6f44c49ad0558ce766d47dc9e602b30fa6d7823104(
     *,
-    attributes: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -3444,7 +3444,7 @@ def _typecheckingstub__d2bdb1aa21a11fead4d3211e8427d3370a925fda227540a812604c871
 
 def _typecheckingstub__000b16ea913d1bbaf1c4a8d0fc0503b8b2497e7799ae2cf1cbbf4d109ec5d229(
     *,
-    environment_variables: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    environment_variables: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     event_sources: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponentVersion.LambdaEventSourceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     exec_args: typing.Optional[typing.Sequence[builtins.str]] = None,
     input_payload_encoding_type: typing.Optional[builtins.str] = None,

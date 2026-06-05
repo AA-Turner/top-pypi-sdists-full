@@ -33,7 +33,6 @@ if not (numpy_available and scipy_available):
 
 if scipy_available:
     from pyomo.contrib.doe import DesignOfExperiments
-    from pyomo.contrib.doe.examples.reactor_experiment import ReactorExperiment
     from pyomo.contrib.doe.examples.reactor_example import (
         ReactorExperiment as FullReactorExperiment,
         run_reactor_doe,
@@ -115,10 +114,6 @@ def get_FIM_Q_L(doe_obj=None):
     sigma_inv = [
         1 / v**2 for k, v in model.scenario_blocks[0].measurement_error.items()
     ]
-    param_vals = np.array(
-        [[v for k, v in model.scenario_blocks[0].unknown_parameters.items()]]
-    )
-
     FIM_vals_np = np.array(FIM_vals).reshape((n_param, n_param))
 
     for i in range(n_param):
@@ -616,7 +611,8 @@ class TestDoe(unittest.TestCase):
             923636.598578955,
         ]
         ff = run_reactor_doe(
-            n_points_for_design=2,
+            n_points_for_C0=2,
+            n_points_for_T0=2,
             compute_FIM_full_factorial=False,
             plot_factorial_results=False,
             run_optimal_doe=False,
@@ -884,7 +880,8 @@ class TestDoEFactorialFigure(unittest.TestCase):
 
         # Run the reactor example
         run_reactor_doe(
-            n_points_for_design=1,
+            n_points_for_C0=1,
+            n_points_for_T0=1,
             compute_FIM_full_factorial=True,
             plot_factorial_results=True,
             figure_file_name=prefix_linear,
@@ -902,7 +899,8 @@ class TestDoEFactorialFigure(unittest.TestCase):
 
         # Run the reactor example with log scale
         run_reactor_doe(
-            n_points_for_design=1,
+            n_points_for_C0=1,
+            n_points_for_T0=1,
             compute_FIM_full_factorial=True,
             plot_factorial_results=True,
             figure_file_name=prefix_log,

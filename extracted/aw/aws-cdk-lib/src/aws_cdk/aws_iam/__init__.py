@@ -550,7 +550,7 @@ policy_document = {
         ],
         "Resource": ["arn:aws:s3:::confidential-data", "arn:aws:s3:::confidential-data/*"
         ],
-        "Condition": {"Bool": {"aws:_multi_factor_auth_present": "true"}}
+        "Condition": {"Bool": {"aws:multi_factor_auth_present": "true"}}
     }
     ]
 }
@@ -3167,7 +3167,7 @@ class CfnOIDCProvider(
         # The values are placeholders you should change.
         from aws_cdk import aws_iam as iam
         
-        cfn_oIDCProvider = iam.CfnOIDCProvider(self, "MyCfnOIDCProvider",
+        cfn_oidc_provider = iam.CfnOIDCProvider(self, "MyCfnOIDCProvider",
             client_id_list=["clientIdList"],
             tags=[CfnTag(
                 key="key",
@@ -3389,7 +3389,7 @@ class CfnOIDCProviderProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_iam as iam
             
-            cfn_oIDCProvider_props = iam.CfnOIDCProviderProps(
+            cfn_oidc_provider_props = iam.CfnOIDCProviderProps(
                 client_id_list=["clientIdList"],
                 tags=[CfnTag(
                     key="key",
@@ -4777,7 +4777,7 @@ class CfnSAMLProvider(
         # The values are placeholders you should change.
         from aws_cdk import aws_iam as iam
         
-        cfn_sAMLProvider = iam.CfnSAMLProvider(self, "MyCfnSAMLProvider",
+        cfn_saml_provider = iam.CfnSAMLProvider(self, "MyCfnSAMLProvider",
             add_private_key="addPrivateKey",
             assertion_encryption_mode="assertionEncryptionMode",
             name="name",
@@ -5050,7 +5050,7 @@ class CfnSAMLProvider(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_iam as iam
                 
-                s_aMLPrivate_key_property = iam.CfnSAMLProvider.SAMLPrivateKeyProperty(
+                s_aml_private_key_property = iam.CfnSAMLProvider.SAMLPrivateKeyProperty(
                     key_id="keyId",
                     timestamp="timestamp"
                 )
@@ -5141,7 +5141,7 @@ class CfnSAMLProviderProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_iam as iam
             
-            cfn_sAMLProvider_props = iam.CfnSAMLProviderProps(
+            cfn_saml_provider_props = iam.CfnSAMLProviderProps(
                 add_private_key="addPrivateKey",
                 assertion_encryption_mode="assertionEncryptionMode",
                 name="name",
@@ -7133,7 +7133,7 @@ class CfnVirtualMFADevice(
         # The values are placeholders you should change.
         from aws_cdk import aws_iam as iam
         
-        cfn_virtual_mFADevice = iam.CfnVirtualMFADevice(self, "MyCfnVirtualMFADevice",
+        cfn_virtual_mfa_device = iam.CfnVirtualMFADevice(self, "MyCfnVirtualMFADevice",
             users=["users"],
         
             # the properties below are optional
@@ -7340,7 +7340,7 @@ class CfnVirtualMFADeviceProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_iam as iam
             
-            cfn_virtual_mFADevice_props = iam.CfnVirtualMFADeviceProps(
+            cfn_virtual_mfa_device_props = iam.CfnVirtualMFADeviceProps(
                 users=["users"],
             
                 # the properties below are optional
@@ -10493,7 +10493,7 @@ class ManagedPolicyProps:
                     ],
                     "Resource": ["arn:aws:s3:::confidential-data", "arn:aws:s3:::confidential-data/*"
                     ],
-                    "Condition": {"Bool": {"aws:_multi_factor_auth_present": "true"}}
+                    "Condition": {"Bool": {"aws:multi_factor_auth_present": "true"}}
                 }
                 ]
             }
@@ -11636,7 +11636,7 @@ class PolicyDocumentProps:
             topic_policy = sns.TopicPolicy(self, "Policy",
                 topics=[topic],
                 policy_document=policy_document,
-                enforce_sSL=True
+                enforce_ssl=True
             )
         '''
         if __debug__:

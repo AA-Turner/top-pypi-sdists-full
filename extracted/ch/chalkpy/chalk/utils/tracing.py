@@ -55,14 +55,68 @@ _TRACING_CONFIGURED = Once()
 _logger = get_logger(__name__)
 
 if can_use_otel_trace:
+    import os as _os
+
     from opentelemetry import context as otel_context
     from opentelemetry import trace as otel_trace
     from opentelemetry.propagate import inject as otel_inject
 
     _logger.debug("OTEL trace packages installed, otel tracing is available")
 
+    # Skip span allocation when no exporter is configured.
+    _TRACING_ENABLED: bool = _os.environ.get("OTEL_TRACES_SAMPLER") != "always_off" and any(
+        _os.environ.get(var)
+        for var in (
+            "OTEL_EXPORTER_OTLP_ENDPOINT",
+            "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT",
+        )
+    )
+
+    class _NoOpSpan:
+        """Duck-typed no-op Span. Yielded by `safe_trace` when tracing is disabled."""
+
+        __slots__ = ()
+
+        def set_attribute(self, *args: object, **kwargs: object) -> "_NoOpSpan":
+            return self
+
+        def set_attributes(self, *args: object, **kwargs: object) -> "_NoOpSpan":
+            return self
+
+        def set_status(self, *args: object, **kwargs: object) -> "_NoOpSpan":
+            return self
+
+        def add_event(self, *args: object, **kwargs: object) -> "_NoOpSpan":
+            return self
+
+        def record_exception(self, *args: object, **kwargs: object) -> "_NoOpSpan":
+            return self
+
+        def update_name(self, *args: object, **kwargs: object) -> "_NoOpSpan":
+            return self
+
+        def end(self, *args: object, **kwargs: object) -> None:
+            return None
+
+        def is_recording(self) -> bool:
+            return False
+
+        def get_span_context(self):  # noqa: ANN201 — match Span API
+            return otel_trace.INVALID_SPAN_CONTEXT
+
+        def __enter__(self) -> "_NoOpSpan":
+            return self
+
+        def __exit__(self, *exc_info: object) -> None:
+            return None
+
+    _NOOP_SPAN: _NoOpSpan = _NoOpSpan()
+
     @contextlib.contextmanager
     def safe_trace(span_id: str, attributes: Mapping[str, str] | None = None):  # pyright: ignore[reportRedeclaration]
+        if not _TRACING_ENABLED:
+            yield _NOOP_SPAN
+            return
         configure_tracing("chalkpy")
         if attributes is None:
             attributes = {}
@@ -73,16 +127,22 @@ if can_use_otel_trace:
             yield span
 
     def safe_add_metrics(metrics: Mapping[str, Union[int, float]]):  # pyright: ignore[reportRedeclaration]
+        if not _TRACING_ENABLED:
+            return
         configure_tracing("chalkpy")
         current_span = otel_trace.get_current_span()
         current_span.set_attributes(dict(metrics))
 
     def safe_add_tags(tags: Mapping[str, str]):
+        if not _TRACING_ENABLED:
+            return
         configure_tracing("chalkpy")
         current_span = otel_trace.get_current_span()
         current_span.set_attributes(dict(tags))
 
     def safe_current_trace_context() -> otel_trace.SpanContext | None:  # pyright: ignore[reportRedeclaration]
+        if not _TRACING_ENABLED:
+            return None
         configure_tracing("chalkpy")
         return otel_trace.get_current_span().get_span_context()
 

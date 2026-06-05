@@ -9,6 +9,7 @@ import logging
 import os
 import traceback
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, Generic, Literal, cast, get_args, get_origin
@@ -245,6 +246,7 @@ class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[Co
         review_fn: Any | None = None,
         max_review_continuations: int = 2,
         review_exhaustion_policy: Literal["fail", "merge", "raise"] = "fail",
+        review_compaction_instruction: str | Callable[[], str] | None = None,
     ) -> AgentTask:
         """Get an agent runner for the given config.
 
@@ -347,6 +349,7 @@ class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[Co
             runner._review_fn = review_fn
             runner._max_review_continuations = max_review_continuations
             runner._review_exhaustion_policy = review_exhaustion_policy
+            runner._review_compaction_instruction = review_compaction_instruction
 
         return runner
 

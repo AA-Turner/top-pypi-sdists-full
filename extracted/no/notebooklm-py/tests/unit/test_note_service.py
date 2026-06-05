@@ -7,7 +7,7 @@ download path uses).
 
 The classifier behaviour, CRUD wire payloads, and the audit §28
 cancel-shielded ``create_note`` are all exercised here; Phase 6
-(refactor-history.md Step 9, ADR-013) retired the legacy
+(refactor-history.md Step 9, ADR-0013) retired the legacy
 ``test_mind_map_service.py`` tests because the underlying
 ``MindMapService`` class is gone.
 """
@@ -29,7 +29,7 @@ from notebooklm.types import Note
 
 @pytest.fixture
 def mock_session() -> FakeSession:
-    # ``make_fake_core`` is the ADR-007 sanctioned substrate. We inject a
+    # ``make_fake_core`` is the ADR-0007 sanctioned substrate. We inject a
     # fresh ``AsyncMock`` for ``rpc_call`` at construction time so per-test
     # ``.return_value`` / ``.side_effect`` assignment still works.
     return make_fake_core(rpc_call=AsyncMock(return_value=None))
@@ -238,10 +238,11 @@ class TestCrud:
         )
 
     @pytest.mark.asyncio
-    async def test_delete_note_returns_true_and_sends_soft_delete(
+    async def test_delete_note_returns_none_and_sends_soft_delete(
         self, service: NoteService, mock_session: FakeSession
     ) -> None:
-        assert await service.delete_note("nb_123", "note_123") is True
+        # v0.7.0: delete_note returns None (issue #1211).
+        assert await service.delete_note("nb_123", "note_123") is None
 
         mock_session.rpc_executor.rpc_call.assert_awaited_once_with(
             RPCMethod.DELETE_NOTE,
@@ -254,7 +255,7 @@ class TestCrud:
 class TestCreateNoteCancellation:
     """Audit item §28: cancel mid-UPDATE_NOTE must not leave an orphan row.
 
-    Moved to ``NoteService`` in Phase 6 (refactor-history.md Step 9, ADR-013).
+    Moved to ``NoteService`` in Phase 6 (refactor-history.md Step 9, ADR-0013).
     The legacy ``_mind_map.MindMapService.create_note`` path that
     previously owned the shield + best-effort cleanup contract was
     retired in the same phase; the contract itself lives here now.

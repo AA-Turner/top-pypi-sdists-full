@@ -1,20 +1,20 @@
 """Integration tests for the authed-post middleware chain.
 
-:func:`notebooklm._middleware.build_chain` is wired by
+:func:`notebooklm._middleware.core.build_chain` is wired by
 :func:`compose_client_internals` against the chain leaf on
 :class:`MiddlewareChainHost`
 (:meth:`MiddlewareChainHost._authed_post_chain_terminal`), which
 consumes the populated ``RpcRequest.url`` / ``headers`` / ``body``
 envelope and delegates directly to ``Kernel.post`` — the transport
-seam under both :meth:`SessionTransport.perform_authed_post` AND
+seam under both :meth:`RuntimeTransport.perform_authed_post` AND
 ``RpcExecutor._execute_once``. The ``NotebookLMClient._perform_authed_post``
 compatibility forward was deleted in Wave 11c of session-decoupling;
 tests now drive the canonical collaborator method directly.
 
 These tests verify the wiring contract from
-ADR-009 §"RpcRequest.context keys":
+ADR-0009 §"RpcRequest.context keys":
 
-1. Both call paths (``SessionTransport.perform_authed_post`` directly
+1. Both call paths (``RuntimeTransport.perform_authed_post`` directly
    and the ``RpcExecutor._execute_once`` keyword shape) flow through
    the chain terminal to the transport.
 2. ``RpcRequest.context`` carries ``build_request`` / ``log_label`` /
@@ -33,7 +33,7 @@ import httpx
 import pytest
 
 from _helpers.client_factory import build_client_shell_for_tests
-from notebooklm._middleware import (
+from notebooklm._middleware.core import (
     Middleware,
     NextCall,
     RpcRequest,
@@ -88,10 +88,10 @@ def _swap_kernel_post(core: NotebookLMClient, fake: FakeKernelPost) -> None:
 
 @pytest.mark.asyncio
 async def test_chain_routes_perform_authed_post_to_transport() -> None:
-    """``SessionTransport.perform_authed_post`` flows through the chain.
+    """``RuntimeTransport.perform_authed_post`` flows through the chain.
 
-    Covers direct callers of ``SessionTransport.perform_authed_post``:
-    the chat path in ``_chat_transport.py:64`` and any first-party
+    Covers direct callers of ``RuntimeTransport.perform_authed_post``:
+    the chat path in ``_chat/transport.py:64`` and any first-party
     caller via ``client._composed.transport.perform_authed_post``.
     """
     expected_response = httpx.Response(status_code=200, content=b"chain-routed")
@@ -122,7 +122,7 @@ async def test_chain_routes_rpc_executor_path_to_transport() -> None:
 
     ``RpcExecutor._execute_once`` calls
     ``self._transport.perform_authed_post(...)`` (Wave 4 of
-    session-decoupling: the executor takes :class:`SessionTransport`
+    session-decoupling: the executor takes :class:`RuntimeTransport`
     directly instead of reaching through NotebookLMClient). Routing both paths
     through one seam is the whole point of wiring at
     ``perform_authed_post`` rather than at each call site.
@@ -164,7 +164,7 @@ async def test_chain_terminal_reads_context_keys() -> None:
 
     Drives the terminal adapter directly with a hand-built ``RpcRequest``
     so we can assert the contract independently of
-    :meth:`SessionTransport.perform_authed_post`'s context-construction code.
+    :meth:`RuntimeTransport.perform_authed_post`'s context-construction code.
     This is what every middleware PR 12.3–12.8 will rely on when it
     builds a chain over ``[*middlewares, ...]`` and lets the leaf adapt
     the request into a transport call.
@@ -255,7 +255,7 @@ async def test_chain_terminal_log_label_defaults_for_direct_calls() -> None:
 
 @pytest.mark.asyncio
 async def test_chain_seeded_with_final_adr_009_ordering() -> None:
-    """``NotebookLMClient.__init__`` seeds the chain with the FINAL ADR-009 ordering.
+    """``NotebookLMClient.__init__`` seeds the chain with the FINAL ADR-0009 ordering.
 
     PR 12.3 landed ``TracingMiddleware`` at the innermost position; PR 12.4
     prepended ``MetricsMiddleware``; PR 12.5 prepended ``DrainMiddleware``
@@ -264,12 +264,12 @@ async def test_chain_seeded_with_final_adr_009_ordering() -> None:
     Metrics and ErrorInjection; PR 12.8 inserted ``AuthRefreshMiddleware``
     between Retry and ErrorInjection; PR 12.9 inserted
     ``SemaphoreMiddleware`` between Metrics and Retry (codex catch — see
-    ADR-009 close-out notes). The list now reads the final ADR-009
+    ADR-0009 close-out notes). The list now reads the final ADR-0009
     ordering
     ``[Drain, Metrics, Semaphore, Retry, AuthRefresh, ErrorInjection, Tracing]``
     (outermost → innermost).
 
-    Order rationale (per ADR-009):
+    Order rationale (per ADR-0009):
     - Drain outermost — every in-flight call counts toward shutdown wait
     - Metrics outside Semaphore — latency includes queue wait
     - Semaphore outside Retry — retry attempts stay in one slot
@@ -281,13 +281,13 @@ async def test_chain_seeded_with_final_adr_009_ordering() -> None:
     The list is exposed as ``self._middlewares`` so the cleanup audit can
     verify ordering by inspecting the production attribute directly.
     """
-    from notebooklm._middleware_auth_refresh import AuthRefreshMiddleware
-    from notebooklm._middleware_drain import DrainMiddleware
-    from notebooklm._middleware_error_injection import ErrorInjectionMiddleware
-    from notebooklm._middleware_metrics import MetricsMiddleware
-    from notebooklm._middleware_retry import RetryMiddleware
-    from notebooklm._middleware_semaphore import SemaphoreMiddleware
-    from notebooklm._middleware_tracing import TracingMiddleware
+    from notebooklm._middleware.auth_refresh import AuthRefreshMiddleware
+    from notebooklm._middleware.drain import DrainMiddleware
+    from notebooklm._middleware.error_injection import ErrorInjectionMiddleware
+    from notebooklm._middleware.metrics import MetricsMiddleware
+    from notebooklm._middleware.retry import RetryMiddleware
+    from notebooklm._middleware.semaphore import SemaphoreMiddleware
+    from notebooklm._middleware.tracing import TracingMiddleware
 
     core = _make_core()
     assert len(core._composed.middlewares) == 7
@@ -383,13 +383,13 @@ def test_perform_authed_post_signature_unchanged() -> None:
     accidental rename. The NotebookLMClient-level ``_perform_authed_post`` forward
     was deleted in Wave 11c of session-decoupling; the signature contract
     now lives on the canonical collaborator method
-    (``SessionTransport.perform_authed_post``).
+    (``RuntimeTransport.perform_authed_post``).
     """
     import inspect
 
-    from notebooklm._session_transport import SessionTransport
+    from notebooklm._runtime.transport import RuntimeTransport
 
-    sig = inspect.signature(SessionTransport.perform_authed_post)
+    sig = inspect.signature(RuntimeTransport.perform_authed_post)
     params = sig.parameters
     assert "build_request" in params
     assert "log_label" in params

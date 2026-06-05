@@ -5,6 +5,7 @@ from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from chalk._gen.chalk.common.v1 import chalk_error_pb2 as _chalk_error_pb2
 from chalk._gen.chalk.graph.v1 import graph_pb2 as _graph_pb2
 from google.protobuf.internal import containers as _containers
+from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
 from typing import (
@@ -16,6 +17,16 @@ from typing import (
 )
 
 DESCRIPTOR: _descriptor.FileDescriptor
+
+class DiffMode(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    DIFF_MODE_UNSPECIFIED: _ClassVar[DiffMode]
+    DIFF_MODE_FULL: _ClassVar[DiffMode]
+    DIFF_MODE_SIMPLE: _ClassVar[DiffMode]
+
+DIFF_MODE_UNSPECIFIED: DiffMode
+DIFF_MODE_FULL: DiffMode
+DIFF_MODE_SIMPLE: DiffMode
 
 class FeatureSQL(_message.Message):
     __slots__ = (
@@ -545,13 +556,18 @@ class GetOfflineStoreTableResponse(_message.Message):
     def __init__(self, tables: _Optional[_Iterable[_Union[OfflineTable, _Mapping]]] = ...) -> None: ...
 
 class DiffDeploymentsRequest(_message.Message):
-    __slots__ = ("deployment_id_before", "deployment_id_after")
+    __slots__ = ("deployment_id_before", "deployment_id_after", "diff_mode")
     DEPLOYMENT_ID_BEFORE_FIELD_NUMBER: _ClassVar[int]
     DEPLOYMENT_ID_AFTER_FIELD_NUMBER: _ClassVar[int]
+    DIFF_MODE_FIELD_NUMBER: _ClassVar[int]
     deployment_id_before: str
     deployment_id_after: str
+    diff_mode: DiffMode
     def __init__(
-        self, deployment_id_before: _Optional[str] = ..., deployment_id_after: _Optional[str] = ...
+        self,
+        deployment_id_before: _Optional[str] = ...,
+        deployment_id_after: _Optional[str] = ...,
+        diff_mode: _Optional[_Union[DiffMode, str]] = ...,
     ) -> None: ...
 
 class DiffDeploymentsResponse(_message.Message):
@@ -570,10 +586,14 @@ class DiffDeploymentsResponse(_message.Message):
     ) -> None: ...
 
 class SmartDiffDeploymentRequest(_message.Message):
-    __slots__ = ("deployment_id",)
+    __slots__ = ("deployment_id", "diff_mode")
     DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    DIFF_MODE_FIELD_NUMBER: _ClassVar[int]
     deployment_id: str
-    def __init__(self, deployment_id: _Optional[str] = ...) -> None: ...
+    diff_mode: DiffMode
+    def __init__(
+        self, deployment_id: _Optional[str] = ..., diff_mode: _Optional[_Union[DiffMode, str]] = ...
+    ) -> None: ...
 
 class SmartDiffDeploymentResponse(_message.Message):
     __slots__ = ("deploy_id_before", "deploy_id_after", "diff")

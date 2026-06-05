@@ -53,7 +53,7 @@ class DRTAccessReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_shield as interfaces_shield
             
-            d_rTAccess_reference = interfaces_shield.DRTAccessReference(
+            d_rt_access_reference = interfaces_shield.DRTAccessReference(
                 account_id="accountId"
             )
         '''

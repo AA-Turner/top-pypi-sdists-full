@@ -169,12 +169,8 @@ void CascadeBuilder::BuildCascades(Schedule *refSchedule, Schedule *fallbackSche
         std::vector<SchedulerOperation *> opsInBestCascade = {op};
 
         // Get the size of the weight buffer
-        int weightBufferSize = 0;
-        auto refCost = refSchedule->Cost(op);
-        if ( refCost->bufferedWeightTensor.tensor )
-        {
-            weightBufferSize = refCost->bufferedWeightTensor.tensor->AllocationSizeBytes();
-        }
+        auto *refCost = refSchedule->Cost(op);
+        int weightBufferSize = refCost->bufferedWeightTensor.AllocatedSize();
 
         // The first IFM is stored in full unless spilling disables it.
         const int ifmStoredSize = _spilling ? 0 : ifm->tensor->AllocationSizeBytes();
@@ -229,6 +225,7 @@ void CascadeBuilder::BuildCascades(Schedule *refSchedule, Schedule *fallbackSche
 
         // Op is the producer of the OFM consumed by the next Op to consider
         auto producer = op;
+        CascadeBuffer previousBuffer;
         while ( true )
         {
             auto &dependants = producer->OFM()->tensor->consumers;
@@ -260,29 +257,32 @@ void CascadeBuilder::BuildCascades(Schedule *refSchedule, Schedule *fallbackSche
             }
 
             // Get the size of the FeatureMap buffers between current and neighbouring Ops
+            auto currentOfm = currentOp->SubOps().empty() ? currentOp->OFM() : currentOp->SubOps().back()->OFM();
             int opFullIfmSize = currentIfm->tensor->AllocationSizeBytes();
-            int opFullOfmSize = currentOp->OFM()->tensor->AllocationSizeBytes();
+            int opFullOfmSize = currentOfm->tensor->AllocationSizeBytes();
 
             auto bufferInfo = buffers.GetBuffer(producer, currentOp, refSchedule);
             int ifmBufferSize = bufferInfo.sizeBytes;
 
             // Get the size of the weight buffer
-            int opWeightBuffer = 0;
-            if ( refCost->bufferedWeightTensor.tensor )
-            {
-                opWeightBuffer = refCost->bufferedWeightTensor.tensor->AllocationSizeBytes();
-            }
+            int opWeightBuffer = refCost->bufferedWeightTensor.AllocatedSize();
 
             // Add current Op to cascade
             opsInCascade.push_back(currentOp);
 
             // Increase the accumulated intermediate buffers in the cascade
-            cascadeBuffersSize += ifmBufferSize + opWeightBuffer;
+            SchedulerOpInfo *producerOpInfo = refSchedule->Cost(producer);
+            const bool reusePreviousBuffer = CanReuseCascadeRollingBuffer(producer, producerOpInfo, previousBuffer, bufferInfo);
+            cascadeBuffersSize += opWeightBuffer;
+            if ( !reusePreviousBuffer )
+            {
+                cascadeBuffersSize += ifmBufferSize;
+            }
 
             bool startIfmRangeAlreadyLocal = false;
             if ( rangeSize > 0 && startIfmRangeId != INVALID_UID )
             {
-                for ( const auto *tensor : {currentIfm->tensor.get(), currentOp->OFM()->tensor.get()} )
+                for ( const auto *tensor : {currentIfm->tensor.get(), currentOfm->tensor.get()} )
                 {
                     auto tensorLrIt = _tensorLiveRanges.find(tensor->equivalenceId);
                     if ( tensorLrIt != _tensorLiveRanges.end() && tensorLrIt->second.rangeId == startIfmRangeId )
@@ -295,13 +295,18 @@ void CascadeBuilder::BuildCascades(Schedule *refSchedule, Schedule *fallbackSche
             updateSegmentNonLocal(refCost, NonLocalUsage(*currentOp), false, startIfmRangeAlreadyLocal);
             LOG_TRACE1("\tAppend '{0}:{1}' to cascade\n", currentOp->Index(), OpTypeToString(currentOp->Type()));
             LOG_TRACE1("\t\tFull Primary IFM [{0}] bytes = {1}, Full OFM bytes [{2}] = {3}\n",
-                currentIfm->shape.ToString(), opFullIfmSize, currentOp->OFM()->shape.ToString(), opFullOfmSize);
+                currentIfm->shape.ToString(), opFullIfmSize, currentOfm->shape.ToString(), opFullOfmSize);
             LOG_TRACE1("\t\tCascade buffer bytes = {0} - [{1}]\n", cascadeBuffersSize, bufferInfo.shape.ToString());
 
             if ( _spilling )
             {
                 // Set uncascadedStagingUsage to usage if the op where to be run fully in staging
-                int uncascadedStagingUsage = opFullIfmSize + opFullOfmSize + NonLocalUsage(*currentOp);
+                const CascadeBuffer fullIfmBuffer(currentIfm->shape, opFullIfmSize);
+                const CascadeBuffer fullOfmBuffer(currentOfm->shape, opFullOfmSize);
+                int uncascadedStagingUsage =
+                    CanReuseCascadeRollingBuffer(currentOp, fallbackSchedule->Cost(currentOp), fullIfmBuffer, fullOfmBuffer) ?
+                        opFullIfmSize + NonLocalUsage(*currentOp) :
+                        opFullIfmSize + opFullOfmSize + NonLocalUsage(*currentOp);
                 bool uncascadedFits = uncascadedStagingUsage < peakStagingUsage;
                 bool buffersExceedPeak = cascadeBuffersSize > peakStagingUsage;
                 if ( uncascadedFits || buffersExceedPeak )
@@ -340,6 +345,7 @@ void CascadeBuilder::BuildCascades(Schedule *refSchedule, Schedule *fallbackSche
                 }
             }
 
+            previousBuffer = bufferInfo;
             producer = currentOp;
         }
 
@@ -350,19 +356,26 @@ void CascadeBuilder::BuildCascades(Schedule *refSchedule, Schedule *fallbackSche
 
             std::unordered_map<UniqueId, CascadeBuffer> buffersInCascade;
             SchedulerOperation *prevOp = nullptr;
+            CascadeBuffer prevIncomingBuffer;
             for ( auto cascadedOp : opsInBestCascade )
             {
                 assert(cascadedOp->Index() <= cascadeEnd);
                 auto cascadedCost = std::make_unique<SchedulerOpInfo>(*refSchedule->Cost(cascadedOp));
                 cascadedCost->cascade = cascadeEnd;
+                cascadedCost->firstInCascade = (*cascadedOp == *opsInBestCascade[0]);
                 costs.emplace(*cascadedOp, std::move(cascadedCost));
 
                 if ( prevOp )
                 {
                     auto const &buffer = buffers.GetBuffer(prevOp, cascadedOp, refSchedule);
                     buffersInCascade[*cascadedOp] = buffer;
+                    auto *prevCost = costs.at(*prevOp).get();
+                    if ( CanReuseCascadeRollingBuffer(prevOp, prevCost, prevIncomingBuffer, buffer) )
+                    {
+                        prevCost->ofmEquivalenceId = prevOp->IFM(prevOp->PrimaryIfmIndex())->tensor->equivalenceId;
+                    }
+                    prevIncomingBuffer = buffer;
                 }
-
                 prevOp = cascadedOp;
             }
 
@@ -407,11 +420,39 @@ bool CascadeBuilder::IsCascadable(const SchedulerOperation *op, SchedulerConnect
         return false;
     }
 
-    // ReduceSum: sum over the entire IFM - full shape needed
-    // TransposeConv: Uses resampling mode which is not supported in cascades
+    // TODO MLBEDSW-11387: Support cascading for ReduceSum
+    // TODO MLBEDSW-7003: Resampling mode is not supported for cascaded convolutions
     return (cost->stripe.Height() < op->OFM()->shape.Height()) &&
            ((IsConvolution(type) && (ifmConn->resamplingMode == ArchResampling::None)) || IsElementwise(type) ||
                (IsPooling(type) && type != OpType::ReduceSum));
+}
+
+
+bool CascadeBuilder::CanReuseCascadeRollingBuffer(const SchedulerOperation *op, const SchedulerOpInfo *opInfo,
+    const CascadeBuffer &ifmBuffer, const CascadeBuffer &ofmBuffer)
+{
+    if ( !LiveRangeGraph::IsOp1To1(op) )
+    {
+        return false;
+    }
+
+    // SchedulerOpInfo stores stripeInput[0] for the primary IFM, not physical IFM0.
+    if ( opInfo->stripeInput[0] != opInfo->stripe )
+    {
+        return false;
+    }
+
+    const auto *ifmConn = op->IFM(op->PrimaryIfmIndex());
+    const auto *ofmConn = op->SubOps().empty() ? op->OFM() : op->SubOps().back()->OFM();
+    if ( !LiveRangeGraph::CanReuseIFMTensors(ifmConn->tensor.get(), ofmConn->tensor.get()) )
+    {
+        return false;
+    }
+    if ( ifmBuffer.shape != ofmBuffer.shape || ifmBuffer.sizeBytes != ofmBuffer.sizeBytes )
+    {
+        return false;
+    }
+    return true;
 }
 
 

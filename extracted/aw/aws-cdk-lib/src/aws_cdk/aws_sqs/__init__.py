@@ -70,7 +70,7 @@ will be added to the queue.
 
 ```python
 sqs.Queue(self, "Queue",
-    enforce_sSL=True
+    enforce_ssl=True
 )
 ```
 

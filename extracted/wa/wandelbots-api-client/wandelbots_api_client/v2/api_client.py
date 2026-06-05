@@ -85,7 +85,7 @@ class ApiClient:
             self.default_headers[header_name] = header_value
         self.cookie = cookie
         # Set default User-Agent.
-        self.user_agent = "Wandelbots-Nova-API-Python-Client/26.4.0"
+        self.user_agent = "Wandelbots-Nova-API-Python-Client/26.4.1"
         self.client_side_validation = configuration.client_side_validation
 
     async def __aenter__(self):

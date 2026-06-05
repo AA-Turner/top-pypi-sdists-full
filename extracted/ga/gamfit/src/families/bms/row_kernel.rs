@@ -13,9 +13,10 @@ pub(super) struct BernoulliRigidRowKernel {
     /// Per-row uncontracted third-derivative tensor, lazily populated in a
     /// single parallel pass on first access. Every ψ-axis directional
     /// derivative operator that consults this kernel shares this cache via
-    /// its `Arc`; the heavy empirical-grid jet (`empirical_rigid_neglog_jet`)
-    /// runs at most once per row across the full ext-dim sweep, instead of
-    /// once per (row, ψ-axis) pair. Per-axis `row_third_contracted` becomes
+    /// its `Arc`; the empirical-grid closed-form third-derivative tensor
+    /// (`empirical_rigid_third_full_closed_form`) runs at most once per row
+    /// across the full ext-dim sweep, instead of once per (row, ψ-axis) pair.
+    /// Per-axis `row_third_contracted` becomes
     /// a 2×2 bilinear contraction against the cached tensor.
     pub(super) third_full_cache: crate::resource::RayonSafeOnce<Vec<[[[f64; 2]; 2]; 2]>>,
     /// Per-row uncontracted fourth-derivative tensor — the outer-Hessian
@@ -59,8 +60,7 @@ impl BernoulliRigidRowKernel {
                         let marginal_eta = self.block_states[0].eta[row];
                         let marginal = self.family.marginal_link_map(marginal_eta)?;
                         let slope = self.block_states[1].eta[row];
-                        self.family
-                            .rigid_row_third_full(row, marginal_eta, marginal, slope)
+                        self.family.rigid_row_third_full(row, marginal, slope)
                     })
                     .collect::<Result<Vec<_>, String>>()
                     .expect(
@@ -87,8 +87,7 @@ impl BernoulliRigidRowKernel {
                         let marginal_eta = self.block_states[0].eta[row];
                         let marginal = self.family.marginal_link_map(marginal_eta)?;
                         let slope = self.block_states[1].eta[row];
-                        self.family
-                            .rigid_row_fourth_full(row, marginal_eta, marginal, slope)
+                        self.family.rigid_row_fourth_full(row, marginal, slope)
                     })
                     .collect::<Result<Vec<_>, String>>()
                     .expect(
@@ -112,8 +111,7 @@ impl RowKernel<2> for BernoulliRigidRowKernel {
         let marginal_eta = self.block_states[0].eta[row];
         let marginal = self.family.marginal_link_map(marginal_eta)?;
         let g = self.block_states[1].eta[row];
-        self.family
-            .rigid_row_kernel_eval(row, marginal_eta, marginal, g)
+        self.family.rigid_row_kernel_eval(row, marginal, g)
     }
 
     fn jacobian_action(&self, row: usize, d_beta: &[f64]) -> [f64; 2] {

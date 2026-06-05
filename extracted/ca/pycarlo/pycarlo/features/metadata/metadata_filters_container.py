@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, Optional
 
-from dataclasses_json import dataclass_json
+from dataclasses_json import DataClassJsonMixin, dataclass_json
 
 from pycarlo.features.metadata import (
     FilterEffectType,
@@ -13,7 +13,7 @@ from pycarlo.features.metadata import (
 
 @dataclass_json
 @dataclass
-class MetadataFiltersContainer:
+class MetadataFiltersContainer(DataClassJsonMixin):
     """
     More documentation and samples in the link below:
     https://www.notion.so/montecarlodata/Catalog-Schema-Filtering-59edd6eff7f74c94ab6bfca75d2e3ff1
@@ -69,9 +69,26 @@ class MetadataFiltersContainer:
 
     metadata_filters: MetadataAllowBlockList = field(default_factory=MetadataAllowBlockList)
 
+    # Independent filter list that gates expensive per-table metadata collection without
+    # affecting whether the table is collected at all. A table BLOCKED here is still
+    # collected (schema, partitions, etc.), but the connection-type-specific "expensive"
+    # operation is skipped. The interpretation of "expensive collection" is per
+    # connection type:
+    #   - Databricks: skips DESCRIBE DETAIL (freshness + volume signals)
+    #   - Other connection types may adopt this to gate their own per-table expensive
+    #     operations as they take it up.
+    # Empty list (default) means no behavioral change from jobs that do not configure it.
+    expensive_collection_filters: MetadataAllowBlockList = field(
+        default_factory=MetadataAllowBlockList
+    )
+
     @property
     def is_metadata_filtered(self) -> bool:
         return bool(self.metadata_filters.filters)
+
+    @property
+    def is_expensive_collection_filtered(self) -> bool:
+        return bool(self.expensive_collection_filters.filters)
 
     @property
     def is_metadata_blocked(self):
@@ -129,6 +146,26 @@ class MetadataFiltersContainer:
         """
         effect = self._get_effect(
             metadata_filters=self.metadata_filters, force_regexp=False, **kwargs
+        )
+        return effect == FilterEffectType.ALLOW
+
+    def is_expensive_collection_allowed(self, **kwargs: Any) -> bool:
+        """
+        Returns True if expensive metadata collection should be performed for the
+        metadata element with the properties specified in kwargs.
+
+        Mirrors is_metadata_element_allowed but consults expensive_collection_filters
+        instead of metadata_filters. Returns True when no expensive_collection_filters
+        are configured, preserving today's behavior for jobs that do not opt in.
+
+        Supported kwargs: 'project', 'dataset', 'table', 'table_type'.
+        """
+        if not self.expensive_collection_filters.filters:
+            return True
+        effect = self._get_effect(
+            metadata_filters=self.expensive_collection_filters,
+            force_regexp=False,
+            **kwargs,
         )
         return effect == FilterEffectType.ALLOW
 

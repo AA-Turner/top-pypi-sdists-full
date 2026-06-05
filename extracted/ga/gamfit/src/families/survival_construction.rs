@@ -1096,6 +1096,86 @@ pub fn build_survival_time_basis(
         }
     }
 
+    /// Cap the requested monotone-baseline internal-knot count to what the
+    /// observed time resolution can actually support.
+    ///
+    /// The survival location-scale baseline is a degree-`d` I-spline with
+    /// `num_internal_knots + d` shape-varying columns. Its smoothing parameter
+    /// is informed *only* by the distinct interior log-time points: with fewer
+    /// distinct interior times than requested knots the baseline is
+    /// rank-deficient, and the REML/LAML profile in the time smoothing
+    /// parameter becomes a flat ridge — the exact-joint outer search then
+    /// probes that ridge indefinitely (each inner constrained Newton burns its
+    /// whole cycle budget without certifying convergence) and the fit never
+    /// terminates. This is the survival analogue of the standard
+    /// "df must not exceed the data resolution" guard (`mgcv` caps `k` at the
+    /// number of unique covariate values; `flexsurv`/`rstpm2` use a handful of
+    /// baseline knots): we never place more interior knots than there are
+    /// distinct interior points, and we keep the total baseline dimension a
+    /// bounded fraction of the sample so the smoothing profile stays curved.
+    ///
+    /// This clamp lives in the shared knot-inference routine so the fit and any
+    /// independent rebuild of the time basis (e.g. a predictor reconstructing
+    /// `design · β` at fresh covariates) resolve to the *same* knot vector from
+    /// the same data — there is no raw/active dimension drift.
+    fn data_capped_internal_knots(
+        combined: &Array1<f64>,
+        degree: usize,
+        requested_internal_knots: usize,
+    ) -> usize {
+        if requested_internal_knots == 0 {
+            return 0;
+        }
+        let mut sorted: Vec<f64> = combined.iter().copied().collect();
+        sorted.sort_by(f64::total_cmp);
+        let minval = sorted.first().copied().unwrap_or(0.0);
+        let maxval = sorted.last().copied().unwrap_or(minval);
+        if minval == maxval {
+            // Degenerate (single distinct time): no interior structure to fit.
+            return 1.min(requested_internal_knots);
+        }
+        let scale = (maxval - minval).abs().max(1.0);
+        let tol = 1e-12 * scale;
+        // Count distinct strictly-interior points (knots can only live strictly
+        // between the data extremes).
+        let mut distinct_interior = 0usize;
+        let mut last: Option<f64> = None;
+        for &x in &sorted {
+            if x <= minval + tol || x >= maxval - tol {
+                continue;
+            }
+            if last.is_some_and(|prev| (x - prev).abs() <= tol) {
+                continue;
+            }
+            distinct_interior += 1;
+            last = Some(x);
+        }
+        // Distinct-point ceiling: cannot place more interior knots than there
+        // are distinct interior values.
+        let mut cap = requested_internal_knots.min(distinct_interior.max(1));
+        // Dimension-vs-resolution ceiling: keep the total baseline column count
+        // `cap + degree` below ~1/4 of the distinct sample points so the
+        // smoothing-parameter profile retains curvature (the data must be able
+        // to identify the baseline shape, not just interpolate it). `n_distinct`
+        // counts all distinct points (interior + the two extremes).
+        let n_distinct = {
+            let mut count = 0usize;
+            let mut last: Option<f64> = None;
+            for &x in &sorted {
+                if last.is_some_and(|prev| (x - prev).abs() <= tol) {
+                    continue;
+                }
+                count += 1;
+                last = Some(x);
+            }
+            count
+        };
+        let dim_budget = n_distinct / 4;
+        let dim_cap = dim_budget.saturating_sub(degree);
+        cap = cap.min(dim_cap.max(1));
+        cap.max(1)
+    }
+
     fn infer_survival_time_knots(
         combined: &Array1<f64>,
         knot_degree: usize,
@@ -1103,6 +1183,14 @@ pub fn build_survival_time_basis(
         num_internal_knots: usize,
         basis_options: BasisOptions,
     ) -> Result<Array1<f64>, String> {
+        // Identifiability/termination guard: never request more baseline
+        // internal knots than the observed time resolution supports. See
+        // `data_capped_internal_knots` for the full rationale (a flat smoothing
+        // ridge on an over-parameterized baseline is what makes the survival
+        // location-scale exact-joint outer search fail to terminate).
+        let num_internal_knots =
+            data_capped_internal_knots(combined, validation_degree, num_internal_knots);
+
         fn quantile_knot_inference_needs_uniform_fallback(
             combined: &Array1<f64>,
             num_internal_knots: usize,
@@ -1642,6 +1730,70 @@ pub fn resolve_survival_time_anchor_value(
             .copied()
             .min_by(f64::total_cmp)
             .ok_or_else(|| "failed to select survival time anchor".to_string())?,
+    };
+    Ok(anchor.max(SURVIVAL_TIME_FLOOR))
+}
+
+/// Marginal-slope centering anchor: a robust *interior* time on the **exit**
+/// scale rather than the earliest entry age.
+///
+/// `center_survival_time_designs_at_anchor` subtracts the time-basis row at the
+/// anchor from every entry/exit design row, so the anchor sets the origin of
+/// the baseline-hazard I-spline's affine reparameterization. The
+/// location-scale path anchors at the minimum entry age
+/// ([`resolve_survival_time_anchor_value`]); for right-censored-only data that
+/// minimum is ≈ the time origin, so centering is nearly a no-op.
+///
+/// Under **left truncation** the minimum entry age is a genuine positive
+/// *left-tail* point, and centering there leaves the centered linear-trend
+/// column `X(exit) − X(anchor)` large and one-signed across all rows (exit
+/// times sit far to the right of the earliest entry). That column is the
+/// unpenalized polynomial null space of the 2nd-difference time penalty, so the
+/// inflated, one-signed column multiplies the marginal-slope time-block score
+/// at the `γ = 0` monotone-cone seed up by hundreds — the constrained joint
+/// Newton cannot certify KKT on it and REML rejects every seed (issue #751).
+///
+/// Centering instead at a robust interior location on the *exit* scale — the
+/// **median exit age**, where the at-risk mass concentrates — keeps the
+/// centered column small and two-signed (some exits below the median, some
+/// above), so the exit-event likelihood pins the linear trend and the seed
+/// score stays bounded. Re-centering is an exact affine reparameterization of
+/// the baseline offset: the fitted `q(t)` and the REML objective are unchanged,
+/// only the seed conditioning improves. The median is chosen (over the mean)
+/// for robustness to the heavy right tail of survival times.
+///
+/// An explicit `--survival-time-anchor` is honored verbatim (same validation as
+/// the location-scale path) so the user retains full control; the saved
+/// `survival_time_anchor` scalar round-trips to predict unchanged.
+pub fn resolve_survival_marginal_slope_time_anchor_value(
+    age_entry: &Array1<f64>,
+    age_exit: &Array1<f64>,
+    time_anchor: Option<f64>,
+) -> Result<f64, String> {
+    if age_entry.is_empty() || age_exit.is_empty() {
+        return Err(
+            "survival marginal-slope time anchor requires non-empty entry/exit times".to_string(),
+        );
+    }
+    let anchor = match time_anchor {
+        Some(t_anchor) => {
+            if !t_anchor.is_finite() || t_anchor < 0.0 {
+                return Err(format!(
+                    "survival time anchor must be finite and non-negative, got {t_anchor}"
+                ));
+            }
+            t_anchor
+        }
+        None => {
+            let mut sorted: Vec<f64> = age_exit.iter().copied().collect();
+            sorted.sort_by(f64::total_cmp);
+            let m = sorted.len();
+            if m % 2 == 1 {
+                sorted[m / 2]
+            } else {
+                0.5 * (sorted[m / 2 - 1] + sorted[m / 2])
+            }
+        }
     };
     Ok(anchor.max(SURVIVAL_TIME_FLOOR))
 }
@@ -3304,7 +3456,8 @@ mod tests {
         evaluate_survival_marginal_slope_baseline, marginal_slope_baseline_chain_rule_gradient,
         marginal_slope_baseline_chain_rule_hessian, marginal_slope_baseline_offset_theta_partials,
         optimize_survival_baseline_config, optimize_survival_baseline_config_with_gradient,
-        optimize_survival_baseline_config_with_gradient_only, survival_baseline_config_from_theta,
+        optimize_survival_baseline_config_with_gradient_only,
+        resolve_survival_marginal_slope_time_anchor_value, survival_baseline_config_from_theta,
         survival_baseline_theta_from_config,
     };
     use crate::families::survival::{OffsetChannelCurvatures, OffsetChannelResiduals};
@@ -3331,6 +3484,33 @@ mod tests {
         assert_eq!(build.penalties.len(), 3);
         assert_eq!(build.nullspace_dims, vec![1, 2, 3]);
         assert!(build.ncols > 0);
+    }
+
+    #[test]
+    fn marginal_slope_time_anchor_defaults_to_median_exit() {
+        let age_entry = array![9.0, 1.0, 4.0, 6.0];
+        let age_exit = array![20.0, 12.0, 18.0, 30.0];
+        let anchor = resolve_survival_marginal_slope_time_anchor_value(&age_entry, &age_exit, None)
+            .expect("resolve marginal-slope default time anchor");
+
+        assert!(
+            (anchor - 19.0).abs() <= 1e-12,
+            "marginal-slope default anchor should be median exit, got {anchor}"
+        );
+    }
+
+    #[test]
+    fn marginal_slope_time_anchor_honors_explicit_value() {
+        let age_entry = array![9.0, 1.0, 4.0, 6.0];
+        let age_exit = array![20.0, 12.0, 18.0, 30.0];
+        let anchor =
+            resolve_survival_marginal_slope_time_anchor_value(&age_entry, &age_exit, Some(7.5))
+                .expect("resolve explicit marginal-slope time anchor");
+
+        assert!(
+            (anchor - 7.5).abs() <= 1e-12,
+            "explicit marginal-slope anchor should round-trip, got {anchor}"
+        );
     }
 
     /// Derivative-contract parity for the three public baseline optimizers.

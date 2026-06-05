@@ -817,6 +817,7 @@ class AlertSubType(pycarlo.lib.types.Enum):
     * `DELETED_TABLES`None
     * `DIMENSION_ANOMALY`None
     * `ETL_ERRORS`None
+    * `ETL_JOB_FAILURE`None
     * `FIELD_METRICS_ANOMALY`None
     * `FIELD_QUALITY_RULE_BREACH`None
     * `FRESHNESS_ANOMALY`None
@@ -872,6 +873,7 @@ class AlertSubType(pycarlo.lib.types.Enum):
         "DELETED_TABLES",
         "DIMENSION_ANOMALY",
         "ETL_ERRORS",
+        "ETL_JOB_FAILURE",
         "FIELD_METRICS_ANOMALY",
         "FIELD_QUALITY_RULE_BREACH",
         "FRESHNESS_ANOMALY",
@@ -2851,6 +2853,7 @@ class EventModelEventType(pycarlo.lib.types.Enum):
     * `DECLARED_INCIDENT_SEVERITY_UPDATE`: Incident Severity Update
     * `DELETE_TABLE`: Delete Table
     * `DIST_ANOM`: Distribution Anomaly
+    * `ETL_JOB_FAILURE`: ETL Job Failure
     * `FRESH_ANOM`: Freshness Anomaly
     * `INACTIVE_MONITOR`: Inactive Monitor
     * `INCIDENT_DETECTOR_FEEDBACK`: Detector Feedback
@@ -2897,6 +2900,7 @@ class EventModelEventType(pycarlo.lib.types.Enum):
         "DECLARED_INCIDENT_SEVERITY_UPDATE",
         "DELETE_TABLE",
         "DIST_ANOM",
+        "ETL_JOB_FAILURE",
         "FRESH_ANOM",
         "INACTIVE_MONITOR",
         "INCIDENT_DETECTOR_FEEDBACK",
@@ -4260,6 +4264,7 @@ class IncidentSubType(pycarlo.lib.types.Enum):
     * `dbt_test_failure`None
     * `dbt_test_warning`None
     * `dimension_anomaly`None
+    * `etl_job_failure`None
     * `field_metrics_anomaly`None
     * `field_quality_rule_breach`None
     * `fields_added`None
@@ -4299,6 +4304,7 @@ class IncidentSubType(pycarlo.lib.types.Enum):
         "dbt_test_failure",
         "dbt_test_warning",
         "dimension_anomaly",
+        "etl_job_failure",
         "field_metrics_anomaly",
         "field_quality_rule_breach",
         "fields_added",
@@ -13756,7 +13762,14 @@ class StorageOptimizationCandidatesFilter(sgqlc.types.Input):
     """
 
     __schema__ = schema
-    __field_names__ = ("database_names", "schema_names", "tiers", "table_categories", "name_search")
+    __field_names__ = (
+        "database_names",
+        "schema_names",
+        "tiers",
+        "table_categories",
+        "name_search",
+        "domain_ids",
+    )
     database_names = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="databaseNames"
     )
@@ -13787,6 +13800,14 @@ class StorageOptimizationCandidatesFilter(sgqlc.types.Input):
     name_search = sgqlc.types.Field(String, graphql_name="nameSearch")
     """Case-insensitive substring match on the table name. Null or empty
     string applies no filter.
+    """
+
+    domain_ids = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(UUID)), graphql_name="domainIds"
+    )
+    """Filter candidates to tables assigned to any of these domains.
+    Restricted to domains the caller can access. Null or empty list
+    applies no filter.
     """
 
 
@@ -16111,6 +16132,8 @@ class Account(sgqlc.types.Type):
         "enable_exception_management",
         "enable_domain_metrics_digest",
         "enable_platform_agent_domain_filtering",
+        "enable_pr_agent_paid_tier",
+        "enable_pr_agent_metering",
         "validate_monitor_domains",
         "custom_dashboard_domain_validation",
         "has_warehouses",
@@ -16732,6 +16755,20 @@ class Account(sgqlc.types.Type):
         Boolean, graphql_name="enablePlatformAgentDomainFiltering"
     )
     """Indicates whether domain filtering is enabled for platform agents"""
+
+    enable_pr_agent_paid_tier = sgqlc.types.Field(Boolean, graphql_name="enablePrAgentPaidTier")
+    """Whether the PR Agent is unrestricted for the account: a full
+    review on every pull request, billed for reviews beyond the
+    monthly free allotment. When false, the account is limited to the
+    monthly free full reviews and receives simplified reviews
+    thereafter.
+    """
+
+    enable_pr_agent_metering = sgqlc.types.Field(Boolean, graphql_name="enablePrAgentMetering")
+    """Whether PR Agent usage is metered and billed for the account. When
+    false, reviews are not recorded for billing and the paid-tier
+    setting has no billing effect.
+    """
 
     validate_monitor_domains = sgqlc.types.Field(Boolean, graphql_name="validateMonitorDomains")
     """Indicates whether the account is validating monitor domains"""
@@ -30570,6 +30607,7 @@ class EventTypeSummary(sgqlc.types.Type):
         "airflow_dag_failure",
         "databricks_job_failure",
         "adf_job_failure",
+        "etl_job_failure",
         "rule_run_failure",
         "comparison_rule_anom",
     )
@@ -30626,6 +30664,8 @@ class EventTypeSummary(sgqlc.types.Type):
     databricks_job_failure = sgqlc.types.Field(Int, graphql_name="databricksJobFailure")
 
     adf_job_failure = sgqlc.types.Field(Int, graphql_name="adfJobFailure")
+
+    etl_job_failure = sgqlc.types.Field(Int, graphql_name="etlJobFailure")
 
     rule_run_failure = sgqlc.types.Field(Int, graphql_name="ruleRunFailure")
 
@@ -37158,6 +37198,7 @@ class Mutation(sgqlc.types.Type):
         "toggle_size_collection",
         "create_open_telemetry_data_store",
         "delete_open_telemetry_data_store",
+        "refresh_open_telemetry_collector_config",
         "create_mcp_integration_key",
         "delete_mcp_integration_key",
         "generate_bridge_token",
@@ -43671,6 +43712,13 @@ class Mutation(sgqlc.types.Type):
     Arguments:
 
     * `uuid` (`UUID!`): UUID of the data store to delete
+    """
+
+    refresh_open_telemetry_collector_config = sgqlc.types.Field(
+        "RefreshOpenTelemetryCollectorConfig", graphql_name="refreshOpenTelemetryCollectorConfig"
+    )
+    """(experimental) Regenerate the OpenTelemetry collector config and
+    restart the collector
     """
 
     create_mcp_integration_key = sgqlc.types.Field(
@@ -51686,6 +51734,12 @@ class Mutation(sgqlc.types.Type):
                     "high_segment_count",
                     sgqlc.types.Arg(Boolean, graphql_name="highSegmentCount", default=False),
                 ),
+                (
+                    "is_agent_conversation_aggregation",
+                    sgqlc.types.Arg(
+                        Boolean, graphql_name="isAgentConversationAggregation", default=False
+                    ),
+                ),
                 ("is_draft", sgqlc.types.Arg(Boolean, graphql_name="isDraft", default=False)),
                 ("notes", sgqlc.types.Arg(String, graphql_name="notes", default="")),
                 ("priority", sgqlc.types.Arg(String, graphql_name="priority", default=None)),
@@ -51772,6 +51826,9 @@ class Mutation(sgqlc.types.Type):
     * `high_segment_count` (`Boolean`): Flag to apply additional
       limits which increase the supported segment count (default:
       `false`)
+    * `is_agent_conversation_aggregation` (`Boolean`): If true,
+      evaluates whole conversations at the conversation grain. Default
+      (false) evaluates individual spans. (default: `false`)
     * `is_draft` (`Boolean`): Make target a draft monitor. (default:
       `false`)
     * `notes` (`String`): Additional context for the monitor (default:
@@ -57914,6 +57971,16 @@ class Mutation(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "auto_enable_table_monitoring",
+                    sgqlc.types.Arg(
+                        Boolean, graphql_name="autoEnableTableMonitoring", default=False
+                    ),
+                ),
+                (
+                    "auto_prune_enabled",
+                    sgqlc.types.Arg(Boolean, graphql_name="autoPruneEnabled", default=None),
+                ),
+                (
                     "collection_lag_hours",
                     sgqlc.types.Arg(Int, graphql_name="collectionLagHours", default=0),
                 ),
@@ -57936,6 +58003,10 @@ class Mutation(sgqlc.types.Type):
                     ),
                 ),
                 ("is_draft", sgqlc.types.Arg(Boolean, graphql_name="isDraft", default=False)),
+                (
+                    "lineage_narrowing_enabled",
+                    sgqlc.types.Arg(Boolean, graphql_name="lineageNarrowingEnabled", default=None),
+                ),
                 (
                     "monitor_type",
                     sgqlc.types.Arg(
@@ -57986,6 +58057,14 @@ class Mutation(sgqlc.types.Type):
       conditions
     * `asset_selection` (`AssetSelectionInput!`)None
     * `audiences` (`[String]`): Monitor audiences
+    * `auto_enable_table_monitoring` (`Boolean`): For CBPV1 PII
+      monitors, automatically create or update companion table
+      monitors for selected root tables so PII scans can run.
+      (default: `false`)
+    * `auto_prune_enabled` (`Boolean`): For PII monitors,
+      automatically remove child monitors after a successful first
+      scan with no PII detected. Omitted values preserve the existing
+      setting on update and default to true for new PII monitors.
     * `collection_lag_hours` (`Int`): Time to offset the collection
       time bucket by in hours. Should be a multiple of 24 if
       agg_time_interval is DAY. Defaults to 0 (no lag). (default: `0`)
@@ -57998,6 +58077,10 @@ class Mutation(sgqlc.types.Type):
     * `failure_audiences` (`[String]`): Failure notification audiences
     * `is_draft` (`Boolean`): Make target a draft monitor. (default:
       `false`)
+    * `lineage_narrowing_enabled` (`Boolean`): For PII monitors, only
+      create child monitors for root tables in the selected lineage
+      graph. Omitted values preserve the existing setting on update
+      and default to true for new PII monitors.
     * `monitor_type` (`BulkMonitorTypeEnum!`): Type of bulk monitor
     * `notes` (`String`): Notes for the monitor
     * `priority` (`String`): Priority of the monitor (P1-P5)
@@ -71062,6 +71145,12 @@ class Query(sgqlc.types.Type):
                     "is_agent_trace_aggregation",
                     sgqlc.types.Arg(Boolean, graphql_name="isAgentTraceAggregation", default=None),
                 ),
+                (
+                    "is_agent_conversation_aggregation",
+                    sgqlc.types.Arg(
+                        Boolean, graphql_name="isAgentConversationAggregation", default=None
+                    ),
+                ),
             )
         ),
     )
@@ -71079,6 +71168,9 @@ class Query(sgqlc.types.Type):
       agent span fields (agent, workflow, task, span_name)
     * `is_agent_trace_aggregation` (`Boolean`): If true, evaluate
       schema for trace-level aggregation mode
+    * `is_agent_conversation_aggregation` (`Boolean`): If true,
+      evaluate schema for conversation-level aggregation mode (accepts
+      conversation-grain eval templates).
     """
 
     get_job_execution_history_logs = sgqlc.types.Field(
@@ -77808,10 +77900,10 @@ class Query(sgqlc.types.Type):
             )
         ),
     )
-    """(experimental) Get authorization groups for the user's account
-    with Relay-style pagination and an optional substring search.
-    Supports the standard `first`/`after` cursor arguments for forward
-    pagination.
+    """(general availability) Get authorization groups for the user's
+    account with Relay-style pagination and an optional substring
+    search. Supports the standard `first`/`after` cursor arguments for
+    forward pagination.
 
     Arguments:
 
@@ -84685,6 +84777,20 @@ class RefreshEntitlements(sgqlc.types.Type):
     __field_names__ = ("success",)
     success = sgqlc.types.Field(Boolean, graphql_name="success")
     """True if the entitlements refresh was successful"""
+
+
+class RefreshOpenTelemetryCollectorConfig(sgqlc.types.Type):
+    """Regenerate the OpenTelemetry collector config and restart the
+    collector
+    """
+
+    __schema__ = schema
+    __field_names__ = ("triggered",)
+    triggered = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="triggered")
+    """True once the config regeneration and collector restart have been
+    dispatched. The restart runs asynchronously, so this confirms the
+    trigger, not its completion.
+    """
 
 
 class RegisterGithubAppInstallationRequest(sgqlc.types.Type):
@@ -96594,6 +96700,8 @@ class BulkMonitor(sgqlc.types.Type, Node):
         "time_axis_field_name",
         "time_axis_field_type",
         "collection_lag_hours",
+        "auto_prune_enabled",
+        "lineage_narrowing_enabled",
         "table_limit",
         "deleted_by",
         "monitor_type",
@@ -96670,6 +96778,21 @@ class BulkMonitor(sgqlc.types.Type, Node):
     """Time to offset the collection time bucket by in hours. Field
     should be a multiple of 24 if agg_time_interval is set to DAY.
     Copied to child monitors.
+    """
+
+    auto_prune_enabled = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="autoPruneEnabled"
+    )
+    """When enabled, soft-delete child monitors for tables with no PII
+    detected after their first execution.
+    """
+
+    lineage_narrowing_enabled = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="lineageNarrowingEnabled"
+    )
+    """When enabled, only monitor root tables (those with no upstream
+    lineage within the selected assets) to avoid redundant PII
+    scanning.
     """
 
     table_limit = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="tableLimit")
@@ -101781,6 +101904,7 @@ class PlatformAgent(sgqlc.types.Type, Node):
         "agent_database",
         "agent_schema",
         "table_prefix",
+        "trace_table",
         "schedule",
         "sql_tool_calls_schedule",
         "recommendations_generated_at",
@@ -101821,6 +101945,14 @@ class PlatformAgent(sgqlc.types.Type, Node):
     `<table_prefix>_trace_unified` view; for DATABRICKS_MLFLOW_KA, the
     Knowledge Assistant UI sync writes a single Delta table whose name
     IS the prefix. Null for Snowflake agents.
+    """
+
+    trace_table = sgqlc.types.Field("WarehouseTable", graphql_name="traceTable")
+    """Real catalogued trace table this Databricks agent reads — carries
+    its domain assignment and lineage. Required for Databricks
+    (resolved at registration); null for Snowflake agents, and cleared
+    if the table is later deleted. SET_NULL so a table deletion drops
+    the link, not the agent.
     """
 
     schedule = sgqlc.types.Field(
@@ -104748,6 +104880,7 @@ class WarehouseTable(sgqlc.types.Type, Node):
         "dbt_run_steps",
         "fivetranconnectormodel_set",
         "agent_trace_tables",
+        "platform_agents",
         "thresholds",
         "get_thresholds",
         "freshness_anomaly",
@@ -105176,6 +105309,34 @@ class WarehouseTable(sgqlc.types.Type, Node):
         ),
     )
     """Agent trace table
+
+    Arguments:
+
+    * `offset` (`Int`)None
+    * `before` (`String`)None
+    * `after` (`String`)None
+    * `first` (`Int`)None
+    * `last` (`Int`)None
+    """
+
+    platform_agents = sgqlc.types.Field(
+        sgqlc.types.non_null(PlatformAgentConnection),
+        graphql_name="platformAgents",
+        args=sgqlc.types.ArgDict(
+            (
+                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
+                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
+                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
+                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
+                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
+            )
+        ),
+    )
+    """Real catalogued trace table this Databricks agent reads — carries
+    its domain assignment and lineage. Required for Databricks
+    (resolved at registration); null for Snowflake agents, and cleared
+    if the table is later deleted. SET_NULL so a table deletion drops
+    the link, not the agent.
 
     Arguments:
 

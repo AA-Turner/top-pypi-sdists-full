@@ -5,9 +5,7 @@ from datetime import timedelta
 from typing import Any
 from typing import Generator
 from typing import Literal
-from typing import NamedTuple
 from typing import Optional
-from typing import overload
 
 import httpx
 from pydantic import BaseModel
@@ -23,10 +21,18 @@ TaskId = int
 GPUSize = Literal['large', 'xlarge']
 AuthLevel = Literal['regular', 'pro']
 QueuingReason = Literal['node', 'concurrency']
+ApproveResult = Literal[
+    'approved',
+    'runs-exceeded',
+    'quota-exceeded',
+    'illegal-duration',
+    'pending-overquota-exceeded',
+]
 
 
 AUTHENTICATED_HEADER = 'X-Authenticated'
 QUEUING_REASON_HEADER = 'X-Queuing-Reason'
+APPROVE_RESULT_HEADER = 'X-Approve-Result'
 
 
 class ScheduleResponse(BaseModel):
@@ -39,6 +45,7 @@ class ScheduleResponse(BaseModel):
 class ScheduleMetadata(BaseModel):
     auth: Optional[AuthLevel] = None
     queuing_reason: Optional[QueuingReason] = None
+    approve_result: Optional[ApproveResult] = None
 
 
 class QuotaInfos(BaseModel):
@@ -115,9 +122,11 @@ class APIClient:
             stream=True,
         )
         status = httpx.codes(res.status_code)
-        auth: AuthLevel | None = res.headers.get(AUTHENTICATED_HEADER)
-        queuing_reason: QueuingReason | None = res.headers.get(QUEUING_REASON_HEADER)
-        metadata = ScheduleMetadata(auth=auth, queuing_reason=queuing_reason)
+        metadata = ScheduleMetadata(
+            auth=res.headers.get(AUTHENTICATED_HEADER),
+            queuing_reason=res.headers.get(QUEUING_REASON_HEADER),
+            approve_result=res.headers.get(APPROVE_RESULT_HEADER),
+        )
         if (status is not httpx.codes.OK and
             status is not httpx.codes.TOO_MANY_REQUESTS
         ):

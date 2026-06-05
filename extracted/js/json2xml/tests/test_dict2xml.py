@@ -494,6 +494,45 @@ class TestDict2xml:
         result = dicttoxml.dicttoxml(data, custom_root="custom", attr_type=False)
         assert b"<custom><key>value</key></custom>" in result
 
+    # @lat: [[tests#Conversion behavior#Custom root names normalize before raw output]]
+    def test_dicttoxml_normalizes_invalid_custom_root_name(self) -> None:
+        """Invalid custom roots should use the same XML-name normalization as JSON object keys."""
+        result = dicttoxml.dicttoxml(
+            {"key": "value"},
+            custom_root="custom root",
+            attr_type=False,
+        )
+
+        assert result == (
+            b'<?xml version="1.0" encoding="UTF-8" ?>'
+            b"<custom_root><key>value</key></custom_root>"
+        )
+
+    # @lat: [[tests#Conversion behavior#Invalid custom attributes are rejected]]
+    @pytest.mark.parametrize(
+        "attr_name",
+        ["", "1foo", "foo>bar", 'foo"bar', "foo\nbar", "bad attr"],
+    )
+    def test_dicttoxml_rejects_invalid_custom_attribute_names(self, attr_name: str) -> None:
+        """Invalid custom attribute names should fail before dicttoxml returns malformed XML bytes."""
+        with pytest.raises(ValueError, match="Invalid XML attribute name"):
+            dicttoxml.dicttoxml(
+                {"key": {"@attrs": {attr_name: "value"}, "@val": "payload"}},
+                root=False,
+                attr_type=False,
+            )
+
+    @pytest.mark.parametrize("attr_name", ["a_b", "a-b", "xmlAttr"])
+    def test_dicttoxml_accepts_valid_custom_attribute_edge_names(self, attr_name: str) -> None:
+        """Borderline valid custom attribute names should remain accepted."""
+        result = dicttoxml.dicttoxml(
+            {"key": {"@attrs": {attr_name: "value"}, "@val": "payload"}},
+            root=False,
+            attr_type=False,
+        )
+
+        assert result == f'<key {attr_name}="value">payload</key>'.encode()
+
     def test_dicttoxml_with_xml_namespaces(self) -> None:
         """Test dicttoxml with XML namespaces."""
         data = {"key": "value"}
@@ -1069,6 +1108,45 @@ class TestDict2xml:
             item_wrap=True
         )
         assert 'type="list"' in result
+
+    # @lat: [[tests#Conversion behavior#Invalid list item names preserve metadata]]
+    def test_convert_list_invalid_item_name_metadata_for_scalar_paths(self) -> None:
+        """Invalid generated list item names should preserve the original name attribute."""
+        item_name_result = dicttoxml.convert_list(
+            items=[True, datetime.date(2026, 5, 27), None],
+            ids=[],
+            parent="items",
+            attr_type=True,
+            item_func=lambda _parent: "bad&key",
+            cdata=False,
+            item_wrap=True,
+        )
+        parent_name_result = dicttoxml.convert_list(
+            items=[7],
+            ids=[],
+            parent="bad&parent",
+            attr_type=True,
+            item_func=lambda _parent: "item",
+            cdata=False,
+            item_wrap=False,
+        )
+
+        assert '<key name="bad&amp;key" type="bool">true</key>' in item_name_result
+        assert '<key name="bad&amp;key" type="str">2026-05-27</key>' in item_name_result
+        assert '<key name="bad&amp;key" type="null"></key>' in item_name_result
+        assert parent_name_result == '<key name="bad&amp;parent" type="int">7</key>'
+
+    # @lat: [[tests#Conversion behavior#Valid-name scalar helper formats dates]]
+    def test_convert_kv_valid_name_formats_date_values(self) -> None:
+        """The valid-name scalar helper should format date values before type tagging."""
+        result = dicttoxml.convert_kv_valid_name(
+            key="published",
+            val=datetime.date(2026, 5, 27),
+            attr_type=True,
+            attr={},
+        )
+
+        assert result == '<published type="str">2026-05-27</published>'
 
     def test_convert_dict_with_bool_value(self) -> None:
         """Test convert_dict with boolean value."""

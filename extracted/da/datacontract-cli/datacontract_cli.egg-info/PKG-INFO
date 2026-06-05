@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datacontract-cli
-Version: 0.12.5
+Version: 1.0.0
 Summary: The datacontract CLI is an open source command-line tool for working with Data Contracts. It uses data contract YAML files to lint the data contract, connect to data sources and execute schema and quality tests, detect breaking changes, and export to different formats. The tool is written in Python. It can be used as a standalone CLI tool, in a CI/CD pipeline, or directly as a Python library.
 Author-email: Jochen Christ <jochen.christ@innoq.com>, Stefan Negele <stefan.negele@innoq.com>, Simon Harrer <simon.harrer@innoq.com>
 License-Expression: MIT
@@ -8,7 +8,7 @@ Project-URL: Homepage, https://cli.datacontract.com
 Project-URL: Issues, https://github.com/datacontract/datacontract-cli/issues
 Classifier: Programming Language :: Python :: 3
 Classifier: Operating System :: OS Independent
-Requires-Python: <3.13,>=3.10
+Requires-Python: <3.15,>=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: typer<0.26,>=0.18.0
@@ -28,18 +28,16 @@ Requires-Dist: jinja_partials<1.0.0,>=0.2.1
 Requires-Dist: datacontract-specification<2.0.0,>=1.2.3
 Requires-Dist: open-data-contract-standard<4.0.0,>=3.1.2
 Requires-Dist: deepdiff<10.0.0,>=6.0.0
-Requires-Dist: setuptools>=70
 Provides-Extra: avro
 Requires-Dist: avro==1.12.1; extra == "avro"
 Provides-Extra: bigquery
-Requires-Dist: soda-core-bigquery<3.6.0,>=3.3.20; extra == "bigquery"
+Requires-Dist: ibis-framework[bigquery]<13.0.0,>=10.0.0; extra == "bigquery"
 Provides-Extra: csv
 Requires-Dist: pandas>=2.0.0; extra == "csv"
 Provides-Extra: excel
 Requires-Dist: openpyxl<4.0.0,>=3.1.5; extra == "excel"
 Provides-Extra: databricks
-Requires-Dist: soda-core-spark-df<3.6.0,>=3.3.20; extra == "databricks"
-Requires-Dist: soda-core-spark[databricks]<3.6.0,>=3.3.20; extra == "databricks"
+Requires-Dist: ibis-framework[databricks,pyspark]<13.0.0,>=10.0.0; extra == "databricks"
 Requires-Dist: databricks-sql-connector<4.3.0,>=3.7.0; extra == "databricks"
 Requires-Dist: databricks-sdk<0.112.0; extra == "databricks"
 Requires-Dist: pyspark<5.0.0,>=3.5.0; extra == "databricks"
@@ -47,44 +45,42 @@ Provides-Extra: iceberg
 Requires-Dist: pyiceberg==0.11.1; extra == "iceberg"
 Provides-Extra: kafka
 Requires-Dist: datacontract-cli[avro]; extra == "kafka"
-Requires-Dist: soda-core-spark-df<3.6.0,>=3.3.20; extra == "kafka"
+Requires-Dist: ibis-framework[pyspark]<13.0.0,>=10.0.0; extra == "kafka"
 Requires-Dist: pyspark<5.0.0,>=3.5.0; extra == "kafka"
 Provides-Extra: mysql
-Requires-Dist: soda-core-mysql<3.6.0,>=3.3.20; extra == "mysql"
-Requires-Dist: mysql-connector-python<9.7.0,>=8.0.30; extra == "mysql"
+Requires-Dist: datacontract-cli[duckdb]; extra == "mysql"
 Provides-Extra: postgres
-Requires-Dist: soda-core-postgres<3.6.0,>=3.3.20; extra == "postgres"
+Requires-Dist: ibis-framework[postgres]<13.0.0,>=10.0.0; extra == "postgres"
 Provides-Extra: redshift
-Requires-Dist: soda-core-redshift<3.6.0,>=3.3.20; extra == "redshift"
+Requires-Dist: ibis-framework[postgres]<13.0.0,>=10.0.0; extra == "redshift"
 Provides-Extra: s3
 Requires-Dist: s3fs<2027.0.0,>=2025.2.0; extra == "s3"
-Requires-Dist: aiobotocore<3.8.0,>=2.17.0; extra == "s3"
-Requires-Dist: duckdb-extension-httpfs<1.1.0,>=1.0.1; (platform_system != "Linux" or platform_machine != "aarch64") and extra == "s3"
-Requires-Dist: duckdb-extension-aws<1.1.0,>=1.0.3; (platform_system != "Linux" or platform_machine != "aarch64") and extra == "s3"
+Requires-Dist: duckdb-extension-httpfs<1.6.0,>=1.5.0; extra == "s3"
+Requires-Dist: duckdb-extension-aws<1.6.0,>=1.5.0; extra == "s3"
 Provides-Extra: gcs
 Requires-Dist: datacontract-cli[duckdb]; extra == "gcs"
-Requires-Dist: duckdb-extension-httpfs<1.1.0,>=1.0.1; (platform_system != "Linux" or platform_machine != "aarch64") and extra == "gcs"
+Requires-Dist: duckdb-extension-httpfs<1.6.0,>=1.5.0; extra == "gcs"
 Provides-Extra: azure
 Requires-Dist: datacontract-cli[duckdb]; extra == "azure"
-Requires-Dist: duckdb-extension-azure<1.1.0,>=1.0.3; (platform_system != "Linux" or platform_machine != "aarch64") and extra == "azure"
+Requires-Dist: duckdb-extension-azure<1.6.0,>=1.5.0; extra == "azure"
 Provides-Extra: snowflake
 Requires-Dist: snowflake-connector-python[pandas]<4.6,>=3.6; extra == "snowflake"
-Requires-Dist: soda-core-snowflake<3.6.0,>=3.3.20; extra == "snowflake"
+Requires-Dist: ibis-framework[snowflake]<13.0.0,>=10.0.0; extra == "snowflake"
 Provides-Extra: sqlserver
-Requires-Dist: soda-core-sqlserver<3.6.0,>=3.3.20; extra == "sqlserver"
+Requires-Dist: ibis-framework[mssql]<13.0.0,>=10.0.0; extra == "sqlserver"
 Provides-Extra: oracle
-Requires-Dist: soda-core-oracle<3.6.0,>=3.3.20; extra == "oracle"
+Requires-Dist: ibis-framework[oracle]<13.0.0,>=10.0.0; extra == "oracle"
 Provides-Extra: athena
-Requires-Dist: soda-core-athena<3.6.0,>=3.3.20; extra == "athena"
+Requires-Dist: ibis-framework[athena]<13.0.0,>=10.0.0; extra == "athena"
 Provides-Extra: trino
-Requires-Dist: soda-core-trino<3.6.0,>=3.3.20; extra == "trino"
+Requires-Dist: ibis-framework[trino]<13.0.0,>=10.0.0; extra == "trino"
 Provides-Extra: impala
-Requires-Dist: soda-core-impala<3.6.0,>=3.3.20; extra == "impala"
+Requires-Dist: ibis-framework[impala]<13.0.0,>=10.0.0; extra == "impala"
 Provides-Extra: dbml
 Requires-Dist: pydbml>=1.1.1; extra == "dbml"
 Provides-Extra: duckdb
-Requires-Dist: duckdb<1.6.0,>=1.0.0; extra == "duckdb"
-Requires-Dist: soda-core-duckdb<3.6.0,>=3.3.20; extra == "duckdb"
+Requires-Dist: duckdb<1.6.0,>=1.5.0; extra == "duckdb"
+Requires-Dist: ibis-framework[duckdb]<13.0.0,>=10.0.0; extra == "duckdb"
 Provides-Extra: parquet
 Requires-Dist: pyarrow>=18.1.0; extra == "parquet"
 Provides-Extra: rdf
@@ -93,7 +89,7 @@ Provides-Extra: api
 Requires-Dist: fastapi<0.137.0,>=0.115.0; extra == "api"
 Requires-Dist: uvicorn<0.49.0,>=0.44.0; extra == "api"
 Provides-Extra: protobuf
-Requires-Dist: protobuf<8.0,>=3.20; extra == "protobuf"
+Requires-Dist: proto-schema-parser<3.0,>=1.0; extra == "protobuf"
 Provides-Extra: all
 Requires-Dist: datacontract-cli[api,athena,azure,bigquery,csv,databricks,dbml,duckdb,excel,gcs,iceberg,impala,kafka,mysql,oracle,parquet,postgres,protobuf,rdf,redshift,s3,snowflake,sqlserver,trino]; extra == "all"
 Provides-Extra: dev
@@ -107,6 +103,8 @@ Requires-Dist: pre-commit<4.7.0,>=3.7.1; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-xdist; extra == "dev"
 Requires-Dist: pymssql==2.3.13; extra == "dev"
+Requires-Dist: psycopg2-binary<3.0,>=2.9; extra == "dev"
+Requires-Dist: mysql-connector-python<9.7.0,>=8.0.30; extra == "dev"
 Requires-Dist: ruff==0.15.14; extra == "dev"
 Requires-Dist: testcontainers[kafka,minio,mssql,mysql,postgres]==4.14.2; extra == "dev"
 Requires-Dist: trino==0.337.0; extra == "dev"
@@ -566,7 +564,7 @@ $ datacontract test --server production datacontract.yaml
 For CI/CD pipelines, see [`ci`](#ci).
 
 The application uses different engines, based on the server `type`.
-Internally, it connects with DuckDB, Spark, or a native connection and executes the most tests with _soda-core_ and _fastjsonschema_.
+Internally, it connects with DuckDB, Spark, or a native connection and executes most checks with _ibis_ (compiling dialect-specific SQL per backend) and validates JSON with _fastjsonschema_.
 
 #### Supported Data Sources
 
@@ -697,7 +695,7 @@ We support authentication to BigQuery using Service Account Key or Application D
 * BigQuery Job User
 * BigQuery Data Viewer
 
-When no `DATACONTRACT_BIGQUERY_ACCOUNT_INFO_JSON_PATH` is set, the CLI falls back to ADC/WIF automatically via Soda's `use_context_auth`.
+When no `DATACONTRACT_BIGQUERY_ACCOUNT_INFO_JSON_PATH` is set, the CLI falls back to Application Default Credentials (ADC/WIF) automatically.
 
 ##### Example
 
@@ -790,6 +788,8 @@ models:
 | `DATACONTRACT_SQLSERVER_DRIVER`                   | `ODBC Driver 18 for SQL Server` | ODBC driver name                                                                                                                  |
 | `DATACONTRACT_SQLSERVER_TRUSTED_CONNECTION`       | `True`                          | Deprecated. Equivalent to `AUTHENTICATION=windows`                                                                                |
 
+The `cli` mode reuses an `az login` session through the Azure default credential chain and requires ODBC Driver 18.1 or newer.
+
 </details>
 
 <details markdown="1">
@@ -867,9 +867,17 @@ models:
 
 | Environment Variable                      | Example                              | Description                                               |
 |-------------------------------------------|--------------------------------------|-----------------------------------------------------------|
-| `DATACONTRACT_DATABRICKS_TOKEN`           | `dapia00000000000000000000000000000` | The personal access token to authenticate                 |
-| `DATACONTRACT_DATABRICKS_HTTP_PATH`       | `/sql/1.0/warehouses/b053a3ffffffff` | The HTTP path to the SQL warehouse or compute cluster     |
 | `DATACONTRACT_DATABRICKS_SERVER_HOSTNAME` | `dbc-abcdefgh-1234.cloud.databricks.com` | The host name of the SQL warehouse or compute cluster |
+| `DATACONTRACT_DATABRICKS_HTTP_PATH`       | `/sql/1.0/warehouses/b053a3ffffffff` | The HTTP path to the SQL warehouse or compute cluster     |
+| `DATACONTRACT_DATABRICKS_TOKEN`           | `dapia00000000000000000000000000000` | A personal access token (PAT) to authenticate             |
+| `DATACONTRACT_DATABRICKS_CLIENT_ID`       | `00000000-0000-0000-0000-000000000000` | Service principal application (client) ID for OAuth machine-to-machine (M2M) auth |
+| `DATACONTRACT_DATABRICKS_CLIENT_SECRET`   | `dose00000000000000000000000000000000` | Service principal OAuth secret, used together with the client ID |
+| `DATACONTRACT_DATABRICKS_PROFILE`         | `my-profile`                         | A profile from `~/.databrickscfg`, delegating to the Databricks SDK unified auth (also resolves Azure CLI / managed identity) |
+| `DATACONTRACT_DATABRICKS_AUTH_TYPE`       | `databricks-oauth`                   | Explicit connector auth type, e.g. `databricks-oauth` for the interactive user-to-machine (U2M) browser login |
+
+The authentication method is selected from the variables you set, in this order:
+a personal access token, then an OAuth service principal (`CLIENT_ID` + `CLIENT_SECRET`),
+then a config profile, then an explicit `AUTH_TYPE`.
 
 </details>
 
@@ -995,16 +1003,17 @@ models:
 ```
 
 ##### Environment Variables
-All [parameters supported by Soda](https://docs.soda.io/soda/connect-snowflake.html), uppercased and prepended by `DATACONTRACT_SNOWFLAKE_` prefix.
+Any `DATACONTRACT_SNOWFLAKE_`-prefixed variable is passed (lowercased, prefix stripped) as a connection parameter to the [snowflake-connector-python](https://docs.snowflake.com/en/developer-guide/python-connector/python-connector-api#connect) driver that the ibis Snowflake backend uses.
 For example:
 
-| Soda parameter       | Environment Variable                        |
+| Connection parameter | Environment Variable                        |
 |----------------------|---------------------------------------------|
-| `username`           | `DATACONTRACT_SNOWFLAKE_USERNAME`           |
+| `user`               | `DATACONTRACT_SNOWFLAKE_USERNAME` or `DATACONTRACT_SNOWFLAKE_USER` |
 | `password`           | `DATACONTRACT_SNOWFLAKE_PASSWORD`           |
 | `warehouse`          | `DATACONTRACT_SNOWFLAKE_WAREHOUSE`          |
 | `role`               | `DATACONTRACT_SNOWFLAKE_ROLE`               |
-| `connection_timeout` | `DATACONTRACT_SNOWFLAKE_CONNECTION_TIMEOUT` |
+
+(`DATACONTRACT_SNOWFLAKE_USERNAME` is accepted as an alias for the connector's `user` parameter.)
 
 Beware, that parameters:
 * `account`
@@ -1108,24 +1117,14 @@ models:
 ```
 
 ##### Environment Variables
-All [parameters supported by Soda](https://docs.soda.io/soda/connect-redshift.html), uppercased and prepended by `DATACONTRACT_REDSHIFT_` prefix.
-For example:
+Redshift is reached over the PostgreSQL wire protocol via the ibis Postgres backend, using username/password authentication.
 
-| Soda parameter      | Environment Variable                      | Details             |
-|---------------------|-------------------------------------------|---------------------|
-| `username`          | `DATACONTRACT_REDSHIFT_USERNAME`          |                     |
-| `password`          | `DATACONTRACT_REDSHIFT_PASSWORD`          | leave unset for IAM |
-| `region`            | `DATACONTRACT_REDSHIFT_REGION`            | for IAM             |
-| `access_key_id`     | `DATACONTRACT_REDSHIFT_ACCESS_KEY_ID`     | for IAM             |
-| `secret_access_key` | `DATACONTRACT_REDSHIFT_SECRET_ACCESS_KEY` | for IAM             |
-| `role_arn`          | `DATACONTRACT_REDSHIFT_ROLE_ARN`          | for IAM             |
+| Connection parameter | Environment Variable             |
+|----------------------|----------------------------------|
+| `user`               | `DATACONTRACT_REDSHIFT_USERNAME` |
+| `password`           | `DATACONTRACT_REDSHIFT_PASSWORD` |
 
-IAM credentials can be supplied in two ways:
-
-1. **AWS_PROFILE** — set `AWS_PROFILE` in your shell to a profile defined in `~/.aws/credentials` and `DATACONTRACT_REDSHIFT_REGION`.
-2. **Explicit keys** — set `DATACONTRACT_REDSHIFT_REGION`, `..._ACCESS_KEY_ID`, `..._SECRET_ACCESS_KEY`, and `..._SESSION_TOKEN` for temporary credentials, or `..._ROLE_ARN` to assume a role.
-
->IAM authentication is supported only for **provisioned** Redshift clusters.
+> Note: IAM-based authentication (region / access key / role ARN) is not currently supported for Redshift, because ibis connects through the generic Postgres backend rather than a Redshift-specific driver.
 
 </details>
 
@@ -1201,7 +1200,7 @@ models:
 <details markdown="1">
 <summary><strong>Impala</strong></summary>
 
-Data Contract CLI can run Soda checks against an Apache Impala cluster.
+Data Contract CLI can run checks against an Apache Impala cluster.
 
 ##### Example
 
@@ -1212,7 +1211,7 @@ servers:
     type: impala
     host: my-impala-host
     port: 443
-    # Optional default database used for Soda scans
+    # Optional default database used for the checks
     database: my_database
 models:
   my_table_1: # corresponds to a table
@@ -1244,7 +1243,7 @@ If `physicalType` is not specified in the schema, we recommend the following map
 | `date`     | `DATE`                  |
 | `datetime` | `TIMESTAMP`             |
 
-This keeps the Impala schema compatible with the expectations of the Soda checks generated by datacontract-cli.
+This keeps the Impala schema compatible with the expectations of the checks generated by datacontract-cli.
 
 </details>
 
@@ -2148,15 +2147,9 @@ datacontract import csv --source "test.csv"
 
 Importing from protobuf File. Specify file in `source` parameter.
 
-Requires the `protoc` compiler installed on the system. Install with:
-
-| Platform       | Command                              |
-|----------------|--------------------------------------|
-| macOS          | `brew install protobuf`              |
-| Debian/Ubuntu  | `sudo apt install protobuf-compiler` |
-| Fedora/RHEL    | `sudo dnf install protobuf-compiler` |
-| Arch           | `sudo pacman -S protobuf`            |
-| Windows        | `choco install protoc` (or [download a release](https://github.com/protocolbuffers/protobuf/releases)) |
+`.proto` files are parsed with a pure-Python parser, so no `protoc` compiler or
+other system dependency is required. Transitive `import` statements (including
+across subdirectories) are resolved automatically.
 
 Example:
 
@@ -2501,10 +2494,11 @@ models:
 
 - Install [uv](https://docs.astral.sh/uv/)
 - Python base interpreter should be 3.11.x.
+- A JDK (17 or 21) must be installed for the Spark-based tests (e.g. `test_test_kafka.py`, `test_test_delta.py`, `test_test_dataframe.py`, `test_import_spark.py`). Java 25 is not yet supported. On macOS and Linux you can install one with [SDKMAN](https://sdkman.io): `sdk install java 21.0.11-tem` (or any 21.x build from `sdk list java`). Verify with `java --version`.
 - Docker engine must be running to execute the tests.
 
 ```bash
-# make sure uv is installed
+sdk use java 21.0.11-tem
 uv python pin 3.11
 uv venv
 uv pip install -e '.[dev]'

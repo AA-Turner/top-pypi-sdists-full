@@ -110,6 +110,13 @@ class Geocif:
             self.do_parallel = False
         self.update_input_file = self.parser.getboolean("DEFAULT", "update_input_file")
         self.correlation_plots = self.parser.getboolean("DEFAULT", "correlation_plots")
+        # Diagnostic: when True, write per-cell (feature, yield) scatter
+        # grids alongside the ccc/r2 heatmaps so the data behind each
+        # correlation value is inspectable. Default False (gated to avoid
+        # producing many extra files per region × model × year).
+        self.plot_correlation_scatter = self.parser.getboolean(
+            "DEFAULT", "plot_correlation_scatter", fallback=False
+        )
         self.national_correlation = self.parser.getboolean("DEFAULT", "national_correlation")
         self.plot_map_for_correlation_plot = self.parser.getboolean(
             "DEFAULT", "plot_map_for_correlation_plot"
@@ -191,11 +198,24 @@ class Geocif:
         self.region_anomaly_min_years = self.parser.getint(
             "ML", "region_anomaly_min_years", fallback=5
         )
+        # General per-region coverage filter — drops regions with fewer than
+        # this many training-year rows from both df_train and df_test in
+        # _prepare_train_test_split, regardless of target_mode. 0 = off.
+        # Default 5 matches the kebele-coverage threshold below which neither
+        # absolute nor region_anomaly mode can learn a reliable per-region
+        # signal (only 2-4 LOOCV training rows after holding out the forecast
+        # year). Composes with region_anomaly_min_years (effective threshold
+        # is the max of the two when target_mode = region_anomaly).
+        self.min_years_per_region = self.parser.getint(
+            "ML", "min_years_per_region", fallback=5
+        )
         # Populated by _prepare_train_test_split when target_mode == region_anomaly.
         self._region_target_means: dict = {}
         # Cache for region_anomaly "skipping ..." warning dedup — only log
         # when the (country, crop, dropped-regions-set) changes.
         self._last_region_anomaly_drop = None
+        # Same dedup pattern for the general min_years_per_region filter.
+        self._last_min_years_drop = None
         # Per-region z-scored CID sibling features. Empty list = disabled.
         # For each base name, every wide-format column "<base> <stage>" gets
         # a companion "<base>_zreg <stage>" computed leak-safe per LOOCV fold.
@@ -1821,6 +1841,7 @@ class Geocif:
             "plot_map": self.plot_map_for_correlation_plot,
             "correlation_threshold": self.correlation_threshold,
             "correlation_metric": self.correlation_metric,
+            "plot_correlation_scatter": self.plot_correlation_scatter,
         }
 
     def _prepare_train_test_split(self, df: pd.DataFrame):
@@ -1841,6 +1862,50 @@ class Geocif:
         self.df_test = df[mask].copy()
 
         self.df_train = self.df_train.dropna(subset=[self.target])
+
+        # General min-years-per-region filter. Drops regions whose training-row
+        # count is below [ML] min_years_per_region from both df_train and
+        # df_test. Applied here so it composes with region_anomaly_min_years
+        # below (region_anomaly will then operate on the surviving regions
+        # only) and so every downstream consumer of df_train (CCC filter,
+        # feature engineering, model fit) sees the same filtered set.
+        if (
+            self.min_years_per_region > 0
+            and "Region" in self.df_train.columns
+            and self.target in self.df_train.columns
+        ):
+            admin_col = (
+                "Country__Region"
+                if getattr(self, "countries_pooled", None)
+                and "Country__Region" in self.df_train.columns
+                else "Region"
+            )
+            counts = self.df_train.groupby(admin_col)[self.target].count()
+            keep = counts[counts >= self.min_years_per_region].index.tolist()
+            dropped = sorted(set(counts.index) - set(keep))
+            if dropped:
+                # Dedup the warning across LOOCV folds — log once per
+                # (country, crop, threshold, dropped-set).
+                cache_key = (
+                    self.country,
+                    self.crop,
+                    self.min_years_per_region,
+                    frozenset(dropped),
+                )
+                if getattr(self, "_last_min_years_drop", None) != cache_key:
+                    self.logger.warning(
+                        f"  min_years_per_region={self.min_years_per_region}: "
+                        f"dropping {len(dropped)} region(s) with < "
+                        f"{self.min_years_per_region} training rows: "
+                        f"{dropped[:10]}{'...' if len(dropped) > 10 else ''}"
+                    )
+                    self._last_min_years_drop = cache_key
+                self.df_train = self.df_train[
+                    self.df_train[admin_col].isin(keep)
+                ].copy()
+                self.df_test = self.df_test[
+                    self.df_test[admin_col].isin(keep)
+                ].copy()
 
         # Region-anomaly target transform (leak-safe: uses train years only).
         # Only computes the per-region mean lookup + prunes regions with too
@@ -4067,16 +4132,36 @@ class Geocif:
             # Keep Series type so downstream .loc / .iloc on y_train still works
             self.y_train = (self.y_train.astype(float) - means.values)
 
-        # Compute last available observed year and yield PER REGION
+        # Compute last available observed year and yield PER REGION.
+        #
+        # Three guards keep this loop safe when df_region_train carries a
+        # Categorical "Region" column with some levels having no valid
+        # target rows — the failure mode that crashed the Wolayita maize
+        # run with "attempt to get argmax of an empty sequence":
+        #   1. observed=True drops empty Categorical levels at the
+        #      groupby layer (the root cause — _add_region_clusters at
+        #      geocif.py:2498 sets Region as Categorical, and the
+        #      default observed=False keeps empty levels as 0-row groups).
+        #   2. years.dropna() + years.empty guards the second-order case
+        #      where a group has rows but Harvest Year is entirely NaN.
+        #   3. idxmax() runs on the pre-dropna'd Series so it's never
+        #      called on an empty sequence.
+        # Regions skipped here don't appear in last_observed_map; all
+        # downstream readers use .get(region) so missing keys degrade
+        # gracefully.
         df_valid = df_region_train.dropna(subset=[self.target_column])
         self.last_observed_map = {}  # {region_name: (year, yield)}
-        if not df_valid.empty:
-            for region, grp in df_valid.groupby("Region"):
-                last_row = grp.loc[grp["Harvest Year"].idxmax()]
-                self.last_observed_map[region] = (
-                    int(last_row["Harvest Year"]),
-                    float(last_row[self.target_column]),
-                )
+        if df_valid.empty:
+            return
+        for region, grp in df_valid.groupby("Region", observed=True):
+            years = grp["Harvest Year"].dropna()
+            if years.empty:
+                continue
+            last_row = grp.loc[years.idxmax()]
+            self.last_observed_map[region] = (
+                int(last_row["Harvest Year"]),
+                float(last_row[self.target_column]),
+            )
 
     # Add debug logging in _clean_training_features
     def _clean_training_features(self, X_train: pd.DataFrame) -> pd.DataFrame:

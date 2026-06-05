@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dsalt
-Version: 0.4.13
+Version: 0.4.19
 Summary: Dynamic Sparse Attention with Landmark Tokens - High-performance Triton implementation
 Author-email: Leonardo Cofone <leonardo.cofone5@gmail.com>
 Maintainer-email: Leonardo Cofone <leonardo.cofone5@gmail.com>

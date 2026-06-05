@@ -97,7 +97,7 @@ class CfnCRL(
         # The values are placeholders you should change.
         from aws_cdk import aws_rolesanywhere as rolesanywhere
         
-        cfn_cRL = rolesanywhere.CfnCRL(self, "MyCfnCRL",
+        cfn_crl = rolesanywhere.CfnCRL(self, "MyCfnCRL",
             crl_data="crlData",
             name="name",
         
@@ -361,7 +361,7 @@ class CfnCRLProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_rolesanywhere as rolesanywhere
             
-            cfn_cRLProps = rolesanywhere.CfnCRLProps(
+            cfn_crl_props = rolesanywhere.CfnCRLProps(
                 crl_data="crlData",
                 name="name",
             

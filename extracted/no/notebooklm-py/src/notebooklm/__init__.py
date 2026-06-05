@@ -74,6 +74,8 @@ from .exceptions import (
     # Validation/Config
     ConfigurationError,
     DecodingError,
+    MindMapError,
+    MindMapNotFoundError,
     # Network
     NetworkError,
     # Idempotency
@@ -84,11 +86,15 @@ from .exceptions import (
     # Base
     NotebookLMError,
     NotebookNotFoundError,
+    NoteError,
+    NoteNotFoundError,
     # Cross-domain umbrellas
     NotFoundError,
     RateLimitError,
     # Domain: Research
+    ResearchError,
     ResearchTaskMismatchError,
+    ResearchTimeoutError,
     RPCError,
     RPCResponseTooLargeError,
     RPCTimeoutError,
@@ -101,6 +107,8 @@ from .exceptions import (
     SourceTimeoutError,
     UnknownRPCMethodError,
     ValidationError,
+    # Cross-domain umbrellas (wait/poll timeouts)
+    WaitTimeoutError,
 )
 
 # Public API: Types and dataclasses
@@ -126,6 +134,9 @@ from .types import (
     InfographicDetail,
     InfographicOrientation,
     InfographicStyle,
+    MindMap,
+    MindMapKind,
+    MindMapResult,
     Note,
     Notebook,
     NotebookDescription,
@@ -134,6 +145,10 @@ from .types import (
     QuizQuantity,
     ReportFormat,
     ReportSuggestion,
+    ResearchSource,
+    ResearchStart,
+    ResearchStatus,
+    ResearchTask,
     RpcTelemetryEvent,
     ShareAccess,
     SharedUser,
@@ -144,6 +159,7 @@ from .types import (
     SlideDeckLength,
     Source,
     SourceFulltext,
+    SourceGuide,
     SourceStatus,
     SourceSummary,
     SourceType,
@@ -181,16 +197,24 @@ __all__ = [
     "SuggestedTopic",
     "Source",
     "SourceFulltext",
+    "SourceGuide",
     "SourceSummary",
     "Artifact",
     "GenerationStatus",
     "ReportSuggestion",
+    "MindMap",
+    "MindMapKind",
+    "MindMapResult",
     "Note",
     "ConversationTurn",
     "ChatReference",
     "AskResult",
     "ChatMode",
     "CitedSourceSelection",
+    "ResearchStatus",
+    "ResearchSource",
+    "ResearchTask",
+    "ResearchStart",
     "SharedUser",
     "ShareStatus",
     # Utility helpers
@@ -239,7 +263,17 @@ __all__ = [
     "ArtifactPendingTimeoutError",
     "ArtifactInProgressTimeoutError",
     # Domain Exceptions: Research
+    "ResearchError",
+    "ResearchTimeoutError",
     "ResearchTaskMismatchError",
+    # Domain Exceptions: Notes
+    "NoteError",
+    "NoteNotFoundError",
+    # Domain Exceptions: Mind maps
+    "MindMapError",
+    "MindMapNotFoundError",
+    # Cross-domain umbrella: wait/poll timeouts
+    "WaitTimeoutError",
     # Warnings
     "UnknownTypeWarning",
     # User-facing type enums (str enums for .kind property)

@@ -13,11 +13,34 @@ from typing import Any
 
 from psycopg import sql as pgsql
 
+from dazzle.back.runtime.predicate_compiler import _USER_GUC_PREFIX
 from dazzle.back.runtime.query_builder import quote_identifier
+from dazzle.back.runtime.rls_schema import TENANT_GUC, USER_GUC_PREFIX
 from dazzle.back.specs.entity import EntitySpec, FieldSpec, FieldType, ScalarType
 from dazzle.core.db_url import add_psycopg_driver, normalise_postgres_scheme
 
 logger = logging.getLogger(__name__)
+
+# Drift guard (C-2): the inline GUC literal in ``_set_tenant_context`` below must
+# equal the framework constant the fence DDL reads. If TENANT_GUC ever changes,
+# this assertion fires at import time rather than letting the runtime set one GUC
+# while the fence reads another (which would silently total-deny).
+assert TENANT_GUC == "dazzle.tenant_id", (
+    f"TENANT_GUC ({TENANT_GUC!r}) drifted from the set_config literal in "
+    "_set_tenant_context — update both together."
+)
+
+# Drift guard (Phase C, C-2): the GUC name the runtime SETS in
+# ``_set_rls_user_attrs`` (``f"{USER_GUC_PREFIX}{attr}"``) must equal the name the
+# scope policy READS (``predicate_compiler`` builds it from ``_USER_GUC_PREFIX``).
+# Both derive from the single source of truth in ``rls_schema`` — this assertion
+# pins that they are the same object/value at import time, so a future edit to one
+# can't silently total-deny every scope predicate.
+assert _USER_GUC_PREFIX == USER_GUC_PREFIX == "dazzle.user_", (
+    f"USER_GUC_PREFIX drift: predicate_compiler={_USER_GUC_PREFIX!r}, "
+    f"rls_schema={USER_GUC_PREFIX!r} — the policy reads and the runtime sets must "
+    "agree (shared constant in rls_schema)."
+)
 
 
 def _set_search_path(conn: Any, schema: str) -> None:
@@ -28,6 +51,80 @@ def _set_search_path(conn: Any, schema: str) -> None:
     # psycopg.sql.SQL.format() is safe SQL composition, not string interpolation
     stmt = pgsql.SQL("SET search_path TO {schema}, public").format(schema=pgsql.Identifier(schema))
     conn.execute(stmt)  # nosemgrep
+
+
+def _set_tenant_context(conn: Any, tenant_id: str | None) -> None:
+    """Set the per-transaction ``dazzle.tenant_id`` GUC for the RLS fence.
+
+    RLS tenancy Phase B. The PostgreSQL row-level-security fence reads
+    ``current_setting('dazzle.tenant_id', true)`` (companion spec §1.3 / §6); this
+    binds that GUC to the authenticated user's tenant so the leased connection is
+    physically scoped to one tenant. The GUC name is the fixed framework constant
+    :data:`dazzle.back.runtime.rls_schema.TENANT_GUC` — the SAME constant the
+    fence DDL reads — so the runtime and the fence can never disagree on the name
+    even when the app's partition_key column is custom (C-2).
+
+    - When ``tenant_id`` is ``None`` this is a **no-op**: no GUC is set, the
+      ``current_setting`` is missing → ``NULL`` → the fence matches no rows and
+      rejects writes (fail-closed — the correct behaviour for unauthenticated /
+      no-tenant requests against fenced tables).
+    - When present, the value is passed as a **bind parameter** to ``set_config``
+      — never string-interpolated (``SET LOCAL`` cannot take a bind param, which
+      is why ``set_config(name, value, true)`` is used). ``is_local = true`` makes
+      the setting transaction-scoped, so it lives exactly for the queries that run
+      on this leased connection before the surrounding block commits (companion
+      §6.1/§6.2).
+    """
+    if tenant_id is None:
+        return
+    # The GUC name is the fixed framework constant TENANT_GUC; the literal below
+    # must stay in lockstep with it (the module-load assertion guards drift). The
+    # tenant id is always a bind parameter — never interpolated.
+    conn.execute(
+        pgsql.SQL("SELECT set_config('dazzle.tenant_id', %s, true)"),  # nosemgrep
+        [tenant_id],
+    )
+
+
+def _set_rls_user_attrs(conn: Any, attrs: dict[str, str] | None) -> None:
+    """Set the per-transaction ``dazzle.user_<attr>`` GUCs for scope policies.
+
+    RLS tenancy Phase C. The per-verb intra-tenant scope policies read
+    ``current_setting('dazzle.user_<attr>', true)::<type>`` (companion §6); this
+    binds each of those GUCs from the authenticated user's resolved attributes so
+    the leased connection's RLS scope predicates evaluate against the right
+    subject. The map is the per-request value produced by the auth dependency and
+    carried on the ``_current_rls_user_attrs`` contextvar — keyed by the **bare
+    attr name** (``"id"``, ``"school_id"``, …); values are the resolved scalar
+    strings.
+
+    The GUC name is built as ``f"{USER_GUC_PREFIX}{attr}"`` from the SAME
+    framework constant the policy body reads (``predicate_compiler`` re-exports it
+    as ``_USER_GUC_PREFIX``). So the name the runtime SETS is, by construction,
+    the name the policy READS — they can never drift (mirrors the ``TENANT_GUC``
+    drift-guard; the module-load assertion below pins it).
+
+    - ``None`` / empty → **no-op**: no GUC is set, so every scope predicate that
+      needs one sees a missing ``current_setting`` → ``NULL`` → matches no rows
+      (fail-closed — correct for unauthenticated / no-scope requests and for an
+      attr that resolved to the RBAC-deny sentinel, which the binder already
+      dropped from the map).
+    - Each name **and** value is passed as a **bind parameter** to ``set_config``
+      — never string-interpolated. The GUC *name* is dynamic (one per referenced
+      attr) but is still a bind param, so a hostile attr value can never reach the
+      SQL text. ``is_local = true`` makes each setting transaction-scoped, so it
+      lives exactly for the queries on this leased connection (companion §6.1/§6.2).
+    """
+    if not attrs:
+        return
+    for attr, value in attrs.items():
+        # ``set_config(name, value, true)`` — both name and value are bind
+        # parameters (never interpolated). The name is derived from the shared
+        # USER_GUC_PREFIX so it equals the name the scope policy reads.
+        conn.execute(
+            pgsql.SQL("SELECT set_config(%s, %s, true)"),  # nosemgrep
+            [f"{USER_GUC_PREFIX}{attr}", value],
+        )
 
 
 def _create_table_sql(table_name: str, columns: str) -> pgsql.Composed:
@@ -252,14 +349,26 @@ class PostgresBackend:
         If a tenant schema is set via context var (by TenantMiddleware),
         it takes precedence over the instance's search_path.
         """
-        from dazzle.back.runtime.tenant_isolation import get_current_tenant_schema
+        from dazzle.back.runtime.tenant_isolation import (
+            get_current_rls_user_attrs,
+            get_current_tenant_id,
+            get_current_tenant_schema,
+        )
 
         effective_search_path = get_current_tenant_schema() or self.search_path
+        # RLS tenancy Phase B — bind dazzle.tenant_id for the shared_schema fence.
+        # None (unauthenticated / non-tenant) leaves the GUC unset → fence denies.
+        tenant_id = get_current_tenant_id()
+        # RLS tenancy Phase C — bind the dazzle.user_<attr> GUCs the intra-tenant
+        # scope policies read. Empty (no scope rules / unauthenticated) → no-op.
+        rls_user_attrs = get_current_rls_user_attrs()
 
         if self._pool is not None:
             with self._pool.connection() as conn:
                 if effective_search_path:
                     _set_search_path(conn, effective_search_path)
+                _set_tenant_context(conn, tenant_id)
+                _set_rls_user_attrs(conn, rls_user_attrs)
                 try:
                     yield PgConnectionWrapper(conn)
                 except Exception:
@@ -275,6 +384,8 @@ class PostgresBackend:
         try:
             if effective_search_path:
                 _set_search_path(conn, effective_search_path)
+            _set_tenant_context(conn, tenant_id)
+            _set_rls_user_attrs(conn, rls_user_attrs)
             yield PgConnectionWrapper(conn)
             conn.commit()
         except Exception:
@@ -288,6 +399,11 @@ class PostgresBackend:
         Get a persistent connection for the application lifecycle.
 
         Returns a wrapped psycopg connection (reuses existing if available).
+
+        WARNING: this does NOT set the RLS tenant context (``dazzle.tenant_id``)
+        — unlike :meth:`connection`. Using it against an RLS-fenced table will
+        fail-closed (no rows / rejected writes) because the GUC is unset. Prefer
+        :meth:`connection` for any tenant-scoped access (see #1331).
         """
         import psycopg
         from psycopg.rows import dict_row

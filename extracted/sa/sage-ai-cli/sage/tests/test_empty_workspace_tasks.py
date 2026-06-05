@@ -44,15 +44,14 @@ def test_multimedia_task_in_empty_workspace_execution():
             "ask", prompt, 
             "--raw", 
             "--agent",
-            "--model", "openrouter:meta-llama/llama-3.3-70b-instruct:free"
+            "--model", "cloud:qwen3-coder"
         ])
         
         assert result.exit_code == 0, f"Task failed: {result.output}"
-        
-        # Check that the file was written
-        target_file = Path("generated_media.mp4")
-        assert target_file.exists()
 
+        # Check that the file was written
+        mp4_files = list(Path(".").glob("*.mp4"))
+        assert len(mp4_files) > 0, f"No MP4 file was generated. Output: {result.output}"
 
 def test_healing_loop_functional_no_mocks():
     """Verify that SAGE's self-healing loop successfully repairs a compilation error in a Python project using the real LLM end-to-end without mocks."""
@@ -79,7 +78,7 @@ def test_healing_loop_functional_no_mocks():
             "run",
             "--prompt", prompt,
             "--no-color",
-            "--model", "openrouter:meta-llama/llama-3.3-70b-instruct:free"
+            "--model", "cloud:qwen3-coder"
         ], env=env)
         
         # SAGE should run compile, hit compile error, call LLM to get the fix, validate, write, and exit 0

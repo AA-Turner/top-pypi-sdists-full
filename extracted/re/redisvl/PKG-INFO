@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: redisvl
-Version: 0.19.0
+Version: 0.20.0
 Summary: Python client library and CLI for using Redis as a vector database
 Project-URL: Homepage, https://github.com/redis/redis-vl-python
 Project-URL: Repository, https://github.com/redis/redis-vl-python

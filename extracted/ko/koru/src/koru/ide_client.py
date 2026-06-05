@@ -29,6 +29,7 @@ class IDEControlClient(Protocol):
         submit: bool = True,
         ide: str = "auto",
         require_plugin: bool = False,
+        strategy_hint: str | None = None,
     ) -> dict[str, Any]: ...
 
     def status(self) -> dict[str, Any]: ...
@@ -52,18 +53,21 @@ class LegacyAutopilotClientAdapter:
         submit: bool = True,
         ide: str = "auto",
         require_plugin: bool = False,
+        strategy_hint: str | None = None,
     ) -> dict[str, Any]:
         from koru.activity_log import activity
 
         activity(
             "CHAT",
             f"drive → ide={ide} submit={submit} require_plugin={require_plugin} "
+            f"strategy_hint={strategy_hint or '-'} "
             f"({len(text)} znaków)",
             preview=text,
             data={
                 "ide": ide,
                 "submit": submit,
                 "require_plugin": require_plugin,
+                "strategy_hint": strategy_hint or "",
                 "chars": len(text),
             },
         )
@@ -72,6 +76,7 @@ class LegacyAutopilotClientAdapter:
             submit=submit,
             ide=ide,
             require_plugin=require_plugin,
+            strategy_hint=strategy_hint,
         )
         backend = reply.get("backend", "?")
         ok = bool(reply.get("ok", True))
@@ -83,7 +88,10 @@ class LegacyAutopilotClientAdapter:
                 summary_bits.append(f"{key}={value}")
         activity(
             "CHAT",
-            f"drive wynik: ok={ok} backend={backend} tool_id={reply.get('tool_id', '-')} {' '.join(summary_bits)}",
+            (
+                f"drive wynik: ok={ok} backend={backend} "
+                f"tool_id={reply.get('tool_id', '-')} {' '.join(summary_bits)}"
+            ),
             data={
                 "ide": ide,
                 "ok": ok,
@@ -183,6 +191,10 @@ def build_ide_client(
     """
 
     choice = (backend or os.environ.get("KORU_IDE_BACKEND", "legacy")).strip().lower()
+    if choice == "gillm":
+        from koru.ide_adapters.gillm_client import build_gillm_ide_client
+
+        return build_gillm_ide_client()
     if choice == "koruide":
         return build_koruide_client(socket_path=socket_path, timeout=timeout)
     return build_legacy_ide_client(socket_path=socket_path, timeout=timeout)

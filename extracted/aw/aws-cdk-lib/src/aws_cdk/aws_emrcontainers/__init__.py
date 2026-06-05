@@ -97,7 +97,7 @@ class CfnEndpoint(
         # The values are placeholders you should change.
         from aws_cdk import aws_emrcontainers as emrcontainers
         
-        # e_mREKSConfiguration_property_: emrcontainers.CfnEndpoint.EMREKSConfigurationProperty
+        # e_mreks_configuration_property_: emrcontainers.CfnEndpoint.EMREKSConfigurationProperty
         
         cfn_endpoint = emrcontainers.CfnEndpoint(self, "MyCfnEndpoint",
             execution_role_arn="executionRoleArn",
@@ -111,7 +111,7 @@ class CfnEndpoint(
                     classification="classification",
         
                     # the properties below are optional
-                    configurations=[e_mREKSConfiguration_property_],
+                    configurations=[e_mreks_configuration_property_],
                     properties={
                         "properties_key": "properties"
                     }
@@ -603,14 +603,14 @@ class CfnEndpoint(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_emrcontainers as emrcontainers
                 
-                # e_mREKSConfiguration_property_: emrcontainers.CfnEndpoint.EMREKSConfigurationProperty
+                # e_mreks_configuration_property_: emrcontainers.CfnEndpoint.EMREKSConfigurationProperty
                 
                 configuration_overrides_property = emrcontainers.CfnEndpoint.ConfigurationOverridesProperty(
                     application_configuration=[emrcontainers.CfnEndpoint.EMREKSConfigurationProperty(
                         classification="classification",
                 
                         # the properties below are optional
-                        configurations=[e_mREKSConfiguration_property_],
+                        configurations=[e_mreks_configuration_property_],
                         properties={
                             "properties_key": "properties"
                         }
@@ -760,7 +760,7 @@ class CfnEndpoint(
             *,
             classification: builtins.str,
             configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEndpoint.EMREKSConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            properties: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         ) -> None:
             '''
             :param classification: 
@@ -776,13 +776,13 @@ class CfnEndpoint(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_emrcontainers as emrcontainers
                 
-                # e_mREKSConfiguration_property_: emrcontainers.CfnEndpoint.EMREKSConfigurationProperty
+                # e_mreks_configuration_property_: emrcontainers.CfnEndpoint.EMREKSConfigurationProperty
                 
-                e_mREKSConfiguration_property = emrcontainers.CfnEndpoint.EMREKSConfigurationProperty(
+                e_mreks_configuration_property = emrcontainers.CfnEndpoint.EMREKSConfigurationProperty(
                     classification="classification",
                 
                     # the properties below are optional
-                    configurations=[e_mREKSConfiguration_property_],
+                    configurations=[e_mreks_configuration_property_],
                     properties={
                         "properties_key": "properties"
                     }
@@ -823,12 +823,12 @@ class CfnEndpoint(
         @builtins.property
         def properties(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emrcontainers-endpoint-emreksconfiguration.html#cfn-emrcontainers-endpoint-emreksconfiguration-properties
             '''
             result = self._values.get("properties")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1053,7 +1053,7 @@ class CfnEndpointProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_emrcontainers as emrcontainers
             
-            # e_mREKSConfiguration_property_: emrcontainers.CfnEndpoint.EMREKSConfigurationProperty
+            # e_mreks_configuration_property_: emrcontainers.CfnEndpoint.EMREKSConfigurationProperty
             
             cfn_endpoint_props = emrcontainers.CfnEndpointProps(
                 execution_role_arn="executionRoleArn",
@@ -1067,7 +1067,7 @@ class CfnEndpointProps:
                         classification="classification",
             
                         # the properties below are optional
-                        configurations=[e_mREKSConfiguration_property_],
+                        configurations=[e_mreks_configuration_property_],
                         properties={
                             "properties_key": "properties"
                         }
@@ -2022,7 +2022,7 @@ class CfnSecurityConfiguration(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_emrcontainers as emrcontainers
                 
-                i_aMConfiguration_property = {
+                i_am_configuration_property = {
                     "system_role": "systemRole"
                 }
             '''
@@ -2699,7 +2699,7 @@ class CfnSecurityConfiguration(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_emrcontainers as emrcontainers
                 
-                t_lSCertificate_configuration_property = emrcontainers.CfnSecurityConfiguration.TLSCertificateConfigurationProperty(
+                t_ls_certificate_configuration_property = emrcontainers.CfnSecurityConfiguration.TLSCertificateConfigurationProperty(
                     certificate_provider_type="certificateProviderType",
                     private_key_secret_arn="privateKeySecretArn",
                     public_key_secret_arn="publicKeySecretArn"
@@ -3666,7 +3666,7 @@ def _typecheckingstub__a5e05064bc37ba71915107a21d96057346160606aa8cdc19d7293f9c9
     *,
     classification: builtins.str,
     configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpoint.EMREKSConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    properties: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -22,6 +22,7 @@ import argparse
 import glob
 import mmap
 import os
+import re
 import sys
 import time
 from configparser import ConfigParser
@@ -51,6 +52,7 @@ from ethosu import regor
 
 TFLITE_MAGIC = 0x334C4654
 TOSA_MAGIC = 0x41534F54
+MAX_IGNORE_OPS_LENGTH = 4096
 
 
 def process(
@@ -431,9 +433,10 @@ def generate_supported_ops():
             "    - Any other permutation vector is unsupported",
             "  - IF IFM is Int8 or Int16:",
             "    - NHWC: no shape constraints",
-            "    - ELSE IF Rank <= 4 and permutation is NWHC/NHCW/NCWH:",
-            "      - (N*H, W, C) <= (2^16, 2^16, 2^16)",
-            "    - ELSE: product of elements must be <= 2^16",
+            "  - ELSE IF permutation is: NWHC/NHCW/NCWH/NWCH/NCHW and the tensor is 3D, or higher-rank with all axes outside H/W/C equal to 1:",
+            "    - (H, W, C) <= (2^16, 2^16, 2^16)",
+            "  - ELSE:",
+            "    - Product of any N-2 axes in a rank N tensor must be less than or equal to 2^16. For example, for rank 4: N*H <= 2^16, N*W <= 2^16, N*C <= 2^16, H*W <= 2^16, H*C <= 2^16, W*C <= 2^16.",
             "",
             "### Ethos-U55 and Ethos-U65 TOSA REDUCE_SUM Constraints",
             "",
@@ -747,6 +750,17 @@ def generate_supported_ops():
         print(f"Report file: {filepath}")
 
 
+def normalise_ignore_ops(ignore_ops: Optional[List[str]]) -> str:
+    if not ignore_ops:
+        return ""
+    op_list = ",".join(ignore_ops)
+    if len(op_list) > MAX_IGNORE_OPS_LENGTH:
+        raise ValueError(f"Invalid argument to --ignore-ops: maximum length is {MAX_IGNORE_OPS_LENGTH} characters")
+    if re.search(r"[^A-Za-z0-9_,]", op_list):
+        raise ValueError("Invalid argument to --ignore-ops: only A-Z, 0-9, '_' and ',' are accepted")
+    return op_list.upper().strip().replace("ARG_MAX", "ARGMAX")
+
+
 def get_compiler_config(
     enable_debug_db: bool,
     verbose_all: bool,
@@ -771,6 +785,8 @@ def get_compiler_config(
     separate_io_regions: bool,
     cpu_tensor_alignment: int,
     tensor_allocator: str,
+    softmax_int16_neg_exp_range: float,
+    ignore_ops: str = "",
 ) -> str:
     """Build compiler config file."""
     config = "\n[compiler]\n"
@@ -815,7 +831,10 @@ def get_compiler_config(
         config += "verbose=true\n"
     if verbose_quantization:
         config += "verbose_quantization=true\n"
-
+    if softmax_int16_neg_exp_range > 0:
+        config += f"softmax_int16_neg_exp_range={softmax_int16_neg_exp_range}\n"
+    if ignore_ops:
+        config += f"ignore_ops={ignore_ops}\n"
     return config
 
 
@@ -975,6 +994,12 @@ def main(argv: Optional[List[str]] = None) -> int:
         "--show-cpu-operations", action="store_true", help="Show the operations that fall back to the CPU"
     )
     parser.add_argument(
+        "--ignore-ops",
+        action="append",
+        metavar="OP[,OP...]",
+        help="Let the specified TFLite builtin operator types fall back to the CPU",
+    )
+    parser.add_argument(
         "--timing", action="deprecated_store_true", help="[DEPRECATED] Time the compiler doing operations"
     )
     parser.add_argument(
@@ -1083,6 +1108,14 @@ def main(argv: Optional[List[str]] = None) -> int:
         help="Use separate regions for input and output tensors (implies COP2 driver actions format)",
     )
 
+    # experimental options
+    parser.add_argument(
+        "--experimental-softmax-int16-neg-exp-range",
+        type=float,
+        default=10.0,
+        help="[EXPERIMENTAL]: Set the negative exponent range (0, 65535) for int16 softmax (default: %(default)s)",
+    )
+
     # debug options
     parser.add_argument(
         "--debug-force-legacy-core",
@@ -1118,7 +1151,14 @@ def main(argv: Optional[List[str]] = None) -> int:
     if args.cop_format == "COP1" and args.separate_io_regions:
         parser.error("Driver actions format 'COP2' is required for --separate-io-regions")
 
+    if not (0 < args.experimental_softmax_int16_neg_exp_range < 65535):
+        parser.error(
+            f"Invalid argument to --experimental-softmax-int16-neg-exp-range = {args.experimental_softmax_int16_neg_exp_range}, valid range: (0, 65535)"
+        )
+
     def _parse_config(config):
+        # Store leading "." as it is removed by normpath
+        relativePath = config.startswith(".")
         # Make sure the correct separator is used depending on OS
         config = os.path.normpath(config)
 
@@ -1128,7 +1168,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         if (
             len(config.split(os.path.sep)) == 2
             and not config.startswith(os.path.sep)
-            and not config.startswith(".")
+            and not relativePath
             and not config.startswith("~")
         ):
             config_path = os.path.join(architecture_features.CONFIG_FILES_PATH, config)
@@ -1218,6 +1258,11 @@ def main(argv: Optional[List[str]] = None) -> int:
         substrings = [substring.capitalize() for substring in substrings[:-1]]
         accelerator = "".join(substrings)
 
+        try:
+            args.ignore_ops = normalise_ignore_ops(args.ignore_ops)
+        except ValueError as e:
+            parser.error(str(e))
+
         options = get_compiler_config(
             args.enable_debug_db,
             args.verbose_all,
@@ -1244,6 +1289,8 @@ def main(argv: Optional[List[str]] = None) -> int:
             args.separate_io_regions,
             args.cpu_tensor_alignment,
             args.tensor_allocator,
+            args.experimental_softmax_int16_neg_exp_range,
+            args.ignore_ops,
         )
 
         process_regor(
@@ -1262,6 +1309,13 @@ def main(argv: Optional[List[str]] = None) -> int:
         )
 
     else:
+        if args.ignore_ops:
+            parser.error("The --ignore-ops option is only supported when using the Regor C++ compilation core.")
+        if args.experimental_softmax_int16_neg_exp_range != 10.0:
+            print(
+                "Warning: The --experimental-softmax-int16-neg-exp-range option has no effect when using the legacy "
+                "Python compilation core, and is only applicable when using the Regor C++ compilation core."
+            )
         compiler_options = compiler_driver.CompilerOptions(
             verbose_graph=args.verbose_graph,
             verbose_quantization=args.verbose_quantization,

@@ -3,9 +3,6 @@
 import os
 
 from . import uefi
-from . import pfs
-from . import me
-from . import flash
 
 from .misc import checker
 from .base import FirmwareObject, RawObject, AutoRawObject
@@ -47,7 +44,7 @@ class AutoParser(object):
                 data = data[self.offset:]
         self.data = data
 
-        header = data[:100]
+        header = data[:200]
         for tester in checker.TESTERS:
             if tester().match(header):
                 self.data_type = tester().name
@@ -130,11 +127,17 @@ class MultiObject(FirmwareObject):
             self.objs[i].showinfo(ts, i)
 
     def to_dict(self):
-        volumes = []
-        for i in range(len(self.objs)):
-            obj = self.objs[i]
-            if type(obj) is uefi.FirmwareVolume:
-                volumes.append(obj.to_dict())
+        def get_fvs(multi_object):
+            volumes = []
+            for i in range(len(multi_object.objs)):
+                obj = multi_object.objs[i]
+                if type(obj) is uefi.FirmwareVolume:
+                    volumes.append(obj.to_dict())
+                if type(obj) is MultiObject:
+                    volumes.extend(get_fvs(obj))
+            return volumes
+        volumes = get_fvs(self)
+
         return { 'regions': [
             {
                 'type': 'bios',
@@ -199,6 +202,9 @@ class MultiVolumeContainer(FirmwareObject):
 
 
 __title__ = "uefi_firmware"
-__version__ = "1.11"
-__author__ = "Teddy Reed"
+try:
+    from ._version import version as __version__
+except ImportError:
+    __version__ = "0.1.0+unknown"
+__author__ = "UEFI Firmware Parser developers"
 __license__ = "BSD"

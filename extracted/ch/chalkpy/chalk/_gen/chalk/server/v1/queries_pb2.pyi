@@ -799,6 +799,42 @@ class GetQueryRunResponse(_message.Message):
     query_run: QueryRun
     def __init__(self, query_run: _Optional[_Union[QueryRun, _Mapping]] = ...) -> None: ...
 
+class ListStreamingResolverDeploymentsRequest(_message.Message):
+    __slots__ = ("resolver_fqn", "cursor", "limit")
+    RESOLVER_FQN_FIELD_NUMBER: _ClassVar[int]
+    CURSOR_FIELD_NUMBER: _ClassVar[int]
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
+    resolver_fqn: str
+    cursor: str
+    limit: int
+    def __init__(
+        self, resolver_fqn: _Optional[str] = ..., cursor: _Optional[str] = ..., limit: _Optional[int] = ...
+    ) -> None: ...
+
+class DeploymentTimestamp(_message.Message):
+    __slots__ = ("deployment_id", "created_at")
+    DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    deployment_id: str
+    created_at: _timestamp_pb2.Timestamp
+    def __init__(
+        self,
+        deployment_id: _Optional[str] = ...,
+        created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+    ) -> None: ...
+
+class ListStreamingResolverDeploymentsResponse(_message.Message):
+    __slots__ = ("deployments", "cursor")
+    DEPLOYMENTS_FIELD_NUMBER: _ClassVar[int]
+    CURSOR_FIELD_NUMBER: _ClassVar[int]
+    deployments: _containers.RepeatedCompositeFieldContainer[DeploymentTimestamp]
+    cursor: str
+    def __init__(
+        self,
+        deployments: _Optional[_Iterable[_Union[DeploymentTimestamp, _Mapping]]] = ...,
+        cursor: _Optional[str] = ...,
+    ) -> None: ...
+
 class GetStreamingResolverMappingPlanRequest(_message.Message):
     __slots__ = ("resolver_fqn", "deployment_id")
     RESOLVER_FQN_FIELD_NUMBER: _ClassVar[int]

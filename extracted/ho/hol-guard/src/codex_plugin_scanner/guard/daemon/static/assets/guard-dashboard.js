@@ -12706,7 +12706,7 @@ const GUARD_DAEMON_PARAM = "guardDaemon";
 let guardTokenOverride = null;
 let guardTokenLocationKey = null;
 async function readJson(input, init) {
-  const response = await fetch(guardApiInput(input), withGuardAuth(init));
+  const response = await fetchWithGuardAuth(input, init);
   if (!response.ok) {
     throw new Error(await requestErrorMessage(response, `Request failed with ${response.status}`));
   }
@@ -12735,7 +12735,7 @@ class GuardHarnessActionError extends Error {
   status;
   payload;
   constructor(status, payload) {
-    super(payload?.error ?? `Harness action failed with ${status}`);
+    super(payload?.message ?? payload?.error ?? `Harness action failed with ${status}`);
     this.name = "GuardHarnessActionError";
     this.status = status;
     this.payload = payload;
@@ -12840,18 +12840,30 @@ function guardApiInput(input) {
   return `${daemonOrigin}${input}`;
 }
 function withGuardAuth(init) {
-  const guardToken = readGuardToken();
+  return withGuardAuthForToken(init, readGuardToken());
+}
+function withGuardAuthForToken(init, guardToken) {
   if (!guardToken) {
     return init;
   }
   const headers = new Headers(init?.headers);
-  if (!headers.has("X-Guard-Token")) {
-    headers.set("X-Guard-Token", guardToken);
-  }
+  headers.set("X-Guard-Token", guardToken);
   return {
     ...init,
     headers
   };
+}
+async function fetchWithGuardAuth(input, init) {
+  const requestInput = guardApiInput(input);
+  let response = await fetch(requestInput, withGuardAuth(init));
+  if (response.status !== 401) {
+    return response;
+  }
+  const refreshedToken = await refreshGuardToken();
+  if (refreshedToken === null) {
+    return response;
+  }
+  return fetch(requestInput, withGuardAuthForToken(init, refreshedToken));
 }
 function guardAuthHeaders() {
   const guardToken = readGuardToken();
@@ -13323,7 +13335,7 @@ function buildDemoRuntimeSnapshot() {
     proof_status: {
       state: "pending",
       label: "First proof pending",
-      detail: "Browser sign-in finished. First proof sync has not completed yet.",
+      detail: "Browser pairing finished. Local Guard will retry the first proof sync automatically while the daemon is running, or you can run hol-guard sync now.",
       request_id: "demo-connect-request",
       pairing_completed_at: now2,
       first_synced_at: null,
@@ -13579,7 +13591,7 @@ async function fetchDiff(artifactId, harness) {
   return await response.json();
 }
 function fetchGuardApi(input, init) {
-  return fetch(guardApiInput(input), withGuardAuth(init));
+  return fetchWithGuardAuth(input, init);
 }
 async function revokeApprovalGateCooldown(password, totpCode) {
   if (isGuardDemoMode()) {
@@ -13698,13 +13710,7 @@ async function resolveRequestWithQueueResult(input) {
       ...input.approval_gate_use_cooldown !== void 0 ? { approval_gate_use_cooldown: input.approval_gate_use_cooldown } : {}
     })
   });
-  let response = await fetchGuardApi(path, init());
-  if (response.status === 401) {
-    const refreshedToken = await refreshGuardToken();
-    if (refreshedToken !== null) {
-      response = await fetchGuardApi(path, init(refreshedToken));
-    }
-  }
+  const response = await fetchGuardApi(path, init());
   if (!response.ok) {
     throw new Error(await requestErrorMessage(response, `Request failed with ${response.status}`));
   }
@@ -13724,7 +13730,7 @@ async function exportDiagnostics() {
   if (isGuardDemoMode()) {
     return new Blob([JSON.stringify({ demo: true, generated_at: (/* @__PURE__ */ new Date()).toISOString() })], { type: "application/json" });
   }
-  const response = await fetch(guardApiInput("/v1/evidence/export"), withGuardAuth());
+  const response = await fetchWithGuardAuth("/v1/evidence/export");
   if (!response.ok) {
     throw new Error(`Export diagnostics failed with ${response.status}`);
   }
@@ -13734,7 +13740,7 @@ async function repairApprovalCenter() {
   if (isGuardDemoMode()) {
     return { repaired: true, cleared: ["locator", "daemon_state"] };
   }
-  const response = await fetch(guardApiInput("/v1/daemon/repair"), withGuardAuth({ method: "POST" }));
+  const response = await fetchWithGuardAuth("/v1/daemon/repair", { method: "POST" });
   if (!response.ok) {
     throw new Error(`Repair failed with ${response.status}`);
   }
@@ -13772,13 +13778,7 @@ async function retryResume(requestId) {
     },
     body: JSON.stringify({})
   });
-  let response = await fetchGuardApi(path, init());
-  if (response.status === 401) {
-    const refreshedToken = await refreshGuardToken();
-    if (refreshedToken !== null) {
-      response = await fetchGuardApi(path, init(refreshedToken));
-    }
-  }
+  const response = await fetchGuardApi(path, init());
   if (!response.ok) {
     throw new Error(`Resume retry failed with ${response.status}`);
   }
@@ -13821,7 +13821,7 @@ function normalizePackageFirewallActions(value) {
   if (!isRecord(value)) {
     return {};
   }
-  const allowedStates = /* @__PURE__ */ new Set(["available", "paid_required", "pending", "disabled"]);
+  const allowedStates = /* @__PURE__ */ new Set(["available", "paid_required", "reconnect_required", "pending", "disabled"]);
   const entries = Object.entries(value).filter(
     (entry) => typeof entry[1] === "string" && allowedStates.has(entry[1])
   );
@@ -13934,6 +13934,41 @@ async function runPackageFirewallAction(action, manager) {
     }
   );
   return normalizePackageFirewallAction(response);
+}
+async function runAuditRemediation(input) {
+  if (isGuardDemoMode()) {
+    return {
+      entitlement: { allowed: true, tier: "demo" },
+      operation: input.action,
+      receipt: null,
+      result: `${input.action} completed for ${input.manager}.`,
+      result_detail: { manager: input.manager, demo: true },
+      status: "completed"
+    };
+  }
+  const response = await fetchGuardApi(
+    `/v1/audit/remediations/${input.action}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...guardAuthHeaders()
+      },
+      body: JSON.stringify({
+        manager: input.manager,
+        ...input.approval_password !== void 0 ? { approval_password: input.approval_password } : {},
+        ...input.approval_totp_code !== void 0 ? { approval_totp_code: input.approval_totp_code } : {}
+      })
+    }
+  );
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new GuardHarnessActionError(
+      response.status,
+      isGuardHarnessActionErrorPayload(payload) ? payload : null
+    );
+  }
+  return normalizePackageFirewallAction(payload);
 }
 async function runPackageAudit() {
   const response = await readJson("/v1/supply-chain/audit", {
@@ -15057,7 +15092,7 @@ function WelcomeState(props) {
       /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "rounded-xl border border-border bg-card p-6 shadow-[0_4px_20px_rgba(85,153,254,0.04)]", children: [
         /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs font-semibold uppercase tracking-[0.18em] text-brand-blue mb-4", children: "Sync decisions" }),
         props.connectUrl ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-wrap gap-3", children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx(ActionButton, { href: props.connectUrl, children: "Open Guard connect" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(ActionButton, { href: props.connectUrl, children: "Open pairing flow" }),
           props.dashboardUrl ? /* @__PURE__ */ jsxRuntimeExports.jsx(ActionButton, { href: props.dashboardUrl, variant: "outline", children: "Open Home" }) : null,
           props.inboxUrl ? /* @__PURE__ */ jsxRuntimeExports.jsx(ActionButton, { href: props.inboxUrl, variant: "outline", children: "Review Queue" }) : null,
           props.fleetUrl ? /* @__PURE__ */ jsxRuntimeExports.jsx(ActionButton, { href: props.fleetUrl, variant: "outline", children: "Protect" }) : null
@@ -22687,6 +22722,7 @@ function App() {
             snapshot: runtime.snapshot,
             receipts: receipts.kind === "ready" ? receipts.items : [],
             policies: policies.kind === "ready" ? policies.items : [],
+            approvalGate,
             onClearPolicy: handleClearPolicy,
             onOpenSettings: handleOpenSettings,
             onGoHome: handleGoHome,
@@ -22760,8 +22796,9 @@ export {
   runPackageAudit as am,
   runPackageSync as an,
   HiMiniBugAnt as ao,
-  HiMiniSignal as ap,
-  HiMiniClock as aq,
+  runAuditRemediation as ap,
+  HiMiniSignal as aq,
+  HiMiniClock as ar,
   HiMiniInformationCircle as b,
   HiMiniArrowRight as c,
   HiMiniChevronUp as d,

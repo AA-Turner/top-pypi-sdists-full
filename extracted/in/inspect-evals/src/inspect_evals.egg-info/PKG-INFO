@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: inspect_evals
-Version: 0.13.1
+Version: 0.13.2
 Summary: Collection of large language model evaluations
 Author: UK AI Security Institute
 License-Expression: MIT
@@ -26,7 +26,7 @@ Requires-Dist: backoff>=2.2.0
 Requires-Dist: datasets>=4.8.5
 Requires-Dist: huggingface_hub>=1.2.0
 Requires-Dist: hf_xet
-Requires-Dist: inspect_ai>=0.3.158
+Requires-Dist: inspect_ai>=0.3.221
 Requires-Dist: jinja2
 Requires-Dist: numpy>=1.26.0
 Requires-Dist: pillow>=11.3.0
@@ -82,8 +82,6 @@ Provides-Extra: medqa
 Requires-Dist: bioc; extra == "medqa"
 Provides-Extra: niah
 Requires-Dist: pandas; extra == "niah"
-Provides-Extra: kernelbench
-Requires-Dist: kernelbench; extra == "kernelbench"
 Provides-Extra: core-bench
 Requires-Dist: scipy; extra == "core-bench"
 Provides-Extra: healthbench
@@ -108,21 +106,8 @@ Provides-Extra: cybench
 Requires-Dist: inspect-cyber==0.1.0; extra == "cybench"
 Provides-Extra: cybergym
 Requires-Dist: inspect-cyber>=0.1.0; extra == "cybergym"
-Provides-Extra: bold
-Requires-Dist: detoxify; extra == "bold"
-Requires-Dist: vaderSentiment; extra == "bold"
-Requires-Dist: transformers>=5.0.0; extra == "bold"
-Requires-Dist: torch; extra == "bold"
 Provides-Extra: makemesay
 Requires-Dist: nltk; extra == "makemesay"
-Provides-Extra: abstention-bench
-Requires-Dist: scikit-learn; extra == "abstention-bench"
-Requires-Dist: hydra-core>=1.4.0.dev1; extra == "abstention-bench"
-Requires-Dist: omegaconf>=2.4.0.dev2; extra == "abstention-bench"
-Requires-Dist: torch; extra == "abstention-bench"
-Requires-Dist: loguru; extra == "abstention-bench"
-Requires-Dist: gdown; extra == "abstention-bench"
-Requires-Dist: jsonlines; extra == "abstention-bench"
 Provides-Extra: gaia
 Requires-Dist: filelock; extra == "gaia"
 Provides-Extra: osworld
@@ -148,12 +133,6 @@ Requires-Dist: odfpy>=1.4.1; extra == "theagentcompany"
 Requires-Dist: pypdf; extra == "theagentcompany"
 Requires-Dist: python-pptx; extra == "theagentcompany"
 Requires-Dist: scikit-learn; extra == "theagentcompany"
-Provides-Extra: novelty-bench
-Requires-Dist: transformers>=4.57.1; extra == "novelty-bench"
-Requires-Dist: torch>=2.9.1; extra == "novelty-bench"
-Requires-Dist: accelerate>=1.11.0; extra == "novelty-bench"
-Requires-Dist: protobuf>=6.33.1; extra == "novelty-bench"
-Requires-Dist: sentencepiece>=0.2.1; extra == "novelty-bench"
 Provides-Extra: gdm-capabilities
 Requires-Dist: google-genai>=1.56.0; extra == "gdm-capabilities"
 Requires-Dist: rich; extra == "gdm-capabilities"
@@ -172,19 +151,6 @@ Requires-Dist: pypdf; extra == "cyberseceval-4"
 Requires-Dist: pyyaml; extra == "cyberseceval-4"
 Requires-Dist: sacrebleu; extra == "cyberseceval-4"
 Requires-Dist: semgrep>1.68; extra == "cyberseceval-4"
-Provides-Extra: test
-Requires-Dist: anthropic; extra == "test"
-Requires-Dist: openai>=2.26.0; extra == "test"
-Requires-Dist: pytest-xdist; extra == "test"
-Requires-Dist: inspect_evals[abstention_bench,agentdojo,b3,bold,core_bench,cybench,cybergym,cyberseceval_4,fortress,gdm_capabilities,gdm_self_proliferation,gdpval,ifeval,ifevalcode,mind2web,novelty_bench,paperbench,scbench,sciknoweval,sevenllm,stealth,swe_bench,swe_lancer,vimgolf]; extra == "test"
-Requires-Dist: inspect_evals[kernelbench]; sys_platform != "win32" and extra == "test"
-Provides-Extra: doc
-Requires-Dist: quarto-cli; extra == "doc"
-Requires-Dist: jupyter; extra == "doc"
-Requires-Dist: beautifulsoup4; extra == "doc"
-Provides-Extra: dist
-Requires-Dist: twine; extra == "dist"
-Requires-Dist: build; extra == "dist"
 Dynamic: license-file
 
 [<img width="295" src="https://inspect.ai-safety-institute.org.uk/images/aisi-logo.svg" alt="UK AISI Logo"/>](https://aisi.gov.uk/)<!-- markdownlint-disable-line MD033 MD041 -->
@@ -258,7 +224,7 @@ uv run inspect eval inspect_evals/arc_easy --model openai/gpt-5-nano
 uv run inspect eval inspect_evals/arc_challenge --model openai/gpt-5-nano
 ```
 
-To run multiple tasks simulteneously use `inspect eval-set`:
+To run multiple tasks simultaneously use `inspect eval-set`:
 
 ```bash
 uv run inspect eval-set inspect_evals/arc_easy inspect_evals/arc_challenge

@@ -1,6 +1,6 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: fathom-python
-Version: 0.0.37
+Version: 0.0.38
 Summary: Fathom's official Python SDK.
 Author: Speakeasy
 Requires-Python: >=3.9.2
@@ -9,6 +9,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Dist: httpcore (>=1.0.9)
 Requires-Dist: httpx (>=0.28.1)
 Requires-Dist: jsonpath-python (>=1.0.6)
@@ -123,7 +124,7 @@ with Fathom(
     res = fathom.list_meetings(calendar_invitees_domains=[
         "acme.com",
         "client.com",
-    ], calendar_invitees_domains_type=models.ListMeetingsCalendarInviteesDomainsType.ALL, include_action_items=False, include_crm_matches=False, include_summary=False, include_transcript=False, meeting_type=models.MeetingType.ALL, recorded_by=[
+    ], calendar_invitees_domains_type=models.ListMeetingsCalendarInviteesDomainsType.ALL, include_action_items=False, include_crm_matches=False, include_summary=False, include_transcript=False, meeting_type="Quarterly Business Review", recorded_by=[
         "ceo@acme.com",
         "pm@acme.com",
     ], teams=[
@@ -158,7 +159,7 @@ async def main():
         res = await fathom.list_meetings_async(calendar_invitees_domains=[
             "acme.com",
             "client.com",
-        ], calendar_invitees_domains_type=models.ListMeetingsCalendarInviteesDomainsType.ALL, include_action_items=False, include_crm_matches=False, include_summary=False, include_transcript=False, meeting_type=models.MeetingType.ALL, recorded_by=[
+        ], calendar_invitees_domains_type=models.ListMeetingsCalendarInviteesDomainsType.ALL, include_action_items=False, include_crm_matches=False, include_summary=False, include_transcript=False, meeting_type="Quarterly Business Review", recorded_by=[
             "ceo@acme.com",
             "pm@acme.com",
         ], teams=[
@@ -202,7 +203,7 @@ with Fathom(
     res = fathom.list_meetings(calendar_invitees_domains=[
         "acme.com",
         "client.com",
-    ], calendar_invitees_domains_type=models.ListMeetingsCalendarInviteesDomainsType.ALL, include_action_items=False, include_crm_matches=False, include_summary=False, include_transcript=False, meeting_type=models.MeetingType.ALL, recorded_by=[
+    ], calendar_invitees_domains_type=models.ListMeetingsCalendarInviteesDomainsType.ALL, include_action_items=False, include_crm_matches=False, include_summary=False, include_transcript=False, meeting_type="Quarterly Business Review", recorded_by=[
         "ceo@acme.com",
         "pm@acme.com",
     ], teams=[
@@ -231,6 +232,7 @@ with Fathom(
 * [get_recording_transcript](docs/sdks/fathom/README.md#get_recording_transcript) - Get transcript
 * [list_teams](docs/sdks/fathom/README.md#list_teams) - List teams
 * [list_team_members](docs/sdks/fathom/README.md#list_team_members) - List team members
+* [list_meeting_types](docs/sdks/fathom/README.md#list_meeting_types) - List meeting types
 * [create_webhook](docs/sdks/fathom/README.md#create_webhook) - Create a webhook
 * [delete_webhook](docs/sdks/fathom/README.md#delete_webhook) - Delete a webhook
 
@@ -259,7 +261,7 @@ with Fathom(
     res = fathom.list_meetings(calendar_invitees_domains=[
         "acme.com",
         "client.com",
-    ], calendar_invitees_domains_type=models.ListMeetingsCalendarInviteesDomainsType.ALL, include_action_items=False, include_crm_matches=False, include_summary=False, include_transcript=False, meeting_type=models.MeetingType.ALL, recorded_by=[
+    ], calendar_invitees_domains_type=models.ListMeetingsCalendarInviteesDomainsType.ALL, include_action_items=False, include_crm_matches=False, include_summary=False, include_transcript=False, meeting_type="Quarterly Business Review", recorded_by=[
         "ceo@acme.com",
         "pm@acme.com",
     ], teams=[
@@ -296,7 +298,7 @@ with Fathom(
     res = fathom.list_meetings(calendar_invitees_domains=[
         "acme.com",
         "client.com",
-    ], calendar_invitees_domains_type=models.ListMeetingsCalendarInviteesDomainsType.ALL, include_action_items=False, include_crm_matches=False, include_summary=False, include_transcript=False, meeting_type=models.MeetingType.ALL, recorded_by=[
+    ], calendar_invitees_domains_type=models.ListMeetingsCalendarInviteesDomainsType.ALL, include_action_items=False, include_crm_matches=False, include_summary=False, include_transcript=False, meeting_type="Quarterly Business Review", recorded_by=[
         "ceo@acme.com",
         "pm@acme.com",
     ], teams=[
@@ -329,7 +331,7 @@ with Fathom(
     res = fathom.list_meetings(calendar_invitees_domains=[
         "acme.com",
         "client.com",
-    ], calendar_invitees_domains_type=models.ListMeetingsCalendarInviteesDomainsType.ALL, include_action_items=False, include_crm_matches=False, include_summary=False, include_transcript=False, meeting_type=models.MeetingType.ALL, recorded_by=[
+    ], calendar_invitees_domains_type=models.ListMeetingsCalendarInviteesDomainsType.ALL, include_action_items=False, include_crm_matches=False, include_summary=False, include_transcript=False, meeting_type="Quarterly Business Review", recorded_by=[
         "ceo@acme.com",
         "pm@acme.com",
     ], teams=[
@@ -375,7 +377,7 @@ with Fathom(
         res = fathom.list_meetings(calendar_invitees_domains=[
             "acme.com",
             "client.com",
-        ], calendar_invitees_domains_type=models.ListMeetingsCalendarInviteesDomainsType.ALL, include_action_items=False, include_crm_matches=False, include_summary=False, include_transcript=False, meeting_type=models.MeetingType.ALL, recorded_by=[
+        ], calendar_invitees_domains_type=models.ListMeetingsCalendarInviteesDomainsType.ALL, include_action_items=False, include_crm_matches=False, include_summary=False, include_transcript=False, meeting_type="Quarterly Business Review", recorded_by=[
             "ceo@acme.com",
             "pm@acme.com",
         ], teams=[
@@ -440,7 +442,7 @@ with Fathom(
     res = fathom.list_meetings(calendar_invitees_domains=[
         "acme.com",
         "client.com",
-    ], calendar_invitees_domains_type=models.ListMeetingsCalendarInviteesDomainsType.ALL, include_action_items=False, include_crm_matches=False, include_summary=False, include_transcript=False, meeting_type=models.MeetingType.ALL, recorded_by=[
+    ], calendar_invitees_domains_type=models.ListMeetingsCalendarInviteesDomainsType.ALL, include_action_items=False, include_crm_matches=False, include_summary=False, include_transcript=False, meeting_type="Quarterly Business Review", recorded_by=[
         "ceo@acme.com",
         "pm@acme.com",
     ], teams=[

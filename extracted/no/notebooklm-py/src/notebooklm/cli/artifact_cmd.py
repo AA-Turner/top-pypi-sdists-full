@@ -8,6 +8,7 @@ Commands:
     export      Export to Google Docs/Sheets
     poll        Poll generation status (single check)
     wait        Wait for generation to complete (blocking)
+    retry       Retry a failed artifact in place
     suggestions Get AI-suggested report topics
 """
 
@@ -50,6 +51,7 @@ def artifact():
       export       Export to Google Docs/Sheets
       poll         Poll generation status (single check)
       wait         Wait for generation to complete (blocking)
+      retry        Retry a failed artifact in place
       suggestions  Get AI-suggested report topics
 
     \b
@@ -166,7 +168,7 @@ def artifact_get(ctx, artifact_id, notebook_id, json_output, client_auth):
             resolved_id = await resolve_artifact_id(
                 client, nb_id_resolved, artifact_id, json_output=json_output
             )
-            art = await client.artifacts.get(nb_id_resolved, resolved_id)
+            art = await client.artifacts.get_or_none(nb_id_resolved, resolved_id)
 
             # BREAKING: not-found exits 1 with a typed error instead of the
             # previous exit-0 ``found: false`` placeholder. See the matching
@@ -234,20 +236,32 @@ def artifact_rename(ctx, artifact_id, new_title, notebook_id, json_output, clien
                 client, nb_id_resolved, artifact_id, json_output=json_output
             )
 
-            # Check if this is a mind map (stored with notes, not artifacts)
-            mind_maps = await client.notes.list_mind_maps(nb_id_resolved)
-            for mm in mind_maps:
-                if mm[0] == resolved_id:
-                    _output_error(
-                        "Error: Mind maps cannot be renamed",
-                        "VALIDATION_ERROR",
-                        json_output,
-                        1,
-                    )
-
-            await client.artifacts.rename(nb_id_resolved, resolved_id, new_title)
-            # The rename API returns None; if no exception was raised, the operation succeeded.
-            # We display the requested new_title as confirmation.
+            # Mind maps need kind-aware rename: note-backed maps via UPDATE_NOTE,
+            # interactive (studio-artifact) maps via RENAME_ARTIFACT — both behind
+            # the unified mind-map API (#1256). Regular artifacts use RENAME_ARTIFACT.
+            mind_maps = await client.mind_maps.list(nb_id_resolved)
+            mind_map = next((m for m in mind_maps if m.id == resolved_id), None)
+            # return_object=False: the CLI builds its confirmation from
+            # resolved_id + new_title and never uses the hydrated object, so
+            # skip the rename re-fetch (a full LIST_ARTIFACTS / get). For
+            # partial-id input, ``resolve_artifact_id`` already listed and
+            # raised on an absent id, so existence is proven before we get
+            # here. (A canonical full-UUID input fast-paths the resolver
+            # without a list, so a UUID pointing to a since-deleted artifact
+            # would print a benign no-op "success" — a pre-existing condition,
+            # not introduced here; hydrating to catch it would re-list on every
+            # already-resolved partial-id rename, which isn't worth it.)
+            if mind_map is not None:
+                await client.mind_maps.rename(
+                    nb_id_resolved, resolved_id, new_title, kind=mind_map.kind, return_object=False
+                )
+            else:
+                await client.artifacts.rename(
+                    nb_id_resolved, resolved_id, new_title, return_object=False
+                )
+            # The rename API now returns the renamed object and raises on a
+            # missing target; if no exception was raised, the operation
+            # succeeded. We display the requested new_title as confirmation.
             if json_output:
                 json_output_response({"id": resolved_id, "renamed": True, "new_title": new_title})
             else:
@@ -578,9 +592,134 @@ def artifact_wait(ctx, artifact_id, notebook_id, timeout, interval, json_output,
     return _run()
 
 
+@artifact.command("retry")
+@click.argument("artifact_id")
+@notebook_option
+@click.option("--wait", is_flag=True, help="Block until the retried generation finishes")
+@wait_polling_options(default_timeout=300, default_interval=2)
+@click.option("--json", "json_output", is_flag=True, help="Output as JSON")
+@with_client
+def artifact_retry(
+    ctx, artifact_id, notebook_id, wait, timeout, interval, json_output, client_auth
+):
+    """Retry a failed Studio artifact in place (the UI "Retry" action).
+
+    \b
+    Re-runs generation for an already-failed artifact WITHOUT deleting it. The
+    same ARTIFACT_ID is preserved, so `poll`/`wait` keep working against it.
+    ARTIFACT_ID can be a full UUID or a unique prefix (e.g. `abc` matches
+    `abc123def...`); unlike `poll`, it is resolved against `artifact list`, so
+    the artifact must already appear there (a failed artifact always does).
+
+    \b
+    A synchronous refusal (rate limit / quota / not-retryable) exits non-zero
+    with a typed error rather than reporting a started task. Pass `--wait` to
+    block until the retried generation reaches a terminal state.
+
+    \b
+    Examples:
+      # Kick off an in-place retry and return immediately:
+      notebooklm artifact retry abc123 -n nb_456
+      # Retry and block until it completes (or fails again):
+      notebooklm artifact retry abc123 -n nb_456 --wait
+    """
+    nb_id = require_notebook(notebook_id)
+
+    async def _run():
+        async with NotebookLMClient(client_auth) as client:
+            nb_id_resolved = await resolve_notebook_id(client, nb_id, json_output=json_output)
+            resolved_id = await resolve_artifact_id(
+                client, nb_id_resolved, artifact_id, json_output=json_output
+            )
+
+            status = await client.artifacts.retry_failed(nb_id_resolved, resolved_id)
+
+            if not wait:
+                if json_output:
+                    json_output_response(
+                        {
+                            "task_id": status.task_id,
+                            "status": status.status,
+                            "url": status.url,
+                            "error": status.error,
+                            "error_code": status.error_code,
+                        }
+                    )
+                else:
+                    console.print(f"[green]Retry started:[/green] {status.task_id}")
+                    console.print(f"[bold]Status:[/bold] {status.status}")
+                return
+
+            try:
+                # Same transient-spinner UX as ``artifact wait``: the resume
+                # hint points back at ``artifact poll`` so Ctrl-C surfaces a
+                # resume command instead of a traceback.
+                async with status_with_elapsed(
+                    f"Waiting for retried artifact {status.task_id} to complete...",
+                    json_output=json_output,
+                    resume_hint=f"notebooklm artifact poll {status.task_id}",
+                ):
+                    final = await client.artifacts.wait_for_completion(
+                        nb_id_resolved,
+                        status.task_id,
+                        initial_interval=float(interval),
+                        timeout=float(timeout),
+                    )
+
+                if json_output:
+                    # Once we are blocking on completion the id is an
+                    # ``artifact_id``, so the ``--wait`` payload mirrors
+                    # ``artifact wait``'s shape/keys exactly (the non-wait
+                    # kickoff above stays ``task_id``, matching ``artifact
+                    # poll`` / ``generate``).
+                    json_output_response(
+                        {
+                            "artifact_id": final.task_id,
+                            "status": final.status,
+                            "url": final.url,
+                            "error": final.error,
+                        }
+                    )
+                    if final.status != "completed":
+                        exit_with_code(1)
+                else:
+                    if final.status == "completed":
+                        console.print(f"[green]✓ Artifact completed:[/green] {final.task_id}")
+                        if final.url:
+                            console.print(f"[dim]URL:[/dim] {final.url}")
+                    elif final.error:
+                        console.print(f"[red]✗ Generation failed:[/red] {final.error}")
+                        exit_with_code(1)
+                    else:
+                        # Any terminal non-completed status (e.g. ``failed``
+                        # with no extractable error, or ``removed``) is a
+                        # non-success for automation — exit non-zero so a
+                        # provider-side retry failure is not reported as a
+                        # successful command. Matches the JSON branch above and
+                        # ADR-0019's "report failures as failures" posture.
+                        console.print(f"[yellow]Status:[/yellow] {final.status}")
+                        exit_with_code(1)
+
+            except TimeoutError:
+                if json_output:
+                    # Matches ``artifact wait``'s timeout payload key.
+                    json_output_response(
+                        {
+                            "artifact_id": status.task_id,
+                            "status": "timeout",
+                            "error": f"Timed out after {timeout} seconds",
+                        }
+                    )
+                else:
+                    console.print(f"[red]✗ Timeout after {timeout}s[/red]")
+                exit_with_code(1)
+
+    return _run()
+
+
 @artifact.command("suggestions")
 @notebook_option
-@click.option("--json", "json_output", is_flag=True, help="Output JSON format")
+@click.option("--json", "json_output", is_flag=True, help="Output as JSON")
 @with_client
 def artifact_suggestions(ctx, notebook_id, json_output, client_auth):
     """Get AI-suggested report topics based on notebook content."""

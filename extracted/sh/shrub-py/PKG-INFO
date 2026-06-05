@@ -1,8 +1,9 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: shrub.py
-Version: 3.10.0
+Version: 3.11.0
 Summary: Library for creating evergreen configurations
 License: Apache-2.0
+License-File: LICENSE
 Author: DevProd Services & Integrations Team
 Author-email: devprod-si-team@mongodb.com
 Requires-Python: >=3.8.1
@@ -13,6 +14,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Dist: PyYaml (>=5.1,<7.0)
 Requires-Dist: croniter (>=1.4.1,<2.0.0)
 Requires-Dist: dataclasses (>=0.7,<0.8) ; python_version == "3.6"

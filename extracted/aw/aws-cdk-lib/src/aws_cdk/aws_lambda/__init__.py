@@ -45,7 +45,7 @@ import aws_cdk.aws_s3 as s3
 bucket = s3.Bucket(self, "Bucket")
 
 options = {
-    "source_kMSKey": key
+    "source_kms_key": key
 }
 fn_bucket = lambda_.Function(self, "myFunction2",
     runtime=lambda_.Runtime.NODEJS_LATEST,
@@ -869,7 +869,7 @@ fn = lambda_.Function(self, "MyFunction",
 # Associate the function with the capacity provider
 capacity_provider.add_function(fn,
     per_execution_environment_max_concurrency=10,
-    execution_environment_memory_gi_bPer_vCpu=4
+    execution_environment_memory_gi_b_per_v_cpu=4
 )
 ```
 
@@ -3638,7 +3638,7 @@ class BucketOptions:
             bucket = s3.Bucket(self, "Bucket")
             
             options = {
-                "source_kMSKey": key
+                "source_kms_key": key
             }
             fn_bucket = lambda_.Function(self, "myFunction2",
                 runtime=lambda_.Runtime.NODEJS_LATEST,
@@ -3778,7 +3778,7 @@ class CapacityProviderFunctionOptions:
             # Associate the function with the capacity provider
             capacity_provider.add_function(fn,
                 per_execution_environment_max_concurrency=10,
-                execution_environment_memory_gi_bPer_vCpu=4
+                execution_environment_memory_gi_b_per_v_cpu=4
             )
         '''
         if isinstance(latest_published_scaling_config, dict):
@@ -4647,7 +4647,7 @@ class CfnCapacityProvider(
 
     Example::
 
-        from aws_cdk import CfnTag
+        from aws_cdk import CfnTag, CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_lambda as lambda_
@@ -4664,7 +4664,7 @@ class CfnCapacityProvider(
             # the properties below are optional
             capacity_provider_name="capacityProviderName",
             capacity_provider_scaling_config=lambda.CfnCapacityProvider.CapacityProviderScalingConfigProperty(
-                max_vCpu_count=123,
+                max_v_cpu_count=123,
                 scaling_mode="scalingMode",
                 scaling_policies=[lambda.CfnCapacityProvider.TargetTrackingScalingPolicyProperty(
                     predefined_metric_type="predefinedMetricType",
@@ -4677,6 +4677,13 @@ class CfnCapacityProvider(
                 excluded_instance_types=["excludedInstanceTypes"]
             ),
             kms_key_arn="kmsKeyArn",
+            propagate_tags=lambda.CfnCapacityProvider.PropagateTagsConfigProperty(
+                explicit_tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                mode="mode"
+            ),
             tags=[CfnTag(
                 key="key",
                 value="value"
@@ -4695,6 +4702,7 @@ class CfnCapacityProvider(
         capacity_provider_scaling_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCapacityProvider.CapacityProviderScalingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         instance_requirements: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCapacityProvider.InstanceRequirementsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         kms_key_arn: typing.Optional[builtins.str] = None,
+        propagate_tags: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCapacityProvider.PropagateTagsConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Lambda::CapacityProvider``.
@@ -4707,6 +4715,7 @@ class CfnCapacityProvider(
         :param capacity_provider_scaling_config: The scaling configuration for the capacity provider.
         :param instance_requirements: The instance requirements for compute resources managed by the capacity provider.
         :param kms_key_arn: The ARN of the KMS key used to encrypt the capacity provider's resources.
+        :param propagate_tags: 
         :param tags: A key-value pair that provides metadata for the capacity provider.
         '''
         if __debug__:
@@ -4720,6 +4729,7 @@ class CfnCapacityProvider(
             capacity_provider_scaling_config=capacity_provider_scaling_config,
             instance_requirements=instance_requirements,
             kms_key_arn=kms_key_arn,
+            propagate_tags=propagate_tags,
             tags=tags,
         )
 
@@ -4960,6 +4970,23 @@ class CfnCapacityProvider(
         jsii.set(self, "kmsKeyArn", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="propagateTags")
+    def propagate_tags(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCapacityProvider.PropagateTagsConfigProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCapacityProvider.PropagateTagsConfigProperty"]], jsii.get(self, "propagateTags"))
+
+    @propagate_tags.setter
+    def propagate_tags(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCapacityProvider.PropagateTagsConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3c1efce4e79cb3c2cea47d5ad4b8b6a03727f7a7ee722734afe25ced731c517f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "propagateTags", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''A key-value pair that provides metadata for the capacity provider.'''
@@ -5063,7 +5090,7 @@ class CfnCapacityProvider(
                 from aws_cdk import aws_lambda as lambda_
                 
                 capacity_provider_scaling_config_property = lambda.CfnCapacityProvider.CapacityProviderScalingConfigProperty(
-                    max_vCpu_count=123,
+                    max_v_cpu_count=123,
                     scaling_mode="scalingMode",
                     scaling_policies=[lambda.CfnCapacityProvider.TargetTrackingScalingPolicyProperty(
                         predefined_metric_type="predefinedMetricType",
@@ -5292,6 +5319,81 @@ class CfnCapacityProvider(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_lambda.CfnCapacityProvider.PropagateTagsConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"explicit_tags": "explicitTags", "mode": "mode"},
+    )
+    class PropagateTagsConfigProperty:
+        def __init__(
+            self,
+            *,
+            explicit_tags: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            mode: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param explicit_tags: A list of tags to explicitly propagate to managed resources.
+            :param mode: The mode for tag propagation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-capacityprovider-propagatetagsconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                from aws_cdk import CfnTag
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_lambda as lambda_
+                
+                propagate_tags_config_property = lambda.CfnCapacityProvider.PropagateTagsConfigProperty(
+                    explicit_tags=[CfnTag(
+                        key="key",
+                        value="value"
+                    )],
+                    mode="mode"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__e2bef775281948534834421ca30ce0023f2b77cfc498f6239eecb260a1647d3a)
+                check_type(argname="argument explicit_tags", value=explicit_tags, expected_type=type_hints["explicit_tags"])
+                check_type(argname="argument mode", value=mode, expected_type=type_hints["mode"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if explicit_tags is not None:
+                self._values["explicit_tags"] = explicit_tags
+            if mode is not None:
+                self._values["mode"] = mode
+
+        @builtins.property
+        def explicit_tags(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "_CfnTag_f6864754"]]]]:
+            '''A list of tags to explicitly propagate to managed resources.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-capacityprovider-propagatetagsconfig.html#cfn-lambda-capacityprovider-propagatetagsconfig-explicittags
+            '''
+            result = self._values.get("explicit_tags")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "_CfnTag_f6864754"]]]], result)
+
+        @builtins.property
+        def mode(self) -> typing.Optional[builtins.str]:
+            '''The mode for tag propagation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-capacityprovider-propagatetagsconfig.html#cfn-lambda-capacityprovider-propagatetagsconfig-mode
+            '''
+            result = self._values.get("mode")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PropagateTagsConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_lambda.CfnCapacityProvider.TargetTrackingScalingPolicyProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -5376,6 +5478,7 @@ class CfnCapacityProvider(
         "capacity_provider_scaling_config": "capacityProviderScalingConfig",
         "instance_requirements": "instanceRequirements",
         "kms_key_arn": "kmsKeyArn",
+        "propagate_tags": "propagateTags",
         "tags": "tags",
     },
 )
@@ -5389,6 +5492,7 @@ class CfnCapacityProviderProps:
         capacity_provider_scaling_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCapacityProvider.CapacityProviderScalingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         instance_requirements: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCapacityProvider.InstanceRequirementsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         kms_key_arn: typing.Optional[builtins.str] = None,
+        propagate_tags: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCapacityProvider.PropagateTagsConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnCapacityProvider``.
@@ -5399,6 +5503,7 @@ class CfnCapacityProviderProps:
         :param capacity_provider_scaling_config: The scaling configuration for the capacity provider.
         :param instance_requirements: The instance requirements for compute resources managed by the capacity provider.
         :param kms_key_arn: The ARN of the KMS key used to encrypt the capacity provider's resources.
+        :param propagate_tags: 
         :param tags: A key-value pair that provides metadata for the capacity provider.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-capacityprovider.html
@@ -5406,7 +5511,7 @@ class CfnCapacityProviderProps:
 
         Example::
 
-            from aws_cdk import CfnTag
+            from aws_cdk import CfnTag, CfnTag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_lambda as lambda_
@@ -5423,7 +5528,7 @@ class CfnCapacityProviderProps:
                 # the properties below are optional
                 capacity_provider_name="capacityProviderName",
                 capacity_provider_scaling_config=lambda.CfnCapacityProvider.CapacityProviderScalingConfigProperty(
-                    max_vCpu_count=123,
+                    max_v_cpu_count=123,
                     scaling_mode="scalingMode",
                     scaling_policies=[lambda.CfnCapacityProvider.TargetTrackingScalingPolicyProperty(
                         predefined_metric_type="predefinedMetricType",
@@ -5436,6 +5541,13 @@ class CfnCapacityProviderProps:
                     excluded_instance_types=["excludedInstanceTypes"]
                 ),
                 kms_key_arn="kmsKeyArn",
+                propagate_tags=lambda.CfnCapacityProvider.PropagateTagsConfigProperty(
+                    explicit_tags=[CfnTag(
+                        key="key",
+                        value="value"
+                    )],
+                    mode="mode"
+                ),
                 tags=[CfnTag(
                     key="key",
                     value="value"
@@ -5450,6 +5562,7 @@ class CfnCapacityProviderProps:
             check_type(argname="argument capacity_provider_scaling_config", value=capacity_provider_scaling_config, expected_type=type_hints["capacity_provider_scaling_config"])
             check_type(argname="argument instance_requirements", value=instance_requirements, expected_type=type_hints["instance_requirements"])
             check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
+            check_type(argname="argument propagate_tags", value=propagate_tags, expected_type=type_hints["propagate_tags"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "permissions_config": permissions_config,
@@ -5463,6 +5576,8 @@ class CfnCapacityProviderProps:
             self._values["instance_requirements"] = instance_requirements
         if kms_key_arn is not None:
             self._values["kms_key_arn"] = kms_key_arn
+        if propagate_tags is not None:
+            self._values["propagate_tags"] = propagate_tags
         if tags is not None:
             self._values["tags"] = tags
 
@@ -5528,6 +5643,16 @@ class CfnCapacityProviderProps:
         '''
         result = self._values.get("kms_key_arn")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def propagate_tags(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCapacityProvider.PropagateTagsConfigProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-capacityprovider.html#cfn-lambda-capacityprovider-propagatetags
+        '''
+        result = self._values.get("propagate_tags")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCapacityProvider.PropagateTagsConfigProperty"]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
@@ -7534,7 +7659,7 @@ class CfnEventSourceMapping(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_lambda as lambda_
                 
-                document_dBEvent_source_config_property = lambda.CfnEventSourceMapping.DocumentDBEventSourceConfigProperty(
+                document_db_event_source_config_property = lambda.CfnEventSourceMapping.DocumentDBEventSourceConfigProperty(
                     collection_name="collectionName",
                     database_name="databaseName",
                     full_document="fullDocument"
@@ -9275,7 +9400,7 @@ class CfnFunction(
                     capacity_provider_arn="capacityProviderArn",
         
                     # the properties below are optional
-                    execution_environment_memory_gi_bPer_vCpu=123,
+                    execution_environment_memory_gi_b_per_v_cpu=123,
                     per_execution_environment_max_concurrency=123
                 )
             ),
@@ -10138,7 +10263,7 @@ class CfnFunction(
                         capacity_provider_arn="capacityProviderArn",
                 
                         # the properties below are optional
-                        execution_environment_memory_gi_bPer_vCpu=123,
+                        execution_environment_memory_gi_b_per_v_cpu=123,
                         per_execution_environment_max_concurrency=123
                     )
                 )
@@ -10485,7 +10610,7 @@ class CfnFunction(
         def __init__(
             self,
             *,
-            variables: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            variables: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         ) -> None:
             '''A function's environment variable settings.
 
@@ -10518,7 +10643,7 @@ class CfnFunction(
         @builtins.property
         def variables(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''Environment variable key-value pairs. For more information, see `Using Lambda environment variables <https://docs.aws.amazon.com/lambda/latest/dg/configuration-envvars.html>`_ .
 
             If the value of the environment variable is a time or a duration, enclose the value in quotes.
@@ -10526,7 +10651,7 @@ class CfnFunction(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-function-environment.html#cfn-lambda-function-environment-variables
             '''
             result = self._values.get("variables")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -10870,7 +10995,7 @@ class CfnFunction(
                     capacity_provider_arn="capacityProviderArn",
                 
                     # the properties below are optional
-                    execution_environment_memory_gi_bPer_vCpu=123,
+                    execution_environment_memory_gi_b_per_v_cpu=123,
                     per_execution_environment_max_concurrency=123
                 )
             '''
@@ -11596,7 +11721,7 @@ class CfnFunctionProps:
                         capacity_provider_arn="capacityProviderArn",
             
                         # the properties below are optional
-                        execution_environment_memory_gi_bPer_vCpu=123,
+                        execution_environment_memory_gi_b_per_v_cpu=123,
                         per_execution_environment_max_concurrency=123
                     )
                 ),
@@ -12986,7 +13111,7 @@ class CfnParametersCodeProps:
             cfn_parameters_code_props = lambda.CfnParametersCodeProps(
                 bucket_name_param=cfn_parameter,
                 object_key_param=cfn_parameter,
-                source_kMSKey=key_ref
+                source_kms_key=key_ref
             )
         '''
         if __debug__:
@@ -13099,7 +13224,7 @@ class CfnPermission(
         invoked_via_function_url: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         principal_org_id: typing.Optional[builtins.str] = None,
         source_account: typing.Optional[builtins.str] = None,
-        source_arn: typing.Optional[typing.Union[builtins.str, "_IUserPoolRef_0b7d02b5", "_IRuleRef_4038a611", "_IRoleRef_8400221f", "_ITopicRuleRef_748e9f37", "_IDeliveryStreamRef_678f5e53", "_IFunctionRef_2601eb33", "_ILogGroupRef_874d025a", "_IBucketRef_3debe44e", "_ITopicRef_29aa9a88", "_IQueueRef_fa8b2198"]] = None,
+        source_arn: typing.Optional[typing.Union[builtins.str, "_IRoleRef_8400221f", "_IUserPoolRef_0b7d02b5", "_IRuleRef_4038a611", "_ITopicRuleRef_748e9f37", "_IDeliveryStreamRef_678f5e53", "_IFunctionRef_2601eb33", "_ILogGroupRef_874d025a", "_IBucketRef_3debe44e", "_ITopicRef_29aa9a88", "_IQueueRef_fa8b2198"]] = None,
     ) -> None:
         '''Create a new ``AWS::Lambda::Permission``.
 
@@ -13349,7 +13474,7 @@ class CfnPermissionProps:
         invoked_via_function_url: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         principal_org_id: typing.Optional[builtins.str] = None,
         source_account: typing.Optional[builtins.str] = None,
-        source_arn: typing.Optional[typing.Union[builtins.str, "_IUserPoolRef_0b7d02b5", "_IRuleRef_4038a611", "_IRoleRef_8400221f", "_ITopicRuleRef_748e9f37", "_IDeliveryStreamRef_678f5e53", "_IFunctionRef_2601eb33", "_ILogGroupRef_874d025a", "_IBucketRef_3debe44e", "_ITopicRef_29aa9a88", "_IQueueRef_fa8b2198"]] = None,
+        source_arn: typing.Optional[typing.Union[builtins.str, "_IRoleRef_8400221f", "_IUserPoolRef_0b7d02b5", "_IRuleRef_4038a611", "_ITopicRuleRef_748e9f37", "_IDeliveryStreamRef_678f5e53", "_IFunctionRef_2601eb33", "_ILogGroupRef_874d025a", "_IBucketRef_3debe44e", "_ITopicRef_29aa9a88", "_IQueueRef_fa8b2198"]] = None,
     ) -> None:
         '''Properties for defining a ``CfnPermission``.
 
@@ -13516,7 +13641,7 @@ class CfnPermissionProps:
     @builtins.property
     def source_arn(
         self,
-    ) -> typing.Optional[typing.Union[builtins.str, "_IUserPoolRef_0b7d02b5", "_IRuleRef_4038a611", "_IRoleRef_8400221f", "_ITopicRuleRef_748e9f37", "_IDeliveryStreamRef_678f5e53", "_IFunctionRef_2601eb33", "_ILogGroupRef_874d025a", "_IBucketRef_3debe44e", "_ITopicRef_29aa9a88", "_IQueueRef_fa8b2198"]]:
+    ) -> typing.Optional[typing.Union[builtins.str, "_IRoleRef_8400221f", "_IUserPoolRef_0b7d02b5", "_IRuleRef_4038a611", "_ITopicRuleRef_748e9f37", "_IDeliveryStreamRef_678f5e53", "_IFunctionRef_2601eb33", "_ILogGroupRef_874d025a", "_IBucketRef_3debe44e", "_ITopicRef_29aa9a88", "_IQueueRef_fa8b2198"]]:
         '''For AWS services , the ARN of the AWS resource that invokes the function.
 
         For example, an Amazon S3 bucket or Amazon SNS topic.
@@ -13526,7 +13651,7 @@ class CfnPermissionProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-permission.html#cfn-lambda-permission-sourcearn
         '''
         result = self._values.get("source_arn")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, "_IUserPoolRef_0b7d02b5", "_IRuleRef_4038a611", "_IRoleRef_8400221f", "_ITopicRuleRef_748e9f37", "_IDeliveryStreamRef_678f5e53", "_IFunctionRef_2601eb33", "_ILogGroupRef_874d025a", "_IBucketRef_3debe44e", "_ITopicRef_29aa9a88", "_IQueueRef_fa8b2198"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_IRoleRef_8400221f", "_IUserPoolRef_0b7d02b5", "_IRuleRef_4038a611", "_ITopicRuleRef_748e9f37", "_IDeliveryStreamRef_678f5e53", "_IFunctionRef_2601eb33", "_ILogGroupRef_874d025a", "_IBucketRef_3debe44e", "_ITopicRef_29aa9a88", "_IQueueRef_fa8b2198"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -15191,7 +15316,7 @@ class CodeConfig:
                     # the properties below are optional
                     object_version="objectVersion"
                 ),
-                source_kMSKey_arn="sourceKMSKeyArn"
+                source_kms_key_arn="sourceKMSKeyArn"
             )
         '''
         if isinstance(image, dict):
@@ -15584,7 +15709,7 @@ class CustomCommandOptions(_AssetOptions_2aa69621):
                 follow_symlinks=cdk.SymlinkFollowMode.NEVER,
                 ignore_mode=cdk.IgnoreMode.GLOB,
                 readers=[grantable],
-                source_kMSKey=key_ref
+                source_kms_key=key_ref
             )
         '''
         if isinstance(bundling, dict):
@@ -26775,7 +26900,7 @@ class S3CodeV2(
         
         s3_code_v2 = lambda_.S3CodeV2(bucket, "key",
             object_version="objectVersion",
-            source_kMSKey=key_ref
+            source_kms_key=key_ref
         )
     '''
 
@@ -33033,6 +33158,7 @@ class SingletonFunction(
         data: typing.Any,
         *,
         stack_trace: typing.Optional[builtins.bool] = None,
+        stack_trace_override: typing.Optional[typing.Sequence[builtins.str]] = None,
         trace_from_function: typing.Any = None,
     ) -> None:
         '''Use this method to write to the construct tree.
@@ -33042,6 +33168,7 @@ class SingletonFunction(
         :param type: -
         :param data: -
         :param stack_trace: Include stack trace with metadata entry. Default: false
+        :param stack_trace_override: The actual stack trace to be added to the metadata. If this parameter is passed, the stackTrace parameter is ignored.
         :param trace_from_function: A JavaScript function to begin tracing from. This option is ignored unless ``stackTrace`` is ``true``. Default: addMetadata()
         '''
         if __debug__:
@@ -33049,7 +33176,9 @@ class SingletonFunction(
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             check_type(argname="argument data", value=data, expected_type=type_hints["data"])
         options = _constructs_77d1e7e8.MetadataOptions(
-            stack_trace=stack_trace, trace_from_function=trace_from_function
+            stack_trace=stack_trace,
+            stack_trace_override=stack_trace_override,
+            trace_from_function=trace_from_function,
         )
 
         return typing.cast(None, jsii.invoke(self, "addMetadata", [type, data, options]))
@@ -35401,6 +35530,7 @@ def _typecheckingstub__a330cee966095402be57b20cbf348c99c8e7dbae1f12bacb4337a8681
     capacity_provider_scaling_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCapacityProvider.CapacityProviderScalingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     instance_requirements: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCapacityProvider.InstanceRequirementsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     kms_key_arn: typing.Optional[builtins.str] = None,
+    propagate_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCapacityProvider.PropagateTagsConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -35482,6 +35612,12 @@ def _typecheckingstub__d774454c4b35b3269d49f48aecd5a9a875331079101c1c73a238976d5
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__3c1efce4e79cb3c2cea47d5ad4b8b6a03727f7a7ee722734afe25ced731c517f(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCapacityProvider.PropagateTagsConfigProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__a3d57757477f5395c4e105ab2ba74a856bc7d4a2af7c4b17d35842fa01c99151(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
 ) -> None:
@@ -35521,6 +35657,14 @@ def _typecheckingstub__dc4c978cf6a4fccae276db5549b7db57915557a7aee97385981b3d21e
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__e2bef775281948534834421ca30ce0023f2b77cfc498f6239eecb260a1647d3a(
+    *,
+    explicit_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    mode: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__c36d98ecc955ee57aee801e396cc564c88abe1a34091c2875a7cdfaf2d5653ab(
     *,
     predefined_metric_type: builtins.str,
@@ -35537,6 +35681,7 @@ def _typecheckingstub__0ac7403cb426712d5ba0f6bfc8a4c3e190442b508eaf06e47b5ff9676
     capacity_provider_scaling_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCapacityProvider.CapacityProviderScalingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     instance_requirements: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCapacityProvider.InstanceRequirementsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     kms_key_arn: typing.Optional[builtins.str] = None,
+    propagate_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCapacityProvider.PropagateTagsConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -36414,7 +36559,7 @@ def _typecheckingstub__bffb7f8b9f38dd65e6f04bd819c15a75d9dc95ce2172504b12d728437
 
 def _typecheckingstub__1e6acbe5ce51d5a0f4abaff5a4e2373a76927c34b3ec39525f796932f708bde1(
     *,
-    variables: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    variables: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -36733,7 +36878,7 @@ def _typecheckingstub__c457a277b84dbba5bd94a2c0135335b8d7dbb3d409b1fa988b4f5a219
     invoked_via_function_url: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     principal_org_id: typing.Optional[builtins.str] = None,
     source_account: typing.Optional[builtins.str] = None,
-    source_arn: typing.Optional[typing.Union[builtins.str, _IUserPoolRef_0b7d02b5, _IRuleRef_4038a611, _IRoleRef_8400221f, _ITopicRuleRef_748e9f37, _IDeliveryStreamRef_678f5e53, _IFunctionRef_2601eb33, _ILogGroupRef_874d025a, _IBucketRef_3debe44e, _ITopicRef_29aa9a88, _IQueueRef_fa8b2198]] = None,
+    source_arn: typing.Optional[typing.Union[builtins.str, _IRoleRef_8400221f, _IUserPoolRef_0b7d02b5, _IRuleRef_4038a611, _ITopicRuleRef_748e9f37, _IDeliveryStreamRef_678f5e53, _IFunctionRef_2601eb33, _ILogGroupRef_874d025a, _IBucketRef_3debe44e, _ITopicRef_29aa9a88, _IQueueRef_fa8b2198]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -36820,7 +36965,7 @@ def _typecheckingstub__b0c90e5a512dc08c54978bc1f6bf13992ad2d1d5c793f2b05fc82eef3
     invoked_via_function_url: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     principal_org_id: typing.Optional[builtins.str] = None,
     source_account: typing.Optional[builtins.str] = None,
-    source_arn: typing.Optional[typing.Union[builtins.str, _IUserPoolRef_0b7d02b5, _IRuleRef_4038a611, _IRoleRef_8400221f, _ITopicRuleRef_748e9f37, _IDeliveryStreamRef_678f5e53, _IFunctionRef_2601eb33, _ILogGroupRef_874d025a, _IBucketRef_3debe44e, _ITopicRef_29aa9a88, _IQueueRef_fa8b2198]] = None,
+    source_arn: typing.Optional[typing.Union[builtins.str, _IRoleRef_8400221f, _IUserPoolRef_0b7d02b5, _IRuleRef_4038a611, _ITopicRuleRef_748e9f37, _IDeliveryStreamRef_678f5e53, _IFunctionRef_2601eb33, _ILogGroupRef_874d025a, _IBucketRef_3debe44e, _ITopicRef_29aa9a88, _IQueueRef_fa8b2198]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -38873,6 +39018,7 @@ def _typecheckingstub__259cc2cc87abf52dc5f1d114dffcd0817a80d0011ad64386cc1a926af
     data: typing.Any,
     *,
     stack_trace: typing.Optional[builtins.bool] = None,
+    stack_trace_override: typing.Optional[typing.Sequence[builtins.str]] = None,
     trace_from_function: typing.Any = None,
 ) -> None:
     """Type checking stubs"""

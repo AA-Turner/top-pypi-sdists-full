@@ -6,7 +6,6 @@ helpers live in ``_session_helpers.py``; the proxy-block-aware
 ``patch_session_login_dual`` lives in ``tests/_fixtures``.
 """
 
-import asyncio
 import json
 import sys
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -14,6 +13,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
+import notebooklm.cli.services.session_context as _sc
 from _fixtures import patch_session_login_dual
 from notebooklm.notebooklm_cli import cli
 
@@ -932,7 +932,7 @@ class TestLoginBrowserCookies:
 
 class TestAuthLogoutCommand:
     def test_auth_logout_deletes_storage_and_browser_profile(
-        self, runner, tmp_path, mock_context_file
+        self, runner, tmp_path, mock_context_file, monkeypatch
     ):
         """Test auth logout deletes both storage_state.json and browser_profile/."""
         storage_file = tmp_path / "storage.json"
@@ -945,14 +945,11 @@ class TestAuthLogoutCommand:
         (browser_dir / "Default").mkdir()
         (browser_dir / "Default" / "Cookies").write_text("data")
 
-        with (
-            patch_session_login_dual("get_storage_path", return_value=storage_file),
-            patch(
-                "notebooklm.cli.session_cmd.get_browser_profile_dir",
-                return_value=browser_dir,
-            ),
-        ):
+        mock_browser_dir = MagicMock(return_value=browser_dir)
+        monkeypatch.setattr(_sc, "get_browser_profile_dir", mock_browser_dir)
+        with patch_session_login_dual("get_storage_path", return_value=storage_file):
             result = runner.invoke(cli, ["auth", "logout"])
+        mock_browser_dir.assert_called()
 
         assert result.exit_code == 0
         assert "Logged out" in result.output
@@ -960,46 +957,44 @@ class TestAuthLogoutCommand:
         assert not mock_context_file.exists()
         assert not browser_dir.exists()
 
-    def test_auth_logout_when_already_logged_out(self, runner, tmp_path, mock_context_file):
+    def test_auth_logout_when_already_logged_out(
+        self, runner, tmp_path, mock_context_file, monkeypatch
+    ):
         """Test auth logout is a no-op with friendly message when not logged in."""
         storage_file = tmp_path / "storage.json"
         browser_dir = tmp_path / "browser_profile"
         # Neither exists
 
-        with (
-            patch_session_login_dual("get_storage_path", return_value=storage_file),
-            patch(
-                "notebooklm.cli.session_cmd.get_browser_profile_dir",
-                return_value=browser_dir,
-            ),
-        ):
+        mock_browser_dir = MagicMock(return_value=browser_dir)
+        monkeypatch.setattr(_sc, "get_browser_profile_dir", mock_browser_dir)
+        with patch_session_login_dual("get_storage_path", return_value=storage_file):
             result = runner.invoke(cli, ["auth", "logout"])
 
+        mock_browser_dir.assert_called()
         assert result.exit_code == 0
         assert "already" in result.output.lower() or "No active session" in result.output
 
-    def test_auth_logout_partial_state_only_storage(self, runner, tmp_path, mock_context_file):
+    def test_auth_logout_partial_state_only_storage(
+        self, runner, tmp_path, mock_context_file, monkeypatch
+    ):
         """Test auth logout handles case where only storage_state.json exists."""
         storage_file = tmp_path / "storage.json"
         storage_file.write_text('{"cookies": []}')
         browser_dir = tmp_path / "browser_profile"
         # browser_dir does not exist
 
-        with (
-            patch_session_login_dual("get_storage_path", return_value=storage_file),
-            patch(
-                "notebooklm.cli.session_cmd.get_browser_profile_dir",
-                return_value=browser_dir,
-            ),
-        ):
+        mock_browser_dir = MagicMock(return_value=browser_dir)
+        monkeypatch.setattr(_sc, "get_browser_profile_dir", mock_browser_dir)
+        with patch_session_login_dual("get_storage_path", return_value=storage_file):
             result = runner.invoke(cli, ["auth", "logout"])
 
+        mock_browser_dir.assert_called()
         assert result.exit_code == 0
         assert "Logged out" in result.output
         assert not storage_file.exists()
 
     def test_auth_logout_handles_permission_error_on_rmtree(
-        self, runner, tmp_path, mock_context_file
+        self, runner, tmp_path, mock_context_file, monkeypatch
     ):
         """Test auth logout handles locked browser profile gracefully."""
         storage_file = tmp_path / "storage.json"
@@ -1007,24 +1002,31 @@ class TestAuthLogoutCommand:
         browser_dir = tmp_path / "browser_profile"
         browser_dir.mkdir()
 
+        mock_browser_dir = MagicMock(return_value=browser_dir)
+        monkeypatch.setattr(_sc, "get_browser_profile_dir", mock_browser_dir)
         with (
             patch_session_login_dual("get_storage_path", return_value=storage_file),
-            patch(
-                "notebooklm.cli.session_cmd.get_browser_profile_dir",
-                return_value=browser_dir,
-            ),
-            patch(
-                "notebooklm.cli.session_cmd.shutil.rmtree",
+            # ``execute_logout`` (in ``services.session_context``) owns the
+            # browser-profile rmtree; patch the consumer module's ``shutil``
+            # (#1367 removed the ``session_cmd`` stdlib re-export).
+            patch.object(
+                _sc.shutil,
+                "rmtree",
                 side_effect=OSError("sharing violation"),
-            ),
+            ) as mock_rmtree,
         ):
             result = runner.invoke(cli, ["auth", "logout"])
 
+        mock_browser_dir.assert_called()
+        # ``assert_called`` is mandatory (plan failure-mode caveat #3): the
+        # exit-1 assertion alone would false-green on a dead wrong-namespace
+        # patch.
+        mock_rmtree.assert_called_once()
         assert result.exit_code == 1
         assert "in use" in result.output.lower() or "Cannot" in result.output
 
     def test_auth_logout_handles_permission_error_on_unlink(
-        self, runner, tmp_path, mock_context_file
+        self, runner, tmp_path, mock_context_file, monkeypatch
     ):
         """Test auth logout handles locked storage_state.json gracefully on Windows."""
         storage_file = tmp_path / "storage.json"
@@ -1032,12 +1034,10 @@ class TestAuthLogoutCommand:
         browser_dir = tmp_path / "browser_profile"
         # No browser dir
 
+        mock_browser_dir = MagicMock(return_value=browser_dir)
+        monkeypatch.setattr(_sc, "get_browser_profile_dir", mock_browser_dir)
         with (
             patch_session_login_dual("get_storage_path", return_value=storage_file),
-            patch(
-                "notebooklm.cli.session_cmd.get_browser_profile_dir",
-                return_value=browser_dir,
-            ),
             patch.object(
                 type(storage_file),
                 "unlink",
@@ -1046,10 +1046,13 @@ class TestAuthLogoutCommand:
         ):
             result = runner.invoke(cli, ["auth", "logout"])
 
+        mock_browser_dir.assert_called()
         assert result.exit_code == 1
         assert "Cannot" in result.output or "in use" in result.output.lower()
 
-    def test_auth_logout_clears_cached_notebook_context(self, runner, tmp_path, mock_context_file):
+    def test_auth_logout_clears_cached_notebook_context(
+        self, runner, tmp_path, mock_context_file, monkeypatch
+    ):
         """Logout must remove context.json so the next command does not reuse
         notebook_id / conversation_id from the previous account.
 
@@ -1074,20 +1077,19 @@ class TestAuthLogoutCommand:
         )
         assert mock_context_file.exists()
 
-        with (
-            patch_session_login_dual("get_storage_path", return_value=storage_file),
-            patch(
-                "notebooklm.cli.session_cmd.get_browser_profile_dir",
-                return_value=browser_dir,
-            ),
-        ):
+        mock_browser_dir = MagicMock(return_value=browser_dir)
+        monkeypatch.setattr(_sc, "get_browser_profile_dir", mock_browser_dir)
+        with patch_session_login_dual("get_storage_path", return_value=storage_file):
             result = runner.invoke(cli, ["auth", "logout"])
 
+        mock_browser_dir.assert_called()
         assert result.exit_code == 0
         assert "Logged out" in result.output
         assert not mock_context_file.exists()
 
-    def test_auth_logout_no_context_file_does_not_error(self, runner, tmp_path, mock_context_file):
+    def test_auth_logout_no_context_file_does_not_error(
+        self, runner, tmp_path, mock_context_file, monkeypatch
+    ):
         """Logout must tolerate a missing context.json without erroring.
 
         clear_context() is a no-op when the file does not exist; assert that
@@ -1100,20 +1102,17 @@ class TestAuthLogoutCommand:
 
         assert not mock_context_file.exists()
 
-        with (
-            patch_session_login_dual("get_storage_path", return_value=storage_file),
-            patch(
-                "notebooklm.cli.session_cmd.get_browser_profile_dir",
-                return_value=browser_dir,
-            ),
-        ):
+        mock_browser_dir = MagicMock(return_value=browser_dir)
+        monkeypatch.setattr(_sc, "get_browser_profile_dir", mock_browser_dir)
+        with patch_session_login_dual("get_storage_path", return_value=storage_file):
             result = runner.invoke(cli, ["auth", "logout"])
 
+        mock_browser_dir.assert_called()
         assert result.exit_code == 0
         assert "Logged out" in result.output
 
     def test_auth_logout_handles_os_error_on_context_unlink(
-        self, runner, tmp_path, mock_context_file
+        self, runner, tmp_path, mock_context_file, monkeypatch
     ):
         """Logout must surface an OSError on context.json removal as SystemExit(1).
 
@@ -1127,12 +1126,10 @@ class TestAuthLogoutCommand:
         # No browser dir — nothing to remove in that step.
         mock_context_file.write_text('{"notebook_id": "stale"}')
 
+        mock_browser_dir = MagicMock(return_value=browser_dir)
+        monkeypatch.setattr(_sc, "get_browser_profile_dir", mock_browser_dir)
         with (
             patch_session_login_dual("get_storage_path", return_value=storage_file),
-            patch(
-                "notebooklm.cli.session_cmd.get_browser_profile_dir",
-                return_value=browser_dir,
-            ),
             patch(
                 "notebooklm.cli.services.session_context.clear_context",
                 side_effect=OSError("file in use"),
@@ -1140,6 +1137,7 @@ class TestAuthLogoutCommand:
         ):
             result = runner.invoke(cli, ["auth", "logout"])
 
+        mock_browser_dir.assert_called()
         assert result.exit_code == 1
         assert "context file" in result.output.lower()
 
@@ -1415,9 +1413,16 @@ class TestAuthRefreshCommand:
 
 
 class TestAuthInspect:
-    def test_session_run_async_patch_reaches_login_service_helper(self):
+    def test_injected_io_run_async_reaches_login_service_helper(self):
+        """The injected ``LoginIO`` sink's ``run_async`` drives the probe (#1393).
+
+        Previously ``_enumerate_one_jar`` bound a module-level ``run_async``;
+        the async bridge is now the injected sink's ``run_async``. This pins
+        that the helper routes the account-enumeration probe through the sink.
+        """
+        from _fixtures.login_io import make_recording_io
         from notebooklm.auth import Account
-        from notebooklm.cli.session_cmd import _enumerate_one_jar
+        from notebooklm.cli.services.login import _enumerate_one_jar
 
         raw_cookies = _multiaccount_rookiepy_mock().chrome.return_value
         accounts = [Account(authuser=0, email="alice@example.com", is_default=True)]
@@ -1426,18 +1431,16 @@ class TestAuthInspect:
             awaitable.close()
             return accounts
 
-        with (
-            patch("notebooklm.auth.enumerate_accounts", return_value=object()),
-            patch_session_login_dual("run_async", side_effect=fake_run_async) as mock_run_async,
-        ):
-            result = _enumerate_one_jar(raw_cookies, "chrome", browser_profile=None)
+        io = make_recording_io(run_async=MagicMock(side_effect=fake_run_async))
+        with patch("notebooklm.auth.enumerate_accounts", return_value=object()):
+            result = _enumerate_one_jar(raw_cookies, "chrome", browser_profile=None, io=io)
 
         assert result == accounts
-        mock_run_async.assert_called_once()
+        io.run_async.assert_called_once()
 
     def test_enumerate_one_jar_network_error_non_quiet_exits_without_reraising(self):
+        from notebooklm.cli.services.login import _enumerate_one_jar
         from notebooklm.cli.services.login.outcomes import NetworkFailure
-        from notebooklm.cli.session_cmd import _enumerate_one_jar
 
         raw_cookies = _multiaccount_rookiepy_mock().chrome.return_value
 
@@ -1453,32 +1456,35 @@ class TestAuthInspect:
         assert "offline" in message
 
     def test_select_account_without_marked_default_uses_first_account(self, caplog):
+        from _fixtures.login_io import RecordingLoginIO
         from notebooklm.auth import Account
-        from notebooklm.cli.session_cmd import _select_account
+        from notebooklm.cli.services.login import _select_account
 
         accounts = [
             Account(authuser=0, email="alice@example.com", is_default=False),
             Account(authuser=1, email="bob@gmail.com", is_default=False),
         ]
 
-        with (
-            caplog.at_level("WARNING", logger="notebooklm.cli.services.login.cookie_writes"),
-            patch("notebooklm.cli.rendering.console") as mock_console,
-        ):
-            selected = _select_account(accounts, account_email=None)
+        # The no-default warning is now emitted through the injected ``LoginIO``
+        # sink (#1393); capture it on a ``RecordingLoginIO`` instead of the
+        # module-level console.
+        io = RecordingLoginIO()
+        with caplog.at_level("WARNING", logger="notebooklm.cli.services.login.cookie_writes"):
+            selected = _select_account(io, accounts, account_email=None)
 
         assert selected == accounts[0]
-        warning_text = mock_console.print.call_args[0][0]
+        warning_text = io.emitted[0]
         assert "default account" in warning_text
         assert "alice@example.com" in warning_text
         assert "default account" in caplog.text
         assert "alice@example.com" in caplog.text
 
     def test_select_account_empty_accounts_returns_user_message(self):
+        from _fixtures.login_io import make_recording_io
         from notebooklm.cli.services.login.cookie_writes import _select_account
         from notebooklm.cli.services.login.outcomes import CookieValidationFailure
 
-        result = _select_account([], account_email=None)
+        result = _select_account(make_recording_io(), [], account_email=None)
 
         assert isinstance(result, CookieValidationFailure)
         message = result.message
@@ -1506,9 +1512,12 @@ class TestAuthInspect:
                 Account(authuser=2, email="carol@ws.com", is_default=False),
             ]
 
+        # The account-enumeration probe now runs through the injected ``LoginIO``
+        # sink's ``run_async`` (the default ``PlaywrightLoginIO`` →
+        # ``cli.runtime.run_async``, #1393); mocking ``enumerate_accounts`` is
+        # enough — the real ``run_async`` drives the (already-async) stub.
         with (
             patch.dict("sys.modules", {"rookiepy": mock_rk}),
-            patch_session_login_dual("run_async", side_effect=asyncio.run),
             patch("notebooklm.auth.enumerate_accounts", new=_enum),
         ):
             result = runner.invoke(cli, ["auth", "inspect", "--browser", "chrome"])

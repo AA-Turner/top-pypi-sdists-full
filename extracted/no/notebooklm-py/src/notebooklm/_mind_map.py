@@ -8,11 +8,11 @@ the note-row primitives into a mind-map-only surface. Both
 ``ArtifactsAPI`` (download path) and ``NotesAPI`` (forward-compatible
 ``list_mind_maps`` / ``delete_mind_map`` surface) consume this adapter.
 
-Phase 6 (refactor-history.md Step 9, ADR-013) retired the legacy
-``MindMapService`` class and its module-level compatibility wrappers
+The legacy ``MindMapService`` class was retired (see refactor-history.md
+Step 9, ADR-0013) along with its module-level compatibility wrappers
 (``create_note``, ``list_mind_maps``, ``update_note``, ...) together
 with the saved-from-chat encoder, which now lives in
-:mod:`_chat_notes`. Only the :class:`NoteBackedMindMapService`
+:mod:`_chat.notes`. Only the :class:`NoteBackedMindMapService`
 adapter remains.
 """
 
@@ -21,6 +21,8 @@ from __future__ import annotations
 from typing import Any
 
 from ._note_service import NoteRowKind, NoteService
+from ._row_adapters.notes import NoteRow
+from .exceptions import MindMapNotFoundError
 
 
 class NoteBackedMindMapService:
@@ -34,7 +36,7 @@ class NoteBackedMindMapService:
 
     The download path doesn't need ``create_mind_map`` — mind-map
     creation goes through :meth:`NoteService.create_note` directly
-    from ``_artifact_generation.generate_mind_map`` (a one-shot
+    from ``ArtifactsAPI.generate_mind_map`` (a one-shot
     GENERATE_MIND_MAP + persist pipeline). The methods exposed here
     are exactly the ones the artifact download path and ``NotesAPI``
     ``list_mind_maps`` / ``delete_mind_map`` need.
@@ -56,11 +58,29 @@ class NoteBackedMindMapService:
         """
         return self._notes.extract_content(row)
 
-    async def delete_mind_map(self, notebook_id: str, note_id: str) -> bool:
+    async def delete_mind_map(self, notebook_id: str, note_id: str) -> None:
         """Soft-delete a mind-map row.
 
-        Delegates to :meth:`NoteService.delete_note`. Returns its bool
-        result so the v0.4.1 ``NotesAPI.delete_mind_map(...) -> bool``
-        public contract is preserved.
+        Delegates to :meth:`NoteService.delete_note`. Returns ``None`` as of
+        v0.7.0 (``NotesAPI.delete_mind_map(...) -> None``, issue #1211).
         """
-        return await self._notes.delete_note(notebook_id, note_id)
+        await self._notes.delete_note(notebook_id, note_id)
+
+    async def rename_mind_map(self, notebook_id: str, mind_map_id: str, new_title: str) -> None:
+        """Rename a note-backed mind map by retitling its backing note.
+
+        Note-backed mind maps are renamed via ``UPDATE_NOTE`` (re-sending the
+        existing content with the new title) — notes have no title-only field
+        mask. (Interactive studio-artifact mind maps rename via
+        ``RENAME_ARTIFACT`` instead; see ``MindMapsAPI``.)
+
+        Raises:
+            MindMapNotFoundError: if no note-backed mind map with
+                ``mind_map_id`` exists.
+        """
+        for row in await self.list_mind_maps(notebook_id):
+            if NoteRow(row).id == mind_map_id:
+                content = self.extract_content(row) or ""
+                await self._notes.update_note(notebook_id, mind_map_id, content, new_title)
+                return
+        raise MindMapNotFoundError(mind_map_id)

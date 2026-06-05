@@ -622,7 +622,7 @@ class CfnBot(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_lex as lex
                 
-                audio_and_dTMFInput_specification_property = lex.CfnBot.AudioAndDTMFInputSpecificationProperty(
+                audio_and_dtmf_input_specification_property = lex.CfnBot.AudioAndDTMFInputSpecificationProperty(
                     start_timeout_ms=123,
                 
                     # the properties below are optional
@@ -693,6 +693,126 @@ class CfnBot(
 
         def __repr__(self) -> str:
             return "AudioAndDTMFInputSpecificationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_lex.CfnBot.AudioFillerSettingsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "enabled": "enabled",
+            "audio_type": "audioType",
+            "minimum_play_duration_in_milliseconds": "minimumPlayDurationInMilliseconds",
+            "response_delivery_delay_in_milliseconds": "responseDeliveryDelayInMilliseconds",
+            "start_delay_in_milliseconds": "startDelayInMilliseconds",
+        },
+    )
+    class AudioFillerSettingsProperty:
+        def __init__(
+            self,
+            *,
+            enabled: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+            audio_type: typing.Optional[builtins.str] = None,
+            minimum_play_duration_in_milliseconds: typing.Optional[jsii.Number] = None,
+            response_delivery_delay_in_milliseconds: typing.Optional[jsii.Number] = None,
+            start_delay_in_milliseconds: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''
+            :param enabled: 
+            :param audio_type: 
+            :param minimum_play_duration_in_milliseconds: 
+            :param response_delivery_delay_in_milliseconds: 
+            :param start_delay_in_milliseconds: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-audiofillersettings.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_lex as lex
+                
+                audio_filler_settings_property = lex.CfnBot.AudioFillerSettingsProperty(
+                    enabled=False,
+                
+                    # the properties below are optional
+                    audio_type="audioType",
+                    minimum_play_duration_in_milliseconds=123,
+                    response_delivery_delay_in_milliseconds=123,
+                    start_delay_in_milliseconds=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__4182abf6cc6f085c25b01206f0853c48bc709ee1a7ff5743c3f81d99c7eb6f94)
+                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+                check_type(argname="argument audio_type", value=audio_type, expected_type=type_hints["audio_type"])
+                check_type(argname="argument minimum_play_duration_in_milliseconds", value=minimum_play_duration_in_milliseconds, expected_type=type_hints["minimum_play_duration_in_milliseconds"])
+                check_type(argname="argument response_delivery_delay_in_milliseconds", value=response_delivery_delay_in_milliseconds, expected_type=type_hints["response_delivery_delay_in_milliseconds"])
+                check_type(argname="argument start_delay_in_milliseconds", value=start_delay_in_milliseconds, expected_type=type_hints["start_delay_in_milliseconds"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "enabled": enabled,
+            }
+            if audio_type is not None:
+                self._values["audio_type"] = audio_type
+            if minimum_play_duration_in_milliseconds is not None:
+                self._values["minimum_play_duration_in_milliseconds"] = minimum_play_duration_in_milliseconds
+            if response_delivery_delay_in_milliseconds is not None:
+                self._values["response_delivery_delay_in_milliseconds"] = response_delivery_delay_in_milliseconds
+            if start_delay_in_milliseconds is not None:
+                self._values["start_delay_in_milliseconds"] = start_delay_in_milliseconds
+
+        @builtins.property
+        def enabled(self) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-audiofillersettings.html#cfn-lex-bot-audiofillersettings-enabled
+            '''
+            result = self._values.get("enabled")
+            assert result is not None, "Required property 'enabled' is missing"
+            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
+
+        @builtins.property
+        def audio_type(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-audiofillersettings.html#cfn-lex-bot-audiofillersettings-audiotype
+            '''
+            result = self._values.get("audio_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def minimum_play_duration_in_milliseconds(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-audiofillersettings.html#cfn-lex-bot-audiofillersettings-minimumplaydurationinmilliseconds
+            '''
+            result = self._values.get("minimum_play_duration_in_milliseconds")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def response_delivery_delay_in_milliseconds(
+            self,
+        ) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-audiofillersettings.html#cfn-lex-bot-audiofillersettings-responsedeliverydelayinmilliseconds
+            '''
+            result = self._values.get("response_delivery_delay_in_milliseconds")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def start_delay_in_milliseconds(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-audiofillersettings.html#cfn-lex-bot-audiofillersettings-startdelayinmilliseconds
+            '''
+            result = self._values.get("start_delay_in_milliseconds")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AudioFillerSettingsProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -940,7 +1060,7 @@ class CfnBot(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_lex as lex
                 
-                b_kBExact_response_fields_property = lex.CfnBot.BKBExactResponseFieldsProperty(
+                b_kb_exact_response_fields_property = lex.CfnBot.BKBExactResponseFieldsProperty(
                     answer_field="answerField"
                 )
             '''
@@ -1667,6 +1787,7 @@ class CfnBot(
         name_mapping={
             "locale_id": "localeId",
             "nlu_confidence_threshold": "nluConfidenceThreshold",
+            "audio_filler_settings": "audioFillerSettings",
             "custom_vocabulary": "customVocabulary",
             "description": "description",
             "generative_ai_settings": "generativeAiSettings",
@@ -1684,6 +1805,7 @@ class CfnBot(
             *,
             locale_id: builtins.str,
             nlu_confidence_threshold: jsii.Number,
+            audio_filler_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.AudioFillerSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             custom_vocabulary: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.CustomVocabularyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             description: typing.Optional[builtins.str] = None,
             generative_ai_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.GenerativeAISettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -1698,6 +1820,7 @@ class CfnBot(
 
             :param locale_id: The identifier of the language and locale that the bot will be used in. The string must match one of the supported locales.
             :param nlu_confidence_threshold: Determines the threshold where Amazon Lex will insert the ``AMAZON.FallbackIntent`` , ``AMAZON.KendraSearchIntent`` , or both when returning alternative intents. You must configure an ``AMAZON.FallbackIntent`` . ``AMAZON.KendraSearchIntent`` is only inserted if it is configured for the bot.
+            :param audio_filler_settings: 
             :param custom_vocabulary: Specifies a custom vocabulary to use with a specific locale.
             :param description: A description of the bot locale. Use this to help identify the bot locale in lists.
             :param generative_ai_settings: 
@@ -1719,6 +1842,7 @@ class CfnBot(
                 type_hints = typing.get_type_hints(_typecheckingstub__2ad20956b5309c4b6154f09c947ce4023f20ed7a602b3cfa60f2bd3cfda11dd4)
                 check_type(argname="argument locale_id", value=locale_id, expected_type=type_hints["locale_id"])
                 check_type(argname="argument nlu_confidence_threshold", value=nlu_confidence_threshold, expected_type=type_hints["nlu_confidence_threshold"])
+                check_type(argname="argument audio_filler_settings", value=audio_filler_settings, expected_type=type_hints["audio_filler_settings"])
                 check_type(argname="argument custom_vocabulary", value=custom_vocabulary, expected_type=type_hints["custom_vocabulary"])
                 check_type(argname="argument description", value=description, expected_type=type_hints["description"])
                 check_type(argname="argument generative_ai_settings", value=generative_ai_settings, expected_type=type_hints["generative_ai_settings"])
@@ -1732,6 +1856,8 @@ class CfnBot(
                 "locale_id": locale_id,
                 "nlu_confidence_threshold": nlu_confidence_threshold,
             }
+            if audio_filler_settings is not None:
+                self._values["audio_filler_settings"] = audio_filler_settings
             if custom_vocabulary is not None:
                 self._values["custom_vocabulary"] = custom_vocabulary
             if description is not None:
@@ -1772,6 +1898,16 @@ class CfnBot(
             result = self._values.get("nlu_confidence_threshold")
             assert result is not None, "Required property 'nlu_confidence_threshold' is missing"
             return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def audio_filler_settings(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.AudioFillerSettingsProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-botlocale.html#cfn-lex-bot-botlocale-audiofillersettings
+            '''
+            result = self._values.get("audio_filler_settings")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.AudioFillerSettingsProperty"]], result)
 
         @builtins.property
         def custom_vocabulary(
@@ -3129,7 +3265,7 @@ class CfnBot(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_lex as lex
                 
-                d_tMFSpecification_property = lex.CfnBot.DTMFSpecificationProperty(
+                d_tmf_specification_property = lex.CfnBot.DTMFSpecificationProperty(
                     deletion_character="deletionCharacter",
                     end_character="endCharacter",
                     end_timeout_ms=123,
@@ -4992,7 +5128,7 @@ class CfnBot(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_lex as lex
                 
-                generative_aISettings_property = lex.CfnBot.GenerativeAISettingsProperty(
+                generative_ai_settings_property = lex.CfnBot.GenerativeAISettingsProperty(
                     buildtime_settings=lex.CfnBot.BuildtimeSettingsProperty(
                         descriptive_bot_builder_specification=lex.CfnBot.DescriptiveBotBuilderSpecificationProperty(
                             enabled=False,
@@ -8486,7 +8622,7 @@ class CfnBot(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_lex as lex
                 
-                qn_aIntent_configuration_property = lex.CfnBot.QnAIntentConfigurationProperty(
+                qn_a_intent_configuration_property = lex.CfnBot.QnAIntentConfigurationProperty(
                     bedrock_model_configuration=lex.CfnBot.BedrockModelSpecificationProperty(
                         model_arn="modelArn",
                 
@@ -8605,7 +8741,7 @@ class CfnBot(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_lex as lex
                 
-                qn_aKendra_configuration_property = lex.CfnBot.QnAKendraConfigurationProperty(
+                qn_a_kendra_configuration_property = lex.CfnBot.QnAKendraConfigurationProperty(
                     exact_response=False,
                     kendra_index="kendraIndex",
                     query_filter_string_enabled=False,
@@ -9171,7 +9307,7 @@ class CfnBot(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_lex as lex
                 
-                s_sMLMessage_property = lex.CfnBot.SSMLMessageProperty(
+                s_sml_message_property = lex.CfnBot.SSMLMessageProperty(
                     value="value"
                 )
             '''
@@ -15823,6 +15959,17 @@ def _typecheckingstub__c052ee345e65d8dccab612f97fe193228903fbbb67e70bcb8f742a610
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__4182abf6cc6f085c25b01206f0853c48bc709ee1a7ff5743c3f81d99c7eb6f94(
+    *,
+    enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    audio_type: typing.Optional[builtins.str] = None,
+    minimum_play_duration_in_milliseconds: typing.Optional[jsii.Number] = None,
+    response_delivery_delay_in_milliseconds: typing.Optional[jsii.Number] = None,
+    start_delay_in_milliseconds: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__f63a4e17f071cd3f1324d2209c869ca77ffb749d83b8046aa835feea80b9c16c(
     *,
     s3_bucket: typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.S3BucketLogDestinationProperty, typing.Dict[builtins.str, typing.Any]]],
@@ -15924,6 +16071,7 @@ def _typecheckingstub__2ad20956b5309c4b6154f09c947ce4023f20ed7a602b3cfa60f2bd3cf
     *,
     locale_id: builtins.str,
     nlu_confidence_threshold: jsii.Number,
+    audio_filler_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.AudioFillerSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     custom_vocabulary: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.CustomVocabularyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
     generative_ai_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.GenerativeAISettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,

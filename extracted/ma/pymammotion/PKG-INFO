@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymammotion
-Version: 0.8.1
+Version: 0.8.2
 Author: jLynx
 Author-email: Michael Arthur <michael@jumblesoft.co.nz>
 License-Expression: GPL-3.0
@@ -18,7 +18,7 @@ Requires-Dist: cryptography>=43.0.1
 Requires-Dist: mashumaro~=3.13
 Requires-Dist: numpy>=1.26.0
 Requires-Dist: orjson<4,>=3.9.15
-Requires-Dist: pillow>=12.2.0
+Requires-Dist: pillow>=11.0.0
 Requires-Dist: protobuf>=4.23.1
 Requires-Dist: pyjwt>=2.10.1
 Requires-Dist: pyrsistent>=0.20.0

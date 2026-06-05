@@ -1,7 +1,7 @@
 """Workflow loader — scan .kanban/workflows/ directory for mode definitions.
 
-Each .json file in the directory defines a mode.  Built-in modes
-(full/lightweight/quick) are always available even without files.
+Each .json file in the directory defines a mode.  All modes are discovered
+from directory files — no hardcoded mode names.
 """
 from __future__ import annotations
 import json
@@ -12,12 +12,8 @@ def scan_workflows(kanban_dir: Path) -> dict[str, dict]:
     """Scan .kanban/workflows/*.json and return {mode_name: config}.
 
     Each file defines one mode.  File stem (without .json) = mode name.
-    Built-in modes are always included as base entries.
     """
-    result: dict[str, dict] = {
-        "lightweight": {"builtin": True},
-        "quick":       {"builtin": True},
-    }
+    result: dict[str, dict] = {}
     wf_dir = kanban_dir / "workflows"
     if not wf_dir.is_dir():
         return result
@@ -31,11 +27,10 @@ def scan_workflows(kanban_dir: Path) -> dict[str, dict]:
     return result
 
 
-def merge_workflow_modes(workflow_json: dict, kanban_dir: Path) -> dict:
+def merge_workflow_modes(workflow_json: dict, kanban_dir: Path) -> dict[str, dict]:
     """Merge modes from workflow.json and .kanban/workflows/ directory.
 
     workflow.json modes take priority over directory files.
-    Built-in modes (full/lightweight/quick) always present.
     """
     modes: dict[str, dict] = scan_workflows(kanban_dir)
     # Merge from workflow.json (takes priority)

@@ -779,6 +779,7 @@ single_byte_tests = [
     "almost_match_boundary_without_LF",
     "almost_match_boundary_without_final_hyphen",
     "single_field_single_file",
+    "crlf_dense_part_data",
 ]
 
 EPILOGUE_TEST_HEAD = (
@@ -1648,6 +1649,15 @@ class TestHelperFunctions(unittest.TestCase):
                 lambda _: None,
                 lambda _: None,
                 chunk_size=0,
+            )
+
+    def test_parse_form_negative_content_length(self) -> None:
+        with self.assertRaisesRegex(ValueError, "Content-Length must be non-negative"):
+            parse_form(
+                {"Content-Type": b"application/octet-stream", "Content-Length": b"-1"},
+                BytesIO(b"123456789012345"),
+                lambda _: None,
+                lambda _: None,
             )
 
 

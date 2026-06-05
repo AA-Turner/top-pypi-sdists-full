@@ -161,6 +161,7 @@ from .literals import (
     ImageVersionSortByType,
     ImageVersionSortOrderType,
     ImageVersionStatusType,
+    IncludedDataType,
     InferenceComponentCapacitySizeTypeType,
     InferenceComponentPlacementStrategyType,
     InferenceComponentSortKeyType,
@@ -1306,6 +1307,7 @@ __all__ = (
     "JobSecondaryStatusTransitionTypeDef",
     "JobStepMetadataTypeDef",
     "JobSummaryTypeDef",
+    "JobTypeDef",
     "JupyterLabAppImageConfigOutputTypeDef",
     "JupyterLabAppImageConfigTypeDef",
     "JupyterLabAppImageConfigUnionTypeDef",
@@ -4350,6 +4352,7 @@ class ModelCardExportArtifactsTypeDef(TypedDict):
 class DescribeModelCardRequestTypeDef(TypedDict):
     ModelCardName: str
     ModelCardVersion: NotRequired[int]
+    IncludedData: NotRequired[IncludedDataType]
 
 
 class DescribeModelExplainabilityJobDefinitionRequestTypeDef(TypedDict):
@@ -4372,6 +4375,7 @@ class DescribeModelPackageGroupInputTypeDef(TypedDict):
 
 class DescribeModelPackageInputTypeDef(TypedDict):
     ModelPackageName: str
+    IncludedData: NotRequired[IncludedDataType]
 
 
 class DescribeModelQualityJobDefinitionRequestTypeDef(TypedDict):
@@ -10425,6 +10429,23 @@ class DescribeJobResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class JobTypeDef(TypedDict):
+    JobName: NotRequired[str]
+    JobArn: NotRequired[str]
+    RoleArn: NotRequired[str]
+    JobCategory: NotRequired[JobCategoryType]
+    JobConfigSchemaVersion: NotRequired[str]
+    JobConfigDocument: NotRequired[str]
+    CreationTime: NotRequired[datetime]
+    LastModifiedTime: NotRequired[datetime]
+    EndTime: NotRequired[datetime]
+    JobStatus: NotRequired[JobStatusType]
+    SecondaryStatus: NotRequired[JobSecondaryStatusType]
+    SecondaryStatusTransitions: NotRequired[list[JobSecondaryStatusTransitionTypeDef]]
+    FailureReason: NotRequired[str]
+    Tags: NotRequired[list[TagTypeDef]]
+
+
 class DescribeModelCardExportJobResponseTypeDef(TypedDict):
     ModelCardExportJobName: str
     ModelCardExportJobArn: str
@@ -15853,6 +15874,7 @@ class SearchRecordTypeDef(TypedDict):
     HyperParameterTuningJob: NotRequired[HyperParameterTuningJobSearchEntityTypeDef]
     ModelCard: NotRequired[ModelCardTypeDef]
     Model: NotRequired[ModelDashboardModelTypeDef]
+    Job: NotRequired[JobTypeDef]
 
 
 class CreateHyperParameterTuningJobRequestTypeDef(TypedDict):

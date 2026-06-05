@@ -5,7 +5,7 @@ These assertions pin down the new contract:
 - ``ask`` uses ``self._reqid.next_reqid()`` for the URL ``_reqid`` param (the
   ``_reqid_counter`` property + deprecation gesture were retired in the
   session-shrink arc; this test now guards against any new
-  ``DeprecationWarning`` escaping ``_chat.py``).
+  ``DeprecationWarning`` escaping ``_chat/api.py``).
 - ``authuser=`` is present on the chat URL when ``account_email`` is set on
   the auth tokens, mirroring the batchexecute path in
   ``RpcExecutor.build_url``. Previously omitted entirely on the chat endpoint.
@@ -174,7 +174,7 @@ class TestChatReqid:
     async def test_ask_uses_next_reqid_no_deprecation_warning(
         self, httpx_mock, mock_get_conversation_id
     ):
-        """No ``DeprecationWarning`` is emitted by ``_chat.py`` during ask()."""
+        """No ``DeprecationWarning`` is emitted by ``_chat/api.py`` during ask()."""
         auth = AuthTokens(
             cookies={"SID": "x"},
             csrf_token="csrf",
@@ -198,10 +198,11 @@ class TestChatReqid:
             for w in caught
             if issubclass(w.category, DeprecationWarning)
             and "_reqid_counter" in str(w.message)
-            and "_chat.py" in str(w.filename)
+            and "_chat" in str(w.filename)
+            and "api.py" in str(w.filename)
         ]
         assert chat_dep_warnings == [], (
-            f"_chat.py must not emit _reqid_counter DeprecationWarning; "
+            f"_chat/api.py must not emit _reqid_counter DeprecationWarning; "
             f"got: {[(str(w.filename), str(w.message)) for w in chat_dep_warnings]}"
         )
 
@@ -322,7 +323,7 @@ class TestChatRefreshRetry:
                 monkeypatch, core._collaborators.kernel.get_http_client(), fake_post
             )
 
-            # Wave 8 of session-decoupling (ADR-014 Rule 2 Corollary):
+            # Wave 8 of session-decoupling (ADR-0014 Rule 2 Corollary):
             # ``ChatAPI`` takes its four direct collaborators by keyword
             # arg. Wired here from the real ``Session`` under test so the
             # refresh path exercises the production transport/rpc/reqid
@@ -520,7 +521,7 @@ class TestBuildChatRequestFactory:
     """
 
     def _factory(self) -> ChatAPI:
-        # Wave 8 of session-decoupling (ADR-014 Rule 2 Corollary):
+        # Wave 8 of session-decoupling (ADR-0014 Rule 2 Corollary):
         # ``ChatAPI`` takes direct collaborators by keyword arg. Pure
         # ``_build_chat_request`` exercise — none of these collaborators
         # are touched, so they are bare ``MagicMock()`` placeholders.

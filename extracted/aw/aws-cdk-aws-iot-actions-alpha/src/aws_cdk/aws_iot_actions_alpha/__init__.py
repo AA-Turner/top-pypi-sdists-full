@@ -749,7 +749,7 @@ class DynamoDBv2PutItemActionProps(CommonActionProps):
             
             # role: iam.Role
             
-            dynamo_dBv2_put_item_action_props = iot_actions_alpha.DynamoDBv2PutItemActionProps(
+            dynamo_d_bv2_put_item_action_props = iot_actions_alpha.DynamoDBv2PutItemActionProps(
                 role=role
             )
         '''

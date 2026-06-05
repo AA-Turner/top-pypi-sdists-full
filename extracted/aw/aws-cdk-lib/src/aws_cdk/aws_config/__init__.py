@@ -3695,7 +3695,7 @@ class CfnConformancePack(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_config as config
                 
-                template_sSMDocument_details_property = config.CfnConformancePack.TemplateSSMDocumentDetailsProperty(
+                template_ssm_document_details_property = config.CfnConformancePack.TemplateSSMDocumentDetailsProperty(
                     document_name="documentName",
                     document_version="documentVersion"
                 )

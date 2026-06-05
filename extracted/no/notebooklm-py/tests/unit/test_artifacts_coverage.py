@@ -4,18 +4,19 @@ These tests target specific uncovered lines identified by coverage analysis.
 """
 
 import asyncio
-import warnings
 from contextlib import asynccontextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
 
+import notebooklm._artifact.downloads as _downloads
 from notebooklm._artifacts import ArtifactsAPI
 from notebooklm.exceptions import (
     ArtifactInProgressTimeoutError,
     ArtifactPendingTimeoutError,
     ArtifactTimeoutError,
+    UnknownRPCMethodError,
 )
 from notebooklm.rpc.decoder import RPCError
 from notebooklm.types import ArtifactDownloadError, GenerationStatus
@@ -76,8 +77,9 @@ class TestDownloadUrlsBatch:
         mock_response.headers = {"content-type": "video/mp4"}
         mock_response.raise_for_status = MagicMock()
 
+        load_cookies = MagicMock(return_value={})
         with (
-            patch("notebooklm._artifact_downloads.load_httpx_cookies", return_value={}),
+            patch.object(_downloads, "load_httpx_cookies", load_cookies),
             patch("httpx.AsyncClient") as mock_client_cls,
         ):
             mock_client = AsyncMock()
@@ -93,6 +95,8 @@ class TestDownloadUrlsBatch:
 
             result = await api._download_urls_batch(urls_and_paths)
 
+        # Bite-check (ADR-0007 Form-2): the injected seam alias is exercised.
+        load_cookies.assert_called_once()
         assert result.all_succeeded
         assert len(result.succeeded) == 2
         assert str(tmp_path / "file1.mp4") in result.succeeded
@@ -117,8 +121,9 @@ class TestDownloadUrlsBatch:
         mock_response.headers = {"content-type": "text/html"}
         mock_response.raise_for_status = MagicMock()
 
+        load_cookies = MagicMock(return_value={})
         with (
-            patch("notebooklm._artifact_downloads.load_httpx_cookies", return_value={}),
+            patch.object(_downloads, "load_httpx_cookies", load_cookies),
             patch("httpx.AsyncClient") as mock_client_cls,
         ):
             mock_client = AsyncMock()
@@ -133,6 +138,8 @@ class TestDownloadUrlsBatch:
 
             result = await api._download_urls_batch(urls_and_paths)
 
+        # Bite-check (ADR-0007 Form-2): the injected seam alias is exercised.
+        load_cookies.assert_called_once()
         assert result.succeeded == []
         assert len(result.failed) == 1
         url, exc = result.failed[0]
@@ -150,8 +157,9 @@ class TestDownloadUrlsBatch:
         success_response.headers = {"content-type": "video/mp4"}
         success_response.raise_for_status = MagicMock()
 
+        load_cookies = MagicMock(return_value={})
         with (
-            patch("notebooklm._artifact_downloads.load_httpx_cookies", return_value={}),
+            patch.object(_downloads, "load_httpx_cookies", load_cookies),
             patch("httpx.AsyncClient") as mock_client_cls,
         ):
             mock_client = AsyncMock()
@@ -167,6 +175,8 @@ class TestDownloadUrlsBatch:
 
             result = await api._download_urls_batch(urls_and_paths)
 
+        # Bite-check (ADR-0007 Form-2): the injected seam alias is exercised.
+        load_cookies.assert_called_once()
         # Only first file should succeed; second is recorded in failed.
         assert not result.all_succeeded
         assert result.partial
@@ -428,36 +438,24 @@ class TestWaitForCompletion:
 class TestParseGenerationResult:
     """Test _parse_generation_result parsing logic."""
 
-    def test_parse_null_result(self, mock_artifacts_api, monkeypatch):
-        """Test parsing None result returns failed status.
+    def test_parse_null_result(self, mock_artifacts_api):
+        """Parsing a ``None`` result raises under strict decoding.
 
-        Soft-mode opt-in: post-PR 13.9a the strict-decode default raises on
-        the missing artifact_id descent. The "GenerationStatus(failed, '')"
-        sentinel is the legacy fallback this test pins, so opt back into
-        soft mode explicitly. Strict-mode coverage of the same input lives
+        Strict decoding is the only mode (the ``NOTEBOOKLM_STRICT_DECODE=0``
+        soft-mode opt-out was retired in v0.7.0); deeper drift coverage lives
         in ``tests/unit/test_artifacts_drift.py``.
         """
-        monkeypatch.setenv("NOTEBOOKLM_STRICT_DECODE", "0")
         api, _ = mock_artifacts_api
 
-        with pytest.warns(DeprecationWarning, match="safe_index soft-mode"):
-            result = api._parse_generation_result(None, method_id="R7cb6c")
+        with pytest.raises(UnknownRPCMethodError):
+            api._parse_generation_result(None, method_id="R7cb6c")
 
-        assert result.status == "failed"
-        assert result.task_id == ""
-        assert "no artifact_id" in result.error.lower()
-
-    def test_parse_empty_list_result(self, mock_artifacts_api, monkeypatch):
-        """Test parsing empty list returns failed status."""
-        monkeypatch.setenv("NOTEBOOKLM_STRICT_DECODE", "0")
+    def test_parse_empty_list_result(self, mock_artifacts_api):
+        """Parsing an empty list raises under strict decoding."""
         api, _ = mock_artifacts_api
 
-        with pytest.warns(DeprecationWarning, match="safe_index soft-mode"):
-            result = api._parse_generation_result([], method_id="R7cb6c")
-
-        assert result.status == "failed"
-        assert result.task_id == ""
-        assert "no artifact_id" in result.error.lower()
+        with pytest.raises(UnknownRPCMethodError):
+            api._parse_generation_result([], method_id="R7cb6c")
 
     def test_parse_valid_in_progress(self, mock_artifacts_api):
         """Test parsing valid in_progress status (code 1)."""
@@ -495,43 +493,29 @@ class TestParseGenerationResult:
 
 
 # =============================================================================
-# TIER 2: Deprecation warning test (lines 1127-1135)
+# TIER 2: Removed poll_interval keyword
 # =============================================================================
 
 
-class TestDeprecationWarnings:
-    """Test deprecation warnings."""
+class TestRemovedPollIntervalKeyword:
+    """The deprecated ``poll_interval`` keyword was removed in v0.7.0."""
 
     @pytest.mark.asyncio
-    async def test_poll_interval_deprecation_warning(self, mock_artifacts_api):
-        """Test that poll_interval parameter triggers deprecation warning."""
-        api, mock_core = mock_artifacts_api
+    async def test_poll_interval_keyword_rejected(self, mock_artifacts_api):
+        """Passing the removed ``poll_interval`` keyword raises ``TypeError``.
 
-        # Return completed immediately via LIST_ARTIFACTS format
-        mock_core.rpc_executor.rpc_call.return_value = [
-            [
-                [
-                    "task_123",
-                    "Title",
-                    2,  # REPORT type (no URL check needed)
-                    None,
-                    3,  # COMPLETED status
-                ]
-            ]
-        ]
+        ``wait_for_completion`` only accepts ``initial_interval`` now (see
+        ``docs/deprecations.md``); the deprecated ``poll_interval`` alias was
+        removed, so Python's argument binding rejects it.
+        """
+        api, _ = mock_artifacts_api
 
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
+        with pytest.raises(TypeError):
             await api.wait_for_completion(
                 "nb_123",
                 "task_123",
-                poll_interval=5.0,  # Deprecated parameter
+                poll_interval=5.0,  # removed keyword
             )
-
-        assert len(w) == 1
-        assert issubclass(w[0].category, DeprecationWarning)
-        assert "poll_interval is deprecated" in str(w[0].message)
-        assert "v0.6.0" in str(w[0].message)
 
 
 # =============================================================================
@@ -1034,3 +1018,105 @@ class TestPollStatusMediaReadiness:
         status = await api.poll_status("nb_123", "task_123")
         # Should remain in_progress (original status)
         assert status.status == "in_progress"
+
+
+# =============================================================================
+# suggest_reports: unwrap heuristic for GET_SUGGESTED_REPORTS (issue #1243)
+# =============================================================================
+
+
+class TestSuggestReportsUnwrap:
+    """GET_SUGGESTED_REPORTS arrives either wrapped (``[[row, row]]``) or
+    already-flat (``[row, row]``). Both must parse to the same suggestions.
+
+    Regression for issue #1243: the previous ``result[0]`` unwrap mistook the
+    first row's scalar fields for the suggestion rows in the flat case and
+    returned ``[]``.
+    """
+
+    # ``ReportSuggestion`` reads item[0]=title, item[1]=description,
+    # item[4]=prompt, item[5]=audience_level; rows therefore need >= 5 fields.
+    _ROWS = [
+        ["Briefing Doc", "Briefing on topic.", None, None, "Write a briefing.", 2],
+        ["Study Guide", "Study guide on topic.", None, None, "Write a guide.", 1],
+    ]
+
+    @pytest.mark.asyncio
+    async def test_wrapped_shape_parses(self, mock_artifacts_api):
+        """``[[row, row]]`` (real wire shape) parses to both suggestions."""
+        api, mock_core = mock_artifacts_api
+        mock_core.rpc_executor.rpc_call.return_value = [list(self._ROWS)]
+
+        suggestions = await api.suggest_reports("nb_123")
+
+        assert [(s.title, s.prompt, s.audience_level) for s in suggestions] == [
+            ("Briefing Doc", "Write a briefing.", 2),
+            ("Study Guide", "Write a guide.", 1),
+        ]
+
+    @pytest.mark.asyncio
+    async def test_flat_shape_parses(self, mock_artifacts_api):
+        """``[row, row]`` (already-flat) parses identically to the wrapped shape."""
+        api, mock_core = mock_artifacts_api
+        mock_core.rpc_executor.rpc_call.return_value = list(self._ROWS)
+
+        suggestions = await api.suggest_reports("nb_123")
+
+        assert [(s.title, s.prompt, s.audience_level) for s in suggestions] == [
+            ("Briefing Doc", "Write a briefing.", 2),
+            ("Study Guide", "Write a guide.", 1),
+        ]
+
+    @pytest.mark.asyncio
+    async def test_wrapped_and_flat_agree(self, mock_artifacts_api):
+        """The wrapped and flat shapes yield identical suggestions."""
+        api, mock_core = mock_artifacts_api
+
+        mock_core.rpc_executor.rpc_call.return_value = [list(self._ROWS)]
+        wrapped = await api.suggest_reports("nb_123")
+
+        mock_core.rpc_executor.rpc_call.return_value = list(self._ROWS)
+        flat = await api.suggest_reports("nb_123")
+
+        assert wrapped == flat
+        assert len(flat) == 2
+
+    @pytest.mark.asyncio
+    async def test_flat_single_suggestion_parses(self, mock_artifacts_api):
+        """A single flat row (``[row]``) is not mistaken for a wrapped list."""
+        api, mock_core = mock_artifacts_api
+        mock_core.rpc_executor.rpc_call.return_value = [list(self._ROWS[0])]
+
+        suggestions = await api.suggest_reports("nb_123")
+
+        assert len(suggestions) == 1
+        assert suggestions[0].title == "Briefing Doc"
+        assert suggestions[0].prompt == "Write a briefing."
+
+    @pytest.mark.asyncio
+    async def test_wrapped_single_suggestion_parses(self, mock_artifacts_api):
+        """A wrapped single row (``[[row]]``) unwraps to one suggestion."""
+        api, mock_core = mock_artifacts_api
+        mock_core.rpc_executor.rpc_call.return_value = [[list(self._ROWS[0])]]
+
+        suggestions = await api.suggest_reports("nb_123")
+
+        assert len(suggestions) == 1
+        assert suggestions[0].title == "Briefing Doc"
+        assert suggestions[0].prompt == "Write a briefing."
+
+    @pytest.mark.asyncio
+    async def test_empty_result_returns_empty(self, mock_artifacts_api):
+        """An empty response yields no suggestions."""
+        api, mock_core = mock_artifacts_api
+        mock_core.rpc_executor.rpc_call.return_value = []
+
+        assert await api.suggest_reports("nb_123") == []
+
+    @pytest.mark.asyncio
+    async def test_wrapped_empty_returns_empty(self, mock_artifacts_api):
+        """A wrapped-empty response (``[[]]``) yields no suggestions without error."""
+        api, mock_core = mock_artifacts_api
+        mock_core.rpc_executor.rpc_call.return_value = [[]]
+
+        assert await api.suggest_reports("nb_123") == []

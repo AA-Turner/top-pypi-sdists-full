@@ -4,8 +4,8 @@ The free helper :func:`notebooklm._loop_affinity.assert_bound_loop` is the
 new shared chokepoint that every async entry point on the seam helpers
 (``_transport_drain.TransportDrainTracker.drain``,
 ``_reqid_counter.ReqidCounter.next_reqid``,
-``_session_auth.AuthRefreshCoordinator.await_refresh``,
-``_artifact_polling.ArtifactPollingService.wait_for_completion``,
+``_runtime.auth.AuthRefreshCoordinator.await_refresh``,
+``_artifact.polling.ArtifactPollingService.wait_for_completion``,
 ``_chat.ChatAPI.ask``) now consults so a cross-loop call surfaces an
 actionable ``RuntimeError`` at the call site rather than hanging on a
 lock bound to a dead loop.
@@ -35,10 +35,10 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from notebooklm._artifact_polling import ArtifactPollingService
+from notebooklm._artifact.polling import ArtifactPollingService
 from notebooklm._loop_affinity import assert_bound_loop
 from notebooklm._reqid_counter import ReqidCounter
-from notebooklm._session_auth import AuthRefreshCoordinator
+from notebooklm._runtime.auth import AuthRefreshCoordinator
 from notebooklm._transport_drain import TransportDrainTracker
 
 # ---------------------------------------------------------------------------
@@ -194,7 +194,7 @@ def test_chat_ask_guards_against_cross_loop_call() -> None:
     acquiring the per-conversation lock so a cross-loop follow-up doesn't
     hang on a lock bound to a dead loop.
 
-    Wave 8 of session-decoupling (ADR-014 Rule 2 Corollary): ``ChatAPI``
+    Wave 8 of session-decoupling (ADR-0014 Rule 2 Corollary): ``ChatAPI``
     takes the :class:`LoopGuard` collaborator directly via keyword arg
     instead of reaching for it through a chat-local runtime composite.
     """
@@ -241,7 +241,7 @@ def test_add_file_guards_against_cross_loop_call(monkeypatch: pytest.MonkeyPatch
     the lifecycle (``LoopGuard``) collaborator directly via its
     ``lifecycle`` constructor slot.
     """
-    from notebooklm._source_upload import SourceUploadPipeline
+    from notebooklm._source.upload import SourceUploadPipeline
 
     lifecycle = MagicMock()
     lifecycle.assert_bound_loop = MagicMock(

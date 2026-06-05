@@ -69,6 +69,7 @@ def test_retry_disabled_entries_are_intentional_and_documented() -> None:
         (RPCMethod.CREATE_ARTIFACT, None): IdempotencyPolicy.PROBE_THEN_CREATE,
         (RPCMethod.EXPORT_ARTIFACT, None): IdempotencyPolicy.NON_IDEMPOTENT_NO_RETRY,
         (RPCMethod.REVISE_SLIDE, None): IdempotencyPolicy.NON_IDEMPOTENT_NO_RETRY,
+        (RPCMethod.RETRY_ARTIFACT, None): IdempotencyPolicy.NON_IDEMPOTENT_NO_RETRY,
         (RPCMethod.START_FAST_RESEARCH, None): IdempotencyPolicy.NON_IDEMPOTENT_NO_RETRY,
         (RPCMethod.START_DEEP_RESEARCH, None): IdempotencyPolicy.NON_IDEMPOTENT_NO_RETRY,
         (RPCMethod.IMPORT_RESEARCH, None): IdempotencyPolicy.NON_IDEMPOTENT_NO_RETRY,
@@ -110,6 +111,7 @@ def test_non_idempotent_no_retry_entries_document_dedupe_gap() -> None:
         (RPCMethod.ADD_SOURCE, "text"): ("no reliable dedupe key",),
         (RPCMethod.EXPORT_ARTIFACT, None): ("external docs/sheets", "no client-token"),
         (RPCMethod.REVISE_SLIDE, None): ("no client-token", "blind retry"),
+        (RPCMethod.RETRY_ARTIFACT, None): ("no client-token", "blind transport retry"),
         (RPCMethod.START_FAST_RESEARCH, None): ("ambiguous", "same query"),
         (RPCMethod.START_DEEP_RESEARCH, None): ("ambiguous", "same query"),
         (RPCMethod.IMPORT_RESEARCH, None): ("cannot bind", "same urls"),
@@ -396,13 +398,14 @@ def _build_rpc_executor() -> Any:
         log_label: str,
         disable_internal_retries: bool = False,
         rpc_method: str | None = None,
+        refresh_budget: Any = None,
     ) -> httpx.Response:
         captured["disable_internal_retries"] = disable_internal_retries
         captured["log_label"] = log_label
         captured["rpc_method"] = rpc_method
         return httpx.Response(200, text=")]}'\n[]")
 
-    # ADR-014 Rule 5 (Wave 4 of session-decoupling): RpcExecutor takes
+    # ADR-0014 Rule 5 (Wave 4 of session-decoupling): RpcExecutor takes
     # its four collaborators (kernel/transport/auth_refresh/metrics) as
     # keyword-only args. Use four MagicMock collaborators so each role
     # can be inspected independently.
@@ -441,7 +444,7 @@ def _build_rpc_executor() -> Any:
     )
     # ``_unused`` slot preserved for backward-compatible 3-tuple unpacking
     # at call sites that have not been migrated to the keyword-collaborators
-    # shape. After Wave 4 of session-decoupling (ADR-014 Rule 5), the executor
+    # shape. After Wave 4 of session-decoupling (ADR-0014 Rule 5), the executor
     # holds its collaborators directly so the middle slot is just None.
     return executor, None, captured
 

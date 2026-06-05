@@ -1,15 +1,15 @@
 import time
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from koru.autonomous_cycle_common import DiagnosticResult, _queue_loop_waiting_ticket_label
+from koru.autonomous_cycle_drive_outcome import apply_autopilot_drive_outcome
 from koru.autonomous_cycle_drive_retry import (
     _client_has_usable_plugin,
     _execute_autopilot_drive,
-    _log_autopilot_result,
     _reply_requires_manual_chat_focus,
-    _update_autopilot_state,
 )
 from koru.autonomous_cycle_skip_conditions import _check_autopilot_skip_conditions
 from koru.autonomous_plugin import plugin_skip_code
@@ -35,6 +35,30 @@ from koru.queue import QueueLoopResult
 
 _PLUGIN_GATE_RECOVERY_COOLDOWN_SECONDS = 60.0
 _PLUGIN_GATE_RECOVERY_LAST_TS: dict[tuple[str, str, str], float] = {}
+
+
+@dataclass(frozen=True)
+class _AutopilotDriveContext:
+    project: Path
+    state: AutoloopState
+    queue_result: QueueLoopResult
+    client: Any
+    autopilot_ide: str
+    drive_prompt: str
+    submit: bool
+    autopilot_action: str
+    cycle: int
+    cycle_telemetry: dict[str, Any]
+    human_log: Callable[..., Any]
+
+
+@dataclass(frozen=True)
+class _AutopilotDriveAttempt:
+    reply: dict[str, Any]
+    ok: bool
+    decision_kind: str | None
+    idle_prompt_kind: str | None
+    status: str
 
 
 def _drive_result_autopilot_status(
@@ -134,17 +158,19 @@ def _handle_autopilot_phase(
     if should_skip:
         return skip_reason, None, None
     return _drive_autopilot_once(
-        project,
-        state,
-        queue_result,
-        client,
-        autopilot_ide,
-        drive_prompt,
-        submit,
-        autopilot_action,
-        cycle,
-        cycle_telemetry,
-        _hp,
+        _AutopilotDriveContext(
+            project=project,
+            state=state,
+            queue_result=queue_result,
+            client=client,
+            autopilot_ide=autopilot_ide,
+            drive_prompt=drive_prompt,
+            submit=submit,
+            autopilot_action=autopilot_action,
+            cycle=cycle,
+            cycle_telemetry=cycle_telemetry,
+            human_log=_hp,
+        )
     )
 
 
@@ -180,15 +206,18 @@ def _plugin_gate_status(
     cycle_telemetry["autopilot_skipped_plugin_missing"] = True
     cycle_telemetry["autopilot_skipped_plugin_blocker"] = blocker
     cycle_telemetry["autopilot_skipped_plugin_missing_reason"] = plugin_reason
-    if blocker == "plugin_version_mismatch" and plugin_reason_requires_reload(plugin_reason):
-        recovered = _attempt_plugin_gate_recovery(
-            project,
-            client,
-            autopilot_ide,
-            plugin_reason,
-            _hp,
-        )
-        cycle_telemetry["autopilot_plugin_recovery_attempted"] = recovered
+    recovered = _attempt_plugin_gate_recovery(
+        project,
+        client,
+        autopilot_ide,
+        plugin_reason,
+        _hp,
+    )
+    cycle_telemetry["autopilot_plugin_recovery_attempted"] = recovered
+    if recovered:
+        plugin_ok, plugin_reason = _client_has_usable_plugin(client, autopilot_ide)
+        if plugin_ok:
+            return None
     _emit_autopilot_preflight_skip(
         project=project,
         cycle=cycle,
@@ -226,6 +255,7 @@ def _attempt_plugin_gate_recovery(
         _restore_reuse_window_reload,
         _temporary_reuse_window_reload_if_same_workspace,
     )
+    from koru.autonomous_readiness import attempt_plugin_gate_recovery
     from koru.ide_adapters.ide_reload import try_reload_vscode_family_ide
 
     snapshot = _temporary_reuse_window_reload_if_same_workspace(
@@ -234,19 +264,40 @@ def _attempt_plugin_gate_recovery(
         project,
         plugin_reason,
     )
-    try:
-        outcome = try_reload_vscode_family_ide(autopilot_ide, project=project)
-    finally:
-        _restore_reuse_window_reload(snapshot)
 
-    if outcome.attempted and outcome.ok:
-        _hp(
-            "  → autopilot recovery: requested IDE reload/reconnect; "
-            "the next cycle will re-check the plugin session.",
-        )
+    def _reload() -> bool:
+        try:
+            outcome = try_reload_vscode_family_ide(autopilot_ide, project=project)
+        finally:
+            _restore_reuse_window_reload(snapshot)
+        if outcome.attempted and outcome.ok:
+            _hp(
+                "  → autopilot recovery: requested IDE reload/reconnect; "
+                "re-checking plugin session.",
+            )
+            return True
+        detail = outcome.detail or outcome.method or "reload was not available"
+        _hp(f"  → autopilot recovery: automatic reload failed ({detail})")
+        return False
+
+    def _wait(_timeout: float) -> bool:
+        ok, _reason = _client_has_usable_plugin(client, autopilot_ide)
+        return ok
+
+    ok_after, reason_after = attempt_plugin_gate_recovery(
+        client,
+        autopilot_ide,
+        project,
+        plugin_ok_fn=lambda: _client_has_usable_plugin(client, autopilot_ide),
+        reload_window=_reload,
+        wait_connected=_wait,
+        attempts=1 if plugin_reason_requires_reload(plugin_reason) else 3,
+    )
+    if ok_after:
+        _hp("  → autopilot recovery: plugin connected after reconnect pipeline")
         return True
-    detail = outcome.detail or outcome.method or "reload was not available"
-    _hp(f"  → autopilot recovery: automatic reload failed ({detail})")
+    if reason_after:
+        _hp(f"  → autopilot recovery: still not connected ({reason_after})")
     return True
 
 
@@ -283,68 +334,68 @@ def _terminal_conflict_status(
         action_hint="align autopilot lane with active IDE",
     )
     _hp(f"- autopilot skipped (ide_mismatch: {conflict_reason})")
+    _hp(
+        "  → lane/terminal mismatch: run `koru auto` from the target IDE integrated "
+        "terminal, pick the same IDE at `coru` prompt, or set "
+        "KORU_AUTOPILOT_ALLOW_CROSS_IDE=1 if intentional.",
+    )
     cycle_telemetry["autopilot_skipped_ide_mismatch"] = True
+    cycle_telemetry["autopilot_skipped_ide_mismatch_reason"] = conflict_reason
     return decision.status
 
 
-def _drive_autopilot_once(
-    project: Path,
-    state: AutoloopState,
-    queue_result: QueueLoopResult,
-    client: Any,
-    autopilot_ide: str,
-    drive_prompt: str,
-    submit: bool,
-    autopilot_action: str,
-    cycle: int,
-    cycle_telemetry: dict[str, Any],
-    _hp: Callable[..., Any],
-) -> tuple[str, str | None, str | None]:
+def _drive_autopilot_once(ctx: _AutopilotDriveContext) -> tuple[str, str | None, str | None]:
+    attempt = _run_autopilot_drive_attempt(ctx)
+    autopilot_backend, autopilot_drive_kind = _apply_autopilot_drive_attempt(ctx, attempt)
+    return attempt.status, autopilot_backend, autopilot_drive_kind
+
+
+def _run_autopilot_drive_attempt(ctx: _AutopilotDriveContext) -> _AutopilotDriveAttempt:
     reply, ok, decision_kind, idle_prompt_kind = _execute_autopilot_drive(
-        project,
-        state,
-        queue_result,
-        client,
-        autopilot_ide,
-        drive_prompt,
-        submit,
-        autopilot_action,
-        _hp,
+        ctx.project,
+        ctx.state,
+        ctx.queue_result,
+        ctx.client,
+        ctx.autopilot_ide,
+        ctx.drive_prompt,
+        ctx.submit,
+        ctx.autopilot_action,
+        ctx.human_log,
     )
-    autopilot_drive_kind = idle_prompt_kind or decision_kind
-    autopilot_status = _drive_result_autopilot_status(
-        queue_result=queue_result,
+    status = _drive_result_autopilot_status(
+        queue_result=ctx.queue_result,
         reply=reply,
         ok=ok,
         decision_kind=decision_kind,
-        cycle_telemetry=cycle_telemetry,
+        cycle_telemetry=ctx.cycle_telemetry,
     )
-    autopilot_backend = str(reply.get("backend")) if reply.get("backend") is not None else None
-    waiting_ticket = _queue_loop_waiting_ticket_label(queue_result)
-    if ok:
-        state.last_message_sent_ts = time.time()
-        state.last_message_sent_ide = autopilot_ide
-        state.last_driven_ticket_id = waiting_ticket
-        if autopilot_backend:
-            state.last_driven_backend = autopilot_backend
-    elif autopilot_status.startswith("failed(submit_") and reply.get("delivered") is True:
-        state.last_driven_ticket_id = waiting_ticket
-    state.last_autopilot_status = autopilot_status
-    _update_autopilot_state(
-        state, ok, decision_kind, autopilot_drive_kind, reply.get("prompt", "")
-    )
-    _log_autopilot_result(ok, queue_result, autopilot_ide, decision_kind, reply, _hp)
-    _emit_autopilot_observability_outcome(
-        project=project,
-        cycle=cycle,
-        queue_result=queue_result,
+    return _AutopilotDriveAttempt(
         reply=reply,
         ok=ok,
-        autopilot_status=autopilot_status,
         decision_kind=decision_kind,
-        autopilot_ide=autopilot_ide,
+        idle_prompt_kind=idle_prompt_kind,
+        status=status,
     )
-    return autopilot_status, autopilot_backend, autopilot_drive_kind
+
+
+def _apply_autopilot_drive_attempt(
+    ctx: _AutopilotDriveContext,
+    attempt: _AutopilotDriveAttempt,
+) -> tuple[str | None, str | None]:
+    return apply_autopilot_drive_outcome(
+        project=ctx.project,
+        state=ctx.state,
+        queue_result=ctx.queue_result,
+        reply=attempt.reply,
+        ok=attempt.ok,
+        decision_kind=attempt.decision_kind,
+        idle_prompt_kind=attempt.idle_prompt_kind,
+        autopilot_status=attempt.status,
+        autopilot_ide=ctx.autopilot_ide,
+        cycle=ctx.cycle,
+        cycle_telemetry=ctx.cycle_telemetry,
+        _hp=ctx.human_log,
+    )
 
 
 def _emit_autopilot_preflight_skip(

@@ -39,7 +39,7 @@ the user, say so explicitly.
 
 Detector: {code}
 Admiral's canned fallback: "{fallback}"
-
+{loop_constraint}
 Recent conversation:
 <conversation>
 {context}
@@ -110,10 +110,20 @@ async def escalate(
     messages: Sequence[LLMMessage],
 ) -> str | None:
     """Ask Opus for a directive. Returns directive text or None."""
+    loop_constraint = ""
+    if finding.code.startswith("loop:bash::"):
+        cmd_snippet = finding.code[len("loop:bash::"):][:120]
+        loop_constraint = (
+            f"\nCRITICAL CONSTRAINT: The repeated command is `bash` with "
+            f"args `{cmd_snippet}`. Your directive MUST NOT suggest running "
+            f"this same command again — the model already has its output. "
+            f"Direct the agent to read/edit source code instead.\n"
+        )
     prompt = _OPUS_PROMPT.format(
         rubric=_DIRECTIVES_RUBRIC,
         code=finding.code,
         fallback=finding.directive[:200],
+        loop_constraint=loop_constraint,
         context=_render_turns(messages, n_turns=12),
     )
     out = await _try_anthropic_sdk(prompt)

@@ -12,6 +12,7 @@ from koru.autopilot.cli_direct_drive import (
     _auto_direct_fallback_enabled,
     _emit_direct_drive_auto_selection,
     _emit_json_payload,
+    _selected_keyboard_backend,
     _should_fallback_to_direct,
 )
 from koru.observability_writer import observability_event_store_path
@@ -123,6 +124,21 @@ def test_emit_auto_selection_silent_when_os_profile(capsys: pytest.CaptureFixtur
     assert capsys.readouterr().err == ""
 
 
+def test_selected_keyboard_backend_prefers_select_backend() -> None:
+    class _Injector:
+        session = "wayland"
+
+        def select_backend(self) -> str:
+            return "wtype"
+
+    assert _selected_keyboard_backend(_Injector()) == "wtype"
+
+
+def test_selected_keyboard_backend_falls_back_to_session_or_keyboard() -> None:
+    assert _selected_keyboard_backend(_ns(session="x11")) == "x11"
+    assert _selected_keyboard_backend(_ns(session="")) == "keyboard"
+
+
 # ---------------------------------------------------------------------------
 # Backward-compat: re-exports from cli_command keep working
 # ---------------------------------------------------------------------------
@@ -142,7 +158,7 @@ def test_run_direct_drive_emits_desktop_gui_control_command(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from koru.autopilot import cli_command
-    from koru.autopilot import os_injector as oi
+    import gillm.injection.os_injector as oi
 
     class _DummyInjector:
         session = "wayland"

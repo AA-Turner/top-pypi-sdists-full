@@ -25,19 +25,29 @@ def parse_func(p: str) -> ET.ElementTree:
             nested_status = nested_status_node.get('status') if nested_status_node is not None else None
 
             if status is not None:
-                start_time_str = status_node.get('starttime') if status_node is not None else ''
-                end_time_str = status_node.get('endtime') if status_node is not None else ''
+                duration_seconds = None
 
-                if start_time_str != '' and end_time_str != '':
-                    start_time = datetime.strptime(str(start_time_str), DATETIME_FORMAT)
-                    end_time = datetime.strptime(str(end_time_str), DATETIME_FORMAT)
-
-                    duration = end_time - start_time
+                if status_node is not None:
+                    # RF 7.0+: elapsed attribute in seconds
+                    elapsed_str = status_node.get('elapsed')
+                    if elapsed_str is not None:
+                        duration_seconds = float(elapsed_str)
+                    else:
+                        # RF < 7.0: starttime/endtime attributes
+                        start_time_str = status_node.get('starttime', '')
+                        end_time_str = status_node.get('endtime', '')
+                        if start_time_str and end_time_str:
+                            try:
+                                start_time = datetime.strptime(start_time_str, DATETIME_FORMAT)
+                                end_time = datetime.strptime(end_time_str, DATETIME_FORMAT)
+                                duration_seconds = (end_time - start_time).total_seconds()
+                            except ValueError:
+                                duration_seconds = 0
 
                 testcase = ET.SubElement(testsuite, "testcase", {
                     "name": str(test_name),
                     "classname": str(suite_name),
-                    "time": str(duration.total_seconds()) if duration is not None else '0',
+                    "time": str(duration_seconds) if duration_seconds is not None else '0',
                 })
 
                 if status == "FAIL":

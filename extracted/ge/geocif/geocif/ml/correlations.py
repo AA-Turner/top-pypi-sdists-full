@@ -15,6 +15,7 @@ import os
 from typing import Optional
 
 import matplotlib.pyplot as plt
+import numpy as np
 import palettable as pal
 import pandas as pd
 import seaborn as sns  # Moved to module level
@@ -314,6 +315,219 @@ def plot_feature_corr_by_time(df: pd.DataFrame, **kwargs) -> None:
     plt.close(fig)
 
 
+def plot_feature_scatter_by_time(
+    df_raw: pd.DataFrame,
+    df_corr: pd.DataFrame,
+    **kwargs,
+) -> None:
+    """Grid of (feature, yield) scatter plots — one tile per heatmap cell.
+
+    Renders the raw data underlying each (stage, feature) cell of the
+    corresponding ccc/r2 heatmap, so callers can see *how* each correlation
+    value was computed. Saved at ``dir_output / scatter / ...``, one level
+    above the existing ``ccc/`` and ``r2/`` subdirs.
+
+    Top features only (sorted by |median correlation across stages|),
+    capped at ``top_n`` so the grid stays readable. Annotates each tile
+    with the correlation value from ``df_corr``.
+
+    Args:
+        df_raw: Per-region DataFrame containing feature columns + target.
+            Columns are expected to be wide-format ``"<CID> <Stage Name>"``.
+        df_corr: Correlation matrix (rows = stage labels, cols = CIDs)
+            — same frame ``plot_feature_corr_by_time`` consumes.
+        **kwargs: country, crop, target_col, dir_output, region_id,
+            region_name, national_correlation, metric_dir, metric_label,
+            top_n (default 16).
+    """
+    if df_corr is None or df_corr.empty or df_raw is None or df_raw.empty:
+        return
+
+    target_col = kwargs.get("target_col")
+    dir_output = kwargs.get("dir_output")
+    country = kwargs.get("country", "Unknown")
+    crop = kwargs.get("crop", "Unknown")
+    region_id = kwargs.get("region_id")
+    region_name = kwargs.get("region_name", "")
+    national_correlation = kwargs.get("national_correlation", False)
+    metric_dir = kwargs.get("metric_dir", "ccc")
+    metric_label = kwargs.get("metric_label", "CCC")
+    top_n = int(kwargs.get("top_n", 16))
+
+    if dir_output is None or target_col is None or target_col not in df_raw.columns:
+        return
+
+    # Pick top-N features by |median across stages|. Ties broken by order.
+    abs_medians = df_corr.abs().median(axis=0).sort_values(ascending=False)
+    top_features = [f for f in abs_medians.index.tolist() if pd.notna(abs_medians[f])][:top_n]
+    if not top_features:
+        return
+
+    stages = df_corr.index.tolist()
+    n_stages = len(stages)
+    n_feats = len(top_features)
+
+    y_full = df_raw[target_col]
+    y_valid = y_full.dropna()
+    if y_valid.empty:
+        return
+    y_lim = (float(y_valid.min()), float(y_valid.max()))
+
+    # Layout: when there's only one stage, ignore the stage dimension and
+    # arrange the features in a near-square grid (otherwise 16 features
+    # become a 16×1 column ~25 inches tall). With multiple stages keep
+    # features-as-rows × stages-as-cols since the axis labels carry
+    # information; cap the column count too so wide stage counts don't
+    # produce unreadable figures.
+    MAX_COLS = 5
+    if n_stages == 1:
+        # Near-square: ~sqrt(n) columns, capped at MAX_COLS.
+        n_cols = min(MAX_COLS, max(1, int(np.ceil(np.sqrt(n_feats)))))
+        n_rows = int(np.ceil(n_feats / n_cols))
+        fig_w = min(2.4 * n_cols + 0.6, 16)
+        fig_h = min(2.0 * n_rows + 0.8, 22)
+    else:
+        # Multi-stage: features × stages grid. Cap stages displayed at
+        # MAX_COLS so the figure stays printable; extra stages dropped
+        # (they're already shown in the heatmap, which keeps all stages).
+        n_cols = min(MAX_COLS, n_stages)
+        n_rows = n_feats
+        fig_w = min(2.0 * n_cols + 1.0, 16)
+        fig_h = min(1.5 * n_rows + 0.8, 26)
+
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=(fig_w, fig_h), squeeze=False)
+
+    def _match_column(feat_name: str, stage_label: str) -> Optional[str]:
+        # Heatmap stage labels are start-only (e.g. "May 1"); raw columns
+        # carry the full range ("PRCPTOT May 1-May 31"). Match on prefix.
+        stage_str = str(stage_label).strip()
+        return next(
+            (
+                c for c in df_raw.columns
+                if isinstance(c, str)
+                and c.startswith(f"{feat_name} ")
+                and c.split(" ", 1)[1].startswith(stage_str)
+            ),
+            None,
+        )
+
+    def _draw_tile(ax, feat_name: str, stage_label: str, *, show_xlabel: str = "") -> bool:
+        col_match = _match_column(feat_name, stage_label)
+        if col_match is None:
+            ax.set_axis_off()
+            return False
+        x = df_raw[col_match]
+        mask = x.notna() & y_full.notna()
+        if mask.sum() < 2:
+            ax.set_axis_off()
+            return False
+        xv = x[mask].to_numpy(dtype=float)
+        yv = y_full[mask].to_numpy(dtype=float)
+        ax.scatter(xv, yv, s=8, alpha=0.5, c="tab:blue", edgecolors="none")
+
+        # Always compute BOTH metrics inline from the scatter points
+        # themselves (rather than reading whichever metric is in df_corr)
+        # so the annotated values match exactly what the eye sees in this
+        # tile. The df_corr value is the per-region mean used by the
+        # heatmap; the inline values are the pooled stats — the gap
+        # between them is itself diagnostic (heatmap CCC high but pooled
+        # r² low ⇒ signal is between-region, not within-region).
+        r2_inline = np.nan
+        ccc_inline = np.nan
+        if xv.size >= 2 and np.std(xv) > 0 and np.std(yv) > 0:
+            r = np.corrcoef(xv, yv)[0, 1]
+            if np.isfinite(r):
+                r2_inline = float(r * r)
+            mx, my = float(np.mean(xv)), float(np.mean(yv))
+            vx, vy = float(np.var(xv)), float(np.var(yv))
+            cov = float(np.mean((xv - mx) * (yv - my)))
+            denom = vx + vy + (mx - my) ** 2
+            if denom > 0:
+                ccc_inline = 2 * cov / denom
+
+        lines = [
+            f"r²={r2_inline:.2f}" if np.isfinite(r2_inline) else "r²=—",
+            f"ccc={ccc_inline:.2f}" if np.isfinite(ccc_inline) else "ccc=—",
+            f"n={int(mask.sum())}",
+        ]
+        ax.text(
+            0.02, 0.98, "\n".join(lines),
+            transform=ax.transAxes,
+            fontsize=6, va="top", ha="left",
+            bbox=dict(facecolor="white", alpha=0.75, edgecolor="none", pad=1),
+        )
+        ax.set_ylim(y_lim)
+        ax.tick_params(labelsize=5)
+        ax.grid(True, alpha=0.2, linewidth=0.4)
+        if show_xlabel:
+            ax.set_xlabel(show_xlabel, fontsize=6)
+        return True
+
+    if n_stages == 1:
+        # Single-stage layout: features tiled in a near-square grid.
+        stage_label = stages[0]
+        axes_flat = axes.flatten()
+        for k, feat in enumerate(top_features):
+            ax = axes_flat[k]
+            ok = _draw_tile(ax, feat, stage_label, show_xlabel=feat)
+            if ok:
+                # Per-tile column index → only leftmost column gets y label.
+                if k % n_cols == 0:
+                    ax.set_ylabel(target_col, fontsize=6)
+        # Hide unused tiles in the trailing partial row.
+        for k in range(n_feats, len(axes_flat)):
+            axes_flat[k].set_axis_off()
+    else:
+        # Multi-stage layout: features as rows, stages as columns.
+        # Stages truncated to first n_cols (≤ MAX_COLS) — extras stay in
+        # the heatmap. Stages are already in chronological order for
+        # most methods, so this drops the latest stages last.
+        stages_shown = stages[:n_cols]
+        for i, feat in enumerate(top_features):
+            for j, stage in enumerate(stages_shown):
+                ax = axes[i][j]
+                _draw_tile(ax, feat, stage)
+                if i == 0:
+                    ax.set_title(str(stage).strip(), fontsize=7)
+                if j == 0:
+                    ax.set_ylabel(
+                        feat, fontsize=6, rotation=0,
+                        ha="right", va="center", labelpad=24,
+                    )
+
+    # Suptitle: keep concise so it actually fits. Truncate the region-name
+    # list (can be 100+ entries when cluster_strategy=single pools every
+    # admin unit) to first 3 + count.
+    country_title = country.title().replace("_", " ")
+    crop_title = crop.title().replace("_", " ")
+    region_suffix = ""
+    if region_name:
+        names = [n.strip() for n in str(region_name).split(",") if n.strip()]
+        if len(names) <= 3:
+            region_suffix = f" — {', '.join(names)}"
+        else:
+            region_suffix = f" — {', '.join(names[:3])} (+{len(names) - 3} more)"
+    stage_note = f"  stage: {stages[0]}" if n_stages == 1 else ""
+    fig.suptitle(
+        f"{country_title}, {crop_title}{region_suffix}  "
+        f"(top-{n_feats} by |{metric_dir.upper()}|{stage_note})",
+        fontsize=10,
+    )
+    # Reserve ~5% at the top for the suptitle so it doesn't collide with
+    # the first row of tiles.
+    fig.tight_layout(rect=[0, 0, 1, 0.95])
+
+    if not national_correlation and region_id is not None:
+        fname = f"{country}_{crop}_{region_id}_scatter_feature_by_time.png"
+    else:
+        fname = f"{country}_{crop}_scatter_feature_by_time.png"
+
+    dir_save = dir_output / "scatter"
+    os.makedirs(dir_save, exist_ok=True)
+    plt.savefig(dir_save / fname, dpi=200)
+    plt.close(fig)
+
+
 def _all_correlated_feature_by_time(df: pd.DataFrame, **kwargs) -> pd.DataFrame:
     """
     Compute correlations for all features across time stages.
@@ -488,6 +702,15 @@ def _process_region_correlations(
     kwargs_copy["region_name"] = ", ".join(str(x) for x in group['Region'].unique())
     plot_feature_corr_by_time(df_filtered, **kwargs_copy)
 
+    # Optional diagnostic: per-region grid of raw (feature, yield) scatter
+    # plots, one tile per heatmap cell. Gated by [ML] plot_correlation_scatter
+    # since it can produce many files (one per region per model per forecast
+    # year). Useful when the heatmap looks reasonable but downstream model
+    # skill is poor — the scatter shows whether each CCC reflects real
+    # cross-region structure or is being driven by a few outliers.
+    if kwargs_copy.get("plot_correlation_scatter"):
+        plot_feature_scatter_by_time(group, df_filtered, **kwargs_copy)
+
     return absolute_median_df, best_cid
 
 
@@ -581,6 +804,11 @@ def all_correlated_feature_by_time(df: pd.DataFrame, **kwargs) -> tuple:
 
         if not df_corr.empty:
             plot_feature_corr_by_time(df_corr, **primary_kwargs)
+            # National-scope scatter diagnostic (see _process_region_correlations
+            # for rationale). Region-naming kept blank since national pools all
+            # regions into one CCC computation.
+            if primary_kwargs.get("plot_correlation_scatter"):
+                plot_feature_scatter_by_time(df, df_corr, **primary_kwargs)
 
         # Extra plot-only metrics (national)
         for extra_metric in extra_plot_metrics:

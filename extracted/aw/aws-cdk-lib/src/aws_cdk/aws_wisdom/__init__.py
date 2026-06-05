@@ -118,7 +118,7 @@ class CfnAIAgent(
         # input_schema: Any
         # output_schema: Any
         
-        cfn_aIAgent = wisdom.CfnAIAgent(self, "MyCfnAIAgent",
+        cfn_ai_agent = wisdom.CfnAIAgent(self, "MyCfnAIAgent",
             assistant_id="assistantId",
             configuration=wisdom.CfnAIAgent.AIAgentConfigurationProperty(
                 answer_recommendation_ai_agent_configuration=wisdom.CfnAIAgent.AnswerRecommendationAIAgentConfigurationProperty(
@@ -697,7 +697,7 @@ class CfnAIAgent(
                 # input_schema: Any
                 # output_schema: Any
                 
-                a_iAgent_configuration_property = wisdom.CfnAIAgent.AIAgentConfigurationProperty(
+                a_i_agent_configuration_property = wisdom.CfnAIAgent.AIAgentConfigurationProperty(
                     answer_recommendation_ai_agent_configuration=wisdom.CfnAIAgent.AnswerRecommendationAIAgentConfigurationProperty(
                         answer_generation_ai_guardrail_id="answerGenerationAiGuardrailId",
                         answer_generation_ai_prompt_id="answerGenerationAiPromptId",
@@ -1155,7 +1155,7 @@ class CfnAIAgent(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_wisdom as wisdom
                 
-                answer_recommendation_aIAgent_configuration_property = wisdom.CfnAIAgent.AnswerRecommendationAIAgentConfigurationProperty(
+                answer_recommendation_ai_agent_configuration_property = wisdom.CfnAIAgent.AnswerRecommendationAIAgentConfigurationProperty(
                     answer_generation_ai_guardrail_id="answerGenerationAiGuardrailId",
                     answer_generation_ai_prompt_id="answerGenerationAiPromptId",
                     association_configurations=[wisdom.CfnAIAgent.AssociationConfigurationProperty(
@@ -1538,7 +1538,7 @@ class CfnAIAgent(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_wisdom as wisdom
                 
-                case_summarization_aIAgent_configuration_property = wisdom.CfnAIAgent.CaseSummarizationAIAgentConfigurationProperty(
+                case_summarization_ai_agent_configuration_property = wisdom.CfnAIAgent.CaseSummarizationAIAgentConfigurationProperty(
                     case_summarization_ai_guardrail_id="caseSummarizationAiGuardrailId",
                     case_summarization_ai_prompt_id="caseSummarizationAiPromptId",
                     locale="locale"
@@ -1627,7 +1627,7 @@ class CfnAIAgent(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_wisdom as wisdom
                 
-                email_generative_answer_aIAgent_configuration_property = wisdom.CfnAIAgent.EmailGenerativeAnswerAIAgentConfigurationProperty(
+                email_generative_answer_ai_agent_configuration_property = wisdom.CfnAIAgent.EmailGenerativeAnswerAIAgentConfigurationProperty(
                     association_configurations=[wisdom.CfnAIAgent.AssociationConfigurationProperty(
                         association_configuration_data=wisdom.CfnAIAgent.AssociationConfigurationDataProperty(
                             knowledge_base_association_configuration_data=wisdom.CfnAIAgent.KnowledgeBaseAssociationConfigurationDataProperty(
@@ -1767,7 +1767,7 @@ class CfnAIAgent(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_wisdom as wisdom
                 
-                email_overview_aIAgent_configuration_property = wisdom.CfnAIAgent.EmailOverviewAIAgentConfigurationProperty(
+                email_overview_ai_agent_configuration_property = wisdom.CfnAIAgent.EmailOverviewAIAgentConfigurationProperty(
                     email_overview_ai_prompt_id="emailOverviewAiPromptId",
                     locale="locale"
                 )
@@ -1846,7 +1846,7 @@ class CfnAIAgent(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_wisdom as wisdom
                 
-                email_response_aIAgent_configuration_property = wisdom.CfnAIAgent.EmailResponseAIAgentConfigurationProperty(
+                email_response_ai_agent_configuration_property = wisdom.CfnAIAgent.EmailResponseAIAgentConfigurationProperty(
                     association_configurations=[wisdom.CfnAIAgent.AssociationConfigurationProperty(
                         association_configuration_data=wisdom.CfnAIAgent.AssociationConfigurationDataProperty(
                             knowledge_base_association_configuration_data=wisdom.CfnAIAgent.KnowledgeBaseAssociationConfigurationDataProperty(
@@ -2112,7 +2112,7 @@ class CfnAIAgent(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_wisdom as wisdom
                 
-                manual_search_aIAgent_configuration_property = wisdom.CfnAIAgent.ManualSearchAIAgentConfigurationProperty(
+                manual_search_ai_agent_configuration_property = wisdom.CfnAIAgent.ManualSearchAIAgentConfigurationProperty(
                     answer_generation_ai_guardrail_id="answerGenerationAiGuardrailId",
                     answer_generation_ai_prompt_id="answerGenerationAiPromptId",
                     association_configurations=[wisdom.CfnAIAgent.AssociationConfigurationProperty(
@@ -2252,7 +2252,7 @@ class CfnAIAgent(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_wisdom as wisdom
                 
-                note_taking_aIAgent_configuration_property = wisdom.CfnAIAgent.NoteTakingAIAgentConfigurationProperty(
+                note_taking_ai_agent_configuration_property = wisdom.CfnAIAgent.NoteTakingAIAgentConfigurationProperty(
                     locale="locale",
                     note_taking_ai_guardrail_id="noteTakingAiGuardrailId",
                     note_taking_ai_prompt_id="noteTakingAiPromptId"
@@ -2434,7 +2434,7 @@ class CfnAIAgent(
                 # input_schema: Any
                 # output_schema: Any
                 
-                orchestration_aIAgent_configuration_property = wisdom.CfnAIAgent.OrchestrationAIAgentConfigurationProperty(
+                orchestration_ai_agent_configuration_property = wisdom.CfnAIAgent.OrchestrationAIAgentConfigurationProperty(
                     orchestration_ai_prompt_id="orchestrationAiPromptId",
                 
                     # the properties below are optional
@@ -2588,7 +2588,7 @@ class CfnAIAgent(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_wisdom as wisdom
                 
-                self_service_aIAgent_configuration_property = wisdom.CfnAIAgent.SelfServiceAIAgentConfigurationProperty(
+                self_service_ai_agent_configuration_property = wisdom.CfnAIAgent.SelfServiceAIAgentConfigurationProperty(
                     association_configurations=[wisdom.CfnAIAgent.AssociationConfigurationProperty(
                         association_configuration_data=wisdom.CfnAIAgent.AssociationConfigurationDataProperty(
                             knowledge_base_association_configuration_data=wisdom.CfnAIAgent.KnowledgeBaseAssociationConfigurationDataProperty(
@@ -3661,7 +3661,7 @@ class CfnAIAgentProps:
             # input_schema: Any
             # output_schema: Any
             
-            cfn_aIAgent_props = wisdom.CfnAIAgentProps(
+            cfn_ai_agent_props = wisdom.CfnAIAgentProps(
                 assistant_id="assistantId",
                 configuration=wisdom.CfnAIAgent.AIAgentConfigurationProperty(
                     answer_recommendation_ai_agent_configuration=wisdom.CfnAIAgent.AnswerRecommendationAIAgentConfigurationProperty(
@@ -4062,7 +4062,7 @@ class CfnAIAgentVersion(
         # The values are placeholders you should change.
         from aws_cdk import aws_wisdom as wisdom
         
-        cfn_aIAgent_version = wisdom.CfnAIAgentVersion(self, "MyCfnAIAgentVersion",
+        cfn_ai_agent_version = wisdom.CfnAIAgentVersion(self, "MyCfnAIAgentVersion",
             ai_agent_id="aiAgentId",
             assistant_id="assistantId",
         
@@ -4262,7 +4262,7 @@ class CfnAIAgentVersionProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_wisdom as wisdom
             
-            cfn_aIAgent_version_props = wisdom.CfnAIAgentVersionProps(
+            cfn_ai_agent_version_props = wisdom.CfnAIAgentVersionProps(
                 ai_agent_id="aiAgentId",
                 assistant_id="assistantId",
             
@@ -4340,7 +4340,7 @@ class CfnAIGuardrail(
         # The values are placeholders you should change.
         from aws_cdk import aws_wisdom as wisdom
         
-        cfn_aIGuardrail = wisdom.CfnAIGuardrail(self, "MyCfnAIGuardrail",
+        cfn_ai_guardrail = wisdom.CfnAIGuardrail(self, "MyCfnAIGuardrail",
             assistant_id="assistantId",
             blocked_input_messaging="blockedInputMessaging",
             blocked_outputs_messaging="blockedOutputsMessaging",
@@ -4752,7 +4752,7 @@ class CfnAIGuardrail(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_wisdom as wisdom
                 
-                a_iGuardrail_content_policy_config_property = wisdom.CfnAIGuardrail.AIGuardrailContentPolicyConfigProperty(
+                a_i_guardrail_content_policy_config_property = wisdom.CfnAIGuardrail.AIGuardrailContentPolicyConfigProperty(
                     filters_config=[wisdom.CfnAIGuardrail.GuardrailContentFilterConfigProperty(
                         input_strength="inputStrength",
                         output_strength="outputStrength",
@@ -4814,7 +4814,7 @@ class CfnAIGuardrail(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_wisdom as wisdom
                 
-                a_iGuardrail_contextual_grounding_policy_config_property = wisdom.CfnAIGuardrail.AIGuardrailContextualGroundingPolicyConfigProperty(
+                a_i_guardrail_contextual_grounding_policy_config_property = wisdom.CfnAIGuardrail.AIGuardrailContextualGroundingPolicyConfigProperty(
                     filters_config=[wisdom.CfnAIGuardrail.GuardrailContextualGroundingFilterConfigProperty(
                         threshold=123,
                         type="type"
@@ -4880,7 +4880,7 @@ class CfnAIGuardrail(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_wisdom as wisdom
                 
-                a_iGuardrail_sensitive_information_policy_config_property = wisdom.CfnAIGuardrail.AIGuardrailSensitiveInformationPolicyConfigProperty(
+                a_i_guardrail_sensitive_information_policy_config_property = wisdom.CfnAIGuardrail.AIGuardrailSensitiveInformationPolicyConfigProperty(
                     pii_entities_config=[wisdom.CfnAIGuardrail.GuardrailPiiEntityConfigProperty(
                         action="action",
                         type="type"
@@ -4962,7 +4962,7 @@ class CfnAIGuardrail(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_wisdom as wisdom
                 
-                a_iGuardrail_topic_policy_config_property = wisdom.CfnAIGuardrail.AIGuardrailTopicPolicyConfigProperty(
+                a_i_guardrail_topic_policy_config_property = wisdom.CfnAIGuardrail.AIGuardrailTopicPolicyConfigProperty(
                     topics_config=[wisdom.CfnAIGuardrail.GuardrailTopicConfigProperty(
                         definition="definition",
                         name="name",
@@ -5032,7 +5032,7 @@ class CfnAIGuardrail(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_wisdom as wisdom
                 
-                a_iGuardrail_word_policy_config_property = wisdom.CfnAIGuardrail.AIGuardrailWordPolicyConfigProperty(
+                a_i_guardrail_word_policy_config_property = wisdom.CfnAIGuardrail.AIGuardrailWordPolicyConfigProperty(
                     managed_word_lists_config=[wisdom.CfnAIGuardrail.GuardrailManagedWordsConfigProperty(
                         type="type"
                     )],
@@ -5826,7 +5826,7 @@ class CfnAIGuardrailProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_wisdom as wisdom
             
-            cfn_aIGuardrail_props = wisdom.CfnAIGuardrailProps(
+            cfn_ai_guardrail_props = wisdom.CfnAIGuardrailProps(
                 assistant_id="assistantId",
                 blocked_input_messaging="blockedInputMessaging",
                 blocked_outputs_messaging="blockedOutputsMessaging",
@@ -6063,7 +6063,7 @@ class CfnAIGuardrailVersion(
         # The values are placeholders you should change.
         from aws_cdk import aws_wisdom as wisdom
         
-        cfn_aIGuardrail_version = wisdom.CfnAIGuardrailVersion(self, "MyCfnAIGuardrailVersion",
+        cfn_ai_guardrail_version = wisdom.CfnAIGuardrailVersion(self, "MyCfnAIGuardrailVersion",
             ai_guardrail_id="aiGuardrailId",
             assistant_id="assistantId",
         
@@ -6267,7 +6267,7 @@ class CfnAIGuardrailVersionProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_wisdom as wisdom
             
-            cfn_aIGuardrail_version_props = wisdom.CfnAIGuardrailVersionProps(
+            cfn_ai_guardrail_version_props = wisdom.CfnAIGuardrailVersionProps(
                 ai_guardrail_id="aiGuardrailId",
                 assistant_id="assistantId",
             
@@ -6346,7 +6346,7 @@ class CfnAIPrompt(
         # The values are placeholders you should change.
         from aws_cdk import aws_wisdom as wisdom
         
-        cfn_aIPrompt = wisdom.CfnAIPrompt(self, "MyCfnAIPrompt",
+        cfn_ai_prompt = wisdom.CfnAIPrompt(self, "MyCfnAIPrompt",
             api_format="apiFormat",
             model_id="modelId",
             template_configuration=wisdom.CfnAIPrompt.AIPromptTemplateConfigurationProperty(
@@ -6678,7 +6678,7 @@ class CfnAIPrompt(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_wisdom as wisdom
                 
-                a_iPrompt_template_configuration_property = wisdom.CfnAIPrompt.AIPromptTemplateConfigurationProperty(
+                a_i_prompt_template_configuration_property = wisdom.CfnAIPrompt.AIPromptTemplateConfigurationProperty(
                     text_full_ai_prompt_edit_template_configuration=wisdom.CfnAIPrompt.TextFullAIPromptEditTemplateConfigurationProperty(
                         text="text"
                     )
@@ -6734,7 +6734,7 @@ class CfnAIPrompt(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_wisdom as wisdom
                 
-                text_full_aIPrompt_edit_template_configuration_property = wisdom.CfnAIPrompt.TextFullAIPromptEditTemplateConfigurationProperty(
+                text_full_ai_prompt_edit_template_configuration_property = wisdom.CfnAIPrompt.TextFullAIPromptEditTemplateConfigurationProperty(
                     text="text"
                 )
             '''
@@ -6817,7 +6817,7 @@ class CfnAIPromptProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_wisdom as wisdom
             
-            cfn_aIPrompt_props = wisdom.CfnAIPromptProps(
+            cfn_ai_prompt_props = wisdom.CfnAIPromptProps(
                 api_format="apiFormat",
                 model_id="modelId",
                 template_configuration=wisdom.CfnAIPrompt.AIPromptTemplateConfigurationProperty(
@@ -7002,7 +7002,7 @@ class CfnAIPromptVersion(
         # The values are placeholders you should change.
         from aws_cdk import aws_wisdom as wisdom
         
-        cfn_aIPrompt_version = wisdom.CfnAIPromptVersion(self, "MyCfnAIPromptVersion",
+        cfn_ai_prompt_version = wisdom.CfnAIPromptVersion(self, "MyCfnAIPromptVersion",
             ai_prompt_id="aiPromptId",
             assistant_id="assistantId",
         
@@ -7204,7 +7204,7 @@ class CfnAIPromptVersionProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_wisdom as wisdom
             
-            cfn_aIPrompt_version_props = wisdom.CfnAIPromptVersionProps(
+            cfn_ai_prompt_version_props = wisdom.CfnAIPromptVersionProps(
                 ai_prompt_id="aiPromptId",
                 assistant_id="assistantId",
             
@@ -11061,7 +11061,7 @@ class CfnMessageTemplate(
             city: typing.Optional[builtins.str] = None,
             country: typing.Optional[builtins.str] = None,
             county: typing.Optional[builtins.str] = None,
-            custom: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            custom: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             email_address: typing.Optional[builtins.str] = None,
             first_name: typing.Optional[builtins.str] = None,
             gender: typing.Optional[builtins.str] = None,
@@ -11618,13 +11618,13 @@ class CfnMessageTemplate(
         @builtins.property
         def custom(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''The custom attributes in customer profile attributes.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wisdom-messagetemplate-customerprofileattributes.html#cfn-wisdom-messagetemplate-customerprofileattributes-custom
             '''
             result = self._values.get("custom")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def email_address(self) -> typing.Optional[builtins.str]:
@@ -12383,7 +12383,7 @@ class CfnMessageTemplate(
             self,
             *,
             agent_attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMessageTemplate.AgentAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            custom_attributes: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            custom_attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             customer_profile_attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMessageTemplate.CustomerProfileAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             system_attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMessageTemplate.SystemAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
@@ -12514,13 +12514,13 @@ class CfnMessageTemplate(
         @builtins.property
         def custom_attributes(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''The custom attributes that are used with the message template.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wisdom-messagetemplate-messagetemplateattributes.html#cfn-wisdom-messagetemplate-messagetemplateattributes-customattributes
             '''
             result = self._values.get("custom_attributes")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def customer_profile_attributes(
@@ -15727,7 +15727,7 @@ def _typecheckingstub__31a9d5f6219c52f900443be7cd1a4f580db25aaf647c7876e4062d152
     city: typing.Optional[builtins.str] = None,
     country: typing.Optional[builtins.str] = None,
     county: typing.Optional[builtins.str] = None,
-    custom: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    custom: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     email_address: typing.Optional[builtins.str] = None,
     first_name: typing.Optional[builtins.str] = None,
     gender: typing.Optional[builtins.str] = None,
@@ -15811,7 +15811,7 @@ def _typecheckingstub__733b704f810bd9a3eb9d75f4f3b82b249fd0f3b3c3429da2875584133
 def _typecheckingstub__94be2b3e247d65fdf9ede2a9ef720965133047f24bfea2e9cda8dddc0b98feb1(
     *,
     agent_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMessageTemplate.AgentAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    custom_attributes: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    custom_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     customer_profile_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMessageTemplate.CustomerProfileAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     system_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMessageTemplate.SystemAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:

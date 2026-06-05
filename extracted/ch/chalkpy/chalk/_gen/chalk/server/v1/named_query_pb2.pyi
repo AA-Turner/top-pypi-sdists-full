@@ -130,12 +130,16 @@ class ListAllNamedQueriesPageToken(_message.Message):
     ) -> None: ...
 
 class ListAllNamedQueriesRequest(_message.Message):
-    __slots__ = ("page_size", "page_token")
+    __slots__ = ("page_size", "page_token", "name_prefix")
     PAGE_SIZE_FIELD_NUMBER: _ClassVar[int]
     PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    NAME_PREFIX_FIELD_NUMBER: _ClassVar[int]
     page_size: int
     page_token: str
-    def __init__(self, page_size: _Optional[int] = ..., page_token: _Optional[str] = ...) -> None: ...
+    name_prefix: str
+    def __init__(
+        self, page_size: _Optional[int] = ..., page_token: _Optional[str] = ..., name_prefix: _Optional[str] = ...
+    ) -> None: ...
 
 class ListAllNamedQueriesResponse(_message.Message):
     __slots__ = ("named_queries", "next_page_token", "total_count")

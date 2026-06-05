@@ -24,6 +24,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any, cast
 
@@ -36,8 +37,12 @@ if sys.platform == "win32" and hasattr(sys.stdout, "buffer"):
 import click
 
 from headroom._version import __version__ as _HEADROOM_VERSION
-from headroom.copilot_auth import DEFAULT_API_URL as COPILOT_API_URL
-from headroom.copilot_auth import has_oauth_auth, resolve_client_bearer_token
+from headroom.copilot_auth import (
+    has_oauth_auth,
+    resolve_client_bearer_token,
+    resolve_copilot_api_url,
+    resolve_subscription_bearer_token,
+)
 from headroom.providers.aider import build_launch_env as _build_aider_launch_env
 from headroom.providers.claude import proxy_base_url as _claude_proxy_base_url
 from headroom.providers.codex import build_launch_env as _build_codex_launch_env
@@ -156,6 +161,7 @@ def _start_proxy(
     anyllm_provider: str | None = None,
     region: str | None = None,
     openai_api_url: str | None = None,
+    copilot_api_token: str | None = None,
 ) -> subprocess.Popen:
     """Start Headroom proxy as a background subprocess.
 
@@ -209,6 +215,14 @@ def _start_proxy(
     if agent_type != "unknown":
         proxy_env["HEADROOM_AGENT_TYPE"] = agent_type
         proxy_env.setdefault("HEADROOM_STACK", f"wrap_{agent_type}")
+    if openai_api_url:
+        proxy_env["OPENAI_TARGET_API_URL"] = openai_api_url
+    # Pin the wrapper-validated Copilot token for this proxy instance only.
+    # Injected into the subprocess env here (not the parent's os.environ) so it
+    # never leaks into shared state. The proxy's CopilotTokenProvider honours
+    # GITHUB_COPILOT_API_TOKEN directly, making upstream auth deterministic.
+    if copilot_api_token:
+        proxy_env["GITHUB_COPILOT_API_TOKEN"] = copilot_api_token
 
     proc = subprocess.Popen(
         cmd,
@@ -910,6 +924,141 @@ def _emit_wrap_interrupted(agent: str, marker_path: Path | None) -> None:
         )
 
 
+_WRAP_BANNER_INNER_WIDTH = 47
+
+
+def _print_wrap_banner(agent: str) -> None:
+    """Print a centered ``HEADROOM WRAP: <AGENT>`` banner.
+
+    Every Pattern-B wrap subcommand (proxy-only + watcher loop) used to
+    inline this 3-line box by hand with hand-padded spaces, which made
+    title-length changes silently miscenter the title. Compute padding
+    here so adding a 9th agent just works.
+    """
+    title = f"HEADROOM WRAP: {agent.upper()}"
+    pad_total = _WRAP_BANNER_INNER_WIDTH - len(title)
+    pad_left = pad_total // 2
+    pad_right = pad_total - pad_left
+    click.echo()
+    click.echo("  ╔" + "═" * _WRAP_BANNER_INNER_WIDTH + "╗")
+    click.echo(f"  ║{' ' * pad_left}{title}{' ' * pad_right}║")
+    click.echo("  ╚" + "═" * _WRAP_BANNER_INNER_WIDTH + "╝")
+    click.echo()
+
+
+def _setup_context_tool_for_agent(
+    *,
+    agent: str,
+    agent_display: str,
+    marker_path: Path | None,
+    on_rtk_ready: Callable[[Path], object] | None = None,
+    rtk_required: bool = False,
+    verbose: bool = False,
+) -> Path | None:
+    """Run the rtk-or-lean-ctx context-tool setup with KeyboardInterrupt handling.
+
+    Replaces the ``try / except KeyboardInterrupt / rtk-vs-lean-ctx fork``
+    each wrap subcommand was inlining. Returns the rtk binary path if rtk
+    mode was selected and the install succeeded; otherwise ``None``.
+
+    Args:
+        agent: Internal agent name (used by ``_setup_lean_ctx_agent`` and
+            the interrupt message).
+        agent_display: User-facing capitalized name for the echo lines
+            (e.g. ``"Cline"``, ``"OpenHands"``).
+        marker_path: Optional path to report on Ctrl+C interruption. Pass
+            ``None`` for env-only agents that never touch disk (openhands).
+        on_rtk_ready: Optional callback invoked with the rtk binary path
+            when rtk install succeeds. Use to inject into a marker file
+            (e.g. ``.clinerules``, ``.goosehints``, ``config.json``).
+        rtk_required: If ``True`` and rtk install fails, raise
+            ``SystemExit(1)`` instead of silently falling through. Use this
+            for env-var-only agents (openhands) where there is no
+            fallback marker file to write to.
+        verbose: Forwarded to the rtk/lean-ctx installers.
+    """
+    try:
+        if _selected_context_tool() == _CONTEXT_TOOL_LEAN_CTX:
+            click.echo(f"  Setting up lean-ctx for {agent_display}...")
+            _setup_lean_ctx_agent(agent, verbose=verbose)
+            return None
+        click.echo(f"  Setting up rtk for {agent_display}...")
+        rtk_path = _ensure_rtk_binary(verbose=verbose)
+        if not rtk_path:
+            if rtk_required:
+                click.echo(
+                    "  Error: rtk install failed; refusing to inject "
+                    f"context-tool guidance for {agent_display} without rtk. "
+                    "Install rtk manually and re-run, or pass --no-context-tool "
+                    "to skip rtk."
+                )
+                raise SystemExit(1)
+            return None
+        if on_rtk_ready is not None:
+            on_rtk_ready(rtk_path)
+        return rtk_path
+    except KeyboardInterrupt:
+        _emit_wrap_interrupted(
+            agent, marker_path if (marker_path and marker_path.exists()) else None
+        )
+        raise SystemExit(130) from None
+
+
+def _run_proxy_only_watcher(
+    *,
+    agent_label: str,
+    port: int,
+    no_proxy: bool,
+    learn: bool,
+    memory: bool,
+    agent_type: str,
+    print_setup_lines: Callable[[], None],
+) -> None:
+    """Shared scaffolding for proxy-only wrap subcommands (no child binary launch).
+
+    Pattern-B subcommands (cursor / cline / continue) all start the proxy,
+    print agent-specific configuration instructions, then block until
+    Ctrl+C. This helper unifies that lifecycle so the per-agent diff is
+    just the ``print_setup_lines`` callback.
+
+    The Pattern-A subcommands (aider / copilot / codex / goose / openhands)
+    launch a child binary via ``_launch_tool`` instead and never come
+    through here. ``_launch_tool`` owns the proxy lifecycle on that path.
+    """
+    proxy_holder: list[subprocess.Popen | None] = [None]
+    cleanup = _make_cleanup(proxy_holder, port)
+    signal.signal(signal.SIGINT, cleanup)
+    signal.signal(signal.SIGTERM, cleanup)
+
+    try:
+        _print_wrap_banner(agent_label)
+        proxy_holder[0] = _ensure_proxy(
+            port, no_proxy, learn=learn, memory=memory, agent_type=agent_type
+        )
+        click.echo()
+        print_setup_lines()
+        click.echo()
+        click.echo("  Press Ctrl+C to stop the proxy.")
+        click.echo()
+
+        try:
+            while True:
+                time.sleep(1)
+                proc = proxy_holder[0]
+                if proc and proc.poll() is not None:
+                    click.echo("  Proxy process exited unexpectedly.")
+                    raise SystemExit(1)
+        except KeyboardInterrupt:
+            click.echo("\n  Shutting down...")
+    except SystemExit:
+        raise
+    except Exception as e:
+        click.echo(f"  Error: {e}")
+        raise SystemExit(1) from e
+    finally:
+        cleanup()
+
+
 def _inject_rtk_instructions(file_path: Path, verbose: bool = False) -> bool:
     """Inject rtk instructions into a file (AGENTS.md, .cursorrules, etc.).
 
@@ -1207,6 +1356,16 @@ def _proxy_active_session_count(payload: dict[str, Any] | None) -> int:
     return max(counts, default=0)
 
 
+def _normalize_proxy_api_url(url: object) -> str | None:
+    """Normalize configured upstream URLs for running-proxy comparisons."""
+    if not isinstance(url, str):
+        return None
+    normalized = url.strip().rstrip("/")
+    if normalized.endswith("/v1"):
+        normalized = normalized[:-3]
+    return normalized or None
+
+
 def _proxy_version(payload: dict[str, Any] | None) -> str | None:
     """Return the running proxy version when it exposes one."""
     if payload is None:
@@ -1418,8 +1577,11 @@ def _should_use_copilot_oauth(
     backend: str | None,
     provider_type: str,
     env: dict[str, str],
+    force_subscription: bool = False,
 ) -> bool:
     """Prefer a reusable Copilot OAuth session when the requested routing supports it."""
+    if force_subscription:
+        return True
     if env.get("COPILOT_PROVIDER_API_KEY") or env.get("COPILOT_PROVIDER_BEARER_TOKEN"):
         return False
     if provider_type == "anthropic":
@@ -1444,6 +1606,7 @@ def _ensure_proxy(
     anyllm_provider: str | None = None,
     region: str | None = None,
     openai_api_url: str | None = None,
+    copilot_api_token: str | None = None,
 ) -> subprocess.Popen | None:
     """Start or verify proxy. Returns process handle if we started it."""
     helpers = _live_wrap_module()
@@ -1533,10 +1696,19 @@ def _ensure_proxy(
                     missing.append("learn")
                 if code_graph and not running_config.get("code_graph"):
                     missing.append("code_graph")
+                if openai_api_url:
+                    running_openai_url = _normalize_proxy_api_url(
+                        running_config.get("openai_api_url")
+                    )
+                    requested_openai_url = _normalize_proxy_api_url(openai_api_url)
+                    if running_openai_url != requested_openai_url:
+                        missing.append("openai-api-url")
 
                 if missing:
                     needs_restart = True
-                    flags_str = ", ".join(f"--{f.replace('_', '-')}" for f in missing)
+                    flags_str = ", ".join(
+                        f if f.startswith("--") else f"--{f.replace('_', '-')}" for f in missing
+                    )
                     click.echo(f"  Proxy on port {port} is missing: {flags_str}")
                     click.echo("  Restarting proxy with upgraded configuration...")
 
@@ -1582,6 +1754,7 @@ def _ensure_proxy(
                     anyllm_provider=anyllm_provider,
                     region=region,
                     openai_api_url=openai_api_url,
+                    copilot_api_token=copilot_api_token,
                 ),
             )
             click.echo(f"  Proxy ready on http://127.0.0.1:{port}")
@@ -1657,6 +1830,7 @@ def _launch_tool(
     anyllm_provider: str | None = None,
     region: str | None = None,
     openai_api_url: str | None = None,
+    copilot_api_token: str | None = None,
 ) -> None:
     """Common logic: start proxy, launch tool, clean up."""
     proxy_holder: list[subprocess.Popen | None] = [None]
@@ -1683,6 +1857,7 @@ def _launch_tool(
             anyllm_provider=anyllm_provider,
             region=region,
             openai_api_url=openai_api_url,
+            copilot_api_token=copilot_api_token,
         )
 
         if code_graph:
@@ -2224,6 +2399,14 @@ def unwrap_claude(
     default=None,
     help="OpenAI-compatible Copilot wire API. Defaults to 'completions' when provider-type resolves to openai.",
 )
+@click.option(
+    "--subscription",
+    is_flag=True,
+    help=(
+        "Experimental: route GitHub-authenticated Copilot CLI traffic through Headroom "
+        "without requiring a provider API key."
+    ),
+)
 @click.option("--memory", is_flag=True, help="Enable persistent cross-session memory")
 @click.option("--verbose", "-v", is_flag=True, help="Verbose output")
 @click.argument("copilot_args", nargs=-1, type=click.UNPROCESSED)
@@ -2236,6 +2419,7 @@ def copilot(
     region: str | None,
     provider_type: str,
     wire_api: str | None,
+    subscription: bool,
     memory: bool,
     verbose: bool,
     copilot_args: tuple[str, ...],
@@ -2253,6 +2437,7 @@ def copilot(
         headroom wrap copilot -- --model claude-sonnet-4-20250514
         headroom wrap copilot --backend anyllm --anyllm-provider groq -- --model gpt-4o
         headroom wrap copilot --provider-type openai --wire-api responses -- --model gpt-5.4
+        headroom wrap copilot --subscription -- --model gpt-4.1
         headroom wrap copilot --no-context-tool -- --prompt "explain this file"
     """
     copilot_bin = shutil.which("copilot")
@@ -2280,6 +2465,17 @@ def copilot(
         wire_api=wire_api,
         backend=effective_backend,
     )
+    if subscription:
+        if effective_backend not in (None, "", "anthropic"):
+            raise click.ClickException(
+                "--subscription routes to GitHub Copilot's hosted API and cannot be combined "
+                "with translated backends such as anyllm or litellm-*."
+            )
+        if provider_type == "anthropic":
+            raise click.ClickException(
+                "--subscription uses Copilot's OpenAI-compatible hosted API path; "
+                "do not combine it with --provider-type anthropic."
+            )
 
     if not no_rtk:
         if _selected_context_tool() == _CONTEXT_TOOL_LEAN_CTX:
@@ -2294,15 +2490,21 @@ def copilot(
 
     env = os.environ.copy()
     openai_api_url: str | None = None
+    copilot_proxy_token: str | None = None
     if _should_use_copilot_oauth(
         backend=effective_backend,
         provider_type=provider_type,
         env=env,
+        force_subscription=subscription,
     ):
-        client_bearer = resolve_client_bearer_token()
+        client_bearer = (
+            resolve_subscription_bearer_token() if subscription else resolve_client_bearer_token()
+        )
         if not client_bearer:
             raise click.ClickException(
-                "GitHub Copilot auth was detected but no reusable bearer token could be resolved."
+                "GitHub Copilot subscription mode requires a reusable GitHub/Copilot bearer "
+                "token, but none could be resolved. Run `copilot auth login` first, or set "
+                "GITHUB_COPILOT_TOKEN / GITHUB_COPILOT_GITHUB_TOKEN."
             )
 
         effective_wire_api = wire_api or "completions"
@@ -2310,14 +2512,32 @@ def copilot(
         env["COPILOT_PROVIDER_BASE_URL"] = f"http://127.0.0.1:{port}/v1"
         env["COPILOT_PROVIDER_WIRE_API"] = effective_wire_api
         env["COPILOT_PROVIDER_BEARER_TOKEN"] = client_bearer
+        env["GITHUB_COPILOT_USE_TOKEN_EXCHANGE"] = "false"
         env.pop("COPILOT_PROVIDER_API_KEY", None)
+        # Hand the exact token we resolved (and, for --subscription, validated
+        # against GitHub) to the proxy explicitly via copilot_proxy_token below.
+        # The proxy pins it as GITHUB_COPILOT_API_TOKEN, so upstream auth is
+        # deterministic instead of the proxy re-running unvalidated discovery
+        # (read_cached_oauth_token returns the *first* candidate, which may not
+        # be the one the wrapper approved → environment-dependent 401s). Passing
+        # it as a launch argument — rather than mutating this process's global
+        # os.environ — keeps the token off shared state and out of unrelated
+        # code paths.
+        copilot_proxy_token = client_bearer
         env_vars_display = [
             "COPILOT_PROVIDER_TYPE=openai",
             f"COPILOT_PROVIDER_BASE_URL=http://127.0.0.1:{port}/v1",
             f"COPILOT_PROVIDER_WIRE_API={effective_wire_api}",
-            "COPILOT_AUTH_MODE=github-oauth",
+            (
+                "COPILOT_AUTH_MODE=github-subscription-experimental"
+                if subscription
+                else "COPILOT_AUTH_MODE=github-oauth"
+            ),
         ]
-        openai_api_url = COPILOT_API_URL
+        openai_api_url = resolve_copilot_api_url(client_bearer)
+        env["GITHUB_COPILOT_API_URL"] = openai_api_url
+        env["OPENAI_TARGET_API_URL"] = openai_api_url
+        env_vars_display.append(f"COPILOT_PROVIDER_API_URL={openai_api_url}")
     else:
         env, env_vars_display = _build_copilot_launch_env(
             port=port,
@@ -2339,7 +2559,7 @@ def copilot(
             )
             raise SystemExit(1)
 
-    if not _copilot_model_configured(copilot_args, env):
+    if not subscription and not _copilot_model_configured(copilot_args, env):
         click.echo(
             "  Note: Copilot BYOK requires a model. Pass `--model <name>` "
             "or set `COPILOT_MODEL` / `COPILOT_PROVIDER_MODEL_ID`."
@@ -2360,6 +2580,7 @@ def copilot(
         anyllm_provider=anyllm_provider,
         region=region,
         openai_api_url=openai_api_url,
+        copilot_api_token=copilot_proxy_token,
     )
 
 
@@ -2722,37 +2943,22 @@ def cursor(
         headroom wrap cursor --no-context-tool  # Proxy only, no CLI context tool
         headroom wrap cursor --port 9999    # Custom proxy port
     """
+    cursorrules: Path | None = Path.cwd() / ".cursorrules" if not no_rtk else None
     if not no_rtk:
-        if _selected_context_tool() == _CONTEXT_TOOL_LEAN_CTX:
-            click.echo("  Setting up lean-ctx for Cursor...")
-            _setup_lean_ctx_agent("cursor", verbose=verbose)
-        else:
-            click.echo("  Setting up rtk for Cursor...")
-            rtk_path = _ensure_rtk_binary(verbose=verbose)
-            if rtk_path:
-                cursorrules = Path.cwd() / ".cursorrules"
-                _inject_rtk_instructions(cursorrules, verbose=verbose)
+        _setup_context_tool_for_agent(
+            agent="cursor",
+            agent_display="Cursor",
+            marker_path=cursorrules,
+            on_rtk_ready=lambda _rtk: _inject_rtk_instructions(
+                cast(Path, cursorrules), verbose=verbose
+            ),
+            verbose=verbose,
+        )
 
     if prepare_only:
         return
 
-    proxy_holder: list[subprocess.Popen | None] = [None]
-    cleanup = _make_cleanup(proxy_holder, port)
-    signal.signal(signal.SIGINT, cleanup)
-    signal.signal(signal.SIGTERM, cleanup)
-
-    try:
-        click.echo()
-        click.echo("  ╔═══════════════════════════════════════════════╗")
-        click.echo("  ║            HEADROOM WRAP: CURSOR              ║")
-        click.echo("  ╚═══════════════════════════════════════════════╝")
-        click.echo()
-
-        proxy_holder[0] = _ensure_proxy(
-            port, no_proxy, learn=learn, memory=memory, agent_type="cursor"
-        )
-
-        click.echo()
+    def _print_cursor_setup() -> None:
         for line in _render_cursor_setup_lines(port):
             click.echo(line)
         if not no_rtk:
@@ -2762,28 +2968,16 @@ def cursor(
             else:
                 click.echo("  rtk instructions injected into .cursorrules")
             click.echo("  Cursor will use token-optimized commands automatically.")
-        click.echo()
-        click.echo("  Press Ctrl+C to stop the proxy.")
-        click.echo()
 
-        # Block until Ctrl+C
-        try:
-            while True:
-                time.sleep(1)
-                proc = proxy_holder[0]
-                if proc and proc.poll() is not None:
-                    click.echo("  Proxy process exited unexpectedly.")
-                    raise SystemExit(1)
-        except KeyboardInterrupt:
-            click.echo("\n  Shutting down...")
-
-    except SystemExit:
-        raise
-    except Exception as e:
-        click.echo(f"  Error: {e}")
-        raise SystemExit(1) from e
-    finally:
-        cleanup()
+    _run_proxy_only_watcher(
+        agent_label="cursor",
+        port=port,
+        no_proxy=no_proxy,
+        learn=learn,
+        memory=memory,
+        agent_type="cursor",
+        print_setup_lines=_print_cursor_setup,
+    )
 
 
 # =============================================================================
@@ -2846,44 +3040,23 @@ def cline(
     # its location even if the interrupt fires before _inject_rtk_instructions
     # returns (e.g., during the inner _ensure_rtk_binary download).
     clinerules: Path | None = Path.cwd() / ".clinerules" if not no_rtk else None
-    try:
-        if not no_rtk:
-            if _selected_context_tool() == _CONTEXT_TOOL_LEAN_CTX:
-                click.echo("  Setting up lean-ctx for Cline...")
-                _setup_lean_ctx_agent("cline", verbose=verbose)
-            else:
-                click.echo("  Setting up rtk for Cline...")
-                rtk_path = _ensure_rtk_binary(verbose=verbose)
-                if rtk_path and clinerules is not None:
-                    _inject_rtk_instructions(clinerules, verbose=verbose)
-    except KeyboardInterrupt:
-        _emit_wrap_interrupted(
-            "cline", clinerules if (clinerules and clinerules.exists()) else None
+    if not no_rtk:
+        _setup_context_tool_for_agent(
+            agent="cline",
+            agent_display="Cline",
+            marker_path=clinerules,
+            on_rtk_ready=lambda _rtk: _inject_rtk_instructions(
+                cast(Path, clinerules), verbose=verbose
+            ),
+            verbose=verbose,
         )
-        raise SystemExit(130) from None
 
     if prepare_only:
         return
 
-    proxy_holder: list[subprocess.Popen | None] = [None]
-    cleanup = _make_cleanup(proxy_holder, port)
-    signal.signal(signal.SIGINT, cleanup)
-    signal.signal(signal.SIGTERM, cleanup)
-
-    try:
-        click.echo()
-        click.echo("  ╔═══════════════════════════════════════════════╗")
-        click.echo("  ║             HEADROOM WRAP: CLINE              ║")
-        click.echo("  ╚═══════════════════════════════════════════════╝")
-        click.echo()
-
-        proxy_holder[0] = _ensure_proxy(
-            port, no_proxy, learn=learn, memory=memory, agent_type="cline"
-        )
-
+    def _print_cline_setup() -> None:
         anthropic_base = _claude_proxy_base_url(port)
         openai_base = f"http://127.0.0.1:{port}/v1"
-        click.echo()
         click.echo("  Configure Cline in VS Code:")
         click.echo("    Settings > Cline > API Provider")
         click.echo(f"    Anthropic Base URL: {anthropic_base}")
@@ -2895,27 +3068,16 @@ def cline(
             else:
                 click.echo("  rtk instructions injected into .clinerules")
             click.echo("  Cline will use token-optimized commands automatically.")
-        click.echo()
-        click.echo("  Press Ctrl+C to stop the proxy.")
-        click.echo()
 
-        try:
-            while True:
-                time.sleep(1)
-                proc = proxy_holder[0]
-                if proc and proc.poll() is not None:
-                    click.echo("  Proxy process exited unexpectedly.")
-                    raise SystemExit(1)
-        except KeyboardInterrupt:
-            click.echo("\n  Shutting down...")
-
-    except SystemExit:
-        raise
-    except Exception as e:
-        click.echo(f"  Error: {e}")
-        raise SystemExit(1) from e
-    finally:
-        cleanup()
+    _run_proxy_only_watcher(
+        agent_label="cline",
+        port=port,
+        no_proxy=no_proxy,
+        learn=learn,
+        memory=memory,
+        agent_type="cline",
+        print_setup_lines=_print_cline_setup,
+    )
 
 
 # =============================================================================
@@ -3000,42 +3162,23 @@ def continue_dev(
     """
     config_file = config_path or (Path.cwd() / ".continue" / "config.json")
 
-    try:
-        if not no_rtk:
-            if _selected_context_tool() == _CONTEXT_TOOL_LEAN_CTX:
-                click.echo("  Setting up lean-ctx for Continue...")
-                _setup_lean_ctx_agent("continue", verbose=verbose)
-            else:
-                click.echo("  Setting up rtk for Continue...")
-                rtk_path = _ensure_rtk_binary(verbose=verbose)
-                if rtk_path:
-                    _inject_continue_rtk_systemmessage(config_file, verbose=verbose)
-    except KeyboardInterrupt:
-        _emit_wrap_interrupted("continue", config_file if config_file.exists() else None)
-        raise SystemExit(130) from None
+    if not no_rtk:
+        _setup_context_tool_for_agent(
+            agent="continue",
+            agent_display="Continue",
+            marker_path=config_file,
+            on_rtk_ready=lambda _rtk: _inject_continue_rtk_systemmessage(
+                config_file, verbose=verbose
+            ),
+            verbose=verbose,
+        )
 
     if prepare_only:
         return
 
-    proxy_holder: list[subprocess.Popen | None] = [None]
-    cleanup = _make_cleanup(proxy_holder, port)
-    signal.signal(signal.SIGINT, cleanup)
-    signal.signal(signal.SIGTERM, cleanup)
-
-    try:
-        click.echo()
-        click.echo("  ╔═══════════════════════════════════════════════╗")
-        click.echo("  ║           HEADROOM WRAP: CONTINUE             ║")
-        click.echo("  ╚═══════════════════════════════════════════════╝")
-        click.echo()
-
-        proxy_holder[0] = _ensure_proxy(
-            port, no_proxy, learn=learn, memory=memory, agent_type="continue"
-        )
-
+    def _print_continue_setup() -> None:
         anthropic_base = _claude_proxy_base_url(port)
         openai_base = f"http://127.0.0.1:{port}/v1"
-        click.echo()
         click.echo("  Configure Continue in your IDE:")
         click.echo(f"    Edit {config_file} and set, per model:")
         click.echo(f'      "apiBase": "{openai_base}"          # OpenAI-compatible models')
@@ -3047,27 +3190,16 @@ def continue_dev(
             else:
                 click.echo(f"  rtk instructions injected into {config_file.name} systemMessage")
             click.echo("  Continue will use token-optimized commands automatically.")
-        click.echo()
-        click.echo("  Press Ctrl+C to stop the proxy.")
-        click.echo()
 
-        try:
-            while True:
-                time.sleep(1)
-                proc = proxy_holder[0]
-                if proc and proc.poll() is not None:
-                    click.echo("  Proxy process exited unexpectedly.")
-                    raise SystemExit(1)
-        except KeyboardInterrupt:
-            click.echo("\n  Shutting down...")
-
-    except SystemExit:
-        raise
-    except Exception as e:
-        click.echo(f"  Error: {e}")
-        raise SystemExit(1) from e
-    finally:
-        cleanup()
+    _run_proxy_only_watcher(
+        agent_label="continue",
+        port=port,
+        no_proxy=no_proxy,
+        learn=learn,
+        memory=memory,
+        agent_type="continue",
+        print_setup_lines=_print_continue_setup,
+    )
 
 
 # =============================================================================
@@ -3138,27 +3270,21 @@ def goose(
         headroom wrap goose -- --provider anthropic  # Pass args to goose
         headroom wrap goose --no-context-tool        # Skip CLI context-tool setup
     """
+    # Goose reads .goosehints from the project root as extra context.
     # Pre-compute the marker path so the KeyboardInterrupt handler can report
     # its location even if the interrupt fires before _inject_rtk_instructions
     # returns (e.g., during the inner _ensure_rtk_binary download).
     goosehints: Path | None = Path.cwd() / ".goosehints" if not no_rtk else None
-    try:
-        if not no_rtk:
-            if _selected_context_tool() == _CONTEXT_TOOL_LEAN_CTX:
-                click.echo("  Setting up lean-ctx for Goose...")
-                _setup_lean_ctx_agent("goose", verbose=verbose)
-            else:
-                click.echo("  Setting up rtk for Goose...")
-                rtk_path = _ensure_rtk_binary(verbose=verbose)
-                if rtk_path and goosehints is not None:
-                    # Goose reads .goosehints from the project root as extra
-                    # context.
-                    _inject_rtk_instructions(goosehints, verbose=verbose)
-    except KeyboardInterrupt:
-        _emit_wrap_interrupted(
-            "goose", goosehints if (goosehints and goosehints.exists()) else None
+    if not no_rtk:
+        _setup_context_tool_for_agent(
+            agent="goose",
+            agent_display="Goose",
+            marker_path=goosehints,
+            on_rtk_ready=lambda _rtk: _inject_rtk_instructions(
+                cast(Path, goosehints), verbose=verbose
+            ),
+            verbose=verbose,
         )
-        raise SystemExit(130) from None
 
     if prepare_only:
         return
@@ -3266,27 +3392,19 @@ def openhands(
         headroom wrap openhands -- --task ...  # Pass args to openhands
         headroom wrap openhands --no-context-tool
     """
+    # openhands never writes to disk — its rtk guidance ships via the
+    # OPENHANDS_INSTRUCTIONS env var below — so marker_path is None and
+    # rtk_required gates the env-only path: without an rtk binary there
+    # is no fallback marker file to fall through to.
     rtk_path: Path | None = None
-    try:
-        if not no_rtk:
-            if _selected_context_tool() == _CONTEXT_TOOL_LEAN_CTX:
-                click.echo("  Setting up lean-ctx for OpenHands...")
-                _setup_lean_ctx_agent("openhands", verbose=verbose)
-            else:
-                click.echo("  Setting up rtk for OpenHands...")
-                rtk_path = _ensure_rtk_binary(verbose=verbose)
-                if not rtk_path:
-                    click.echo(
-                        "  Error: rtk install failed; refusing to inject "
-                        "OPENHANDS_INSTRUCTIONS without rtk. Install rtk "
-                        "manually and re-run, or pass --no-context-tool to "
-                        "skip rtk."
-                    )
-                    raise SystemExit(1)
-    except KeyboardInterrupt:
-        # openhands never writes to disk — no marker file to flag.
-        _emit_wrap_interrupted("openhands", None)
-        raise SystemExit(130) from None
+    if not no_rtk:
+        rtk_path = _setup_context_tool_for_agent(
+            agent="openhands",
+            agent_display="OpenHands",
+            marker_path=None,
+            rtk_required=True,
+            verbose=verbose,
+        )
 
     if prepare_only:
         return

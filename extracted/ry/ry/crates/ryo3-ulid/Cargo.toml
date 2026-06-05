@@ -16,7 +16,7 @@ readme = "README.md"
 [dependencies]
 pyo3 = { workspace = true, features = [] }
 ryo3-core.workspace = true
-ryo3-pydantic = { workspace = true, features = [] }
+ryo3-pydantic = { workspace = true, optional = true, features = [] }
 ryo3-uuid.workspace = true
 serde = { workspace = true, optional = true, features = ["derive"] }
 ulid.workspace = true
@@ -26,7 +26,9 @@ uuid.workspace = true
 default = []
 ry = [
   "serde",
+  "pydantic",
 ]
+pydantic = ["ryo3-pydantic"]
 serde = [
   "dep:serde",
   "ulid/serde",

@@ -292,6 +292,8 @@ _ENCODER_REGISTRY = {
     'bert-base-uncased': ('huggingface',
                           {'model_name': 'bert-base-uncased',
                            'modality': 'text'}),
+    # Audio (handcrafted acoustic features; no GPU)
+    'audio-mfcc': ('audio', {}),
 }
 
 _ENCODER_BACKENDS = {
@@ -304,6 +306,9 @@ _ENCODER_BACKENDS = {
     'huggingface': (
         'pyod.utils.encoders.huggingface',
         'HuggingFaceEncoder'),
+    'audio': (
+        'pyod.utils.encoders.audio',
+        'AudioFeatureEncoder'),
 }
 
 
@@ -311,6 +316,7 @@ _INSTALL_HINTS = {
     'sentence_transformer': 'pip install sentence-transformers',
     'openai': 'pip install openai',
     'huggingface': 'pip install transformers torch',
+    'audio': 'pip install librosa soundfile',
 }
 
 

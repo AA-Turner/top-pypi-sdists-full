@@ -313,7 +313,7 @@ class CfnExport(
             self,
             *,
             query_statement: builtins.str,
-            table_configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]]] = None,
+            table_configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]]] = None,
         ) -> None:
             '''The SQL query of column selections and row filters from the data table you want.
 
@@ -363,13 +363,13 @@ class CfnExport(
         @builtins.property
         def table_configurations(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]]]:
             '''The table configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bcmdataexports-export-dataquery.html#cfn-bcmdataexports-export-dataquery-tableconfigurations
             '''
             result = self._values.get("table_configurations")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1153,7 +1153,7 @@ def _typecheckingstub__1ad623342e4c1e6ad8d0a1e800f480ca841fcc2866deb4be0a499fc18
 def _typecheckingstub__e1a095753612659582b4b6117f8c7de657221f82c66d4926cce19af238d91343(
     *,
     query_statement: builtins.str,
-    table_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]]] = None,
+    table_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cyclonedx-python-lib
-Version: 11.7.0
+Version: 11.8.0
 Summary: Python library for CycloneDX
 License: Apache-2.0
 License-File: LICENSE
@@ -63,8 +63,8 @@ Description-Content-Type: text/markdown
 
 ----
 
-OWASP [CycloneDX][link_website] is a full-stack Bill of Materials (BOM) standard
-that provides advanced supply chain capabilities for cyber risk reduction.
+OWASP  [CycloneDX][link_website] is a full‑stack Bill of Materials (BOM) and system‑transparency standard
+that provides deep visibility into software, services, hardware, and AI components, enabling advanced supply‑chain security and cyber‑risk reduction.
 
 This Python package provides data models, validators and more,
 to help you create/render/read CycloneDX documents.

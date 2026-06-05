@@ -173,9 +173,7 @@ def _checkFields(inFields, inValues):
     if inFields is None and inValues is None:
         return S_OK()
 
-    try:
-        assert len(inFields) == len(inValues)
-    except AssertionError:
+    if len(inFields) != len(inValues):
         return S_ERROR(DErrno.EMYSQL, "Mismatch between inFields and inValues.")
 
     return S_OK()
@@ -726,7 +724,7 @@ class MySQL:
         return S_OK()
 
     @captureOptimizerTraces
-    def _query(self, cmd, *, conn=None, debug=True):
+    def _query(self, cmd, *, args=None, conn=None, debug=True):
         """
         execute MySQL query command
 
@@ -749,7 +747,7 @@ class MySQL:
 
         try:
             cursor = connection.cursor()
-            if cursor.execute(cmd):
+            if cursor.execute(cmd, args=args):
                 res = cursor.fetchall()
             else:
                 res = ()

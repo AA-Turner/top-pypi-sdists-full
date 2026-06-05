@@ -153,7 +153,7 @@ class CfnApp(
         stack_id: builtins.str,
         type: builtins.str,
         app_source: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApp.SourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        attributes: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         data_sources: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApp.DataSourceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         description: typing.Optional[builtins.str] = None,
         domains: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -327,14 +327,14 @@ class CfnApp(
     @jsii.member(jsii_name="attributes")
     def attributes(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''One or more user-defined key/value pairs to be added to the stack attributes.'''
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], jsii.get(self, "attributes"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "attributes"))
 
     @attributes.setter
     def attributes(
         self,
-        value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bced3305a9b7d70a45a3681d489962e84c64c8313a37872dfa4339ac6982d92d)
@@ -902,7 +902,7 @@ class CfnAppProps:
         stack_id: builtins.str,
         type: builtins.str,
         app_source: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApp.SourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        attributes: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         data_sources: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApp.DataSourceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         description: typing.Optional[builtins.str] = None,
         domains: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -1059,13 +1059,13 @@ class CfnAppProps:
     @builtins.property
     def attributes(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''One or more user-defined key/value pairs to be added to the stack attributes.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-app.html#cfn-opsworks-app-attributes
         '''
         result = self._values.get("attributes")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
     @builtins.property
     def data_sources(
@@ -2218,13 +2218,13 @@ class CfnInstance(
         def __init__(
             self,
             *,
-            friday: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
-            monday: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
-            saturday: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
-            sunday: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
-            thursday: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
-            tuesday: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
-            wednesday: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            friday: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
+            monday: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
+            saturday: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
+            sunday: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
+            thursday: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
+            tuesday: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
+            wednesday: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         ) -> None:
             '''
             :param friday: The schedule for Friday.
@@ -2296,79 +2296,79 @@ class CfnInstance(
         @builtins.property
         def friday(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''The schedule for Friday.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opsworks-instance-timebasedautoscaling.html#cfn-opsworks-instance-timebasedautoscaling-friday
             '''
             result = self._values.get("friday")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def monday(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''The schedule for Monday.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opsworks-instance-timebasedautoscaling.html#cfn-opsworks-instance-timebasedautoscaling-monday
             '''
             result = self._values.get("monday")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def saturday(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''The schedule for Saturday.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opsworks-instance-timebasedautoscaling.html#cfn-opsworks-instance-timebasedautoscaling-saturday
             '''
             result = self._values.get("saturday")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def sunday(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''The schedule for Sunday.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opsworks-instance-timebasedautoscaling.html#cfn-opsworks-instance-timebasedautoscaling-sunday
             '''
             result = self._values.get("sunday")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def thursday(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''The schedule for Thursday.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opsworks-instance-timebasedautoscaling.html#cfn-opsworks-instance-timebasedautoscaling-thursday
             '''
             result = self._values.get("thursday")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def tuesday(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''The schedule for Tuesday.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opsworks-instance-timebasedautoscaling.html#cfn-opsworks-instance-timebasedautoscaling-tuesday
             '''
             result = self._values.get("tuesday")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def wednesday(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''The schedule for Wednesday.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opsworks-instance-timebasedautoscaling.html#cfn-opsworks-instance-timebasedautoscaling-wednesday
             '''
             result = self._values.get("wednesday")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2947,7 +2947,7 @@ class CfnLayer(
         shortname: builtins.str,
         stack_id: builtins.str,
         type: builtins.str,
-        attributes: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         custom_instance_profile_arn: typing.Optional[builtins.str] = None,
         custom_json: typing.Any = None,
         custom_recipes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLayer.RecipesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -3207,14 +3207,14 @@ class CfnLayer(
     @jsii.member(jsii_name="attributes")
     def attributes(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''One or more user-defined key-value pairs to be added to the stack attributes.'''
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], jsii.get(self, "attributes"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "attributes"))
 
     @attributes.setter
     def attributes(
         self,
-        value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9395644dbf3af1a765e40fb019bf24792671a4e69e059385183e9f7d8c09cef2)
@@ -4096,7 +4096,7 @@ class CfnLayerProps:
         shortname: builtins.str,
         stack_id: builtins.str,
         type: builtins.str,
-        attributes: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         custom_instance_profile_arn: typing.Optional[builtins.str] = None,
         custom_json: typing.Any = None,
         custom_recipes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLayer.RecipesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -4353,7 +4353,7 @@ class CfnLayerProps:
     @builtins.property
     def attributes(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''One or more user-defined key-value pairs to be added to the stack attributes.
 
         To create a cluster layer, set the ``EcsClusterArn`` attribute to the cluster's ARN.
@@ -4361,7 +4361,7 @@ class CfnLayerProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-layer.html#cfn-opsworks-layer-attributes
         '''
         result = self._values.get("attributes")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
     @builtins.property
     def custom_instance_profile_arn(self) -> typing.Optional[builtins.str]:
@@ -4585,7 +4585,7 @@ class CfnStack(
         name: builtins.str,
         service_role_arn: builtins.str,
         agent_version: typing.Optional[builtins.str] = None,
-        attributes: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         chef_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStack.ChefConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         clone_app_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
         clone_permissions: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
@@ -4847,14 +4847,14 @@ class CfnStack(
     @jsii.member(jsii_name="attributes")
     def attributes(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''One or more user-defined key-value pairs to be added to the stack attributes.'''
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], jsii.get(self, "attributes"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "attributes"))
 
     @attributes.setter
     def attributes(
         self,
-        value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6f53c27695b37fef5c31ad65f5466de830aad0d0e404b030255b9b656ad9b651)
@@ -5650,7 +5650,7 @@ class CfnStackProps:
         name: builtins.str,
         service_role_arn: builtins.str,
         agent_version: typing.Optional[builtins.str] = None,
-        attributes: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         chef_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStack.ChefConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         clone_app_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
         clone_permissions: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
@@ -5902,13 +5902,13 @@ class CfnStackProps:
     @builtins.property
     def attributes(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''One or more user-defined key-value pairs to be added to the stack attributes.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-stack.html#cfn-opsworks-stack-attributes
         '''
         result = self._values.get("attributes")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
     @builtins.property
     def chef_configuration(
@@ -6827,7 +6827,7 @@ def _typecheckingstub__9cfc69040af8322a035060c3c2b7a93463983dd64c29f11c41157c08b
     stack_id: builtins.str,
     type: builtins.str,
     app_source: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.SourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    attributes: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     data_sources: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.DataSourceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     description: typing.Optional[builtins.str] = None,
     domains: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -6882,7 +6882,7 @@ def _typecheckingstub__185dad1883ad44edf530c80eedb41525e399494340def4de222a61617
     pass
 
 def _typecheckingstub__bced3305a9b7d70a45a3681d489962e84c64c8313a37872dfa4339ac6982d92d(
-    value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6974,7 +6974,7 @@ def _typecheckingstub__fe0ae5f6e1367f942976862a375aa88ecad21e52429978b2181e9115c
     stack_id: builtins.str,
     type: builtins.str,
     app_source: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.SourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    attributes: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     data_sources: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.DataSourceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     description: typing.Optional[builtins.str] = None,
     domains: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -7230,13 +7230,13 @@ def _typecheckingstub__8c551f707582f21e17ce83ff8919f39f0c4300ae1c19ef2018670b1ed
 
 def _typecheckingstub__8dfcb549734883fb71a8f431ae16a65e4c926d97e9483cc865e0718bdaaae37b(
     *,
-    friday: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-    monday: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-    saturday: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-    sunday: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-    thursday: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-    tuesday: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-    wednesday: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    friday: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
+    monday: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
+    saturday: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
+    sunday: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
+    thursday: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
+    tuesday: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
+    wednesday: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7279,7 +7279,7 @@ def _typecheckingstub__de185bdebf2e1467933cd283fec95f5a7ee02ecc41533bdbfa207c91a
     shortname: builtins.str,
     stack_id: builtins.str,
     type: builtins.str,
-    attributes: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     custom_instance_profile_arn: typing.Optional[builtins.str] = None,
     custom_json: typing.Any = None,
     custom_recipes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLayer.RecipesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -7362,7 +7362,7 @@ def _typecheckingstub__450ddd14c164d17317234149c9d02cecfd7b8da38ff8262ee9a2fcb25
     pass
 
 def _typecheckingstub__9395644dbf3af1a765e40fb019bf24792671a4e69e059385183e9f7d8c09cef2(
-    value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7496,7 +7496,7 @@ def _typecheckingstub__44c38216d74d64877783d8570f455e1bede8bb638962a7d006b49b8f7
     shortname: builtins.str,
     stack_id: builtins.str,
     type: builtins.str,
-    attributes: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     custom_instance_profile_arn: typing.Optional[builtins.str] = None,
     custom_json: typing.Any = None,
     custom_recipes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLayer.RecipesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -7520,7 +7520,7 @@ def _typecheckingstub__6bf36f6bd552e246cec8163081581d4887e2e1838c2af0dfdfec5a942
     name: builtins.str,
     service_role_arn: builtins.str,
     agent_version: typing.Optional[builtins.str] = None,
-    attributes: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     chef_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStack.ChefConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     clone_app_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     clone_permissions: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
@@ -7608,7 +7608,7 @@ def _typecheckingstub__9be1597201772d629a8add01522e76bbc0e640244dde68fc6989d34c4
     pass
 
 def _typecheckingstub__6f53c27695b37fef5c31ad65f5466de830aad0d0e404b030255b9b656ad9b651(
-    value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7778,7 +7778,7 @@ def _typecheckingstub__675a36919e38f296f3b53b7679384ec86298336f087126cb5bee9e1e2
     name: builtins.str,
     service_role_arn: builtins.str,
     agent_version: typing.Optional[builtins.str] = None,
-    attributes: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     chef_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStack.ChefConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     clone_app_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     clone_permissions: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,

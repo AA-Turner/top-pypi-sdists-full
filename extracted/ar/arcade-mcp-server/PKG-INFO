@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: arcade-mcp-server
-Version: 1.22.1
+Version: 1.22.2
 Summary: Model Context Protocol (MCP) server framework for Arcade.dev
 Author: Arcade.dev
 License: MIT
@@ -14,7 +14,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.10
 Requires-Dist: anyio>=4.0.0
-Requires-Dist: arcade-core<5.0.0,>=4.7.1
+Requires-Dist: arcade-core<5.0.0,>=4.7.3
 Requires-Dist: arcade-serve<4.0.0,>=3.2.4
 Requires-Dist: arcade-tdk<4.0.0,>=3.7.0
 Requires-Dist: arcadepy>=1.5.0

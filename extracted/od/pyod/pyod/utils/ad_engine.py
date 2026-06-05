@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""ADEngine: Intelligent anomaly detection lifecycle engine.
+"""ADEngine: anomaly detection lifecycle engine.
 
 Handles data profiling, detection planning, detector construction,
 and knowledge queries. Works as a standalone Python API (no LLM
@@ -57,10 +57,15 @@ class ADEngine:
         Random seed forwarded to every detector that declares an
         explicit ``random_state`` parameter when the engine instantiates
         it from a plan. Detectors without ``random_state`` in their
-        signature (e.g., ABOD, KNN, LOF, SOD) are unaffected and remain
-        deterministic-up-to-numpy-module-state. Set this to a fixed
-        integer for reproducible flagged sets across re-runs on the
-        same input.
+        signature (e.g., ABOD, KNN, LOF, SOD) are deterministic by
+        construction (distance, angle, or density based, with no internal
+        sampling) and need no seed. With this set, the shallow-detector
+        pipeline is reproducible: a run-to-run audit of the shipped
+        shallow detectors found every one either honors the seed or is
+        deterministic by construction, with no nondeterministic cases.
+        Deep detectors additionally depend on framework-level seeding
+        (e.g., ``torch.manual_seed``). Set this to a fixed integer for
+        byte-identical flagged sets across re-runs on the same input.
     """
 
     def __init__(self, knowledge_dir: str | None = None,
@@ -77,7 +82,7 @@ class ADEngine:
             Input data.
         data_type : str or None
             Explicit override. One of 'tabular', 'text', 'image',
-            'time_series', 'multimodal', 'graph'.
+            'audio', 'time_series', 'multimodal', 'graph'.
 
         Returns
         -------
@@ -93,6 +98,8 @@ class ADEngine:
         if detected_type == 'text':
             profile['n_samples'] = len(X)
         elif detected_type == 'image':
+            profile['n_samples'] = len(X)
+        elif detected_type == 'audio':
             profile['n_samples'] = len(X)
         elif detected_type == 'multimodal':
             first_key = next(iter(X))
@@ -148,6 +155,8 @@ class ADEngine:
             if all(isinstance(x, str) for x in sample):
                 if self._looks_like_image_paths(sample[:5]):
                     return 'image'
+                if self._looks_like_audio_paths(sample[:5]):
+                    return 'audio'
                 return 'text'
         return 'tabular'
 
@@ -159,6 +168,17 @@ class ADEngine:
         for s in samples:
             ext = os.path.splitext(s)[1].lower()
             if ext not in image_exts:
+                return False
+        return True
+
+    @staticmethod
+    def _looks_like_audio_paths(samples: list[str]) -> bool:
+        """Check if string samples look like audio file paths."""
+        audio_exts = {'.wav', '.flac', '.mp3', '.ogg', '.m4a',
+                      '.aac', '.wma', '.aiff', '.aif'}
+        for s in samples:
+            ext = os.path.splitext(s)[1].lower()
+            if ext not in audio_exts:
                 return False
         return True
 
@@ -188,7 +208,10 @@ class ADEngine:
         return out
 
     def plan_detection(self, profile: dict, priority: str = 'balanced',
-                       constraints: dict | None = None) -> dict:
+                       constraints: dict | None = None, *,
+                       top_k: int = 3,
+                       llm_client=None,
+                       llm_strict: bool | None = None) -> dict:
         """Plan a detection pipeline.
 
         Parameters
@@ -199,12 +222,56 @@ class ADEngine:
             'speed', 'accuracy', or 'balanced'.
         constraints : dict or None
             Optional: {'exclude_detectors': [...]}
+        top_k : int, default 3
+            Number of detectors in the returned plan (primary + ``top_k - 1``
+            alternatives). Default ``3`` preserves the v3.5.2 behaviour
+            (``valid[1:3]`` produced two alternatives plus the primary).
+            Values < 1 are clamped to 1.
+        llm_client : callable or None, default None
+            Optional ``(prompt: str) -> str`` callable (see
+            :class:`pyod.utils._llm.LLMCallable`). When provided, routing
+            consults the LLM with the KB context and parses its response
+            into a plan via :func:`pyod.utils._llm.parse_routing_response`.
+            If the LLM call or parser raises, falls back to rule routing
+            with a :class:`RuntimeWarning` (see ``llm_strict``). When
+            ``None`` (default), v3.5.2 rule routing is unchanged.
+        llm_strict : bool or None, default None
+            Per-call control for LLM-routing failure mode. ``True``
+            re-raises any exception from ``llm_client`` or the response
+            parser; ``False`` falls back to rule routing with a
+            :class:`RuntimeWarning`; ``None`` defers to the
+            ``PYOD3_LLM_STRICT`` environment variable
+            (``"1"`` re-raises, anything else falls back). The explicit
+            kwarg takes precedence so concurrent callers in the same
+            process can choose independently.
 
         Returns
         -------
         plan : dict (DetectionPlan, closed schema)
         """
         constraints = constraints or {}
+        top_k = max(1, int(top_k))
+
+        if llm_client is not None:
+            try:
+                return self._plan_via_llm(profile, top_k, llm_client,
+                                          constraints)
+            except Exception as ex:  # noqa: BLE001
+                if llm_strict is None:
+                    import os
+                    strict = os.environ.get('PYOD3_LLM_STRICT') == '1'
+                else:
+                    strict = bool(llm_strict)
+                if strict:
+                    raise
+                import warnings
+                warnings.warn(
+                    f"plan_detection: llm_client routing failed "
+                    f"({type(ex).__name__}: {ex}); falling back to "
+                    "rule routing. Pass llm_strict=True (or set "
+                    "PYOD3_LLM_STRICT=1) to re-raise.",
+                    RuntimeWarning, stacklevel=2)
+
         exclude = set(constraints.get('exclude_detectors', []))
 
         matched = evaluate_rules(profile, priority, self.kb)
@@ -260,7 +327,7 @@ class ADEngine:
             reason=r.get('_reason', ''),
             evidence=r.get('_evidence', []),
             confidence=r.get('confidence', 0.5),
-            alternatives=[]) for r in valid[1:3]]
+            alternatives=[]) for r in valid[1:top_k]]
 
         return make_plan(
             detector_name=best['detector'],
@@ -271,6 +338,285 @@ class ADEngine:
             evidence=best.get('_evidence', []),
             confidence=best.get('confidence', 0.7),
             alternatives=alternatives)
+
+    # ------------------------------------------------------------------
+    # Surface 1: KB exposure for caller-driven (agent / LLM) routing
+    # ------------------------------------------------------------------
+
+    def get_kb_for_routing(self, profile: dict, top_k: int = 3,
+                           constraints: dict | None = None) -> dict:
+        """Return a structured KB snapshot for caller-driven detector
+        selection.
+
+        This is the agent-facing companion to :meth:`plan_detection`.
+        ``plan_detection`` consumes the KB through hand-coded rules and
+        returns a single plan; ``get_kb_for_routing`` exposes the KB
+        directly so a caller (LLM agent, MCP tool client, ...) can
+        reason over each detector's strengths, weaknesses, complexity,
+        and benchmark rank, then call :meth:`make_plan` to commit a
+        plan.
+
+        Parameters
+        ----------
+        profile : dict
+            Output of :meth:`profile_data`. Must include ``data_type``;
+            ``n_samples`` / ``n_features`` are passed through unchanged.
+        top_k : int, default 3
+            The number of detectors the caller intends to select. The KB
+            snapshot itself is returned in full (filtered + sorted); the
+            field is included in the returned dict so the response-format
+            hint can reference it.
+        constraints : dict or None, optional
+            ``{'exclude_detectors': list[str], 'data_type_strict': bool}``.
+            ``exclude_detectors`` is a hard filter. ``data_type_strict``
+            (default ``True``) drops detectors whose KB ``data_types``
+            field does not include ``profile['data_type']``.
+
+        Returns
+        -------
+        dict
+            ``{'task_profile': {...}, 'available_detectors': [...],
+            'top_k_requested': int, 'response_format_hint': str,
+            'n_available': int}``.
+
+        Notes
+        -----
+        Pure function; no LLM calls, no state mutation.
+        """
+        if not isinstance(profile, dict):
+            raise ValueError("profile must be a dict from profile_data()")
+        top_k = max(1, int(top_k))
+        constraints = constraints or {}
+        exclude = set(constraints.get('exclude_detectors') or [])
+        data_type_strict = constraints.get('data_type_strict', True)
+        target_modality = profile.get('data_type', 'tabular')
+
+        catalog = self.list_detectors(data_type=None, status='shipped')
+        available: list[dict] = []
+        for entry in catalog:
+            name = entry.get('name') if isinstance(entry, dict) else str(entry)
+            if name in exclude:
+                continue
+            dts = entry.get('data_types') or []
+            modality_match = (target_modality in dts) if dts else True
+            if data_type_strict and not modality_match:
+                continue
+            complexity = entry.get('complexity') or {}
+            available.append({
+                'name': name,
+                'category': entry.get('category', 'unknown'),
+                'complexity_time': complexity.get('time'),
+                'complexity_space': complexity.get('space'),
+                'strengths': entry.get('strengths') or [],
+                'weaknesses': entry.get('weaknesses') or [],
+                'best_for': entry.get('best_for'),
+                'avoid_when': entry.get('avoid_when'),
+                'benchmark_rank': entry.get('benchmark_rank') or {},
+                'modality_match': modality_match,
+            })
+
+        # Modality-aware benchmark-rank keys. Each modality lists its
+        # preferred KB rank fields in priority order; the first non-None
+        # value sets the sort key. `ADBench_overall` is the universal
+        # fallback because the KB ships rank for nearly every tabular
+        # detector there. Detectors missing every key sort last (999).
+        _MODALITY_RANK_KEYS = {
+            'tabular': ['ADBench_overall'],
+            'time_series': ['TSB_AD_overall', 'TSB_AD_overall_iforest',
+                            'ADBench_overall'],
+            'timeseries': ['TSB_AD_overall', 'TSB_AD_overall_iforest',
+                           'ADBench_overall'],
+            'graph': ['BOND_deep', 'BOND_overall', 'ADBench_overall'],
+            'text': ['NLP_ADBench_overall', 'ADBench_overall'],
+            'image': ['MVTec_overall', 'ADBench_overall'],
+            'synthetic': ['ADBench_overall'],
+        }
+        rank_key_candidates = _MODALITY_RANK_KEYS.get(
+            str(target_modality).lower(),
+            [f"{str(target_modality).title()}_overall", 'ADBench_overall'])
+
+        def _rank(d):
+            br = d.get('benchmark_rank') or {}
+            for k in rank_key_candidates:
+                v = br.get(k)
+                if v is not None:
+                    return v
+            return 999
+
+        # Stamp the resolved (rank, rank_key) on each entry so downstream
+        # consumers (e.g., build_routing_prompt) can render the modality-
+        # specific rank without re-doing the lookup. None when no rank
+        # field is present in the KB for this detector under this modality.
+        for d in available:
+            br = d.get('benchmark_rank') or {}
+            resolved = None
+            resolved_key = None
+            for k in rank_key_candidates:
+                v = br.get(k)
+                if v is not None:
+                    resolved = v
+                    resolved_key = k
+                    break
+            d['resolved_rank'] = resolved
+            d['resolved_rank_key'] = resolved_key
+
+        available.sort(key=lambda d: (_rank(d), d['name']))
+
+        # Strip non-JSON-safe fields from the profile copy
+        profile_safe = {k: v for k, v in profile.items() if k != 'data'}
+
+        return {
+            'task_profile': profile_safe,
+            'available_detectors': available,
+            'top_k_requested': top_k,
+            'response_format_hint': (
+                "To commit your selection, call ADEngine.make_plan with "
+                "detector_choices=['detName1', ...] (ordered list of "
+                f"top-{top_k} names from available_detectors[*].name; "
+                "case-sensitive) and justifications=['why1', ...] "
+                "(parallel list, one short sentence each)."
+            ),
+            'n_available': len(available),
+        }
+
+    def make_plan(self, detector_choices: list,
+                  justifications: list | None = None,
+                  params: list | None = None) -> dict:
+        """Commit a caller-driven detector plan and return a DetectionPlan.
+
+        Companion to :meth:`get_kb_for_routing`. The caller (LLM agent,
+        rule engine, human script) selects ``len(detector_choices)``
+        detectors and this method validates names against the KB, fills
+        per-detector defaults, and packages the result as a
+        :func:`pyod.utils._kb_router.make_plan`-shaped dict so existing
+        consumers (``build_detector``, ``run``, downstream MCP clients)
+        keep working unchanged.
+
+        Parameters
+        ----------
+        detector_choices : list of str
+            Ordered list of detector class names. ``detector_choices[0]``
+            is the primary; the rest become ``alternatives`` in plan
+            order. Length must be >= 1. Names must match KB entries
+            (case-sensitive) with ``status='shipped'``; otherwise
+            ``ValueError`` is raised.
+        justifications : list of str, optional
+            Parallel to ``detector_choices``. One short sentence per
+            choice. ``None`` is accepted and yields autogenerated
+            reasons.
+        params : list of dict, optional
+            Parallel to ``detector_choices``. Per-detector constructor
+            kwargs. ``None`` -> KB defaults overlaid with the
+            engine's contamination resolution.
+
+        Returns
+        -------
+        dict
+            Closed-schema DetectionPlan: ``{'detector_name',
+            'params', 'reason', 'evidence', 'confidence',
+            'alternatives', 'note'}``.
+
+        Raises
+        ------
+        ValueError
+            If ``detector_choices`` is empty or any name is unknown /
+            not ``status='shipped'`` in the KB.
+        """
+        if not detector_choices:
+            raise ValueError(
+                "detector_choices must be non-empty; got an empty list")
+        if not isinstance(detector_choices, list):
+            raise ValueError(
+                "detector_choices must be a list of strings; "
+                f"got {type(detector_choices).__name__}")
+
+        justifications = list(justifications or [])
+        params_list = list(params or [])
+        while len(justifications) < len(detector_choices):
+            justifications.append('')
+        while len(params_list) < len(detector_choices):
+            params_list.append({})
+
+        unknown = []
+        not_shipped = []
+        for name in detector_choices:
+            algo = self.kb.get_algorithm(name)
+            if algo is None:
+                unknown.append(name)
+                continue
+            if algo.get('status') != 'shipped':
+                not_shipped.append(name)
+        if unknown:
+            raise ValueError(
+                "Unknown detector name(s) (case-sensitive). Names must "
+                "match KB entries from ADEngine.list_detectors(): "
+                f"{unknown!r}")
+        if not_shipped:
+            raise ValueError(
+                f"Detector(s) not shipped (cannot be built): {not_shipped!r}")
+
+        primary = detector_choices[0]
+        primary_params = self._with_contamination(
+            primary, params_list[0] or {})
+        alternatives = []
+        for i, det in enumerate(detector_choices[1:], start=1):
+            alt_params = self._with_contamination(det, params_list[i] or {})
+            alt_reason = (justifications[i] or
+                          'caller-selected via make_plan')
+            alternatives.append(make_plan(
+                detector_name=det,
+                params=alt_params,
+                reason=alt_reason,
+                evidence=['caller_selection'],
+                confidence=0.5,
+                alternatives=[]))
+
+        primary_reason = (justifications[0] or
+                          'caller-selected via make_plan')
+        return make_plan(
+            detector_name=primary,
+            params=primary_params,
+            reason=primary_reason,
+            evidence=['caller_selection'],
+            confidence=0.7,
+            alternatives=alternatives,
+            note='caller-driven via make_plan')
+
+    def _plan_via_llm(self, profile: dict, top_k: int, llm_client,
+                      constraints: dict | None = None) -> dict:
+        """Route via an LLM client (internal; see plan_detection)."""
+        from ._llm import (
+            RoutingParseError,
+            build_routing_prompt,
+            parse_routing_response,
+        )
+        kb_context = self.get_kb_for_routing(
+            profile, top_k=top_k, constraints=constraints or {})
+        prompt = build_routing_prompt(kb_context, top_k=top_k)
+        response = llm_client(prompt)
+        detector_choices, justifications = parse_routing_response(
+            response, self.kb, top_k=top_k)
+        # LLM output is untrusted: enforce the constrained KB context
+        # (exclude_detectors + data_type_strict) after parsing. Without
+        # this, a hostile or buggy client could return an excluded or
+        # modality-mismatched detector and get an LLM-sourced plan.
+        # parse_routing_response only validates against the global KB.
+        allowed = {d['name'] for d in kb_context.get(
+            'available_detectors', [])}
+        blocked = [name for name in detector_choices if name not in allowed]
+        if blocked:
+            raise RoutingParseError(
+                "LLM selected detector(s) outside the constrained KB "
+                f"context: {blocked!r}. The constrained context "
+                f"excluded {sorted(constraints.get('exclude_detectors') or [])!r}.")
+        plan = self.make_plan(
+            detector_choices=detector_choices,
+            justifications=justifications)
+        # Tag the plan so downstream code can distinguish LLM-sourced
+        # plans from caller-driven or rule-driven ones.
+        plan['note'] = 'llm-driven via plan_detection(llm_client=...)'
+        plan['evidence'] = ['llm_routing']
+        return plan
 
     # ------------------------------------------------------------------
     # Detector construction

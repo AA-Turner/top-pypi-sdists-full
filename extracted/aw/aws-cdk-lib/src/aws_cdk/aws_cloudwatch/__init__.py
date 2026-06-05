@@ -574,9 +574,9 @@ alarm.add_ok_action(cloudwatch_actions.SnsAction(topic))
 ### Importing an Existing PromQL Alarm
 
 ```python
-imported_by_arn = cloudwatch.PromQLAlarm.from_prom_qLAlarm_arn(self, "ImportedAlarm", "arn:aws:cloudwatch:us-east-1:123456789012:alarm:MyPromQLAlarm")
+imported_by_arn = cloudwatch.PromQLAlarm.from_prom_ql_alarm_arn(self, "ImportedAlarm", "arn:aws:cloudwatch:us-east-1:123456789012:alarm:MyPromQLAlarm")
 
-imported_by_name = cloudwatch.PromQLAlarm.from_prom_qLAlarm_name(self, "ImportedByName", "MyPromQLAlarm")
+imported_by_name = cloudwatch.PromQLAlarm.from_prom_ql_alarm_name(self, "ImportedByName", "MyPromQLAlarm")
 ```
 
 ### Using in Composite Alarms
@@ -823,7 +823,7 @@ Gauge graph requires the max and min value of the left Y axis, if no value is in
 
 dashboard.add_widgets(cloudwatch.GaugeWidget(
     metrics=[gauge_metric],
-    left_yAxis=cloudwatch.YAxisProps(
+    left_y_axis=cloudwatch.YAxisProps(
         min=0,
         max=1000
     )
@@ -2577,7 +2577,7 @@ class CfnAlarm(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_cloudwatch as cloudwatch
                 
-                alarm_prom_qLCriteria_property = cloudwatch.CfnAlarm.AlarmPromQLCriteriaProperty(
+                alarm_prom_ql_criteria_property = cloudwatch.CfnAlarm.AlarmPromQLCriteriaProperty(
                     pending_period=123,
                     query="query",
                     recovery_period=123
@@ -8175,7 +8175,7 @@ class CfnOTelEnrichment(
         # The values are placeholders you should change.
         from aws_cdk import aws_cloudwatch as cloudwatch
         
-        cfn_oTel_enrichment = cloudwatch.CfnOTelEnrichment(self, "MyCfnOTelEnrichment")
+        cfn_o_tel_enrichment = cloudwatch.CfnOTelEnrichment(self, "MyCfnOTelEnrichment")
     '''
 
     def __init__(
@@ -8293,7 +8293,7 @@ class CfnOTelEnrichmentProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_cloudwatch as cloudwatch
             
-            cfn_oTel_enrichment_props = cloudwatch.CfnOTelEnrichmentProps()
+            cfn_o_tel_enrichment_props = cloudwatch.CfnOTelEnrichmentProps()
         '''
         self._values: typing.Dict[builtins.str, typing.Any] = {}
 
@@ -15535,7 +15535,7 @@ class YAxisProps:
             
             dashboard.add_widgets(cloudwatch.GaugeWidget(
                 metrics=[gauge_metric],
-                left_yAxis=cloudwatch.YAxisProps(
+                left_y_axis=cloudwatch.YAxisProps(
                     min=0,
                     max=1000
                 )
@@ -16512,7 +16512,7 @@ class GaugeWidget(
         
         dashboard.add_widgets(cloudwatch.GaugeWidget(
             metrics=[gauge_metric],
-            left_yAxis=cloudwatch.YAxisProps(
+            left_y_axis=cloudwatch.YAxisProps(
                 min=0,
                 max=1000
             )
@@ -16662,7 +16662,7 @@ class GaugeWidgetProps(MetricWidgetProps):
             
             dashboard.add_widgets(cloudwatch.GaugeWidget(
                 metrics=[gauge_metric],
-                left_yAxis=cloudwatch.YAxisProps(
+                left_y_axis=cloudwatch.YAxisProps(
                     min=0,
                     max=1000
                 )

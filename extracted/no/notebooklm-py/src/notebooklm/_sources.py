@@ -3,25 +3,29 @@
 import asyncio
 import builtins
 import logging
-import warnings
 from collections.abc import Callable
 from pathlib import Path
 from time import monotonic
-from typing import IO, Any, Literal, cast
+from typing import IO, Any, Literal
 from urllib.parse import urlparse
 
 import httpx
 
-from . import _source_upload
-from ._session_config import DEFAULT_MAX_CONCURRENT_UPLOADS
-from ._session_contracts import RpcCaller
+from ._deprecation import future_errors_enabled
+from ._lookup import resolve_get
+from ._runtime.config import DEFAULT_MAX_CONCURRENT_UPLOADS
+from ._runtime.contracts import RpcCaller
 from ._settings import build_get_user_settings_params, extract_account_limits
-from ._source_add import SourceAddService
-from ._source_content import SourceContentRenderer
-from ._source_listing import SourceLister
-from ._source_polling import SourcePoller
-from ._source_upload import SourceUploadPipeline
+from ._source import upload as _source_upload
+from ._source.add import SourceAddService
+from ._source.content import SourceContentRenderer
+from ._source.listing import SourceLister
+from ._source.polling import SourcePoller
+from ._source.upload import SourceUploadPipeline
+from ._source.upload_payloads import build_rename_source_params
+from ._types.research import SourceGuide
 from ._url_utils import is_youtube_url
+from .exceptions import SourceNotFoundError
 from .rpc import RPCMethod
 from .types import (
     Source,
@@ -31,60 +35,9 @@ from .types import (
 logger = logging.getLogger(__name__)
 
 
-class _SignatureDefault:
-    def __init__(self, display: str) -> None:
-        self._display = display
-
-    def __repr__(self) -> str:
-        return self._display
-
-
-_DEFAULT_WAIT: Any = _SignatureDefault("False")
-_DEFAULT_WAIT_TIMEOUT: Any = _SignatureDefault("120.0")
 _SOURCE_ID_UUID_PATTERN = _source_upload._SOURCE_ID_UUID_PATTERN
 _extract_register_file_source_id = _source_upload._extract_register_file_source_id
 _looks_like_id_string = _source_upload._looks_like_id_string
-
-
-def _resolve_legacy_wait_args(
-    method_name: str,
-    legacy_wait_args: tuple[Any, ...],
-    *,
-    wait: Any,
-    wait_timeout: Any,
-) -> tuple[bool, float]:
-    """Accept legacy positional wait args for one deprecation window."""
-    if len(legacy_wait_args) > 2:
-        raise TypeError(
-            f"{method_name}() takes at most 2 positional wait arguments "
-            f"but {len(legacy_wait_args)} were given"
-        )
-
-    if legacy_wait_args:
-        if wait is not _DEFAULT_WAIT:
-            raise TypeError(f"{method_name}() got multiple values for argument 'wait'")
-        if len(legacy_wait_args) == 2 and wait_timeout is not _DEFAULT_WAIT_TIMEOUT:
-            raise TypeError(f"{method_name}() got multiple values for argument 'wait_timeout'")
-
-        warnings.warn(
-            f"Passing wait/wait_timeout positionally to {method_name} is deprecated; "
-            "use wait=<value> and wait_timeout=<value> as keyword arguments. "
-            "Positional wait arguments will be removed in v0.6.0.",
-            DeprecationWarning,
-            stacklevel=3,
-        )
-
-        wait = legacy_wait_args[0]
-
-        if len(legacy_wait_args) == 2:
-            wait_timeout = legacy_wait_args[1]
-
-    if wait is _DEFAULT_WAIT:
-        wait = False
-    if wait_timeout is _DEFAULT_WAIT_TIMEOUT:
-        wait_timeout = 120.0
-
-    return cast(bool, wait), cast(float, wait_timeout)
 
 
 class SourcesAPI:
@@ -150,6 +103,14 @@ class SourcesAPI:
         self._max_concurrent_uploads = max_concurrent_uploads
         self._uploader = uploader
         self._uploader.configure_source_limit_lookup(self._get_source_limit)
+        # Single owner for the source-lifecycle verbs: the upload pipeline
+        # delegates its ``list_sources`` / ``get_source`` / ``wait_*`` verbs
+        # to the SAME ``SourceLister`` / ``SourcePoller`` instances this API
+        # uses, rather than re-constructing parallel copies (issue #1205).
+        self._uploader.configure_source_lifecycle(
+            lister=self._lister,
+            poller=self._poller,
+        )
 
     async def _rpc_call(
         self,
@@ -196,12 +157,50 @@ class SourcesAPI:
 
         Returns:
             Source object with current status, or None if not found.
+
+        .. deprecated:: 0.7.0
+            Returning ``None`` for a missing source is deprecated and emits a
+            :class:`DeprecationWarning`. In **v0.8.0** this method will raise
+            :class:`~notebooklm.exceptions.SourceNotFoundError` instead, to match
+            ``notebooks.get`` (issue #1247); wrap in ``try/except
+            SourceNotFoundError`` to keep handling missing sources. Suppress with
+            ``NOTEBOOKLM_QUIET_DEPRECATIONS``, or set ``NOTEBOOKLM_FUTURE_ERRORS=1``
+            to preview the v0.8.0 raise now.
+        """
+        # ``resolve_get`` single-sources the warn-vs-raise decision (#1247);
+        # internal callers needing the silent lookup use ``get_or_none``.
+        return resolve_get(
+            await self.get_or_none(notebook_id, source_id),
+            not_found=SourceNotFoundError(source_id),
+            resource="source",
+        )
+
+    async def get_or_none(self, notebook_id: str, source_id: str) -> Source | None:
+        """Get a source by ID, returning ``None`` when it does not exist.
+
+        The sanctioned ``None``-on-miss lookup (ADR-0019): unlike :meth:`get`
+        — which is slated to raise :class:`~notebooklm.exceptions.SourceNotFoundError`
+        on a miss in v0.8.0 (issue #1247) — this returns ``None`` for a genuine
+        absence and emits no deprecation warning. Transport, auth, and decode
+        faults are **not** swallowed; only a real "not found" yields ``None``.
+
+        Args:
+            notebook_id: The notebook ID.
+            source_id: The source ID.
+
+        Returns:
+            The :class:`~notebooklm.types.Source`, or ``None`` if not found.
         """
         return await self._lister.get(
             notebook_id,
             source_id,
             list_sources=self.list,
         )
+
+    # Internal optional-lookup alias: the readiness pollers and CLI service
+    # layer probe for a source without tripping the public ``get`` deprecation
+    # warning. Kept as a stable private name so those call sites need no churn.
+    _get_or_none = get_or_none
 
     async def wait_until_ready(
         self,
@@ -250,7 +249,7 @@ class SourcesAPI:
             max_interval=max_interval,
             backoff_factor=backoff_factor,
             transient_error_types=transient_error_types,
-            get_source=self.get,
+            get_source=self._get_or_none,
             sleep=asyncio.sleep,
             monotonic=monotonic,
             logger=logger,
@@ -303,7 +302,7 @@ class SourcesAPI:
             max_interval=max_interval,
             backoff_factor=backoff_factor,
             transient_error_types=transient_error_types,
-            get_source=self.get,
+            get_source=self._get_or_none,
             sleep=asyncio.sleep,
             monotonic=monotonic,
             logger=logger,
@@ -354,9 +353,9 @@ class SourcesAPI:
         self,
         notebook_id: str,
         url: str,
-        *legacy_wait_args: Any,
-        wait: Any = _DEFAULT_WAIT,
-        wait_timeout: Any = _DEFAULT_WAIT_TIMEOUT,
+        *,
+        wait: bool = False,
+        wait_timeout: float = 120.0,
     ) -> Source:
         """Add a URL source to a notebook.
 
@@ -380,12 +379,6 @@ class SourcesAPI:
             # ... add more sources ...
             await client.sources.wait_for_sources(nb_id, [s.id for s in sources])
         """
-        wait, wait_timeout = _resolve_legacy_wait_args(
-            "SourcesAPI.add_url",
-            legacy_wait_args,
-            wait=wait,
-            wait_timeout=wait_timeout,
-        )
         return await self._adder.add_url(
             notebook_id,
             url,
@@ -405,9 +398,9 @@ class SourcesAPI:
         notebook_id: str,
         title: str,
         content: str,
-        *legacy_wait_args: Any,
-        wait: Any = _DEFAULT_WAIT,
-        wait_timeout: Any = _DEFAULT_WAIT_TIMEOUT,
+        *,
+        wait: bool = False,
+        wait_timeout: float = 120.0,
         idempotent: bool = False,
     ) -> Source:
         """Add a text source (copied text) to a notebook.
@@ -441,12 +434,6 @@ class SourcesAPI:
         Raises:
             NonIdempotentRetryError: When ``idempotent=True``.
         """
-        wait, wait_timeout = _resolve_legacy_wait_args(
-            "SourcesAPI.add_text",
-            legacy_wait_args,
-            wait=wait,
-            wait_timeout=wait_timeout,
-        )
         return await self._adder.add_text(
             notebook_id,
             title,
@@ -464,9 +451,9 @@ class SourcesAPI:
         notebook_id: str,
         file_path: str | Path,
         mime_type: str | None = None,
-        *legacy_wait_args: Any,
-        wait: Any = _DEFAULT_WAIT,
-        wait_timeout: Any = _DEFAULT_WAIT_TIMEOUT,
+        *,
+        wait: bool = False,
+        wait_timeout: float = 120.0,
         title: str | None = None,
         on_progress: Callable[[int, int], object] | None = None,
     ) -> Source:
@@ -548,12 +535,6 @@ class SourcesAPI:
                 upload endpoint rejects. Convert saved web pages to text,
                 Markdown, or PDF before calling this method.
         """
-        wait, wait_timeout = _resolve_legacy_wait_args(
-            "SourcesAPI.add_file",
-            legacy_wait_args,
-            wait=wait,
-            wait_timeout=wait_timeout,
-        )
         return await self._uploader.add_file(
             notebook_id,
             file_path,
@@ -570,9 +551,9 @@ class SourcesAPI:
         file_id: str,
         title: str,
         mime_type: str = "application/vnd.google-apps.document",
-        *legacy_wait_args: Any,
-        wait: Any = _DEFAULT_WAIT,
-        wait_timeout: Any = _DEFAULT_WAIT_TIMEOUT,
+        *,
+        wait: bool = False,
+        wait_timeout: float = 120.0,
     ) -> Source:
         """Add a Google Drive document as a source.
 
@@ -602,12 +583,6 @@ class SourcesAPI:
                 wait=True,  # Wait for processing
             )
         """
-        wait, wait_timeout = _resolve_legacy_wait_args(
-            "SourcesAPI.add_drive",
-            legacy_wait_args,
-            wait=wait,
-            wait_timeout=wait_timeout,
-        )
         return await self._adder.add_drive(
             notebook_id,
             file_id,
@@ -621,15 +596,21 @@ class SourcesAPI:
             logger=logger,
         )
 
-    async def delete(self, notebook_id: str, source_id: str) -> bool:
+    async def delete(self, notebook_id: str, source_id: str) -> None:
         """Delete a source from a notebook.
+
+        Idempotent: deleting an already-absent source succeeds (returns
+        ``None``) and never raises ``SourceNotFoundError``. Real failures
+        (``403``/``5xx``/auth/transport) still propagate.
 
         Args:
             notebook_id: The notebook ID.
             source_id: The source ID to delete.
 
-        Returns:
-            True if deletion succeeded.
+        .. versionchanged:: 0.7.0
+            **Breaking change:** previously returned a hardcoded ``True``;
+            now returns ``None`` (issue #1211). ``if await source.delete(...):``
+            no longer enters its block.
         """
         logger.debug("Deleting source %s from notebook %s", source_id, notebook_id)
         params = [[[source_id]]]
@@ -639,28 +620,61 @@ class SourcesAPI:
             source_path=f"/notebook/{notebook_id}",
             allow_null=True,
         )
-        return True
 
-    async def rename(self, notebook_id: str, source_id: str, new_title: str) -> Source:
+    async def rename(
+        self,
+        notebook_id: str,
+        source_id: str,
+        new_title: str,
+        *,
+        return_object: bool = True,
+    ) -> Source | None:
         """Rename a source.
 
         Args:
             notebook_id: The notebook ID.
             source_id: The source ID to rename.
             new_title: The new title.
+            return_object: When ``True`` (default), return the renamed
+                :class:`~notebooklm.types.Source` (preferring the
+                ``UPDATE_SOURCE`` echo, fetching only on a null echo). When
+                ``False``, return ``None`` without hydrating. Under the v0.8.0
+                preview ``False`` still returns ``None`` but adds miss-detection
+                (the flag gates detection, not return — see ``Raises``).
 
         Returns:
-            Updated Source object.
+            The renamed :class:`~notebooklm.types.Source`, or ``None`` when
+            ``return_object=False``.
+
+        Raises:
+            SourceNotFoundError: if the source does not exist (detected via a
+                content/list fetch, not a 404). Always when ``return_object=True``;
+                also on ``False`` under ``NOTEBOOKLM_FUTURE_ERRORS``.
+
+        .. versionchanged:: 0.7.0
+            **Breaking change:** no longer fabricates an unverified
+            ``Source(id, title)`` on a null echo; it hydrates and raises
+            :class:`SourceNotFoundError` (#1255), plus ``return_object``.
         """
         logger.debug("Renaming source %s to: %s", source_id, new_title)
-        params = [None, [source_id], [[[new_title]]]]
+        params = build_rename_source_params(source_id, new_title)
         result = await self._rpc.rpc_call(
             RPCMethod.UPDATE_SOURCE,
             params,
             source_path=f"/notebook/{notebook_id}",
             allow_null=True,
         )
-        return Source.from_api_response(result) if result else Source(id=source_id, title=new_title)
+        if result and return_object:
+            return Source.from_api_response(result, method_id=RPCMethod.UPDATE_SOURCE.value)
+        # Null echo: hydrate via the internal lookup (never public ``get()`` —
+        # #1247) so a miss raises. ``False`` skips it when existence is proven
+        # (echo) or flag-off; the v0.8.0 preview (#1362) runs it to detect a miss.
+        if not return_object and (result or not future_errors_enabled()):
+            return None
+        source = await self._get_or_none(notebook_id, source_id)
+        if source is None:
+            raise SourceNotFoundError(source_id, method_id=RPCMethod.UPDATE_SOURCE.value)
+        return None if not return_object else source
 
     async def refresh(self, notebook_id: str, source_id: str) -> bool:
         """Refresh a source to get updated content (for URL/Drive sources).
@@ -670,7 +684,9 @@ class SourcesAPI:
             source_id: The source ID to refresh.
 
         Returns:
-            True if refresh was initiated.
+            ``True`` if refresh was initiated (failures raise first, so it is
+            uninformative). Under ``NOTEBOOKLM_FUTURE_ERRORS`` (#1290) returns
+            ``None``; ``-> bool`` stays until v0.8.0.
         """
         params = [None, [source_id], [2]]
         await self._rpc.rpc_call(
@@ -679,6 +695,9 @@ class SourcesAPI:
             source_path=f"/notebook/{notebook_id}",
             allow_null=True,
         )
+        # v0.8.0 preview (#1290): uninformative ``True`` -> ``None`` (runtime-only).
+        if future_errors_enabled():
+            return None  # type: ignore[return-value]
         return True
 
     async def check_freshness(self, notebook_id: str, source_id: str) -> bool:
@@ -698,11 +717,8 @@ class SourcesAPI:
             source_path=f"/notebook/{notebook_id}",
             allow_null=True,
         )
-        # API returns different structures depending on source type:
-        #   - [] (empty array): source is fresh (URL sources)
-        #   - [[null, true, [source_id]]]: source is fresh (Drive sources)
-        #   - True: source is fresh
-        #   - False: source is stale
+        # Shapes by source type: ``[]`` or ``[[null, true, [id]]]`` = fresh
+        # (URL / Drive); bare ``True`` = fresh; bare ``False`` = stale.
         if result is True:
             return True
         if result is False:
@@ -717,7 +733,7 @@ class SourcesAPI:
                 return True
         return False
 
-    async def get_guide(self, notebook_id: str, source_id: str) -> dict[str, Any]:
+    async def get_guide(self, notebook_id: str, source_id: str) -> SourceGuide:
         """Get AI-generated summary and keywords for a specific source.
 
         This is the "Source Guide" feature shown when clicking on a source
@@ -728,9 +744,14 @@ class SourcesAPI:
             source_id: The source ID to get guide for.
 
         Returns:
-            Dictionary containing:
-                - summary: AI-generated summary with **bold** keywords (markdown)
-                - keywords: List of topic keyword strings
+            A :class:`~notebooklm._types.research.SourceGuide` with:
+                - ``summary``: AI-generated summary with **bold** keywords (markdown)
+                - ``keywords``: tuple of topic keyword strings (``guide["keywords"]``
+                  still yields a ``list`` for back-compat)
+
+            Use attribute access (``guide.summary``). Legacy
+            ``guide["summary"]`` dict-subscript access still works (with a
+            ``DeprecationWarning``) until v0.8.0.
         """
         return await self._content.get_guide(notebook_id, source_id)
 

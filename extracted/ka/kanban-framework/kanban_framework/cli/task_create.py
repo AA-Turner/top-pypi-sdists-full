@@ -5,7 +5,6 @@ import argparse
 import logging
 
 from kanban_framework.cli.task_utils import _resolve
-from kanban_framework.infra.scheduler import Scheduler
 
 
 def cmd_create(args: list[str]) -> dict:
@@ -66,30 +65,20 @@ def cmd_create(args: list[str]) -> dict:
     desc = " ".join(parsed.desc) if parsed.desc else ""
     auto_mode_flags = parsed.auto_mode
 
-    # ── Mode resolution ──
+    # ── Resolve filesystem and config (early, for default_mode) ──
+    fs, _, tm = _resolve()
     from kanban_framework.domain.assessment import assess_task
     ai = assess_task(title, desc)
 
+    _default_mode = tm._cfg.default_mode if tm._cfg else "lightweight"
+
     task_mode = parsed.mode
-    is_lightweight = parsed.lightweight
-    user_specified_mode = bool(task_mode or is_lightweight)
+    user_specified_mode = bool(task_mode or parsed.lightweight)
 
-    if task_mode == "full":
-        return {
-            "error": "'full' mode has been removed in v0.126.0. Use 'lightweight' (default) or 'quick' instead.",
-            "hint": "kanban create \"<title>\" --mode lightweight",
-        }
-
-    if task_mode == "lightweight" or is_lightweight:
-        task_mode = "lightweight"
-        is_lightweight = True
-    elif task_mode == "quick":
-        is_lightweight = True
-    elif task_mode and task_mode not in Scheduler.BUILTIN_MODE_NAMES:
-        is_lightweight = False  # custom modes define their own phase order
+    if task_mode == _default_mode or parsed.lightweight:
+        task_mode = _default_mode
     if task_mode is None:
         task_mode = ai["recommended_mode"]
-        is_lightweight = (task_mode in ("lightweight", "quick"))
 
     # Parse auto_mode flags
     auto_mode = AutoMode()
@@ -103,17 +92,17 @@ def cmd_create(args: list[str]) -> dict:
                 auto_worktree=True,
             )
         else:
+            _valid_flags = {"brainstorm", "iteration", "lightweight", "archive", "worktree"}
             for flag in auto_mode_flags:
-                if flag == "brainstorm":
-                    auto_mode.auto_brainstorm = True
-                elif flag == "iteration":
-                    auto_mode.auto_iteration = True
-                elif flag == "lightweight":
-                    auto_mode.auto_lightweight = True
-                elif flag == "archive":
-                    auto_mode.auto_archive = True
-                elif flag == "worktree":
-                    auto_mode.auto_worktree = True
+                if flag in _valid_flags:
+                    setattr(auto_mode, f"auto_{flag}", True)
+                else:
+                    logging.getLogger("kanban").warning(
+                        f"unknown --auto-mode flag: '{flag}'. Valid: {', '.join(sorted(_valid_flags))}")
+                    return {
+                        "id": None, "title": title,
+                        "error": f"unknown --auto-mode flag: '{flag}'. Valid values: {', '.join(sorted(_valid_flags))}",
+                    }
 
     # ── Test config ──
     test_config = None
@@ -132,7 +121,6 @@ def cmd_create(args: list[str]) -> dict:
         if parsed.coverage:
             test_config["coverage"] = parsed.coverage
 
-    fs, _, tm = _resolve()
     priority = max(0, min(10, parsed.priority))
 
     recommendation = _recommend_worktree(title, desc)
@@ -156,7 +144,7 @@ def cmd_create(args: list[str]) -> dict:
 
     task = tm.create(title, desc)
     _log = logging.getLogger("kanban")
-    _log.info("create: task=%s mode=%s lightweight=%s", task.id, task_mode, is_lightweight)
+    _log.info("create: task=%s mode=%s", task.id, task_mode)
 
     if task_mode == "quick":
         qr = ai.get("quick_requires") or {}
@@ -167,11 +155,14 @@ def cmd_create(args: list[str]) -> dict:
         tm.update(task.id, description=desc + scope_note)
 
     # ── Core update (unaffected by manual mode) ──
-    start_phase = "execute" if task_mode == "quick" else "plan"
+    # Derive start phase from mode's phase_order (first phase is the start)
+    from kanban_framework.infra.scheduler import Scheduler
+    mode_phases = Scheduler.dispatch_order(mode=task_mode,
+                                            workflow=tm._cfg.workflow if tm._cfg else None,
+                                            kanban_dir=fs.kanban_dir)
+    start_phase = mode_phases[0].value if mode_phases else "plan"
     update_kwargs: dict = {"phase": start_phase, "status": "in_progress",
                             "auto_mode": auto_mode, "priority": priority}
-    if is_lightweight:
-        update_kwargs["lightweight"] = True
     if task_mode:
         update_kwargs["mode"] = task_mode
     if test_config:
@@ -187,7 +178,7 @@ def cmd_create(args: list[str]) -> dict:
         tm.update(task.id, biz_tag=parsed_biz)
 
     mode_confirmation_pending = not user_specified_mode
-    recommended_mode = task_mode or "lightweight"
+    recommended_mode = task_mode or _default_mode
     mode_msg = f"Mode: {recommended_mode}" if task_mode else f"Select mode (lightweight/quick/custom) before running"
 
     # Scan for custom modes from workflow.json + .kanban/workflows/ directory
@@ -200,17 +191,26 @@ def cmd_create(args: list[str]) -> dict:
         cfg = Config(fs)
         wf_modes = cfg.workflow.get("modes", {})
         for name in sorted(set(list(custom.keys()) + list(wf_modes.keys()))):
-            if name not in Scheduler.BUILTIN_MODE_NAMES:
-                custom_mode_names.append(name)
+            custom_mode_names.append(name)
     except Exception:
         pass
 
-    # Build available list: custom modes first, then built-ins, max 4 total
+    # Build available list: custom modes first, then discovered modes, max 4 total
     available_modes = list(custom_mode_names)
-    for builtin in ("lightweight", "quick"):
-        if len(available_modes) >= 4:
-            break
-        available_modes.append(builtin)
+    # Add any modes discovered by scheduler (package templates + directory files)
+    try:
+        from kanban_framework.infra.scheduler import Scheduler
+        discovered = list(Scheduler.get_modes(workflow=cfg.workflow,
+                                               kanban_dir=fs.kanban_dir).keys())
+        for name in discovered:
+            if name not in available_modes and len(available_modes) < 4:
+                available_modes.append(name)
+    except Exception:
+        pass
+    # Ensure at least one mode is available
+    if not available_modes:
+        from kanban_framework.infra.consts import Consts
+        available_modes = [_default_mode]
 
     knowledge_hints = []
     if not parsed.draft and not parsed.no_knowledge:
@@ -259,8 +259,7 @@ def cmd_create(args: list[str]) -> dict:
         "title": task.title,
         "phase": start_phase,
         "status": "in_progress",
-        "mode": task_mode or "lightweight",
-        "lightweight": is_lightweight,
+        "mode": task_mode or _default_mode,
         "control_mode": control_mode or "semi",
         "assessment": ai,
         "user_specified_mode": user_specified_mode,

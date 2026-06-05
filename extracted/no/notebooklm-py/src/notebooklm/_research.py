@@ -9,18 +9,28 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-import warnings
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
+from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlsplit, urlunsplit
 
 from . import research as _research_pub
+from ._deprecation import deprecated_kwarg, future_errors_enabled, warn_deprecated
 from ._notebook_metadata import NotebookSourceLister, create_default_source_lister
-from ._research_task_parser import ResearchSource, ResearchTask, parse_research_task_models
-from ._session_contracts import RpcCaller
+from ._research_task_parser import parse_research_task_models
+from ._runtime.contracts import RpcCaller
+from ._types.research import (
+    ResearchSource,
+    ResearchSourceInput,
+    ResearchStart,
+    ResearchStatus,
+    ResearchTask,
+)
 from .exceptions import (
+    DecodingError,
     NetworkError,
     ResearchTaskMismatchError,
+    ResearchTimeoutError,
     RPCError,
     RPCTimeoutError,
     ValidationError,
@@ -31,11 +41,29 @@ from .types import CitedSourceSelection
 if TYPE_CHECKING:
     from .types import Source
 
-__all__ = ["CitedSourceSelection", "ResearchAPI"]
+__all__ = [
+    "CitedSourceSelection",
+    "ResearchAPI",
+    "ResearchSource",
+    "ResearchStart",
+    "ResearchStatus",
+    "ResearchTask",
+]
 
 logger = logging.getLogger(__name__)
 
-ResearchSourceInput = ResearchSource | Mapping[str, Any]
+# Sentinel marking "the canonical ``initial_interval`` keyword was not passed"
+# in ``wait_for_completion``. The deprecated ``interval`` keyword keeps its
+# original default of ``5`` (so the public-API compatibility audit sees an
+# unchanged signature), while ``initial_interval`` is a newly-added keyword
+# that defaults to this sentinel. Resolution prefers ``initial_interval`` when
+# the caller supplied it and otherwise falls back to ``interval``.
+_INITIAL_INTERVAL_UNSET: Any = object()
+
+# Original default cadence for the legacy ``interval`` keyword (seconds between
+# status checks). Preserved verbatim so default-shape callers keep the same
+# behavior and the API-compat audit sees no default change.
+_DEFAULT_RESEARCH_POLL_INTERVAL = 5.0
 
 
 # ---------------------------------------------------------------------------
@@ -143,12 +171,13 @@ class ResearchAPI:
             # Start research
             task = await client.research.start(notebook_id, "quantum computing")
 
-            # Poll for results
+            # Poll for results (typed attribute access; ``== "completed"``
+            # still works because ResearchStatus is a str enum)
             result = await client.research.poll(notebook_id)
-            if result["status"] == "completed":
+            if result.status == "completed":
                 # Import selected sources
                 imported = await client.research.import_sources(
-                    notebook_id, task["task_id"], result["sources"][:5]
+                    notebook_id, task.task_id, result.sources[:5]
                 )
     """
 
@@ -231,7 +260,7 @@ class ResearchAPI:
     @classmethod
     def select_cited_sources(
         cls,
-        sources: list[dict[str, Any]],
+        sources: Sequence[ResearchSourceInput],
         report: str,
     ) -> CitedSourceSelection:
         """Return research sources cited by the completed report.
@@ -266,7 +295,7 @@ class ResearchAPI:
         if task_id is not None:
             return [task for task in parsed_tasks if task.task_id == task_id]
         if warn_on_ambiguous and len(parsed_tasks) > 1:
-            warnings.warn(
+            warn_deprecated(
                 (
                     f"ResearchAPI.poll(notebook_id={notebook_id!r}) returned "
                     f"{len(parsed_tasks)} in-flight tasks but no task_id "
@@ -277,8 +306,11 @@ class ResearchAPI:
                     f"explicitly. The None default will be removed in a "
                     f"future major release."
                 ),
-                DeprecationWarning,
-                stacklevel=3,
+                # No pinned removal version yet (re-pin tracked by #1363); the
+                # message already says "a future major release".
+                removal=None,
+                # caller -> poll -> _select_polled_tasks -> warn_deprecated.
+                stacklevel=4,
             )
         return parsed_tasks
 
@@ -286,11 +318,11 @@ class ResearchAPI:
     def _public_poll_result(
         selected_task: ResearchTask,
         parsed_tasks: list[ResearchTask],
-    ) -> dict[str, Any]:
-        return {
-            **selected_task.to_public_dict(),
-            "tasks": [task.to_public_dict() for task in parsed_tasks],
-        }
+    ) -> ResearchTask:
+        # Carry the sibling tasks on the selected task's ``tasks`` field. The
+        # sub-tasks themselves leave ``tasks`` empty (their default), matching
+        # the historical nested-dict shape.
+        return replace(selected_task, tasks=tuple(parsed_tasks))
 
     async def start(
         self,
@@ -298,20 +330,27 @@ class ResearchAPI:
         query: str,
         source: str = "web",
         mode: str = "fast",
-    ) -> dict[str, Any] | None:
+    ) -> ResearchStart | None:
         """Start a research session.
 
         Args:
             notebook_id: The notebook ID.
             query: The research query.
             source: "web" or "drive".
-            mode: "fast" or "deep" (deep only available for web).
+            mode: "fast" or "deep" (deep is web-only).
 
         Returns:
-            Dictionary with task_id, report_id, and metadata.
+            A :class:`~notebooklm._types.research.ResearchStart` (``task_id`` /
+            ``report_id`` / ``notebook_id`` / ``query`` / ``mode``), or ``None``
+            when the backend returned no task (legacy ``result["task_id"]`` dict
+            access still works with a warning until v0.8.0). Under
+            ``NOTEBOOKLM_FUTURE_ERRORS`` (#1342) an empty/non-list payload or
+            falsey ``task_id`` raises ``DecodingError`` instead.
 
         Raises:
             ValidationError: If source/mode combination is invalid.
+            DecodingError: Under the v0.8.0 preview, on an empty/non-list payload
+                or falsey ``task_id`` (no task created).
         """
         logger.debug(
             "Starting %s research in notebook %s: %s",
@@ -347,21 +386,32 @@ class ResearchAPI:
 
         if result and isinstance(result, list) and len(result) > 0:
             task_id = result[0]
+            # v0.8.0 preview (#1342): a falsey ``task_id`` means no task was
+            # created — raise (mirrors ``_parse_generation_result``'s missing id).
+            if not task_id and future_errors_enabled():
+                raise DecodingError(
+                    f"research.start returned no task id: {result!r}", method_id=rpc_id.value
+                )
             report_id = result[1] if len(result) > 1 else None
-            return {
-                "task_id": task_id,
-                "report_id": report_id,
-                "notebook_id": notebook_id,
-                "query": query,
-                "mode": mode_lower,
-            }
+            return ResearchStart(
+                task_id=task_id,
+                report_id=report_id,
+                notebook_id=notebook_id,
+                query=query,
+                mode=mode_lower,
+            )
+        # v0.8.0 preview (#1342): an empty / non-list payload is couldn't-start.
+        if future_errors_enabled():
+            raise DecodingError(
+                "research.start returned an empty / non-list payload", method_id=rpc_id.value
+            )
         return None
 
     async def poll(
         self,
         notebook_id: str,
         task_id: str | None = None,
-    ) -> dict[str, Any]:
+    ) -> ResearchTask:
         """Poll for research results.
 
         Args:
@@ -372,52 +422,61 @@ class ResearchAPI:
                 ``sources`` / ``summary`` / ``report`` fields describe the
                 matched task, and ``tasks`` contains only that task. When
                 ``None`` and multiple tasks are in flight, a
-                :class:`DeprecationWarning` is emitted and the *latest* task
-                is returned (preserving legacy behavior). When ``None`` and a
-                single task is in flight, behavior is unchanged and no
-                warning fires.
-
-                Migration: callers that started research via
-                :meth:`start` and held onto the returned ``task_id`` should
-                pass it here on every subsequent ``poll`` to remove
-                ambiguity. The ``None`` default will be removed in a future
-                major release.
+                :class:`DeprecationWarning` is emitted and the *latest* task is
+                returned (legacy behavior); a single in-flight task is silent.
+                Migration: pass the ``task_id`` from :meth:`start` on every
+                ``poll`` — the ``None`` default is removed in a future major.
 
         Returns:
-            Dictionary representing the parsed research task for the
-            notebook. Includes:
-            - ``task_id``: task/report identifier for the selected task
-            - ``status``: ``in_progress``, ``completed``, ``failed``, or ``no_research``
-            - ``query``: original research query text
-            - ``sources``: parsed source dictionaries for the selected task
-            - ``summary``: summary text when present
-            - ``report``: extracted deep-research report markdown when present
-            - ``tasks``: list of all parsed research tasks visible at this
-              poll (filtered to the matched task when ``task_id`` is set),
-              each with the same shape as the top-level fields
+            A :class:`~notebooklm._types.research.ResearchTask` for the selected
+            task. Use attribute access:
+            - ``task.task_id``: task/report identifier for the selected task
+            - ``task.status``: a :class:`~notebooklm._types.research.ResearchStatus`
+              (``IN_PROGRESS`` / ``COMPLETED`` / ``FAILED`` / ``NO_RESEARCH`` /
+              ``NOT_FOUND``); equals the historical strings
+            - ``task.query``: original research query text
+            - ``task.sources``: tuple of ``ResearchSource`` (each exposes ``url``,
+              ``title``, ``result_type``, ``research_task_id``, ``report_markdown``)
+            - ``task.summary``: summary text when present
+            - ``task.report``: extracted deep-research report markdown, if present
+            - ``task.tasks``: all parsed research tasks visible at this poll
+              (filtered to the matched task when ``task_id`` is set)
 
-            Each source dictionary may include:
-            - ``url`` and ``title``
-            - ``result_type``
-            - ``research_task_id``: task/report ID that produced the source
-            - ``report_markdown`` for deep-research report entries
+            Legacy ``result["status"]`` dict access still works (with a warning)
+            until v0.8.0; prefer ``result.status``.
 
-            When ``task_id`` is supplied but no in-flight task matches, the
-            return is ``{"status": "no_research", "tasks": []}`` — the same
-            shape as the empty-poll case.
+            When a non-empty ``task_id`` is supplied but no in-flight task
+            matches, the return is ``ResearchTask.not_found(task_id)`` (status
+            ``NOT_FOUND``, empty ``tasks``) — the *poll-observed absence* of that
+            task (a typed lifecycle sentinel, not a raise; ADR-0019 Rule 4),
+            distinct from the unfiltered empty poll, which stays ``NO_RESEARCH``.
         """
         logger.debug("Polling research status for notebook %s", notebook_id)
         parsed_tasks = self._select_polled_tasks(
             await self._poll_task_models(notebook_id),
             notebook_id=notebook_id,
             task_id=task_id,
-            warn_on_ambiguous=True,
+            # The ambiguity warning only applies to the unfiltered (task_id is
+            # None) path; when a discriminator is pinned, _select_polled_tasks
+            # filters before the warn branch. Gating it here matches
+            # wait_for_completion and keeps the intent explicit.
+            warn_on_ambiguous=task_id is None,
         )
 
         if parsed_tasks:
             return self._public_poll_result(parsed_tasks[0], parsed_tasks)
 
-        return {"status": "no_research", "tasks": []}
+        # A concrete pinned ``task_id`` that matched nothing is a poll-observed
+        # absence of that specific task — a typed ``NOT_FOUND`` sentinel
+        # carrying the requested id. A falsy ``task_id`` (``None`` for the
+        # unfiltered poll, or the degenerate empty string) is not a meaningful
+        # discriminator, so it stays ``NO_RESEARCH`` ("nothing in flight") and
+        # preserves the legacy empty-poll dict shape. See ADR-0019 Rule 4
+        # (#1346).
+        if task_id:
+            return ResearchTask.not_found(task_id)
+
+        return ResearchTask.empty()
 
     async def wait_for_completion(
         self,
@@ -426,7 +485,8 @@ class ResearchAPI:
         *,
         timeout: float = 1800,
         interval: float = 5,
-    ) -> dict[str, Any]:
+        initial_interval: float = _INITIAL_INTERVAL_UNSET,
+    ) -> ResearchTask:
         """Poll until research reaches a terminal state or times out.
 
         When the first poll returns a concrete ``task_id``, subsequent polls
@@ -439,24 +499,77 @@ class ResearchAPI:
             task_id: Optional research task discriminator. Pass the value
                 returned by :meth:`start` when available.
             timeout: Maximum seconds to wait.
-            interval: Seconds between status checks.
+            initial_interval: Seconds between status checks (default: 5). This
+                is the canonical poll-interval keyword, matching
+                :meth:`SourcesAPI.wait_until_ready` and
+                :meth:`ArtifactsAPI.wait_for_completion`.
+            interval: **Deprecated** alias for ``initial_interval`` (removed in
+                v0.8.0). Passing a non-default value emits a
+                :class:`DeprecationWarning`; passing both a non-default
+                ``interval`` and an explicit ``initial_interval`` raises
+                :class:`TypeError`. Default-shape calls stay silent — note that
+                ``interval=5`` (the exact default) does *not* warn, since it is
+                indistinguishable from not passing the keyword at all; only
+                non-default ``interval`` values trigger the migration prompt.
 
         Returns:
-            The final :meth:`poll` result for ``completed`` or ``failed``
-            statuses. ``no_research`` is returned immediately only when no
-            task id is known; for a known/pinned task it can be a transient
-            live-API state before the task appears in ``POLL_RESEARCH``.
+            The final :meth:`poll` result (a
+            :class:`~notebooklm._types.research.ResearchTask`) for
+            ``COMPLETED`` or ``FAILED`` statuses. ``NO_RESEARCH`` is returned
+            immediately only when no task id is known; for a known/pinned task
+            it can be a transient live-API state before the task appears in
+            ``POLL_RESEARCH``. Unlike :meth:`poll`, this method never returns
+            ``NOT_FOUND`` — a pinned task that is temporarily absent from a poll
+            is treated as a transient replication-lag condition and keeps
+            polling until it appears, reaches a terminal state, or times out.
+            Legacy ``result["status"]`` dict-subscript access still works (with
+            a ``DeprecationWarning``) until v0.8.0.
 
         Raises:
-            TimeoutError: If research does not reach a terminal status before
-                ``timeout`` elapses.
-            ValueError: If ``timeout`` is negative or ``interval`` is not
+            ResearchTimeoutError: If research does not reach a terminal status
+                before ``timeout`` elapses. Subclass of
+                :class:`WaitTimeoutError` and the built-in :class:`TimeoutError`,
+                so ``except TimeoutError`` continues to catch it.
+            ValueError: If ``timeout`` is negative or the poll interval is not
                 positive.
+            TypeError: If both a non-default ``interval`` and an explicit
+                ``initial_interval`` are passed, or if the resolved poll
+                interval is not a number.
         """
+        # ``interval`` keeps its original default of ``5`` so the public-API
+        # compatibility audit sees no signature change; we treat it as
+        # "provided" only when the caller changed it from that default. This
+        # keeps default-shape calls silent while still warning on legacy use.
+        legacy_interval: Any = (
+            interval if interval != _DEFAULT_RESEARCH_POLL_INTERVAL else _INITIAL_INTERVAL_UNSET
+        )
+        resolved_interval = deprecated_kwarg(
+            legacy_interval,
+            initial_interval,
+            old="interval",
+            new="initial_interval",
+            owner="ResearchAPI.wait_for_completion",
+            sentinel=_INITIAL_INTERVAL_UNSET,
+            stacklevel=3,
+        )
+        # Only the sentinel means "neither keyword supplied" — fall back to the
+        # default cadence. An *explicit* non-numeric value (e.g. interval=None
+        # or initial_interval="1") is a caller bug; fail fast with TypeError
+        # rather than silently coercing it back to the default, matching the
+        # old ``interval`` path which would have raised on such a value.
+        if resolved_interval is _INITIAL_INTERVAL_UNSET:
+            poll_interval = _DEFAULT_RESEARCH_POLL_INTERVAL
+        elif isinstance(resolved_interval, bool) or not isinstance(resolved_interval, (int, float)):
+            raise TypeError("poll interval must be a number")
+        else:
+            poll_interval = float(resolved_interval)
+
         if timeout < 0:
             raise ValueError("timeout must be non-negative")
-        if interval <= 0:
-            raise ValueError("interval must be positive")
+        if poll_interval <= 0:
+            # Neutral wording: the caller may have used the deprecated
+            # ``interval`` alias rather than ``initial_interval``.
+            raise ValueError("poll interval must be positive")
 
         loop = asyncio.get_running_loop()
         start = loop.time()
@@ -473,21 +586,28 @@ class ResearchAPI:
             if pinned_task_id is None and selected_task is not None:
                 pinned_task_id = selected_task.task_id
 
-            status_val = selected_task.status if selected_task is not None else "no_research"
-            if selected_task is not None and status_val in ("completed", "failed"):
+            status_val: ResearchStatus = (
+                selected_task.status if selected_task is not None else ResearchStatus.NO_RESEARCH
+            )
+            if selected_task is not None and status_val in (
+                ResearchStatus.COMPLETED,
+                ResearchStatus.FAILED,
+            ):
                 return self._public_poll_result(selected_task, parsed_tasks)
-            if status_val == "no_research" and pinned_task_id is None:
-                return {"status": "no_research", "tasks": []}
+            if status_val == ResearchStatus.NO_RESEARCH and pinned_task_id is None:
+                return ResearchTask.empty()
 
             elapsed = loop.time() - start
             if elapsed >= timeout:
                 task_label = pinned_task_id or "unknown"
-                raise TimeoutError(
-                    f"Research task {task_label} timed out after {timeout}s "
-                    f"(last status: {status_val})"
+                raise ResearchTimeoutError(
+                    notebook_id,
+                    task_label,
+                    timeout,
+                    last_status=status_val.value,
                 )
 
-            sleep_for = min(interval, timeout - elapsed)
+            sleep_for = min(poll_interval, timeout - elapsed)
             if sleep_for > 0:
                 await asyncio.sleep(sleep_for)
 
@@ -593,18 +713,18 @@ class ResearchAPI:
 
         imported = []
         if result and isinstance(result, list):
-            if (
-                len(result) > 0
-                and isinstance(result[0], list)
-                and len(result[0]) > 0
-                and isinstance(result[0][0], list)
-            ):
-                result = result[0]
+            # Unwrap an ``[[src1, ...]]`` envelope via ``first[0]`` (not chained).
+            if len(result) > 0 and isinstance(result[0], list) and len(result[0]) > 0:
+                first = result[0]
+                if isinstance(first[0], list):
+                    result = first
 
             for src_data in result:
                 if isinstance(src_data, list) and len(src_data) >= 2:
+                    # Absent/non-list id envelope legitimately means "skip" (id None).
+                    id_envelope = src_data[0]
                     src_id = (
-                        src_data[0][0] if src_data[0] and isinstance(src_data[0], list) else None
+                        id_envelope[0] if id_envelope and isinstance(id_envelope, list) else None
                     )
                     if src_id:
                         imported.append({"id": src_id, "title": src_data[1]})

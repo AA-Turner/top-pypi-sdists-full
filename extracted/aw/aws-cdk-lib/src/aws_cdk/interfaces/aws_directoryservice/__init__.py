@@ -145,7 +145,7 @@ class MicrosoftADReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_directoryservice as interfaces_directoryservice
             
-            microsoft_aDReference = interfaces_directoryservice.MicrosoftADReference(
+            microsoft_ad_reference = interfaces_directoryservice.MicrosoftADReference(
                 microsoft_ad_id="microsoftAdId"
             )
         '''
@@ -194,7 +194,7 @@ class SimpleADReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_directoryservice as interfaces_directoryservice
             
-            simple_aDReference = interfaces_directoryservice.SimpleADReference(
+            simple_ad_reference = interfaces_directoryservice.SimpleADReference(
                 directory_id="directoryId"
             )
         '''

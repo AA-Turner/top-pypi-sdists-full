@@ -527,7 +527,7 @@ class TLSInspectionConfigurationReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_networkfirewall as interfaces_networkfirewall
             
-            t_lSInspection_configuration_reference = interfaces_networkfirewall.TLSInspectionConfigurationReference(
+            t_ls_inspection_configuration_reference = interfaces_networkfirewall.TLSInspectionConfigurationReference(
                 tls_inspection_configuration_arn="tlsInspectionConfigurationArn"
             )
         '''

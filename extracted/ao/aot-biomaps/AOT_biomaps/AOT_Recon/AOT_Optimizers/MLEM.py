@@ -22,6 +22,33 @@ try:
 except ImportError:
     CUPY_AVAILABLE = False
 
+# =====================================================================
+# CuPy Kernels definition for fusion of operations (Zero-Allocation)
+# =====================================================================
+if CUPY_AVAILABLE:
+    # Kernel for: y / max(q, eps)
+    mlem_ratio_kernel = cp.ElementwiseKernel(
+        'float32 y, float32 q, float32 eps',
+        'float32 out',
+        '''
+        float q_safe = q < eps ? eps : q;
+        out = y / q_safe;
+        ''',
+        'mlem_ratio_kernel'
+    )
+
+    # Kernel for MLEM Update: lambda * backproj / sens
+    mlem_update_kernel = cp.ElementwiseKernel(
+        'float32 lam, float32 backproj, float32 sens',
+        'float32 lam_out',
+        '''
+        // Sens is already clamped with eps outside the loop
+        float new_val = lam * backproj / sens;
+        lam_out = new_val > 0.0f ? new_val : 0.0f; // Clamp to ensure strict positivity
+        ''',
+        'mlem_update_kernel'
+    )
+
 def MLEM(
     SMatrix: Union['SMatrix_DENSE', 'SMatrix_CSR', 'SMatrix_SELL'],
     y: Union[np.ndarray, 'cp.ndarray'],
@@ -29,6 +56,7 @@ def MLEM(
     denominator_threshold: float = 1e-10,
     stop_criterion: StopCriterionType = StopCriterionType.MAX_ITERATIONS,
     stop_threshold: float = 100.0,
+    stop_window_size: int = 5,
     isSavingEachIteration: bool = True,
     isCostFunction: bool = False,
     withTumor: bool = True,
@@ -59,6 +87,7 @@ def MLEM(
         denominator_threshold: Small epsilon to avoid division by zero.
         stop_criterion: Criterion for stopping the iterations
         stop_threshold: Threshold value for the stopping criterion (for MAX_iterations, this is ignored)
+        stop_window_size: Window size (used to avoid early stop due to oscillations)
         isSavingEachIteration: Toggle to store intermediate states.
         isCostFunction: Toggle to track the log-likelihood history.
         withTumor: Flag for description.
@@ -73,6 +102,7 @@ def MLEM(
         - cost_history: List of cost function values (None if not requested)
     """
     xp = get_array_module(SMatrix)
+    is_gpu = (xp.__name__ == 'cupy')
     Z, X = SMatrix.Z, SMatrix.X
     ZX = Z * X
 
@@ -81,9 +111,11 @@ def MLEM(
 
     y_flat = xp.asarray(y.T.flatten().astype(xp.float32))
     lambda_flat = xp.full(ZX, 0.1, dtype=xp.float32)
+    ratio_buffer = xp.empty_like(y_flat)
 
     # Pre-calculate Sensitivity (A^T * 1) - The native preconditioner of EM
-    sens_img = xp.maximum(backward_projection(SMatrix, xp.ones(SMatrix.N * SMatrix.T, dtype=xp.float32)+1e-10), denominator_threshold)
+    sens_img = backward_projection(SMatrix, xp.ones(SMatrix.N * SMatrix.T, dtype=xp.float32))
+    xp.maximum(sens_img, 1e-10, out=sens_img)
 
     # Setup save indices
     save_indices = np.unique(np.append(np.arange(0, numIterations, max(1, numIterations // max_saves)), numIterations - 1)).tolist()
@@ -91,25 +123,40 @@ def MLEM(
     saved_lambda = []
     saved_indices_list = []
     cost_history = [] if isCostFunction else None
+    window_history = []
 
     description = f"AOT-BioMaps -- MLEM ({SMatrix.matrix_type.name}) ---- {'WITH' if withTumor else 'WITHOUT'} TUMOR ---- {SMatrix.device.upper()}"
     iterator = trange(numIterations, desc=description) if show_logs else range(numIterations)
 
     for it in iterator:
-        prev_lambda = lambda_flat.copy()
+        prev_lambda = lambda_flat.copy() if stop_criterion != StopCriterionType.MAX_ITERATIONS else None
         q_flat = forward_projection(SMatrix, lambda_flat)
 
+        if is_gpu:
+            mlem_ratio_kernel(y_flat, q_flat, denominator_threshold, ratio_buffer)
+        else:
+            np.maximum(q_flat, denominator_threshold, out=q_flat)
+            np.divide(y_flat, q_flat, out=ratio_buffer)
+
+        backproj_ratio = backward_projection(SMatrix, ratio_buffer)
+
         # MLEM Update: lambda = lambda * (A^T * (y / Ax)) / (A^T * 1)
-        lambda_flat = lambda_flat * backward_projection(SMatrix, y_flat / xp.maximum(q_flat, denominator_threshold)) / sens_img
+        if is_gpu:
+            mlem_update_kernel(lambda_flat, backproj_ratio, sens_img, lambda_flat)
+        else:
+            lambda_flat *= backproj_ratio
+            lambda_flat /= sens_img
+            np.maximum(lambda_flat, 0.0, out=lambda_flat)
 
         # Track cost function (Negative Log-Likelihood)
         if isCostFunction:
-            cost_history.append(float(xp.sum(xp.maximum(q_flat, 1e-10) - y_flat * xp.log(xp.maximum(q_flat, 1e-10)))))
+            q_safe = xp.maximum(q_flat, 1e-10)
+            cost_history.append(float(xp.sum(q_safe - y_flat * xp.log(q_safe))))
 
         # Stopping Criterion
         if stop_criterion != StopCriterionType.MAX_ITERATIONS:
             ground_truth = SMatrix.experiment.OpticImage.phantom if withTumor else SMatrix.experiment.OpticImage.laser.intensity
-            isStop, val = check_stopping_criterion(SMatrix, lambda_flat, prev_lambda, stop_criterion, stop_threshold, cost_history, ground_truth)
+            isStop, val = check_stopping_criterion(SMatrix, lambda_flat, prev_lambda, stop_criterion, stop_threshold, window_size=stop_window_size, history=cost_history, ground_truth=ground_truth, gradient=None, window_history=window_history)
             if show_logs and show_criterion:
                 iterator.set_postfix_str(f"{stop_criterion.name}: {val:.2e}")
             if isStop:

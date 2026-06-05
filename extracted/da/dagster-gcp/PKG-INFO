@@ -1,14 +1,14 @@
 Metadata-Version: 2.4
 Name: dagster-gcp
-Version: 0.29.7
+Version: 0.29.8
 Summary: Package for GCP-specific Dagster framework op and resource components.
 Project-URL: Homepage, https://github.com/dagster-io/dagster/tree/master/python_modules/libraries/dagster-gcp
 Author-email: Dagster Labs <hello@dagsterlabs.com>
 License-Expression: Apache-2.0
 License-File: LICENSE
 Requires-Python: <3.15,>=3.10
-Requires-Dist: dagster-pandas==0.29.7
-Requires-Dist: dagster==1.13.7
+Requires-Dist: dagster-pandas==0.29.8
+Requires-Dist: dagster==1.13.8
 Requires-Dist: db-dtypes
 Requires-Dist: google-api-python-client
 Requires-Dist: google-cloud-bigquery>=1.28.3

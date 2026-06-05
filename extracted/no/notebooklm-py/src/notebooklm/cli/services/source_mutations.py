@@ -2,8 +2,8 @@
 
 Each command has its own plan + executor pair. The shared resolver
 helpers (``resolve_source_for_delete``, ``resolve_source_by_exact_title``,
-``require_yes_in_json``) also live here because they are mutation-specific
-and were previously private helpers on ``cli/source_cmd.py``. Typed result
+``require_yes_in_json``) also live here because they are mutation-specific.
+Typed result
 dataclasses carry presentation payloads back to the command layer. The
 :class:`MutationPlan` pipeline from
 ``cli/services/confirming_mutation.py`` handles the resolve → confirm →
@@ -15,7 +15,7 @@ from __future__ import annotations
 import re
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Literal, NoReturn
+from typing import TYPE_CHECKING, Any, Literal, NoReturn, cast
 
 from ...types import DriveMimeType, Source
 from ..resolve import resolve_source_id, validate_id
@@ -331,7 +331,7 @@ async def execute_source_delete(
         resolution = await resolve_source_for_delete(
             client, plan.notebook_id, plan.source_id, json_output=plan.json_output
         )
-        # P1.T2 bug 1: In --json mode, never prompt — automation cannot
+        # In --json mode, never prompt — automation cannot
         # answer an interactive confirmation. Require --yes and emit a
         # structured JSON error otherwise.
         if plan.json_output and not plan.yes:
@@ -351,9 +351,10 @@ async def execute_source_delete(
         }
 
     async def execute_delete(client, resolved):
-        resolved["success"] = bool(
-            await client.sources.delete(resolved["notebook_id"], resolved["source_id"])
-        )
+        # delete() now returns None and raises on real failure (issue #1211);
+        # reaching here without an exception means success.
+        await client.sources.delete(resolved["notebook_id"], resolved["source_id"])
+        resolved["success"] = True
 
     def serialize_success(resolved):
         return {
@@ -421,7 +422,7 @@ async def execute_source_delete_by_title(
         source = await resolve_source_by_exact_title(
             client, plan.notebook_id, plan.title, json_output=plan.json_output
         )
-        # P1.T2 bug 2: same JSON-mode confirmation contract as ``source delete``.
+        # Same JSON-mode confirmation contract as ``source delete``.
         if plan.json_output and not plan.yes:
             require_yes_in_json(
                 action="delete-by-title",
@@ -439,9 +440,10 @@ async def execute_source_delete_by_title(
         }
 
     async def execute_delete_by_title(client, resolved):
-        resolved["success"] = bool(
-            await client.sources.delete(resolved["notebook_id"], resolved["source_id"])
-        )
+        # delete() now returns None and raises on real failure (issue #1211);
+        # reaching here without an exception means success.
+        await client.sources.delete(resolved["notebook_id"], resolved["source_id"])
+        resolved["success"] = True
 
     def serialize_success(resolved):
         return {
@@ -507,7 +509,14 @@ async def execute_source_rename(
     resolved_id = await resolve_source_id(
         client, plan.notebook_id, plan.source_id, json_output=plan.json_output
     )
-    src = await client.sources.rename(plan.notebook_id, resolved_id, plan.new_title)
+    # return_object defaults to True, so rename returns a Source (or raises
+    # SourceNotFoundError on a missing target) — never None on this path. Use
+    # cast (not assert, which -O strips) to narrow Source | None for the
+    # rename-result dataclass.
+    src = cast(
+        Source,
+        await client.sources.rename(plan.notebook_id, resolved_id, plan.new_title),
+    )
     return SourceRenameResult(source=src, notebook_id=plan.notebook_id)
 
 

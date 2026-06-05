@@ -16,6 +16,10 @@ from chalk._gen.chalk.server.v1.model_registry_pb2 import (
     CreateModelVersionFromArtifactResponse,
     CreateModelVersionRequest,
     CreateModelVersionResponse,
+    DeleteModelRequest,
+    DeleteModelResponse,
+    DeleteModelVersionRequest,
+    DeleteModelVersionResponse,
     DownloadModelArtifactRequest,
     DownloadModelArtifactResponse,
     GetModelArtifactRequest,
@@ -66,6 +70,10 @@ class ModelRegistryServiceStub:
         UpdateModelRequest,
         UpdateModelResponse,
     ]
+    DeleteModel: UnaryUnaryMultiCallable[
+        DeleteModelRequest,
+        DeleteModelResponse,
+    ]
     ListModelVersions: UnaryUnaryMultiCallable[
         ListModelVersionsRequest,
         ListModelVersionsResponse,
@@ -89,6 +97,10 @@ class ModelRegistryServiceStub:
     UpdateModelVersion: UnaryUnaryMultiCallable[
         UpdateModelVersionRequest,
         UpdateModelVersionResponse,
+    ]
+    DeleteModelVersion: UnaryUnaryMultiCallable[
+        DeleteModelVersionRequest,
+        DeleteModelVersionResponse,
     ]
     DownloadModelArtifact: UnaryUnaryMultiCallable[
         DownloadModelArtifactRequest,
@@ -141,6 +153,12 @@ class ModelRegistryServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> UpdateModelResponse: ...
     @abstractmethod
+    def DeleteModel(
+        self,
+        request: DeleteModelRequest,
+        context: ServicerContext,
+    ) -> DeleteModelResponse: ...
+    @abstractmethod
     def ListModelVersions(
         self,
         request: ListModelVersionsRequest,
@@ -176,6 +194,12 @@ class ModelRegistryServiceServicer(metaclass=ABCMeta):
         request: UpdateModelVersionRequest,
         context: ServicerContext,
     ) -> UpdateModelVersionResponse: ...
+    @abstractmethod
+    def DeleteModelVersion(
+        self,
+        request: DeleteModelVersionRequest,
+        context: ServicerContext,
+    ) -> DeleteModelVersionResponse: ...
     @abstractmethod
     def DownloadModelArtifact(
         self,

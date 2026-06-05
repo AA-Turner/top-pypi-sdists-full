@@ -1,19 +1,33 @@
-Metadata-Version: 2.1
-Name: uefi-firmware
-Version: 1.11
+Metadata-Version: 2.4
+Name: uefi_firmware
+Version: 1.16
 Summary: Various data structures and parsing tools for UEFI firmware.
 Home-page: https://github.com/theopolis/uefi-firmware-parser
-Author: Teddy Reed
-Author-email: teddy@prosauce.org
-License: BSD
+Author: UEFI Firmware Parser developers
+Author-email: 
+License: BSD-3-Clause
 Keywords: security uefi firmware parsing bios
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: System Administrators
 Classifier: Topic :: Security
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python :: 3
+Requires-Python: >=3.10
 License-File: LICENSE
 License-File: AUTHORS
+Requires-Dist: future
+Provides-Extra: tests
+Requires-Dist: dictdiffer; extra == "tests"
+Dynamic: author
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 UEFI Firmware Parser
 ====================

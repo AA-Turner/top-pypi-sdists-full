@@ -96,7 +96,7 @@ class CfnFHIRDatastore(
         # The values are placeholders you should change.
         from aws_cdk import aws_healthlake as healthlake
         
-        cfn_fHIRDatastore = healthlake.CfnFHIRDatastore(self, "MyCfnFHIRDatastore",
+        cfn_fhir_datastore = healthlake.CfnFHIRDatastore(self, "MyCfnFHIRDatastore",
             datastore_type_version="datastoreTypeVersion",
         
             # the properties below are optional
@@ -876,7 +876,7 @@ class CfnFHIRDatastoreProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_healthlake as healthlake
             
-            cfn_fHIRDatastore_props = healthlake.CfnFHIRDatastoreProps(
+            cfn_fhir_datastore_props = healthlake.CfnFHIRDatastoreProps(
                 datastore_type_version="datastoreTypeVersion",
             
                 # the properties below are optional

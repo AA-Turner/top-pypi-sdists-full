@@ -16,6 +16,8 @@ from chalk._gen.chalk.server.v1.trace_pb2 import (
     GetSpanResponse,
     GetSpanSourceAggregatesRequest,
     GetSpanSourceAggregatesResponse,
+    GetTraceCallGraphRequest,
+    GetTraceCallGraphResponse,
     GetTraceRequest,
     GetTraceResponse,
     ListSpanAggregatedRequest,
@@ -24,6 +26,8 @@ from chalk._gen.chalk.server.v1.trace_pb2 import (
     ListSpanResponse,
     ListTraceRequest,
     ListTraceResponse,
+    SearchTraceSummariesRequest,
+    SearchTraceSummariesResponse,
 )
 from grpc import (
     Channel,
@@ -46,6 +50,16 @@ class TraceServiceStub:
         ListTraceResponse,
     ]
     """ListTrace retrieves a list of traces with optional filtering"""
+    SearchTraceSummaries: UnaryUnaryMultiCallable[
+        SearchTraceSummariesRequest,
+        SearchTraceSummariesResponse,
+    ]
+    """SearchTraceSummaries retrieves traces using indexed trace summary filters"""
+    GetTraceCallGraph: UnaryUnaryMultiCallable[
+        GetTraceCallGraphRequest,
+        GetTraceCallGraphResponse,
+    ]
+    """GetTraceCallGraph retrieves the pre-indexed trace data needed to render a call graph."""
     GetSpan: UnaryUnaryMultiCallable[
         GetSpanRequest,
         GetSpanResponse,
@@ -94,6 +108,20 @@ class TraceServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> ListTraceResponse:
         """ListTrace retrieves a list of traces with optional filtering"""
+    @abstractmethod
+    def SearchTraceSummaries(
+        self,
+        request: SearchTraceSummariesRequest,
+        context: ServicerContext,
+    ) -> SearchTraceSummariesResponse:
+        """SearchTraceSummaries retrieves traces using indexed trace summary filters"""
+    @abstractmethod
+    def GetTraceCallGraph(
+        self,
+        request: GetTraceCallGraphRequest,
+        context: ServicerContext,
+    ) -> GetTraceCallGraphResponse:
+        """GetTraceCallGraph retrieves the pre-indexed trace data needed to render a call graph."""
     @abstractmethod
     def GetSpan(
         self,

@@ -16,7 +16,7 @@ pub(crate) const RESERVED_MICROSOFT: &str = "reserved for Microsoft compatibilit
 pub(crate) const RESERVED_FUTURE: &str = "reserved for future definition";
 
 #[pyclass(name = "UUID", frozen, immutable_type, skip_from_py_object, weakref)]
-#[cfg_attr(feature = "ry", pyo3(module = "ry.uuid"))]
+#[cfg_attr(feature = "ry", pyo3(module = "ry.ryo3"))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize), serde(transparent))]
 pub struct PyUuid(uuid::Uuid);
@@ -136,6 +136,42 @@ impl PyUuid {
         Self(uuid::Uuid::NAMESPACE_X500)
     }
 
+    #[classattr]
+    #[expect(non_snake_case, reason = "python classattr")]
+    pub(crate) fn NIL() -> Self {
+        Self(uuid::Uuid::nil())
+    }
+
+    #[classattr]
+    #[expect(non_snake_case, reason = "python classattr")]
+    pub(crate) fn MAX() -> Self {
+        Self(uuid::Uuid::from_u128(u128::MAX))
+    }
+
+    #[classattr]
+    #[expect(non_snake_case, reason = "python classattr")]
+    pub(crate) fn RESERVED_FUTURE() -> &'static str {
+        RESERVED_FUTURE
+    }
+
+    #[classattr]
+    #[expect(non_snake_case, reason = "python classattr")]
+    pub(crate) fn RESERVED_NCS() -> &'static str {
+        RESERVED_NCS
+    }
+
+    #[classattr]
+    #[expect(non_snake_case, reason = "python classattr")]
+    pub(crate) fn RFC_4122() -> &'static str {
+        RFC_4122
+    }
+
+    #[classattr]
+    #[expect(non_snake_case, reason = "python classattr")]
+    pub(crate) fn RESERVED_MICROSOFT() -> &'static str {
+        RESERVED_MICROSOFT
+    }
+
     fn __getnewargs__<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
         let py_ascii_str: PyAsciiString = self.0.hyphenated().to_string().into();
         PyTuple::new(py, vec![py_ascii_str])
@@ -229,6 +265,7 @@ impl PyUuid {
     }
 
     #[staticmethod]
+    #[pyo3(signature = (s, /))]
     fn from_str(s: &str) -> PyResult<Self> {
         uuid::Uuid::parse_str(s)
             .map(PyUuid)
@@ -381,6 +418,12 @@ impl PyUuid {
     #[getter]
     fn is_nil(&self) -> bool {
         self.0.is_nil()
+    }
+
+    #[staticmethod]
+    #[pyo3(name = "getnode")]
+    pub fn pydef_getnode(py: Python<'_>) -> PyResult<u64> {
+        getnode(py)
     }
 
     #[staticmethod]

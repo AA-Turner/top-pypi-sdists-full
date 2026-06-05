@@ -286,6 +286,11 @@ _current_classification: _ClassifiedRequest | None = None
 # implementation" — the texted task IS the approval.
 _force_implementation_mode: bool = False
 
+def set_force_implementation_mode(value: bool) -> None:
+    """Set the force implementation mode for the classifier."""
+    global _force_implementation_mode
+    _force_implementation_mode = value
+
 # Current working directory - Used for session persistence across turns
 _current_cwd: Path | None = None
 

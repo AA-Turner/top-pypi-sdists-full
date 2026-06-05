@@ -1802,6 +1802,13 @@ class CfnDomain(
                     enabled=False
                 )
             ),
+            automated_snapshot_pause_options=opensearchservice.CfnDomain.AutomatedSnapshotPauseOptionsProperty(
+                enabled=False,
+        
+                # the properties below are optional
+                end_time="endTime",
+                start_time="startTime"
+            ),
             cluster_config=opensearchservice.CfnDomain.ClusterConfigProperty(
                 cold_storage_options=opensearchservice.CfnDomain.ColdStorageOptionsProperty(
                     enabled=False
@@ -1897,6 +1904,7 @@ class CfnDomain(
                 value="value"
             )],
             vpc_options=opensearchservice.CfnDomain.VPCOptionsProperty(
+                egress_enabled=False,
                 security_group_ids=["securityGroupIds"],
                 subnet_ids=["subnetIds"]
             )
@@ -1909,9 +1917,10 @@ class CfnDomain(
         id: builtins.str,
         *,
         access_policies: typing.Any = None,
-        advanced_options: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        advanced_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         advanced_security_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.AdvancedSecurityOptionsInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         aiml_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.AIMLOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        automated_snapshot_pause_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.AutomatedSnapshotPauseOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         cluster_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.ClusterConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         cognito_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.CognitoOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         deployment_strategy_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.DeploymentStrategyOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -1940,6 +1949,7 @@ class CfnDomain(
         :param advanced_options: Additional options to specify for the OpenSearch Service domain. For more information, see `AdvancedOptions <https://docs.aws.amazon.com/opensearch-service/latest/APIReference/API_CreateDomain.html#API_CreateDomain_RequestBody>`_ in the OpenSearch Service API reference.
         :param advanced_security_options: Specifies options for fine-grained access control and SAML authentication. If you specify advanced security options, you must also enable node-to-node encryption ( `NodeToNodeEncryptionOptions <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-nodetonodeencryptionoptions.html>`_ ) and encryption at rest ( `EncryptionAtRestOptions <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-encryptionatrestoptions.html>`_ ). You must also enable ``EnforceHTTPS`` within `DomainEndpointOptions <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-domainendpointoptions.html>`_ , which requires HTTPS for all traffic to the domain.
         :param aiml_options: Container for parameters required to enable all machine learning features.
+        :param automated_snapshot_pause_options: 
         :param cluster_config: Container for the cluster configuration of a domain.
         :param cognito_options: Configures OpenSearch Service to use Amazon Cognito authentication for OpenSearch Dashboards.
         :param deployment_strategy_options: 
@@ -1969,6 +1979,7 @@ class CfnDomain(
             advanced_options=advanced_options,
             advanced_security_options=advanced_security_options,
             aiml_options=aiml_options,
+            automated_snapshot_pause_options=automated_snapshot_pause_options,
             cluster_config=cluster_config,
             cognito_options=cognito_options,
             deployment_strategy_options=deployment_strategy_options,
@@ -2281,14 +2292,14 @@ class CfnDomain(
     @jsii.member(jsii_name="advancedOptions")
     def advanced_options(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''Additional options to specify for the OpenSearch Service domain.'''
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], jsii.get(self, "advancedOptions"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "advancedOptions"))
 
     @advanced_options.setter
     def advanced_options(
         self,
-        value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4a8bbf96e0583433dd9f44c7bc58405687275c5e3102497c3de8597470024609)
@@ -2330,6 +2341,23 @@ class CfnDomain(
             type_hints = typing.get_type_hints(_typecheckingstub__809f26ae46117bca5e245e0d9e88b91751a9fe6f8137586a0925a3b568e6a6bb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "aimlOptions", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="automatedSnapshotPauseOptions")
+    def automated_snapshot_pause_options(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.AutomatedSnapshotPauseOptionsProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.AutomatedSnapshotPauseOptionsProperty"]], jsii.get(self, "automatedSnapshotPauseOptions"))
+
+    @automated_snapshot_pause_options.setter
+    def automated_snapshot_pause_options(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.AutomatedSnapshotPauseOptionsProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6f92a3bac154c3b486a9655621e10bbdb7909ea9f1c7ebd3041b6fdbbf095151)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "automatedSnapshotPauseOptions", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="clusterConfig")
@@ -2673,7 +2701,7 @@ class CfnDomain(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_opensearchservice as opensearchservice
                 
-                a_iMLOptions_property = opensearchservice.CfnDomain.AIMLOptionsProperty(
+                a_iml_options_property = opensearchservice.CfnDomain.AIMLOptionsProperty(
                     s3_vectors_engine=opensearchservice.CfnDomain.S3VectorsEngineProperty(
                         enabled=False
                     ),
@@ -2935,6 +2963,94 @@ class CfnDomain(
 
         def __repr__(self) -> str:
             return "AdvancedSecurityOptionsInputProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_opensearchservice.CfnDomain.AutomatedSnapshotPauseOptionsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "enabled": "enabled",
+            "end_time": "endTime",
+            "start_time": "startTime",
+        },
+    )
+    class AutomatedSnapshotPauseOptionsProperty:
+        def __init__(
+            self,
+            *,
+            enabled: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+            end_time: typing.Optional[builtins.str] = None,
+            start_time: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param enabled: 
+            :param end_time: 
+            :param start_time: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-automatedsnapshotpauseoptions.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_opensearchservice as opensearchservice
+                
+                automated_snapshot_pause_options_property = opensearchservice.CfnDomain.AutomatedSnapshotPauseOptionsProperty(
+                    enabled=False,
+                
+                    # the properties below are optional
+                    end_time="endTime",
+                    start_time="startTime"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__c96428e25485832a87761dd01daf4b60459c20bf146d46a8399ed4fd86ae1b11)
+                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+                check_type(argname="argument end_time", value=end_time, expected_type=type_hints["end_time"])
+                check_type(argname="argument start_time", value=start_time, expected_type=type_hints["start_time"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "enabled": enabled,
+            }
+            if end_time is not None:
+                self._values["end_time"] = end_time
+            if start_time is not None:
+                self._values["start_time"] = start_time
+
+        @builtins.property
+        def enabled(self) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-automatedsnapshotpauseoptions.html#cfn-opensearchservice-domain-automatedsnapshotpauseoptions-enabled
+            '''
+            result = self._values.get("enabled")
+            assert result is not None, "Required property 'enabled' is missing"
+            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
+
+        @builtins.property
+        def end_time(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-automatedsnapshotpauseoptions.html#cfn-opensearchservice-domain-automatedsnapshotpauseoptions-endtime
+            '''
+            result = self._values.get("end_time")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def start_time(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-automatedsnapshotpauseoptions.html#cfn-opensearchservice-domain-automatedsnapshotpauseoptions-starttime
+            '''
+            result = self._values.get("start_time")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AutomatedSnapshotPauseOptionsProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -3632,7 +3748,7 @@ class CfnDomain(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_opensearchservice as opensearchservice
                 
-                e_bSOptions_property = opensearchservice.CfnDomain.EBSOptionsProperty(
+                e_bs_options_property = opensearchservice.CfnDomain.EBSOptionsProperty(
                     ebs_enabled=False,
                     iops=123,
                     throughput=123,
@@ -3834,7 +3950,7 @@ class CfnDomain(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_opensearchservice as opensearchservice
                 
-                i_aMFederation_options_property = {
+                i_am_federation_options_property = {
                     "enabled": False,
                     "roles_key": "rolesKey",
                     "subject_key": "subjectKey"
@@ -4136,7 +4252,7 @@ class CfnDomain(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_opensearchservice as opensearchservice
                 
-                j_wTOptions_property = opensearchservice.CfnDomain.JWTOptionsProperty(
+                j_wt_options_property = opensearchservice.CfnDomain.JWTOptionsProperty(
                     enabled=False,
                     public_key="publicKey",
                     roles_key="rolesKey",
@@ -4847,7 +4963,7 @@ class CfnDomain(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_opensearchservice as opensearchservice
                 
-                s_aMLOptions_property = opensearchservice.CfnDomain.SAMLOptionsProperty(
+                s_aml_options_property = opensearchservice.CfnDomain.SAMLOptionsProperty(
                     enabled=False,
                     idp=opensearchservice.CfnDomain.IdpProperty(
                         entity_id="entityId",
@@ -5332,6 +5448,7 @@ class CfnDomain(
         jsii_type="aws-cdk-lib.aws_opensearchservice.CfnDomain.VPCOptionsProperty",
         jsii_struct_bases=[],
         name_mapping={
+            "egress_enabled": "egressEnabled",
             "security_group_ids": "securityGroupIds",
             "subnet_ids": "subnetIds",
         },
@@ -5340,6 +5457,7 @@ class CfnDomain(
         def __init__(
             self,
             *,
+            egress_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
             subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
         ) -> None:
@@ -5347,6 +5465,7 @@ class CfnDomain(
 
             For more information, see `Launching your Amazon OpenSearch Service domains using a VPC <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/vpc.html>`_ in the *Amazon OpenSearch Service Developer Guide* .
 
+            :param egress_enabled: Controls whether egress traffic from the domain is routed through the customer VPC.
             :param security_group_ids: The list of security group IDs that are associated with the VPC endpoints for the domain. If you don't provide a security group ID, OpenSearch Service uses the default security group for the VPC. To learn more, see `Security groups for your VPC <https://docs.aws.amazon.com/vpc/latest/userguide/VPC_SecurityGroups.html>`_ in the *Amazon VPC User Guide* .
             :param subnet_ids: Provide one subnet ID for each Availability Zone that your domain uses. For example, you must specify three subnet IDs for a three-AZ domain. To learn more, see `VPCs and subnets <https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Subnets.html>`_ in the *Amazon VPC User Guide* . If you specify more than one subnet, you must also configure ``ZoneAwarenessEnabled`` and ``ZoneAwarenessConfig`` within `ClusterConfig <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-clusterconfig.html>`_ , otherwise you'll see the error "You must specify exactly one subnet" during template creation.
 
@@ -5359,20 +5478,35 @@ class CfnDomain(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_opensearchservice as opensearchservice
                 
-                v_pCOptions_property = opensearchservice.CfnDomain.VPCOptionsProperty(
+                v_pc_options_property = opensearchservice.CfnDomain.VPCOptionsProperty(
+                    egress_enabled=False,
                     security_group_ids=["securityGroupIds"],
                     subnet_ids=["subnetIds"]
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__0b5e509f3eeacdd0fd9d933797c926acbd5e00cdfca76bc715ee89c0ba33d541)
+                check_type(argname="argument egress_enabled", value=egress_enabled, expected_type=type_hints["egress_enabled"])
                 check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
                 check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if egress_enabled is not None:
+                self._values["egress_enabled"] = egress_enabled
             if security_group_ids is not None:
                 self._values["security_group_ids"] = security_group_ids
             if subnet_ids is not None:
                 self._values["subnet_ids"] = subnet_ids
+
+        @builtins.property
+        def egress_enabled(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+            '''Controls whether egress traffic from the domain is routed through the customer VPC.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-vpcoptions.html#cfn-opensearchservice-domain-vpcoptions-egressenabled
+            '''
+            result = self._values.get("egress_enabled")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -5549,6 +5683,7 @@ class CfnDomain(
         "advanced_options": "advancedOptions",
         "advanced_security_options": "advancedSecurityOptions",
         "aiml_options": "aimlOptions",
+        "automated_snapshot_pause_options": "automatedSnapshotPauseOptions",
         "cluster_config": "clusterConfig",
         "cognito_options": "cognitoOptions",
         "deployment_strategy_options": "deploymentStrategyOptions",
@@ -5575,9 +5710,10 @@ class CfnDomainProps:
         self,
         *,
         access_policies: typing.Any = None,
-        advanced_options: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        advanced_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         advanced_security_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.AdvancedSecurityOptionsInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         aiml_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.AIMLOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        automated_snapshot_pause_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.AutomatedSnapshotPauseOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         cluster_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.ClusterConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         cognito_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.CognitoOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         deployment_strategy_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.DeploymentStrategyOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -5604,6 +5740,7 @@ class CfnDomainProps:
         :param advanced_options: Additional options to specify for the OpenSearch Service domain. For more information, see `AdvancedOptions <https://docs.aws.amazon.com/opensearch-service/latest/APIReference/API_CreateDomain.html#API_CreateDomain_RequestBody>`_ in the OpenSearch Service API reference.
         :param advanced_security_options: Specifies options for fine-grained access control and SAML authentication. If you specify advanced security options, you must also enable node-to-node encryption ( `NodeToNodeEncryptionOptions <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-nodetonodeencryptionoptions.html>`_ ) and encryption at rest ( `EncryptionAtRestOptions <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-encryptionatrestoptions.html>`_ ). You must also enable ``EnforceHTTPS`` within `DomainEndpointOptions <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-domainendpointoptions.html>`_ , which requires HTTPS for all traffic to the domain.
         :param aiml_options: Container for parameters required to enable all machine learning features.
+        :param automated_snapshot_pause_options: 
         :param cluster_config: Container for the cluster configuration of a domain.
         :param cognito_options: Configures OpenSearch Service to use Amazon Cognito authentication for OpenSearch Dashboards.
         :param deployment_strategy_options: 
@@ -5682,6 +5819,13 @@ class CfnDomainProps:
                     serverless_vector_acceleration=opensearchservice.CfnDomain.ServerlessVectorAccelerationProperty(
                         enabled=False
                     )
+                ),
+                automated_snapshot_pause_options=opensearchservice.CfnDomain.AutomatedSnapshotPauseOptionsProperty(
+                    enabled=False,
+            
+                    # the properties below are optional
+                    end_time="endTime",
+                    start_time="startTime"
                 ),
                 cluster_config=opensearchservice.CfnDomain.ClusterConfigProperty(
                     cold_storage_options=opensearchservice.CfnDomain.ColdStorageOptionsProperty(
@@ -5778,6 +5922,7 @@ class CfnDomainProps:
                     value="value"
                 )],
                 vpc_options=opensearchservice.CfnDomain.VPCOptionsProperty(
+                    egress_enabled=False,
                     security_group_ids=["securityGroupIds"],
                     subnet_ids=["subnetIds"]
                 )
@@ -5789,6 +5934,7 @@ class CfnDomainProps:
             check_type(argname="argument advanced_options", value=advanced_options, expected_type=type_hints["advanced_options"])
             check_type(argname="argument advanced_security_options", value=advanced_security_options, expected_type=type_hints["advanced_security_options"])
             check_type(argname="argument aiml_options", value=aiml_options, expected_type=type_hints["aiml_options"])
+            check_type(argname="argument automated_snapshot_pause_options", value=automated_snapshot_pause_options, expected_type=type_hints["automated_snapshot_pause_options"])
             check_type(argname="argument cluster_config", value=cluster_config, expected_type=type_hints["cluster_config"])
             check_type(argname="argument cognito_options", value=cognito_options, expected_type=type_hints["cognito_options"])
             check_type(argname="argument deployment_strategy_options", value=deployment_strategy_options, expected_type=type_hints["deployment_strategy_options"])
@@ -5817,6 +5963,8 @@ class CfnDomainProps:
             self._values["advanced_security_options"] = advanced_security_options
         if aiml_options is not None:
             self._values["aiml_options"] = aiml_options
+        if automated_snapshot_pause_options is not None:
+            self._values["automated_snapshot_pause_options"] = automated_snapshot_pause_options
         if cluster_config is not None:
             self._values["cluster_config"] = cluster_config
         if cognito_options is not None:
@@ -5870,7 +6018,7 @@ class CfnDomainProps:
     @builtins.property
     def advanced_options(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''Additional options to specify for the OpenSearch Service domain.
 
         For more information, see `AdvancedOptions <https://docs.aws.amazon.com/opensearch-service/latest/APIReference/API_CreateDomain.html#API_CreateDomain_RequestBody>`_ in the OpenSearch Service API reference.
@@ -5878,7 +6026,7 @@ class CfnDomainProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-advancedoptions
         '''
         result = self._values.get("advanced_options")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
     @builtins.property
     def advanced_security_options(
@@ -5903,6 +6051,16 @@ class CfnDomainProps:
         '''
         result = self._values.get("aiml_options")
         return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.AIMLOptionsProperty"]], result)
+
+    @builtins.property
+    def automated_snapshot_pause_options(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.AutomatedSnapshotPauseOptionsProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-automatedsnapshotpauseoptions
+        '''
+        result = self._values.get("automated_snapshot_pause_options")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.AutomatedSnapshotPauseOptionsProperty"]], result)
 
     @builtins.property
     def cluster_config(
@@ -11449,9 +11607,10 @@ def _typecheckingstub__6fcd2545392b3f48f314c640881e38e167b5936f1165d2eb1ce21766d
     id: builtins.str,
     *,
     access_policies: typing.Any = None,
-    advanced_options: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    advanced_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     advanced_security_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.AdvancedSecurityOptionsInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     aiml_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.AIMLOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    automated_snapshot_pause_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.AutomatedSnapshotPauseOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     cluster_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.ClusterConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     cognito_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.CognitoOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     deployment_strategy_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.DeploymentStrategyOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -11522,7 +11681,7 @@ def _typecheckingstub__da5300173c129717cc6b181e91e5685dc6f63810f40281dca8b4c3a64
     pass
 
 def _typecheckingstub__4a8bbf96e0583433dd9f44c7bc58405687275c5e3102497c3de8597470024609(
-    value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11535,6 +11694,12 @@ def _typecheckingstub__228f471e13ce4e3daa56e3913f7b610971afccf6ec06adc08af42a85a
 
 def _typecheckingstub__809f26ae46117bca5e245e0d9e88b91751a9fe6f8137586a0925a3b568e6a6bb(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.AIMLOptionsProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6f92a3bac154c3b486a9655621e10bbdb7909ea9f1c7ebd3041b6fdbbf095151(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.AutomatedSnapshotPauseOptionsProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11671,6 +11836,15 @@ def _typecheckingstub__fd5c3c68239a044600ab387ec52e22ed8852c6e213d5626aa4396b28a
     jwt_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.JWTOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     master_user_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.MasterUserOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     saml_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.SAMLOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c96428e25485832a87761dd01daf4b60459c20bf146d46a8399ed4fd86ae1b11(
+    *,
+    enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    end_time: typing.Optional[builtins.str] = None,
+    start_time: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11900,6 +12074,7 @@ def _typecheckingstub__3f5b07fb34bad0710947f07e46bcb56c9b4dde81217ab11372e2037cc
 
 def _typecheckingstub__0b5e509f3eeacdd0fd9d933797c926acbd5e00cdfca76bc715ee89c0ba33d541(
     *,
+    egress_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
@@ -11924,9 +12099,10 @@ def _typecheckingstub__256b4aabbc2391aa4f2b7e2d1c28804fdc91f3e9c7c213de20cc38a33
 def _typecheckingstub__4a3bbf8db74762f8d49d2ee572e0b31eef8650964dd0e8a168a5fe2d67607c52(
     *,
     access_policies: typing.Any = None,
-    advanced_options: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    advanced_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     advanced_security_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.AdvancedSecurityOptionsInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     aiml_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.AIMLOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    automated_snapshot_pause_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.AutomatedSnapshotPauseOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     cluster_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.ClusterConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     cognito_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.CognitoOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     deployment_strategy_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.DeploymentStrategyOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,

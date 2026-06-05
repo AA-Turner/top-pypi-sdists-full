@@ -25,6 +25,35 @@ try:
 except ImportError:
     CUPY_AVAILABLE = False
 
+# =====================================================================
+# CuPy Kernels definition for fusion of operations (Zero-Allocation)
+# =====================================================================
+if CUPY_AVAILABLE:
+    # Kernel for Poisson normalized residual: 1.0 - y / max(q, eps)
+    pigd_residual_kernel = cp.ElementwiseKernel(
+        'float32 y, float32 q, float32 eps',
+        'float32 out',
+        '''
+        float q_safe = q < eps ? eps : q;
+        out = 1.0f - (y / q_safe);
+        ''',
+        'pigd_residual_kernel'
+    )
+
+    # Kernel for Preconditioned Update: lambda - alpha * (backproj + grad_U) / sens
+    pigd_update_kernel = cp.ElementwiseKernel(
+        'float32 lam_in, float32 backproj, float32 grad_u, float32 sens, float32 alpha, float32 eps',
+        'float32 lam_out',
+        '''
+        float sens_safe = sens < eps ? eps : sens;
+        float total_grad = backproj + grad_u;
+        float step = alpha * total_grad / sens_safe;
+        
+        float new_val = lam_in - step;
+        lam_out = new_val > 0.0f ? new_val : 0.0f; // Clamp positive
+        ''',
+        'pigd_update_kernel'
+    )
 
 def PIGD(
     SMatrix: Union['SMatrix_DENSE', 'SMatrix_CSR', 'SMatrix_SELL'],
@@ -40,6 +69,7 @@ def PIGD(
     potential_radius: int = 2,
     stop_criterion: StopCriterionType = StopCriterionType.MAX_ITERATIONS,
     stop_threshold: float = 100.0,
+    stop_window_size: int = 5,
     isSavingEachIteration: bool = True,
     isCostFunction: bool = False,
     withTumor: bool = True,
@@ -82,6 +112,7 @@ def PIGD(
         potential_radius: Neighborhood radius in pixels.
         stop_criterion: Criterion for stopping the iterations (StopCriterionType enum)
         stop_threshold: Threshold value for the stopping criterion (for MAX_iterations, this is ignored)
+        stop_window_size: Window size (used to avoid early stop due to oscillations)
         isSavingEachIteration: If True, saves intermediate results
         isCostFunction: If True, computes and saves cost function history
         withTumor: Boolean for description only
@@ -96,6 +127,7 @@ def PIGD(
         - cost_history: List of cost function values (None if not requested)
     """
     xp = get_array_module(SMatrix)
+    is_gpu = (xp.__name__ == 'cupy')
     Z, X = SMatrix.Z, SMatrix.X
     ZX = Z * X
 
@@ -104,9 +136,11 @@ def PIGD(
 
     y_flat = xp.asarray(y.T.flatten().astype(xp.float32))
     lambda_flat = xp.full(ZX, 0.1, dtype=xp.float32)
+    residual_buffer = xp.empty_like(y_flat)
 
     # Pre-compute sensitivity image (A^T * 1)
-    sens_img = xp.maximum(backward_projection(SMatrix, xp.ones(SMatrix.N * SMatrix.T, dtype=xp.float32)), 1e-10)
+    sens_img = backward_projection(SMatrix, xp.ones(SMatrix.N * SMatrix.T, dtype=xp.float32))
+    xp.maximum(sens_img, 1e-10, out=sens_img)
 
     alpha = calculate_step_size(SMatrix, eta, numIterations_stepCalculation, show_logs) if alpha == "auto" else alpha
   
@@ -115,28 +149,51 @@ def PIGD(
     saved_lambda = []
     saved_indices_list = []
     cost_history = [] if isCostFunction else None
+    window_history = []
 
     description = f"AOT-BioMaps -- PIGD ({SMatrix.matrix_type.name}) with {potential_type.name} (shape: {potential_shape.name}, r: {potential_radius}) β={beta} ---- {'WITH' if withTumor else 'WITHOUT'} TUMOR ---- {SMatrix.device.upper()}"
     iterator = trange(numIterations, desc=description) if show_logs else range(numIterations)
 
     for it in iterator:
-        prev_lambda = lambda_flat.copy()
+        prev_lambda = lambda_flat.copy() if stop_criterion != StopCriterionType.MAX_ITERATIONS else None
+
         q_flat = forward_projection(SMatrix, lambda_flat)
         
+        if is_gpu:
+            pigd_residual_kernel(y_flat, q_flat, 1e-10, residual_buffer)
+        else:
+            np.maximum(q_flat, 1e-10, out=q_flat)
+            np.divide(y_flat, q_flat, out=residual_buffer)
+            np.subtract(1.0, residual_buffer, out=residual_buffer)
+
         # Compute potential Gradient dynamically (Hessian is not used in PIGD)
-        grad_U, _ , U_value = get_potential_function(potential_type, SMatrix, lambda_flat, beta=beta, delta=delta, shape=potential_shape, radius=potential_radius, compute_grad=True, compute_hess=False, compute_energy=isCostFunction)
+        grad_U, _ , U_value = get_potential_function(potential_type, SMatrix, lambda_flat, beta=beta, delta=delta, shape=potential_shape, radius=potential_radius, compute_grad=True, compute_hess=False, compute_energy=isCostFunction, use_surrogate_hessian=False)
 
         # Track cost function (Negative Log-Likelihood + Penalty)
         if isCostFunction:
-            cost_history.append(float(xp.sum(xp.maximum(q_flat, 1e-10) - y_flat * xp.log(xp.maximum(q_flat, 1e-10))) + U_value))
-  
+            q_safe = xp.maximum(q_flat, 1e-10)
+            cost_history.append(float(xp.sum(q_safe - y_flat * xp.log(q_safe)) + U_value))
+
+        grad_fidelity = backward_projection(SMatrix, residual_buffer)
+
         # PIGD Update: λ = λ - α * (A^T * (1 - y / Ax) + grad_U) / sens_img (For Poisson, we use the normalized residual (1 - y/Ax)) using diagonal preconditioning to normalize the gradient
-        lambda_flat = clamp_positive(SMatrix, lambda_flat - alpha * (backward_projection(SMatrix, 1.0 - (y_flat / xp.maximum(q_flat, 1e-10))) + grad_U) / sens_img)
+        if is_gpu:
+            pigd_update_kernel(lambda_flat, grad_fidelity, grad_U, sens_img, float(alpha), 1e-10, lambda_flat)
+        else:
+            # Fallback CPU In-Place
+            total_gradient = grad_fidelity
+            total_gradient += grad_U
+            total_gradient /= sens_img
+            total_gradient *= float(alpha)
+            
+            lambda_flat -= total_gradient
+            np.maximum(lambda_flat, 0.0, out=lambda_flat)
 
         # Stopping Criterion
         if stop_criterion != StopCriterionType.MAX_ITERATIONS:
             ground_truth = SMatrix.experiment.OpticImage.phantom if withTumor else SMatrix.experiment.OpticImage.laser.intensity
-            isStop, val = check_stopping_criterion(SMatrix, lambda_flat, prev_lambda, stop_criterion, stop_threshold, cost_history, ground_truth)
+            gradient_for_stop = grad_fidelity + grad_U if stop_criterion == StopCriterionType.GRADIENT_NORM else None
+            isStop, val = check_stopping_criterion(SMatrix, lambda_flat, prev_lambda, stop_criterion, stop_threshold, window_size=stop_window_size, history=cost_history, ground_truth=ground_truth, gradient=gradient_for_stop, window_history=window_history)
             if show_logs and show_criterion:
                 iterator.set_postfix_str(f"{stop_criterion.name}: {val:.2e}")
             if isStop:

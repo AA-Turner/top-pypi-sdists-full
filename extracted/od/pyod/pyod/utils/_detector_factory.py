@@ -138,5 +138,7 @@ def build_from_preset(detector_name: str, preset: str,
             return EmbeddingOD.for_text(**params)
         elif preset == 'for_image':
             return EmbeddingOD.for_image(**params)
+        elif preset == 'for_audio':
+            return EmbeddingOD.for_audio(**params)
     raise ValueError("Unknown preset '%s' for '%s'"
                      % (preset, detector_name))

@@ -162,14 +162,24 @@ class GetScalingGroupResponse(_message.Message):
     def __init__(self, scaling_group: _Optional[_Union[ScalingGroupResponse, _Mapping]] = ...) -> None: ...
 
 class ListScalingGroupsRequest(_message.Message):
-    __slots__ = ()
-    def __init__(self) -> None: ...
+    __slots__ = ("cursor", "limit")
+    CURSOR_FIELD_NUMBER: _ClassVar[int]
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
+    cursor: str
+    limit: int
+    def __init__(self, cursor: _Optional[str] = ..., limit: _Optional[int] = ...) -> None: ...
 
 class ListScalingGroupsResponse(_message.Message):
-    __slots__ = ("scaling_groups",)
+    __slots__ = ("scaling_groups", "next_cursor")
     SCALING_GROUPS_FIELD_NUMBER: _ClassVar[int]
+    NEXT_CURSOR_FIELD_NUMBER: _ClassVar[int]
     scaling_groups: _containers.RepeatedCompositeFieldContainer[ScalingGroupResponse]
-    def __init__(self, scaling_groups: _Optional[_Iterable[_Union[ScalingGroupResponse, _Mapping]]] = ...) -> None: ...
+    next_cursor: str
+    def __init__(
+        self,
+        scaling_groups: _Optional[_Iterable[_Union[ScalingGroupResponse, _Mapping]]] = ...,
+        next_cursor: _Optional[str] = ...,
+    ) -> None: ...
 
 class ScalingGroupRevisionResponse(_message.Message):
     __slots__ = (

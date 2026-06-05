@@ -1,7 +1,7 @@
 """CLI-internal login services for browser-cookie auth flows.
 
-This package was split out of the single-file ``cli/services/login.py``
-in P3.T4 to keep every implementation module ≤ 400 LOC, eliminate the
+This package is split across multiple modules to keep every
+implementation module ≤ 400 LOC, eliminate the
 ``_read_browser_cookies`` / ``_enumerate_browser_accounts`` circular-
 dispatch trap, and document the leaf-ward import DAG (chromium-family
 and firefox-family modules share ``cookie_jar`` + ``rookiepy_errors``
@@ -9,9 +9,9 @@ helpers; ``browser_accounts`` sits above both as the dispatcher;
 ``refresh`` is the top of the graph).
 
 Module body intentionally re-exports only. The AST guard
-``tests/_lint/test_login_init_is_reexport_only.py`` enforces this; the
-DAG guard ``tests/_lint/test_login_package_dag.py`` enforces the
-leaf-ward shape declared in ``phase-3.md`` P3.T4.
+``tests/_guardrails/test_login_init_is_reexport_only.py`` enforces this; the
+DAG guard ``tests/_guardrails/test_login_package_dag.py`` enforces the
+leaf-ward shape.
 
 The re-exports cover three concerns:
 

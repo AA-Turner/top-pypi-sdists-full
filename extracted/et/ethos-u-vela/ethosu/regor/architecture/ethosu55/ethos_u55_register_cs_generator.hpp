@@ -1,5 +1,5 @@
 //
-// SPDX-FileCopyrightText: Copyright 2021-2025 Arm Limited and/or its affiliates <open-source-office@arm.com>
+// SPDX-FileCopyrightText: Copyright 2021-2026 Arm Limited and/or its affiliates <open-source-office@arm.com>
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -145,7 +145,6 @@ protected:
     void Emit(uint32_t instr);
     void Emit(uint64_t instr);
 
-    static int GetDoubleBufferOffset(HLCWeights *weights, int rangeIndex);
     static void CheckAddressRange(ArchitectureMemory *memory, Address address, int size);
     static void CheckAddresses(const HLCFeatureMap &fm);
     // Calculates the rolling buffer address of the given coordinate.
@@ -172,7 +171,7 @@ protected:
     //----------------------------------------------------------------------
 
     // Generates OFM_SCALE register for pooling operations
-    void GenerateOFMScalingForPooling(HLCOperation *poolOp, bool useGlobalScale);
+    void GenerateOFMScalingForPooling(HLCOperation *poolOp, bool useGlobalScale, int padSum);
     // Generates OFM/OPA/OPB_SCALE registers for elementwise operators.
     // Returns the operator to scale
     RCSIfmScaleMode GenerateScalingForElementwise(HLCOperation *op, int ifm0Index);
@@ -239,8 +238,6 @@ protected:
 
     // Inserts DMA commands for copying LUTs from constant memory to LUT memory
     void InsertLUTDMACommand(const HLCStripe *stripe, Temporaries &temps, std::vector<const HighLevelCommand *> &emitted);
-    // Inserts DMA commands to handle TILE operations
-    virtual void InsertTileDMACommand(const HLCStripe *stripe, Temporaries &temps, std::vector<const HighLevelCommand *> &emitted);
     // Inserts commands to handle transposing
     virtual void InsertTransposeCommand(const HLCStripe *stripe, Temporaries &temps, std::vector<const HighLevelCommand *> &emitted);
     // Inserts commands to handle MATMUL operations

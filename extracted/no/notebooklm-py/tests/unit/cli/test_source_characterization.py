@@ -51,7 +51,7 @@ from notebooklm.types import (
     SourceTimeoutError,
 )
 
-from .conftest import create_mock_client
+from .conftest import create_mock_client, research_start, source_guide
 
 pytestmark = pytest.mark.characterization
 
@@ -179,7 +179,7 @@ class TestSourceGetCharacterization:
     def test_get_text_mode_prints_title_and_type(self, runner, mock_auth, patched_fetch_tokens):
         with patch("notebooklm.cli.source_cmd.NotebookLMClient") as cls:
             client = create_mock_client()
-            client.sources.get = AsyncMock(
+            client.sources.get_or_none = AsyncMock(
                 return_value=Source(id="src_1", title="My Source", url=None)
             )
             cls.return_value = client
@@ -192,7 +192,7 @@ class TestSourceGetCharacterization:
     def test_get_json_mode_emits_source_envelope(self, runner, mock_auth, patched_fetch_tokens):
         with patch("notebooklm.cli.source_cmd.NotebookLMClient") as cls:
             client = create_mock_client()
-            client.sources.get = AsyncMock(
+            client.sources.get_or_none = AsyncMock(
                 return_value=Source(
                     id="src_1",
                     title="My Source",
@@ -213,7 +213,7 @@ class TestSourceGetCharacterization:
     def test_get_not_found_exits_1_text_mode(self, runner, mock_auth, patched_fetch_tokens):
         with patch("notebooklm.cli.source_cmd.NotebookLMClient") as cls:
             client = create_mock_client()
-            client.sources.get = AsyncMock(return_value=None)
+            client.sources.get_or_none = AsyncMock(return_value=None)
             cls.return_value = client
             result = runner.invoke(
                 cli,
@@ -230,7 +230,7 @@ class TestSourceGetCharacterization:
     def test_get_not_found_exits_1_json_mode(self, runner, mock_auth, patched_fetch_tokens):
         with patch("notebooklm.cli.source_cmd.NotebookLMClient") as cls:
             client = create_mock_client()
-            client.sources.get = AsyncMock(return_value=None)
+            client.sources.get_or_none = AsyncMock(return_value=None)
             cls.return_value = client
             result = runner.invoke(
                 cli,
@@ -428,7 +428,7 @@ class TestSourceGuideCharacterization:
         with patch("notebooklm.cli.source_cmd.NotebookLMClient") as cls:
             client = create_mock_client()
             client.sources.get_guide = AsyncMock(
-                return_value={"summary": "summary text", "keywords": ["a", "b"]}
+                return_value=source_guide({"summary": "summary text", "keywords": ["a", "b"]})
             )
             cls.return_value = client
             result = runner.invoke(cli, ["source", "guide", "src_1", "-n", "nb_123"])
@@ -442,7 +442,9 @@ class TestSourceGuideCharacterization:
     ):
         with patch("notebooklm.cli.source_cmd.NotebookLMClient") as cls:
             client = create_mock_client()
-            client.sources.get_guide = AsyncMock(return_value={"summary": "s", "keywords": ["k1"]})
+            client.sources.get_guide = AsyncMock(
+                return_value=source_guide({"summary": "s", "keywords": ["k1"]})
+            )
             cls.return_value = client
             result = runner.invoke(cli, ["source", "guide", "src_1", "-n", "nb_123", "--json"])
         assert result.exit_code == 0
@@ -463,7 +465,7 @@ class TestSourceAddResearchCharacterization:
     ):
         with patch("notebooklm.cli.source_cmd.NotebookLMClient") as cls:
             client = create_mock_client()
-            client.research.start = AsyncMock(return_value={"task_id": "task_123"})
+            client.research.start = AsyncMock(return_value=research_start({"task_id": "task_123"}))
             cls.return_value = client
             result = runner.invoke(
                 cli,

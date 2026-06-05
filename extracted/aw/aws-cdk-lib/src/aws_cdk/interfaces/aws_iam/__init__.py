@@ -1059,7 +1059,7 @@ class OIDCProviderReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_iam as interfaces_iam
             
-            o_iDCProvider_reference = interfaces_iam.OIDCProviderReference(
+            o_idc_provider_reference = interfaces_iam.OIDCProviderReference(
                 oidc_provider_arn="oidcProviderArn"
             )
         '''
@@ -1277,7 +1277,7 @@ class SAMLProviderReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_iam as interfaces_iam
             
-            s_aMLProvider_reference = interfaces_iam.SAMLProviderReference(
+            s_aml_provider_reference = interfaces_iam.SAMLProviderReference(
                 saml_provider_arn="samlProviderArn"
             )
         '''
@@ -1612,7 +1612,7 @@ class VirtualMFADeviceReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_iam as interfaces_iam
             
-            virtual_mFADevice_reference = interfaces_iam.VirtualMFADeviceReference(
+            virtual_mfa_device_reference = interfaces_iam.VirtualMFADeviceReference(
                 serial_number="serialNumber"
             )
         '''

@@ -280,3 +280,5 @@ class StopCriterionType(Enum):
     """Stop when the relative change in the solution is below a threshold."""
     GRADIENT_NORM = 'GRADIENT_NORM'
     """Stop when the norm of the gradient is below a threshold."""
+    MSE = 'MSE'
+    """Stop when the mean squared error with respect to ground truth is below a threshold (requires ground truth, only for simulated data)."""

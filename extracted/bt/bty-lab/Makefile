@@ -2,7 +2,7 @@
 #
 # All common operations in one place; ``make help`` lists them.
 # Operators run everything from the repo root: ``make build
-# VARIANT=server-x86``, ``make test``, ``make ci``, etc.
+# VARIANT=usb-x86``, ``make test``, ``make ci``, etc.
 
 UV      ?= uv
 VARIANT ?= usb-x86
@@ -11,24 +11,17 @@ VARIANT ?= usb-x86
 #  - usb-x86 uses the live-build iso-hybrid pipeline (usb.yaml).
 #  - netboot-x86 uses the live-build netboot pipeline (netboot.yaml).
 #    Renamed from live-x86 to disambiguate from usb-x86 (also "live").
-#  - server-x86 uses the cloud-init-in-QEMU bake (build.yaml)
-#  - server-rpi mounts a Raspberry Pi OS image and chroots via
-#    qemu-aarch64-static (build-rpi.yaml)
 ifeq ($(VARIANT),netboot-x86)
 MEDIA_TASK := tasks/netboot.yaml
-else ifeq ($(VARIANT),usb-x86)
-MEDIA_TASK := tasks/usb.yaml
-else ifeq ($(VARIANT),server-rpi)
-MEDIA_TASK := tasks/build-rpi.yaml
 else
-MEDIA_TASK := tasks/build.yaml
+MEDIA_TASK := tasks/usb.yaml
 endif
 
 .DEFAULT_GOAL := help
 
 .PHONY: help \
-        deps test lint format format-check typecheck ci wheel tui \
-        media-deps build test-pxe \
+        deps hooks test lint format format-check typecheck ci wheel tui \
+        media-deps build ipxe test-pxe \
         docker-build docker-run docker-clean \
         docs-html docs-pdf docs-serve \
         clean
@@ -38,6 +31,7 @@ help:
 	@echo ""
 	@echo "Dev (Python package, no sudo, no network beyond uv):"
 	@echo "  deps          uv sync --all-extras --group dev"
+	@echo "  hooks         install pre-commit git hooks (ruff + shellcheck + hygiene)"
 	@echo "  test          pytest (excludes integration / pxe markers)"
 	@echo "  lint          ruff check"
 	@echo "  format        ruff format (writes)"
@@ -51,18 +45,17 @@ help:
 	@echo "  media-deps    pipx install cijoe"
 	@echo "  build         build a media image (override VARIANT below)"
 	@echo "                  -> ~/system_imaging/disk/bty-<variant>.*"
+	@echo "  ipxe          build bty's custom iPXE -> IPXE_OUT/ipxe.efi (default dist/ipxe/)"
 	@echo "  test-pxe      end-to-end PXE chain test (server + client QEMU VMs)"
 	@echo "                  (needs QEMU + KVM; ~5-10 min wall clock)"
 	@echo ""
-	@echo "Variant: $(VARIANT)  (override with VARIANT=server-x86, server-rpi, netboot-x86, ...)"
+	@echo "Variant: $(VARIANT)  (override with VARIANT=netboot-x86, ...)"
 	@echo "  usb-x86      - bootable USB live ISO via live-build (.iso.gz, x86_64)"
-	@echo "  server-x86   - server appliance image (.img.gz, x86_64; needs qemu-system-x86_64 + KVM)"
-	@echo "  server-rpi   - server appliance for Raspberry Pi 4/5 (.img.gz, arm64; needs qemu-user-static + binfmt_misc)"
 	@echo "  netboot-x86  - kernel + initrd + squashfs trio for PXE-flash clients (x86_64)"
 	@echo ""
 	@echo "Docker (trial / image-library bty-web container):"
 	@echo "  docker-build  uv build + docker build -> bty-web:dev (single-arch, local)"
-	@echo "  docker-run    run bty-web:dev with ./bty-data/ bind-mount on :8080 + udp/69 (TFTP)"
+	@echo "  docker-run    run bty-web:dev with ./bty-data/ bind-mount on :8080 (HTTP only)"
 	@echo "  docker-clean  stop container, remove bty-web:dev image, wipe ./bty-data/"
 	@echo ""
 	@echo "Docs (bty-docs sibling; ``pipx install ./docs/tooling`` first):"
@@ -77,6 +70,14 @@ help:
 
 deps:
 	$(UV) sync --all-extras --group dev
+
+# Install the git hooks (pre-commit itself: `pipx install pre-commit`).
+# After this, every `git commit` runs ruff (lint+format via the pinned
+# rev), shellcheck, and the hygiene hooks on the staged files. Run the
+# whole set over the tree with `pre-commit run --all-files`. See
+# .pre-commit-config.yaml; CI runs the same set in the lint job.
+hooks:
+	pre-commit install
 
 test:
 	$(UV) run pytest
@@ -134,25 +135,29 @@ media-deps:
 
 # Build a media image. Pick the variant via ``VARIANT=...``:
 #   make build VARIANT=usb-x86      - bootable USB live ISO (.iso.gz, x86_64)
-#   make build VARIANT=server-x86   - server appliance (.img.gz, x86_64)
-#   make build VARIANT=server-rpi   - server appliance for RPi 4/5 (.img.gz, arm64)
 #   make build VARIANT=netboot-x86  - kernel + initrd + squashfs for PXE clients
 #
-# server-x86 uses cloud-init in QEMU (cijoe/tasks/build.yaml) and
-# needs ``qemu-system-x86_64`` + KVM accessible. netboot-x86 +
-# usb-x86 both use live-build (cijoe/tasks/netboot.yaml,
+# netboot-x86 + usb-x86 both use live-build (cijoe/tasks/netboot.yaml,
 # cijoe/tasks/usb.yaml) and need ``live-build`` on the host plus
-# passwordless sudo. server-rpi (cijoe/tasks/build-rpi.yaml)
-# customises Raspberry Pi OS Lite arm64 via losetup +
-# qemu-aarch64-static chroot; needs ``qemu-user-static`` + binfmt_misc
-# + passwordless sudo.
+# passwordless sudo.
 build:
 	cd cijoe && cijoe $(MEDIA_TASK) --monitor -c configs/$(VARIANT).toml
 
-# End-to-end PXE chain test: server + client QEMU VMs sharing an L2
-# segment via -netdev socket. Test-side dnsmasq does full DHCP for
-# the isolated segment (bty itself never runs DHCP). Requires
-# pre-built server + live artifacts under ~/system_imaging/disk/.
+# Build bty's custom embedded-chain iPXE (~1 MB bin-x86_64-efi/ipxe.efi)
+# and copy it into IPXE_OUT. CI runs this, then stages ipxe.efi into the
+# bty-web (docker/seed/) and bty-tftp (deploy/tftp/seed/) build contexts.
+# Needs an iPXE build toolchain (build-essential liblzma-dev mtools perl)
+# + git on PATH; no sudo, no cijoe.
+IPXE_OUT ?= $(CURDIR)/dist/ipxe
+ipxe:
+	python3 cijoe/scripts/bty_ipxe_build.py --out "$(IPXE_OUT)"
+	@echo "custom ipxe.efi -> $(IPXE_OUT)/ipxe.efi"
+
+# End-to-end PXE chain test: the bty-web container as the server + a
+# client QEMU VM PXE-booting against it over a host bridge. Test-side
+# dnsmasq does DHCP + TFTP for the isolated segment (bty never runs
+# DHCP). Requires podman + QEMU + KVM and the netboot artifacts under
+# ~/system_imaging/disk/ (build with ``make build VARIANT=netboot-x86``).
 # Wall clock 5-10 min per run.
 test-pxe:
 	cd cijoe && cijoe tasks/test-pxe.yaml --monitor -c configs/test-pxe.toml
@@ -178,7 +183,7 @@ test-usb-ventoy:
 
 # Local single-arch build of the bty-web container. Stages the
 # wheel into ./dist/ first so the Dockerfile's COPY finds it.
-# Multi-arch + push lives in .github/workflows/release.yml --
+# Multi-arch + push lives in .github/workflows/ci-cd.yml --
 # this target is the "smoke test it on my laptop" path.
 .PHONY: docker-build docker-run
 
@@ -189,27 +194,23 @@ docker-build:
 	    -f docker/Dockerfile -t bty-web:dev .
 
 # Trial run with a host-side data dir so dropped images show up in
-# the container catalog. The bty-web container runs as uid 1000
-# (the bty user, pinned in the Dockerfile so it doesn't drift
-# when Debian's package order changes which UIDs ``useradd
-# --system`` auto-assigns -- dnsmasq's postinst empirically grabs
-# UID 999 first on Debian 13); a bare bind-mount the operator
-# owns would fail the entrypoint's writability preflight, so we
-# chown the dir to 1000:1000 first. Requires sudo; alternative is
-# ``docker run -v bty-data:/var/lib/bty ...`` with a managed
-# volume (no chown needed, harder to inspect from the host).
+# the container catalog. The bty-web container runs as uid 1000 (the
+# bty user, pinned in the Dockerfile so it doesn't drift across
+# rebuilds); a bare bind-mount the operator owns isn't writable by
+# that uid, so we chown the dir to 1000:1000 first. Requires sudo;
+# the alternative is ``docker run -v bty-data:/var/lib/bty ...`` with
+# a managed volume (no chown needed, harder to inspect from the host).
+# HTTP only -- TFTP is the separate bty-tftp sidecar (deploy/).
 docker-run:
-	# Pre-create the dirs bty-web will write to and chown them to the
-	# bty UID (1000) so the entrypoint's writability preflight passes.
-	# ``images/`` covers operator-curated images; ``backups/`` covers
-	# the v0.26+ scheduled-backup destination (``$BTY_BACKUP_DIR``
-	# default).
+	# Pre-create the dirs bty-web writes to and chown them to the bty
+	# UID (1000) so the bind-mount is writable. ``images/`` covers
+	# operator-curated images; ``backups/`` covers the scheduled-backup
+	# destination (``$BTY_BACKUP_DIR`` default).
 	mkdir -p bty-data/images bty-data/backups
 	sudo chown -R 1000:1000 bty-data
-	docker run -d --name bty-web --rm -p 8080:8080 -p 69:69/udp \
+	docker run -d --name bty-web --rm -p 8080:8080 \
 	    -v "$(CURDIR)/bty-data":/var/lib/bty bty-web:dev
-	@echo "bty-web running on http://localhost:8080/ui (login: bty / bty)"
-	@echo "TFTP serving iPXE binaries on udp/69 (parity with docker-compose)"
+	@echo "bty-web running on http://localhost:8080/ui (operator UI gated by \$$BTY_ADMIN_PASSWORD; unset = open)"
 	@echo "logs: docker logs -f bty-web ; stop: docker stop bty-web"
 
 # Stop a running ``bty-web`` container, remove the local

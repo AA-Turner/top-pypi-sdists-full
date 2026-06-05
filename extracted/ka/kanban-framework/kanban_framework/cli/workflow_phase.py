@@ -20,6 +20,7 @@ from kanban_framework.cli.run_helpers import (
     _resolve, _validate_fsm_state, _track_phase_time,
 )
 from kanban_framework.cli.workflow_knowledge import extract_knowledge
+from kanban_framework.infra.consts import Consts
 
 
 class GuardError(Exception):
@@ -45,12 +46,10 @@ def handle_transition(args: list[str], fs: Filesystem, tm: TaskManager,
         if len(args) >= 2:
             try:
                 task = tm.show(args[1])
-                quick = getattr(task, 'mode', '') == 'quick'
                 task_mode = getattr(task, 'mode', '')
                 from kanban_framework.infra.scheduler import Scheduler
                 cfg = tm._cfg
-                order = Scheduler.dispatch_order(lightweight=task.lightweight, quick=quick,
-                                                 mode=task_mode or None,
+                order = Scheduler.dispatch_order(mode=task_mode or None,
                                                  workflow=cfg.workflow if cfg else None,
                                                  kanban_dir=fs.kanban_dir)
                 available = [p.value if hasattr(p, 'value') else str(p) for p in order]
@@ -88,25 +87,23 @@ def handle_complete_phase(args: list[str], fs: Filesystem, tm: TaskManager,
     fs, cfg, tm, _ = _resolve()
     task = tm.show(args[1])
     _log.info("complete-phase: task=%s phase=%s mode=%s", task.id, task.phase_id,
-              getattr(task, 'mode', 'full'))
+              getattr(task, 'mode', '') or Consts.DEFAULT_MODE)
     validation = _validate_fsm_state(task, tm)
     if validation:
         return validation
     guard = Guard(fs, cfg)
-    guard_result = guard.check_artifacts(task, task.phase, lightweight=task.lightweight)
+    guard_result = guard.check_artifacts(task, task.phase)
     if not guard_result.passed:
         _raise_guard_error(fs, task, guard_result, "guard check")
     # Checkpoint step guard (#v0.84)
     from kanban_framework.domain.step_registry import build_step_dag
-    quick = getattr(task, 'mode', '') == 'quick'
-    dag = build_step_dag(lightweight=task.lightweight, quick=quick,
-                         mode=getattr(task, 'mode', None), kanban_dir=fs.kanban_dir)
+    dag = build_step_dag(mode=getattr(task, 'mode', None), kanban_dir=fs.kanban_dir)
     for step in dag["steps"]:
         if step["phase"] == task.phase.value and step["type"] == "checkpoint":
             step_guard = guard.check_step(task, step)
             if not step_guard.passed:
                 _raise_guard_error(fs, task, step_guard, f"checkpoint {step['id']}")
-    phase_check = guard.check_phase_completeness(task, lightweight=task.lightweight)
+    phase_check = guard.check_phase_completeness(task)
     if not phase_check.passed:
         _raise_guard_error(fs, task, phase_check, "phase completeness")
     # IR-17: Evaluate phase score gate
@@ -130,7 +127,7 @@ def handle_complete_phase(args: list[str], fs: Filesystem, tm: TaskManager,
     from kanban_framework.domain.state_machine import mark_step, _get_steps
     task_mode = getattr(task, 'mode', '')
     steps_map = _get_steps(task_mode) if task_mode else _get_steps(
-        "lightweight" if task.lightweight else "full")
+        getattr(task, 'mode', '') or Consts.DEFAULT_MODE)
     for step_def in steps_map.get(task.phase.value, []):
         mark_step(fs, task.id, step_def.id, "completed")
     updated = we.complete_phase(task)
@@ -236,9 +233,8 @@ def handle_next_phase(args: list[str], fs: Filesystem, tm: TaskManager,
     if len(args) < 2:
         return {"error": "task_id required"}
     task = tm.show(args[1])
-    mode = getattr(task, 'mode', 'full')
-    quick = mode == 'quick'
-    next_p = we.next_phase(task.phase, lightweight=task.lightweight, quick=quick, mode=mode)
+    mode = getattr(task, 'mode', '') or Consts.DEFAULT_MODE
+    next_p = we.next_phase(task.phase, mode=mode)
     return {
         "task_id": task.id,
         "current": task.phase.value,

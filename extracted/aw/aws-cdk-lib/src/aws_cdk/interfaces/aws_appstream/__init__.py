@@ -1260,13 +1260,25 @@ class StackReference:
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_appstream.StackUserAssociationReference",
     jsii_struct_bases=[],
-    name_mapping={"stack_user_association_id": "stackUserAssociationId"},
+    name_mapping={
+        "authentication_type": "authenticationType",
+        "stack_name": "stackName",
+        "user_name": "userName",
+    },
 )
 class StackUserAssociationReference:
-    def __init__(self, *, stack_user_association_id: builtins.str) -> None:
+    def __init__(
+        self,
+        *,
+        authentication_type: builtins.str,
+        stack_name: builtins.str,
+        user_name: builtins.str,
+    ) -> None:
         '''A reference to a StackUserAssociation resource.
 
-        :param stack_user_association_id: The Id of the StackUserAssociation resource.
+        :param authentication_type: The AuthenticationType of the StackUserAssociation resource.
+        :param stack_name: The StackName of the StackUserAssociation resource.
+        :param user_name: The UserName of the StackUserAssociation resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -1277,21 +1289,41 @@ class StackUserAssociationReference:
             from aws_cdk.interfaces import aws_appstream as interfaces_appstream
             
             stack_user_association_reference = interfaces_appstream.StackUserAssociationReference(
-                stack_user_association_id="stackUserAssociationId"
+                authentication_type="authenticationType",
+                stack_name="stackName",
+                user_name="userName"
             )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b2130170f8c1e17f1e893b413b87fa336531a5bfd65795c1f55dd180b4c23cb2)
-            check_type(argname="argument stack_user_association_id", value=stack_user_association_id, expected_type=type_hints["stack_user_association_id"])
+            check_type(argname="argument authentication_type", value=authentication_type, expected_type=type_hints["authentication_type"])
+            check_type(argname="argument stack_name", value=stack_name, expected_type=type_hints["stack_name"])
+            check_type(argname="argument user_name", value=user_name, expected_type=type_hints["user_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "stack_user_association_id": stack_user_association_id,
+            "authentication_type": authentication_type,
+            "stack_name": stack_name,
+            "user_name": user_name,
         }
 
     @builtins.property
-    def stack_user_association_id(self) -> builtins.str:
-        '''The Id of the StackUserAssociation resource.'''
-        result = self._values.get("stack_user_association_id")
-        assert result is not None, "Required property 'stack_user_association_id' is missing"
+    def authentication_type(self) -> builtins.str:
+        '''The AuthenticationType of the StackUserAssociation resource.'''
+        result = self._values.get("authentication_type")
+        assert result is not None, "Required property 'authentication_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def stack_name(self) -> builtins.str:
+        '''The StackName of the StackUserAssociation resource.'''
+        result = self._values.get("stack_name")
+        assert result is not None, "Required property 'stack_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def user_name(self) -> builtins.str:
+        '''The UserName of the StackUserAssociation resource.'''
+        result = self._values.get("user_name")
+        assert result is not None, "Required property 'user_name' is missing"
         return typing.cast(builtins.str, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -1470,7 +1502,9 @@ def _typecheckingstub__18e2db2f88ee8958e1ce93ecd8dee4f9694f7bd4fd83892ea90f8bae8
 
 def _typecheckingstub__b2130170f8c1e17f1e893b413b87fa336531a5bfd65795c1f55dd180b4c23cb2(
     *,
-    stack_user_association_id: builtins.str,
+    authentication_type: builtins.str,
+    stack_name: builtins.str,
+    user_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

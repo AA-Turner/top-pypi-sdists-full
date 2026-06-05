@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import time
 from typing import Any
 from uuid import uuid4
 
@@ -8,11 +7,10 @@ from pandas import DataFrame
 
 from graphdatascience.arrow_client.v2.gds_arrow_client import GdsArrowClient
 from graphdatascience.call_parameters import CallParameters
-from graphdatascience.procedure_surface.arrow.error_handler import handle_flight_error
+from graphdatascience.procedure_surface.api.write_job_handle import WriteJobHandle
 from graphdatascience.query_runner import QueryMode, QueryType
 from graphdatascience.query_runner.graph_constructor import GraphConstructor
 from graphdatascience.query_runner.progress.query_progress_logger import QueryProgressLogger
-from graphdatascience.query_runner.protocol.project_protocols import ProjectProtocol
 from graphdatascience.query_runner.protocol.write_protocols import WriteProtocol
 from graphdatascience.query_runner.query_runner import QueryRunner
 from graphdatascience.query_runner.termination_flag import TerminationFlag
@@ -95,13 +93,9 @@ class SessionQueryRunner(QueryRunner):
         if params is None:
             params = CallParameters()
 
-        if SessionQueryRunner.GDS_REMOTE_PROJECTION_PROC_NAME in endpoint:
-            terminationFlag = TerminationFlag.create()
-            return self._remote_projection(endpoint, params, terminationFlag, yields, database, logging)
-
         elif endpoint.endswith(".write") and self.is_remote_projected_graph(params["graph_name"]):
-            terminationFlag = TerminationFlag.create()
-            return self._remote_write_back(endpoint, params, terminationFlag, yields, database, logging, custom_error)
+            termination_flag = TerminationFlag.create()
+            return self._remote_write_back(endpoint, params, termination_flag, yields, database, logging, custom_error)
 
         return self._gds_query_runner.call_procedure(
             endpoint,
@@ -169,40 +163,6 @@ class SessionQueryRunner(QueryRunner):
         self._gds_query_runner.close()
         self._db_query_runner.close()
 
-    def _remote_projection(
-        self,
-        endpoint: str,
-        params: CallParameters,
-        terminationFlag: TerminationFlag,
-        yields: list[str] | None = None,
-        database: str | None = None,
-        logging: bool = False,
-    ) -> DataFrame:
-        self._inject_arrow_config(params["arrow_configuration"])
-
-        graph_name = params["graph_name"]
-        query = params["query"]
-        arrow_config = params["arrow_configuration"]
-
-        job_id = params["job_id"] if "job_id" in params and params["job_id"] else str(uuid4())
-        project_protocol = ProjectProtocol.select(self._resolved_protocol_version)
-        project_params = project_protocol.project_params(graph_name, query, job_id, params, arrow_config)
-
-        try:
-
-            def run_projection() -> DataFrame:
-                return project_protocol.run_projection(
-                    self._db_query_runner, endpoint, project_params, terminationFlag, yields, database, logging
-                )
-
-            if self._resolve_show_progress(logging):
-                return self._progress_logger.run_with_progress_logging(run_projection, job_id, database)
-            else:
-                return run_projection()
-        except Exception as e:
-            handle_flight_error(e)
-            raise e  # above should already raise
-
     def _remote_write_back(
         self,
         endpoint: str,
@@ -218,8 +178,8 @@ class SessionQueryRunner(QueryRunner):
 
         config: dict[str, Any] = params.get("config", {})
 
-        # we pop these out so that they are not retained for the GDS proc call
-        db_arrow_config = config.pop("arrowConfiguration", {})
+        # remove so that it isn't retained for the GDS proc call below; the write protocol builds its own arrow config
+        config.pop("arrowConfiguration", None)
 
         job_id = config["jobId"] if "jobId" in config else str(uuid4())
         config["jobId"] = job_id
@@ -237,24 +197,16 @@ class SessionQueryRunner(QueryRunner):
         )
         terminationFlag.assert_running()
 
-        self._inject_arrow_config(db_arrow_config)
-
         graph_name = params["graph_name"]
 
-        write_protocol = WriteProtocol.select(self._resolved_protocol_version)
-        write_back_params = write_protocol.write_back_params(
-            graph_name, job_id, config, db_arrow_config, self._db_query_runner.database()
+        write_protocol = WriteProtocol.select(self._gds_arrow_client.flight_client(), self._db_query_runner)
+
+        write_handle = WriteJobHandle.create(
+            write_protocol, graph_name, job_id, terminationFlag, concurrency=config.get("concurrency")
         )
 
-        write_back_start = time.time()
-
-        def run_write_back() -> DataFrame:
-            return write_protocol.run_write_back(
-                self._db_query_runner, write_back_params, yields, log_progress=logging, terminationFlag=terminationFlag
-            )
-
         try:
-            database_write_result = run_write_back()
+            database_write_result = write_handle.result(wait=True)
         except Exception as e:
             # catch the case nothing was needed to write-back (empty graph)
             # once we have the Arrow Endpoints V2, we could catch by first checking the jobs summary
@@ -262,30 +214,18 @@ class SessionQueryRunner(QueryRunner):
                 return gds_write_result
             raise e
 
-        write_millis = (time.time() - write_back_start) * 1000
-        gds_write_result["writeMillis"] = write_millis
+        gds_write_result["writeMillis"] = database_write_result.write_millis
 
         if "nodePropertiesWritten" in gds_write_result:
-            gds_write_result["nodePropertiesWritten"] = database_write_result["writtenNodeProperties"]
+            gds_write_result["nodePropertiesWritten"] = database_write_result.written_node_properties
         if "propertiesWritten" in gds_write_result:
-            gds_write_result["propertiesWritten"] = database_write_result["writtenNodeProperties"]
+            gds_write_result["propertiesWritten"] = database_write_result.written_node_properties
         if "nodeLabelsWritten" in gds_write_result:
-            gds_write_result["nodeLabelsWritten"] = database_write_result["writtenNodeLabels"]
+            gds_write_result["nodeLabelsWritten"] = database_write_result.written_node_labels
         if "relationshipsWritten" in gds_write_result:
-            gds_write_result["relationshipsWritten"] = database_write_result["writtenRelationships"]
+            gds_write_result["relationshipsWritten"] = database_write_result.written_node_properties
 
         return gds_write_result
 
     def _resolve_show_progress(self, show_progress: bool) -> bool:
         return self._show_progress and show_progress
-
-    def _inject_arrow_config(self, params: dict[str, Any]) -> None:
-        connection_info = self._gds_arrow_client.advertised_connection_info()
-        token = self._gds_arrow_client.request_token()
-        if token is None:
-            token = "IGNORED"
-
-        params["host"] = connection_info.host
-        params["port"] = str(connection_info.port)
-        params["token"] = token
-        params["encrypted"] = connection_info.encrypted

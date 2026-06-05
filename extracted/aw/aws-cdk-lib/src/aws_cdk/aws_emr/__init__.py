@@ -748,7 +748,7 @@ class CfnCluster(
         def __init__(
             self,
             *,
-            additional_info: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            additional_info: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             args: typing.Optional[typing.Sequence[builtins.str]] = None,
             name: typing.Optional[builtins.str] = None,
             version: typing.Optional[builtins.str] = None,
@@ -803,7 +803,7 @@ class CfnCluster(
         @builtins.property
         def additional_info(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''This option is for advanced users only.
 
             This is meta information about clusters and applications that are used for testing and troubleshooting.
@@ -811,7 +811,7 @@ class CfnCluster(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-cluster-application.html#cfn-emr-cluster-application-additionalinfo
             '''
             result = self._values.get("additional_info")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def args(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -1463,7 +1463,7 @@ class CfnCluster(
             self,
             *,
             classification: typing.Optional[builtins.str] = None,
-            configuration_properties: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            configuration_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.ConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''.. epigraph::
@@ -1520,13 +1520,13 @@ class CfnCluster(
         @builtins.property
         def configuration_properties(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''A list of additional configurations to apply within a configuration object.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-cluster-configuration.html#cfn-emr-cluster-configuration-configurationproperties
             '''
             result = self._values.get("configuration_properties")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def configurations(
@@ -6216,7 +6216,7 @@ class CfnInstanceFleetConfig(
             self,
             *,
             classification: typing.Optional[builtins.str] = None,
-            configuration_properties: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            configuration_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInstanceFleetConfig.ConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''.. epigraph::
@@ -6273,7 +6273,7 @@ class CfnInstanceFleetConfig(
         @builtins.property
         def configuration_properties(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''Within a configuration classification, a set of properties that represent the settings that you want to change in the configuration file.
 
             Duplicates not allowed.
@@ -6281,7 +6281,7 @@ class CfnInstanceFleetConfig(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-instancefleetconfig-configuration.html#cfn-emr-instancefleetconfig-configuration-configurationproperties
             '''
             result = self._values.get("configuration_properties")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def configurations(
@@ -8476,7 +8476,7 @@ class CfnInstanceGroupConfig(
             self,
             *,
             classification: typing.Optional[builtins.str] = None,
-            configuration_properties: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            configuration_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInstanceGroupConfig.ConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''``Configurations`` is a property of the ``AWS::EMR::Cluster`` resource that specifies the configuration of applications on an Amazon EMR cluster.
@@ -8534,7 +8534,7 @@ class CfnInstanceGroupConfig(
         @builtins.property
         def configuration_properties(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''Within a configuration classification, a set of properties that represent the settings that you want to change in the configuration file.
 
             Duplicates not allowed.
@@ -8542,7 +8542,7 @@ class CfnInstanceGroupConfig(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-instancegroupconfig-configuration.html#cfn-emr-instancegroupconfig-configuration-configurationproperties
             '''
             result = self._values.get("configuration_properties")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def configurations(
@@ -11759,7 +11759,7 @@ class CfnWALWorkspace(
         # The values are placeholders you should change.
         from aws_cdk import aws_emr as emr
         
-        cfn_wALWorkspace = emr.CfnWALWorkspace(self, "MyCfnWALWorkspace",
+        cfn_wal_workspace = emr.CfnWALWorkspace(self, "MyCfnWALWorkspace",
             tags=[CfnTag(
                 key="key",
                 value="value"
@@ -11909,7 +11909,7 @@ class CfnWALWorkspaceProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_emr as emr
             
-            cfn_wALWorkspace_props = emr.CfnWALWorkspaceProps(
+            cfn_wal_workspace_props = emr.CfnWALWorkspaceProps(
                 tags=[CfnTag(
                     key="key",
                     value="value"
@@ -12209,7 +12209,7 @@ def _typecheckingstub__3181237e04f1f3e57ab37ac5dcdd9cf1f158ae1015ef97f820a75179d
 
 def _typecheckingstub__cf8b605c327fe9a55d7a90674524f316b8f070940e929c53e1c966b8f68a18e5(
     *,
-    additional_info: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    additional_info: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     args: typing.Optional[typing.Sequence[builtins.str]] = None,
     name: typing.Optional[builtins.str] = None,
     version: typing.Optional[builtins.str] = None,
@@ -12269,7 +12269,7 @@ def _typecheckingstub__ecc8cf0c083fcbbc2c4e1910146ba4c6c959a6e36991ec830a52e0262
 def _typecheckingstub__762e4654096c644b1ccf34d3832fa5e53cc3647761f6d0a0ed19865f7efb39db(
     *,
     classification: typing.Optional[builtins.str] = None,
-    configuration_properties: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    configuration_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -12665,7 +12665,7 @@ def _typecheckingstub__d8c47404264830e50e7ddaef51024f8f530b123b3a2c96dd8fc19683b
 def _typecheckingstub__9cb99c46a2e6804e68d48ee2a2882e72c00713be16c2a7eb0c1ffda179a4964d(
     *,
     classification: typing.Optional[builtins.str] = None,
-    configuration_properties: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    configuration_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceFleetConfig.ConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -12914,7 +12914,7 @@ def _typecheckingstub__5ef36d052fd1c73f3c150fc370cea09f7f8cfa0fed7c5d3618650d6f1
 def _typecheckingstub__3ac2b0b1a65e34f3c9e098b6f75c278daa93d377b96cededa4517b4fa7759d9e(
     *,
     classification: typing.Optional[builtins.str] = None,
-    configuration_properties: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    configuration_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceGroupConfig.ConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""

@@ -1791,7 +1791,6 @@ class CfnCluster(
                 execution_role="executionRole",
                 instance_count=123,
                 instance_group_name="instanceGroupName",
-                instance_type="instanceType",
         
                 # the properties below are optional
                 capacity_requirements=sagemaker.CfnCluster.ClusterCapacityRequirementsProperty(
@@ -1823,6 +1822,7 @@ class CfnCluster(
                         mount_path="mountPath"
                     )
                 )],
+                instance_type="instanceType",
                 kubernetes_config=sagemaker.CfnCluster.ClusterKubernetesConfigProperty(
                     labels={
                         "labels_key": "labels"
@@ -2838,12 +2838,12 @@ class CfnCluster(
             "execution_role": "executionRole",
             "instance_count": "instanceCount",
             "instance_group_name": "instanceGroupName",
-            "instance_type": "instanceType",
             "capacity_requirements": "capacityRequirements",
             "current_count": "currentCount",
             "image_id": "imageId",
             "instance_requirements": "instanceRequirements",
             "instance_storage_configs": "instanceStorageConfigs",
+            "instance_type": "instanceType",
             "kubernetes_config": "kubernetesConfig",
             "life_cycle_config": "lifeCycleConfig",
             "min_instance_count": "minInstanceCount",
@@ -2863,12 +2863,12 @@ class CfnCluster(
             execution_role: builtins.str,
             instance_count: jsii.Number,
             instance_group_name: builtins.str,
-            instance_type: builtins.str,
             capacity_requirements: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.ClusterCapacityRequirementsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             current_count: typing.Optional[jsii.Number] = None,
             image_id: typing.Optional[builtins.str] = None,
             instance_requirements: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.InstanceRequirementsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             instance_storage_configs: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.ClusterInstanceStorageConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            instance_type: typing.Optional[builtins.str] = None,
             kubernetes_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.ClusterKubernetesConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             life_cycle_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.ClusterLifeCycleConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             min_instance_count: typing.Optional[jsii.Number] = None,
@@ -2885,12 +2885,12 @@ class CfnCluster(
             :param execution_role: The execution role for the instance group to assume.
             :param instance_count: The number of instances in an instance group of the SageMaker HyperPod cluster.
             :param instance_group_name: The name of the instance group of a SageMaker HyperPod cluster.
-            :param instance_type: The instance type of the instance group of a SageMaker HyperPod cluster.
             :param capacity_requirements: Specifies the capacity requirements configuration for an instance group.
             :param current_count: The number of instances that are currently in the instance group of a SageMaker HyperPod cluster.
             :param image_id: AMI Id to be used for launching EC2 instances - HyperPodPublicAmiId or CustomAmiId.
             :param instance_requirements: The instance requirements for the instance group. Specifies a list of instance types that can be used.
             :param instance_storage_configs: The configurations of additional storage specified to the instance group where the instance (node) is launched.
+            :param instance_type: The instance type of the instance group of a SageMaker HyperPod cluster.
             :param kubernetes_config: Kubernetes configuration for cluster nodes including labels and taints.
             :param life_cycle_config: The lifecycle configuration for a SageMaker HyperPod cluster.
             :param min_instance_count: The minimum number of instances required for the instance group to be InService. MinInstanceCount must be less than or equal to InstanceCount.
@@ -2918,7 +2918,6 @@ class CfnCluster(
                     execution_role="executionRole",
                     instance_count=123,
                     instance_group_name="instanceGroupName",
-                    instance_type="instanceType",
                 
                     # the properties below are optional
                     capacity_requirements=sagemaker.CfnCluster.ClusterCapacityRequirementsProperty(
@@ -2950,6 +2949,7 @@ class CfnCluster(
                             mount_path="mountPath"
                         )
                     )],
+                    instance_type="instanceType",
                     kubernetes_config=sagemaker.CfnCluster.ClusterKubernetesConfigProperty(
                         labels={
                             "labels_key": "labels"
@@ -3014,12 +3014,12 @@ class CfnCluster(
                 check_type(argname="argument execution_role", value=execution_role, expected_type=type_hints["execution_role"])
                 check_type(argname="argument instance_count", value=instance_count, expected_type=type_hints["instance_count"])
                 check_type(argname="argument instance_group_name", value=instance_group_name, expected_type=type_hints["instance_group_name"])
-                check_type(argname="argument instance_type", value=instance_type, expected_type=type_hints["instance_type"])
                 check_type(argname="argument capacity_requirements", value=capacity_requirements, expected_type=type_hints["capacity_requirements"])
                 check_type(argname="argument current_count", value=current_count, expected_type=type_hints["current_count"])
                 check_type(argname="argument image_id", value=image_id, expected_type=type_hints["image_id"])
                 check_type(argname="argument instance_requirements", value=instance_requirements, expected_type=type_hints["instance_requirements"])
                 check_type(argname="argument instance_storage_configs", value=instance_storage_configs, expected_type=type_hints["instance_storage_configs"])
+                check_type(argname="argument instance_type", value=instance_type, expected_type=type_hints["instance_type"])
                 check_type(argname="argument kubernetes_config", value=kubernetes_config, expected_type=type_hints["kubernetes_config"])
                 check_type(argname="argument life_cycle_config", value=life_cycle_config, expected_type=type_hints["life_cycle_config"])
                 check_type(argname="argument min_instance_count", value=min_instance_count, expected_type=type_hints["min_instance_count"])
@@ -3034,7 +3034,6 @@ class CfnCluster(
                 "execution_role": execution_role,
                 "instance_count": instance_count,
                 "instance_group_name": instance_group_name,
-                "instance_type": instance_type,
             }
             if capacity_requirements is not None:
                 self._values["capacity_requirements"] = capacity_requirements
@@ -3046,6 +3045,8 @@ class CfnCluster(
                 self._values["instance_requirements"] = instance_requirements
             if instance_storage_configs is not None:
                 self._values["instance_storage_configs"] = instance_storage_configs
+            if instance_type is not None:
+                self._values["instance_type"] = instance_type
             if kubernetes_config is not None:
                 self._values["kubernetes_config"] = kubernetes_config
             if life_cycle_config is not None:
@@ -3095,16 +3096,6 @@ class CfnCluster(
             '''
             result = self._values.get("instance_group_name")
             assert result is not None, "Required property 'instance_group_name' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def instance_type(self) -> builtins.str:
-            '''The instance type of the instance group of a SageMaker HyperPod cluster.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusterinstancegroup.html#cfn-sagemaker-cluster-clusterinstancegroup-instancetype
-            '''
-            result = self._values.get("instance_type")
-            assert result is not None, "Required property 'instance_type' is missing"
             return typing.cast(builtins.str, result)
 
         @builtins.property
@@ -3159,6 +3150,15 @@ class CfnCluster(
             '''
             result = self._values.get("instance_storage_configs")
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCluster.ClusterInstanceStorageConfigProperty"]]]], result)
+
+        @builtins.property
+        def instance_type(self) -> typing.Optional[builtins.str]:
+            '''The instance type of the instance group of a SageMaker HyperPod cluster.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusterinstancegroup.html#cfn-sagemaker-cluster-clusterinstancegroup-instancetype
+            '''
+            result = self._values.get("instance_type")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
         def kubernetes_config(
@@ -3404,7 +3404,7 @@ class CfnCluster(
         def __init__(
             self,
             *,
-            labels: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            labels: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             taints: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.ClusterKubernetesTaintProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Kubernetes configuration that specifies labels and taints to be applied to cluster nodes in an instance group.
@@ -3447,13 +3447,13 @@ class CfnCluster(
         @builtins.property
         def labels(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''Key-value pairs of labels to be applied to cluster nodes.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusterkubernetesconfig.html#cfn-sagemaker-cluster-clusterkubernetesconfig-labels
             '''
             result = self._values.get("labels")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def taints(
@@ -4945,7 +4945,6 @@ class CfnClusterProps:
                     execution_role="executionRole",
                     instance_count=123,
                     instance_group_name="instanceGroupName",
-                    instance_type="instanceType",
             
                     # the properties below are optional
                     capacity_requirements=sagemaker.CfnCluster.ClusterCapacityRequirementsProperty(
@@ -4977,6 +4976,7 @@ class CfnClusterProps:
                             mount_path="mountPath"
                         )
                     )],
+                    instance_type="instanceType",
                     kubernetes_config=sagemaker.CfnCluster.ClusterKubernetesConfigProperty(
                         labels={
                             "labels_key": "labels"
@@ -6513,7 +6513,7 @@ class CfnDataQualityJobDefinition(
             image_uri: builtins.str,
             container_arguments: typing.Optional[typing.Sequence[builtins.str]] = None,
             container_entrypoint: typing.Optional[typing.Sequence[builtins.str]] = None,
-            environment: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            environment: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             post_analytics_processor_source_uri: typing.Optional[builtins.str] = None,
             record_preprocessor_source_uri: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -6601,13 +6601,13 @@ class CfnDataQualityJobDefinition(
         @builtins.property
         def environment(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''Sets the environment variables in the container that the monitoring job runs.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-dataqualityjobdefinition-dataqualityappspecification.html#cfn-sagemaker-dataqualityjobdefinition-dataqualityappspecification-environment
             '''
             result = self._values.get("environment")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def post_analytics_processor_source_uri(self) -> typing.Optional[builtins.str]:
@@ -8961,7 +8961,8 @@ class CfnDomain(
                         instance_type="instanceType",
                         lifecycle_config_arn="lifecycleConfigArn",
                         sage_maker_image_arn="sageMakerImageArn",
-                        sage_maker_image_version_arn="sageMakerImageVersionArn"
+                        sage_maker_image_version_arn="sageMakerImageVersionArn",
+                        training_plan_arn="trainingPlanArn"
                     ),
                     lifecycle_config_arns=["lifecycleConfigArns"]
                 ),
@@ -9012,7 +9013,8 @@ class CfnDomain(
                         instance_type="instanceType",
                         lifecycle_config_arn="lifecycleConfigArn",
                         sage_maker_image_arn="sageMakerImageArn",
-                        sage_maker_image_version_arn="sageMakerImageVersionArn"
+                        sage_maker_image_version_arn="sageMakerImageVersionArn",
+                        training_plan_arn="trainingPlanArn"
                     ),
                     lifecycle_config_arns=["lifecycleConfigArns"]
                 ),
@@ -9021,7 +9023,8 @@ class CfnDomain(
                         instance_type="instanceType",
                         lifecycle_config_arn="lifecycleConfigArn",
                         sage_maker_image_arn="sageMakerImageArn",
-                        sage_maker_image_version_arn="sageMakerImageVersionArn"
+                        sage_maker_image_version_arn="sageMakerImageVersionArn",
+                        training_plan_arn="trainingPlanArn"
                     ),
                     lifecycle_config_arns=["lifecycleConfigArns"]
                 ),
@@ -9037,7 +9040,8 @@ class CfnDomain(
                         instance_type="instanceType",
                         lifecycle_config_arn="lifecycleConfigArn",
                         sage_maker_image_arn="sageMakerImageArn",
-                        sage_maker_image_version_arn="sageMakerImageVersionArn"
+                        sage_maker_image_version_arn="sageMakerImageVersionArn",
+                        training_plan_arn="trainingPlanArn"
                     ),
                     lifecycle_config_arns=["lifecycleConfigArns"]
                 ),
@@ -9053,7 +9057,8 @@ class CfnDomain(
                         instance_type="instanceType",
                         lifecycle_config_arn="lifecycleConfigArn",
                         sage_maker_image_arn="sageMakerImageArn",
-                        sage_maker_image_version_arn="sageMakerImageVersionArn"
+                        sage_maker_image_version_arn="sageMakerImageVersionArn",
+                        training_plan_arn="trainingPlanArn"
                     )
                 ),
                 r_studio_server_pro_app_settings=sagemaker.CfnDomain.RStudioServerProAppSettingsProperty(
@@ -9138,7 +9143,8 @@ class CfnDomain(
                         instance_type="instanceType",
                         lifecycle_config_arn="lifecycleConfigArn",
                         sage_maker_image_arn="sageMakerImageArn",
-                        sage_maker_image_version_arn="sageMakerImageVersionArn"
+                        sage_maker_image_version_arn="sageMakerImageVersionArn",
+                        training_plan_arn="trainingPlanArn"
                     ),
                     lifecycle_config_arns=["lifecycleConfigArns"]
                 ),
@@ -9147,7 +9153,8 @@ class CfnDomain(
                         instance_type="instanceType",
                         lifecycle_config_arn="lifecycleConfigArn",
                         sage_maker_image_arn="sageMakerImageArn",
-                        sage_maker_image_version_arn="sageMakerImageVersionArn"
+                        sage_maker_image_version_arn="sageMakerImageVersionArn",
+                        training_plan_arn="trainingPlanArn"
                     ),
                     lifecycle_config_arns=["lifecycleConfigArns"]
                 ),
@@ -9163,7 +9170,8 @@ class CfnDomain(
                         instance_type="instanceType",
                         lifecycle_config_arn="lifecycleConfigArn",
                         sage_maker_image_arn="sageMakerImageArn",
-                        sage_maker_image_version_arn="sageMakerImageVersionArn"
+                        sage_maker_image_version_arn="sageMakerImageVersionArn",
+                        training_plan_arn="trainingPlanArn"
                     ),
                     lifecycle_config_arns=["lifecycleConfigArns"]
                 ),
@@ -9190,7 +9198,8 @@ class CfnDomain(
                         instance_type="instanceType",
                         lifecycle_config_arn="lifecycleConfigArn",
                         sage_maker_image_arn="sageMakerImageArn",
-                        sage_maker_image_version_arn="sageMakerImageVersionArn"
+                        sage_maker_image_version_arn="sageMakerImageVersionArn",
+                        training_plan_arn="trainingPlanArn"
                     ),
                     r_studio_connect_url="rStudioConnectUrl",
                     r_studio_package_manager_url="rStudioPackageManagerUrl"
@@ -9206,6 +9215,7 @@ class CfnDomain(
                     studio_web_portal_access="studioWebPortalAccess"
                 )
             ),
+            home_efs_file_system_creation="homeEfsFileSystemCreation",
             kms_key_id="kmsKeyId",
             subnet_ids=["subnetIds"],
             tag_propagation="tagPropagation",
@@ -9229,6 +9239,7 @@ class CfnDomain(
         app_security_group_management: typing.Optional[builtins.str] = None,
         default_space_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.DefaultSpaceSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         domain_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.DomainSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        home_efs_file_system_creation: typing.Optional[builtins.str] = None,
         kms_key_id: typing.Optional[builtins.str] = None,
         subnet_ids: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_ISubnetRef_ac31e361"]]] = None,
         tag_propagation: typing.Optional[builtins.str] = None,
@@ -9246,6 +9257,7 @@ class CfnDomain(
         :param app_security_group_management: The entity that creates and manages the required security groups for inter-app communication in ``VpcOnly`` mode. Required when ``CreateDomain.AppNetworkAccessType`` is ``VpcOnly`` and ``DomainSettings.RStudioServerProDomainSettings.DomainExecutionRoleArn`` is provided. If setting up the domain for use with RStudio, this value must be set to ``Service`` . *Allowed Values* : ``Service`` | ``Customer``
         :param default_space_settings: The default settings for shared spaces that users create in the domain. SageMaker applies these settings only to shared spaces. It doesn't apply them to private spaces.
         :param domain_settings: A collection of settings that apply to the ``SageMaker Domain`` . These settings are specified through the ``CreateDomain`` API call.
+        :param home_efs_file_system_creation: Indicates whether a home EFS file system is created for the domain. Set to Disabled to skip EFS creation and reduce domain creation time.
         :param kms_key_id: SageMaker uses AWS KMS to encrypt the EFS volume attached to the Domain with an AWS managed customer master key (CMK) by default. For more control, specify a customer managed CMK. *Length Constraints* : Maximum length of 2048. *Pattern* : ``.*``
         :param subnet_ids: The VPC subnets that Studio uses for communication. *Length Constraints* : Maximum length of 32. *Array members* : Minimum number of 1 item. Maximum number of 16 items. *Pattern* : ``[-0-9a-zA-Z]+``
         :param tag_propagation: Indicates whether the tags added to Domain, User Profile and Space entity is propagated to all SageMaker resources.
@@ -9264,6 +9276,7 @@ class CfnDomain(
             app_security_group_management=app_security_group_management,
             default_space_settings=default_space_settings,
             domain_settings=domain_settings,
+            home_efs_file_system_creation=home_efs_file_system_creation,
             kms_key_id=kms_key_id,
             subnet_ids=subnet_ids,
             tag_propagation=tag_propagation,
@@ -9568,6 +9581,22 @@ class CfnDomain(
         jsii.set(self, "domainSettings", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="homeEfsFileSystemCreation")
+    def home_efs_file_system_creation(self) -> typing.Optional[builtins.str]:
+        '''Indicates whether a home EFS file system is created for the domain.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "homeEfsFileSystemCreation"))
+
+    @home_efs_file_system_creation.setter
+    def home_efs_file_system_creation(
+        self,
+        value: typing.Optional[builtins.str],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a9589f8b34b2e8391a11cc034603626420caad5f1d67aa17312ff497ba293f4b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "homeEfsFileSystemCreation", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="kmsKeyId")
     def kms_key_id(self) -> typing.Optional[builtins.str]:
         '''SageMaker uses AWS KMS to encrypt the EFS volume attached to the Domain with an AWS managed customer master key (CMK) by default.'''
@@ -9755,7 +9784,8 @@ class CfnDomain(
                         instance_type="instanceType",
                         lifecycle_config_arn="lifecycleConfigArn",
                         sage_maker_image_arn="sageMakerImageArn",
-                        sage_maker_image_version_arn="sageMakerImageVersionArn"
+                        sage_maker_image_version_arn="sageMakerImageVersionArn",
+                        training_plan_arn="trainingPlanArn"
                     ),
                     lifecycle_config_arns=["lifecycleConfigArns"]
                 )
@@ -10340,7 +10370,8 @@ class CfnDomain(
                             instance_type="instanceType",
                             lifecycle_config_arn="lifecycleConfigArn",
                             sage_maker_image_arn="sageMakerImageArn",
-                            sage_maker_image_version_arn="sageMakerImageVersionArn"
+                            sage_maker_image_version_arn="sageMakerImageVersionArn",
+                            training_plan_arn="trainingPlanArn"
                         ),
                         lifecycle_config_arns=["lifecycleConfigArns"]
                     ),
@@ -10349,7 +10380,8 @@ class CfnDomain(
                             instance_type="instanceType",
                             lifecycle_config_arn="lifecycleConfigArn",
                             sage_maker_image_arn="sageMakerImageArn",
-                            sage_maker_image_version_arn="sageMakerImageVersionArn"
+                            sage_maker_image_version_arn="sageMakerImageVersionArn",
+                            training_plan_arn="trainingPlanArn"
                         ),
                         lifecycle_config_arns=["lifecycleConfigArns"]
                     ),
@@ -10365,7 +10397,8 @@ class CfnDomain(
                             instance_type="instanceType",
                             lifecycle_config_arn="lifecycleConfigArn",
                             sage_maker_image_arn="sageMakerImageArn",
-                            sage_maker_image_version_arn="sageMakerImageVersionArn"
+                            sage_maker_image_version_arn="sageMakerImageVersionArn",
+                            training_plan_arn="trainingPlanArn"
                         ),
                         lifecycle_config_arns=["lifecycleConfigArns"]
                     ),
@@ -10696,7 +10729,8 @@ class CfnDomain(
                             instance_type="instanceType",
                             lifecycle_config_arn="lifecycleConfigArn",
                             sage_maker_image_arn="sageMakerImageArn",
-                            sage_maker_image_version_arn="sageMakerImageVersionArn"
+                            sage_maker_image_version_arn="sageMakerImageVersionArn",
+                            training_plan_arn="trainingPlanArn"
                         ),
                         r_studio_connect_url="rStudioConnectUrl",
                         r_studio_package_manager_url="rStudioPackageManagerUrl"
@@ -10837,7 +10871,7 @@ class CfnDomain(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_sagemaker as sagemaker
                 
-                e_fSFile_system_config_property = sagemaker.CfnDomain.EFSFileSystemConfigProperty(
+                e_fs_file_system_config_property = sagemaker.CfnDomain.EFSFileSystemConfigProperty(
                     file_system_id="fileSystemId",
                 
                     # the properties below are optional
@@ -11209,7 +11243,8 @@ class CfnDomain(
                         instance_type="instanceType",
                         lifecycle_config_arn="lifecycleConfigArn",
                         sage_maker_image_arn="sageMakerImageArn",
-                        sage_maker_image_version_arn="sageMakerImageVersionArn"
+                        sage_maker_image_version_arn="sageMakerImageVersionArn",
+                        training_plan_arn="trainingPlanArn"
                     ),
                     lifecycle_config_arns=["lifecycleConfigArns"]
                 )
@@ -11347,7 +11382,8 @@ class CfnDomain(
                         instance_type="instanceType",
                         lifecycle_config_arn="lifecycleConfigArn",
                         sage_maker_image_arn="sageMakerImageArn",
-                        sage_maker_image_version_arn="sageMakerImageVersionArn"
+                        sage_maker_image_version_arn="sageMakerImageVersionArn",
+                        training_plan_arn="trainingPlanArn"
                     ),
                     lifecycle_config_arns=["lifecycleConfigArns"]
                 )
@@ -11442,7 +11478,8 @@ class CfnDomain(
                         instance_type="instanceType",
                         lifecycle_config_arn="lifecycleConfigArn",
                         sage_maker_image_arn="sageMakerImageArn",
-                        sage_maker_image_version_arn="sageMakerImageVersionArn"
+                        sage_maker_image_version_arn="sageMakerImageVersionArn",
+                        training_plan_arn="trainingPlanArn"
                     ),
                     lifecycle_config_arns=["lifecycleConfigArns"]
                 )
@@ -11557,7 +11594,8 @@ class CfnDomain(
                         instance_type="instanceType",
                         lifecycle_config_arn="lifecycleConfigArn",
                         sage_maker_image_arn="sageMakerImageArn",
-                        sage_maker_image_version_arn="sageMakerImageVersionArn"
+                        sage_maker_image_version_arn="sageMakerImageVersionArn",
+                        training_plan_arn="trainingPlanArn"
                     )
                 )
             '''
@@ -11719,7 +11757,8 @@ class CfnDomain(
                         instance_type="instanceType",
                         lifecycle_config_arn="lifecycleConfigArn",
                         sage_maker_image_arn="sageMakerImageArn",
-                        sage_maker_image_version_arn="sageMakerImageVersionArn"
+                        sage_maker_image_version_arn="sageMakerImageVersionArn",
+                        training_plan_arn="trainingPlanArn"
                     ),
                     r_studio_connect_url="rStudioConnectUrl",
                     r_studio_package_manager_url="rStudioPackageManagerUrl"
@@ -11799,6 +11838,7 @@ class CfnDomain(
             "lifecycle_config_arn": "lifecycleConfigArn",
             "sage_maker_image_arn": "sageMakerImageArn",
             "sage_maker_image_version_arn": "sageMakerImageVersionArn",
+            "training_plan_arn": "trainingPlanArn",
         },
     )
     class ResourceSpecProperty:
@@ -11809,6 +11849,7 @@ class CfnDomain(
             lifecycle_config_arn: typing.Optional[builtins.str] = None,
             sage_maker_image_arn: typing.Optional[builtins.str] = None,
             sage_maker_image_version_arn: typing.Optional[builtins.str] = None,
+            training_plan_arn: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Specifies the ARN's of a SageMaker AI image and SageMaker AI image version, and the instance type that the version runs on.
 
@@ -11820,6 +11861,7 @@ class CfnDomain(
             :param lifecycle_config_arn: The Amazon Resource Name (ARN) of the Lifecycle Configuration attached to the Resource.
             :param sage_maker_image_arn: The ARN of the SageMaker AI image that the image version belongs to.
             :param sage_maker_image_version_arn: The ARN of the image version created on the instance. To clear the value set for ``SageMakerImageVersionArn`` , pass ``None`` as the value.
+            :param training_plan_arn: The Amazon Resource Name (ARN) of the training plan to use for the ResourceSpec.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-domain-resourcespec.html
             :exampleMetadata: fixture=_generated
@@ -11834,7 +11876,8 @@ class CfnDomain(
                     instance_type="instanceType",
                     lifecycle_config_arn="lifecycleConfigArn",
                     sage_maker_image_arn="sageMakerImageArn",
-                    sage_maker_image_version_arn="sageMakerImageVersionArn"
+                    sage_maker_image_version_arn="sageMakerImageVersionArn",
+                    training_plan_arn="trainingPlanArn"
                 )
             '''
             if __debug__:
@@ -11843,6 +11886,7 @@ class CfnDomain(
                 check_type(argname="argument lifecycle_config_arn", value=lifecycle_config_arn, expected_type=type_hints["lifecycle_config_arn"])
                 check_type(argname="argument sage_maker_image_arn", value=sage_maker_image_arn, expected_type=type_hints["sage_maker_image_arn"])
                 check_type(argname="argument sage_maker_image_version_arn", value=sage_maker_image_version_arn, expected_type=type_hints["sage_maker_image_version_arn"])
+                check_type(argname="argument training_plan_arn", value=training_plan_arn, expected_type=type_hints["training_plan_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if instance_type is not None:
                 self._values["instance_type"] = instance_type
@@ -11852,6 +11896,8 @@ class CfnDomain(
                 self._values["sage_maker_image_arn"] = sage_maker_image_arn
             if sage_maker_image_version_arn is not None:
                 self._values["sage_maker_image_version_arn"] = sage_maker_image_version_arn
+            if training_plan_arn is not None:
+                self._values["training_plan_arn"] = training_plan_arn
 
         @builtins.property
         def instance_type(self) -> typing.Optional[builtins.str]:
@@ -11895,6 +11941,15 @@ class CfnDomain(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-domain-resourcespec.html#cfn-sagemaker-domain-resourcespec-sagemakerimageversionarn
             '''
             result = self._values.get("sage_maker_image_version_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def training_plan_arn(self) -> typing.Optional[builtins.str]:
+            '''The Amazon Resource Name (ARN) of the training plan to use for the ResourceSpec.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-domain-resourcespec.html#cfn-sagemaker-domain-resourcespec-trainingplanarn
+            '''
+            result = self._values.get("training_plan_arn")
             return typing.cast(typing.Optional[builtins.str], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -12446,7 +12501,8 @@ class CfnDomain(
                             instance_type="instanceType",
                             lifecycle_config_arn="lifecycleConfigArn",
                             sage_maker_image_arn="sageMakerImageArn",
-                            sage_maker_image_version_arn="sageMakerImageVersionArn"
+                            sage_maker_image_version_arn="sageMakerImageVersionArn",
+                            training_plan_arn="trainingPlanArn"
                         ),
                         lifecycle_config_arns=["lifecycleConfigArns"]
                     ),
@@ -12497,7 +12553,8 @@ class CfnDomain(
                             instance_type="instanceType",
                             lifecycle_config_arn="lifecycleConfigArn",
                             sage_maker_image_arn="sageMakerImageArn",
-                            sage_maker_image_version_arn="sageMakerImageVersionArn"
+                            sage_maker_image_version_arn="sageMakerImageVersionArn",
+                            training_plan_arn="trainingPlanArn"
                         ),
                         lifecycle_config_arns=["lifecycleConfigArns"]
                     ),
@@ -12506,7 +12563,8 @@ class CfnDomain(
                             instance_type="instanceType",
                             lifecycle_config_arn="lifecycleConfigArn",
                             sage_maker_image_arn="sageMakerImageArn",
-                            sage_maker_image_version_arn="sageMakerImageVersionArn"
+                            sage_maker_image_version_arn="sageMakerImageVersionArn",
+                            training_plan_arn="trainingPlanArn"
                         ),
                         lifecycle_config_arns=["lifecycleConfigArns"]
                     ),
@@ -12522,7 +12580,8 @@ class CfnDomain(
                             instance_type="instanceType",
                             lifecycle_config_arn="lifecycleConfigArn",
                             sage_maker_image_arn="sageMakerImageArn",
-                            sage_maker_image_version_arn="sageMakerImageVersionArn"
+                            sage_maker_image_version_arn="sageMakerImageVersionArn",
+                            training_plan_arn="trainingPlanArn"
                         ),
                         lifecycle_config_arns=["lifecycleConfigArns"]
                     ),
@@ -12538,7 +12597,8 @@ class CfnDomain(
                             instance_type="instanceType",
                             lifecycle_config_arn="lifecycleConfigArn",
                             sage_maker_image_arn="sageMakerImageArn",
-                            sage_maker_image_version_arn="sageMakerImageVersionArn"
+                            sage_maker_image_version_arn="sageMakerImageVersionArn",
+                            training_plan_arn="trainingPlanArn"
                         )
                     ),
                     r_studio_server_pro_app_settings=sagemaker.CfnDomain.RStudioServerProAppSettingsProperty(
@@ -12844,6 +12904,7 @@ class CfnDomain(
         "app_security_group_management": "appSecurityGroupManagement",
         "default_space_settings": "defaultSpaceSettings",
         "domain_settings": "domainSettings",
+        "home_efs_file_system_creation": "homeEfsFileSystemCreation",
         "kms_key_id": "kmsKeyId",
         "subnet_ids": "subnetIds",
         "tag_propagation": "tagPropagation",
@@ -12862,6 +12923,7 @@ class CfnDomainProps:
         app_security_group_management: typing.Optional[builtins.str] = None,
         default_space_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.DefaultSpaceSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         domain_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.DomainSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        home_efs_file_system_creation: typing.Optional[builtins.str] = None,
         kms_key_id: typing.Optional[builtins.str] = None,
         subnet_ids: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_ISubnetRef_ac31e361"]]] = None,
         tag_propagation: typing.Optional[builtins.str] = None,
@@ -12877,6 +12939,7 @@ class CfnDomainProps:
         :param app_security_group_management: The entity that creates and manages the required security groups for inter-app communication in ``VpcOnly`` mode. Required when ``CreateDomain.AppNetworkAccessType`` is ``VpcOnly`` and ``DomainSettings.RStudioServerProDomainSettings.DomainExecutionRoleArn`` is provided. If setting up the domain for use with RStudio, this value must be set to ``Service`` . *Allowed Values* : ``Service`` | ``Customer``
         :param default_space_settings: The default settings for shared spaces that users create in the domain. SageMaker applies these settings only to shared spaces. It doesn't apply them to private spaces.
         :param domain_settings: A collection of settings that apply to the ``SageMaker Domain`` . These settings are specified through the ``CreateDomain`` API call.
+        :param home_efs_file_system_creation: Indicates whether a home EFS file system is created for the domain. Set to Disabled to skip EFS creation and reduce domain creation time.
         :param kms_key_id: SageMaker uses AWS KMS to encrypt the EFS volume attached to the Domain with an AWS managed customer master key (CMK) by default. For more control, specify a customer managed CMK. *Length Constraints* : Maximum length of 2048. *Pattern* : ``.*``
         :param subnet_ids: The VPC subnets that Studio uses for communication. *Length Constraints* : Maximum length of 32. *Array members* : Minimum number of 1 item. Maximum number of 16 items. *Pattern* : ``[-0-9a-zA-Z]+``
         :param tag_propagation: Indicates whether the tags added to Domain, User Profile and Space entity is propagated to all SageMaker resources.
@@ -12921,7 +12984,8 @@ class CfnDomainProps:
                             instance_type="instanceType",
                             lifecycle_config_arn="lifecycleConfigArn",
                             sage_maker_image_arn="sageMakerImageArn",
-                            sage_maker_image_version_arn="sageMakerImageVersionArn"
+                            sage_maker_image_version_arn="sageMakerImageVersionArn",
+                            training_plan_arn="trainingPlanArn"
                         ),
                         lifecycle_config_arns=["lifecycleConfigArns"]
                     ),
@@ -12972,7 +13036,8 @@ class CfnDomainProps:
                             instance_type="instanceType",
                             lifecycle_config_arn="lifecycleConfigArn",
                             sage_maker_image_arn="sageMakerImageArn",
-                            sage_maker_image_version_arn="sageMakerImageVersionArn"
+                            sage_maker_image_version_arn="sageMakerImageVersionArn",
+                            training_plan_arn="trainingPlanArn"
                         ),
                         lifecycle_config_arns=["lifecycleConfigArns"]
                     ),
@@ -12981,7 +13046,8 @@ class CfnDomainProps:
                             instance_type="instanceType",
                             lifecycle_config_arn="lifecycleConfigArn",
                             sage_maker_image_arn="sageMakerImageArn",
-                            sage_maker_image_version_arn="sageMakerImageVersionArn"
+                            sage_maker_image_version_arn="sageMakerImageVersionArn",
+                            training_plan_arn="trainingPlanArn"
                         ),
                         lifecycle_config_arns=["lifecycleConfigArns"]
                     ),
@@ -12997,7 +13063,8 @@ class CfnDomainProps:
                             instance_type="instanceType",
                             lifecycle_config_arn="lifecycleConfigArn",
                             sage_maker_image_arn="sageMakerImageArn",
-                            sage_maker_image_version_arn="sageMakerImageVersionArn"
+                            sage_maker_image_version_arn="sageMakerImageVersionArn",
+                            training_plan_arn="trainingPlanArn"
                         ),
                         lifecycle_config_arns=["lifecycleConfigArns"]
                     ),
@@ -13013,7 +13080,8 @@ class CfnDomainProps:
                             instance_type="instanceType",
                             lifecycle_config_arn="lifecycleConfigArn",
                             sage_maker_image_arn="sageMakerImageArn",
-                            sage_maker_image_version_arn="sageMakerImageVersionArn"
+                            sage_maker_image_version_arn="sageMakerImageVersionArn",
+                            training_plan_arn="trainingPlanArn"
                         )
                     ),
                     r_studio_server_pro_app_settings=sagemaker.CfnDomain.RStudioServerProAppSettingsProperty(
@@ -13098,7 +13166,8 @@ class CfnDomainProps:
                             instance_type="instanceType",
                             lifecycle_config_arn="lifecycleConfigArn",
                             sage_maker_image_arn="sageMakerImageArn",
-                            sage_maker_image_version_arn="sageMakerImageVersionArn"
+                            sage_maker_image_version_arn="sageMakerImageVersionArn",
+                            training_plan_arn="trainingPlanArn"
                         ),
                         lifecycle_config_arns=["lifecycleConfigArns"]
                     ),
@@ -13107,7 +13176,8 @@ class CfnDomainProps:
                             instance_type="instanceType",
                             lifecycle_config_arn="lifecycleConfigArn",
                             sage_maker_image_arn="sageMakerImageArn",
-                            sage_maker_image_version_arn="sageMakerImageVersionArn"
+                            sage_maker_image_version_arn="sageMakerImageVersionArn",
+                            training_plan_arn="trainingPlanArn"
                         ),
                         lifecycle_config_arns=["lifecycleConfigArns"]
                     ),
@@ -13123,7 +13193,8 @@ class CfnDomainProps:
                             instance_type="instanceType",
                             lifecycle_config_arn="lifecycleConfigArn",
                             sage_maker_image_arn="sageMakerImageArn",
-                            sage_maker_image_version_arn="sageMakerImageVersionArn"
+                            sage_maker_image_version_arn="sageMakerImageVersionArn",
+                            training_plan_arn="trainingPlanArn"
                         ),
                         lifecycle_config_arns=["lifecycleConfigArns"]
                     ),
@@ -13150,7 +13221,8 @@ class CfnDomainProps:
                             instance_type="instanceType",
                             lifecycle_config_arn="lifecycleConfigArn",
                             sage_maker_image_arn="sageMakerImageArn",
-                            sage_maker_image_version_arn="sageMakerImageVersionArn"
+                            sage_maker_image_version_arn="sageMakerImageVersionArn",
+                            training_plan_arn="trainingPlanArn"
                         ),
                         r_studio_connect_url="rStudioConnectUrl",
                         r_studio_package_manager_url="rStudioPackageManagerUrl"
@@ -13166,6 +13238,7 @@ class CfnDomainProps:
                         studio_web_portal_access="studioWebPortalAccess"
                     )
                 ),
+                home_efs_file_system_creation="homeEfsFileSystemCreation",
                 kms_key_id="kmsKeyId",
                 subnet_ids=["subnetIds"],
                 tag_propagation="tagPropagation",
@@ -13185,6 +13258,7 @@ class CfnDomainProps:
             check_type(argname="argument app_security_group_management", value=app_security_group_management, expected_type=type_hints["app_security_group_management"])
             check_type(argname="argument default_space_settings", value=default_space_settings, expected_type=type_hints["default_space_settings"])
             check_type(argname="argument domain_settings", value=domain_settings, expected_type=type_hints["domain_settings"])
+            check_type(argname="argument home_efs_file_system_creation", value=home_efs_file_system_creation, expected_type=type_hints["home_efs_file_system_creation"])
             check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
             check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
             check_type(argname="argument tag_propagation", value=tag_propagation, expected_type=type_hints["tag_propagation"])
@@ -13203,6 +13277,8 @@ class CfnDomainProps:
             self._values["default_space_settings"] = default_space_settings
         if domain_settings is not None:
             self._values["domain_settings"] = domain_settings
+        if home_efs_file_system_creation is not None:
+            self._values["home_efs_file_system_creation"] = home_efs_file_system_creation
         if kms_key_id is not None:
             self._values["kms_key_id"] = kms_key_id
         if subnet_ids is not None:
@@ -13300,6 +13376,17 @@ class CfnDomainProps:
         '''
         result = self._values.get("domain_settings")
         return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.DomainSettingsProperty"]], result)
+
+    @builtins.property
+    def home_efs_file_system_creation(self) -> typing.Optional[builtins.str]:
+        '''Indicates whether a home EFS file system is created for the domain.
+
+        Set to Disabled to skip EFS creation and reduce domain creation time.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-domain.html#cfn-sagemaker-domain-homeefsfilesystemcreation
+        '''
+        result = self._values.get("home_efs_file_system_creation")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def kms_key_id(self) -> typing.Optional[builtins.str]:
@@ -20975,7 +21062,7 @@ class CfnInferenceComponent(
             *,
             artifact_url: typing.Optional[builtins.str] = None,
             deployed_image: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInferenceComponent.DeployedImageProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            environment: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            environment: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             image: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Defines a container that provides the runtime environment for a model that you deploy with an inference component.
@@ -21047,7 +21134,7 @@ class CfnInferenceComponent(
         @builtins.property
         def environment(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''The environment variables to set in the Docker container.
 
             Each key and value in the Environment string-to-string map can have length of up to 1024. We support up to 16 entries in the map.
@@ -21055,7 +21142,7 @@ class CfnInferenceComponent(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-inferencecomponent-inferencecomponentcontainerspecification.html#cfn-sagemaker-inferencecomponent-inferencecomponentcontainerspecification-environment
             '''
             result = self._values.get("environment")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def image(self) -> typing.Optional[builtins.str]:
@@ -26494,7 +26581,7 @@ class CfnModelBiasJobDefinition(
             *,
             config_uri: builtins.str,
             image_uri: builtins.str,
-            environment: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            environment: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         ) -> None:
             '''Docker container image configuration object for the model bias job.
 
@@ -26558,13 +26645,13 @@ class CfnModelBiasJobDefinition(
         @builtins.property
         def environment(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''Sets the environment variables in the Docker container.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-modelbiasjobdefinition-modelbiasappspecification.html#cfn-sagemaker-modelbiasjobdefinition-modelbiasappspecification-environment
             '''
             result = self._values.get("environment")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -28292,7 +28379,7 @@ class CfnModelCard(
             self,
             *,
             caveats_and_recommendations: typing.Optional[builtins.str] = None,
-            custom_details: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            custom_details: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             ethical_considerations: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Additional information about the model.
@@ -28343,13 +28430,13 @@ class CfnModelCard(
         @builtins.property
         def custom_details(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''Any additional information to document about the model.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-modelcard-additionalinformation.html#cfn-sagemaker-modelcard-additionalinformation-customdetails
             '''
             result = self._values.get("custom_details")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def ethical_considerations(self) -> typing.Optional[builtins.str]:
@@ -28864,7 +28951,7 @@ class CfnModelCard(
             datasets: typing.Optional[typing.Sequence[builtins.str]] = None,
             evaluation_job_arn: typing.Optional[builtins.str] = None,
             evaluation_observation: typing.Optional[builtins.str] = None,
-            metadata: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            metadata: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             metric_groups: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnModelCard.MetricGroupProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''The evaluation details of the model.
@@ -28974,13 +29061,13 @@ class CfnModelCard(
         @builtins.property
         def metadata(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''Additional attributes associated with the evaluation results.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-modelcard-evaluationdetail.html#cfn-sagemaker-modelcard-evaluationdetail-metadata
             '''
             result = self._values.get("metadata")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def metric_groups(
@@ -32424,7 +32511,7 @@ class CfnModelExplainabilityJobDefinition(
             *,
             config_uri: builtins.str,
             image_uri: builtins.str,
-            environment: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            environment: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         ) -> None:
             '''Docker container image configuration object for the model explainability job.
 
@@ -32488,13 +32575,13 @@ class CfnModelExplainabilityJobDefinition(
         @builtins.property
         def environment(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''Sets the environment variables in the Docker container.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-modelexplainabilityjobdefinition-modelexplainabilityappspecification.html#cfn-sagemaker-modelexplainabilityjobdefinition-modelexplainabilityappspecification-environment
             '''
             result = self._values.get("environment")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -33952,7 +34039,7 @@ class CfnModelPackage(
         approval_description: typing.Optional[builtins.str] = None,
         certify_for_marketplace: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         client_token: typing.Optional[builtins.str] = None,
-        customer_metadata_properties: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        customer_metadata_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         domain: typing.Optional[builtins.str] = None,
         drift_check_baselines: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnModelPackage.DriftCheckBaselinesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         inference_specification: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnModelPackage.InferenceSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -34247,14 +34334,14 @@ class CfnModelPackage(
     @jsii.member(jsii_name="customerMetadataProperties")
     def customer_metadata_properties(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''The metadata properties for the model package.'''
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], jsii.get(self, "customerMetadataProperties"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "customerMetadataProperties"))
 
     @customer_metadata_properties.setter
     def customer_metadata_properties(
         self,
-        value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dd585f917b3f9ab436b00b5bec7661845c3d88a37a2a6e7b37c3e2c851fd45b4)
@@ -36565,7 +36652,7 @@ class CfnModelPackage(
             *,
             image: builtins.str,
             container_hostname: typing.Optional[builtins.str] = None,
-            environment: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            environment: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             framework: typing.Optional[builtins.str] = None,
             framework_version: typing.Optional[builtins.str] = None,
             image_digest: typing.Optional[builtins.str] = None,
@@ -36684,7 +36771,7 @@ class CfnModelPackage(
         @builtins.property
         def environment(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''The environment variables to set in the Docker container.
 
             Each key and value in the ``Environment`` string to string map can have length of up to 1024. We support up to 16 entries in the map.
@@ -36692,7 +36779,7 @@ class CfnModelPackage(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-modelpackage-modelpackagecontainerdefinition.html#cfn-sagemaker-modelpackage-modelpackagecontainerdefinition-environment
             '''
             result = self._values.get("environment")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def framework(self) -> typing.Optional[builtins.str]:
@@ -37618,7 +37705,7 @@ class CfnModelPackage(
             transform_output: typing.Union["_IResolvable_da3f097b", typing.Union["CfnModelPackage.TransformOutputProperty", typing.Dict[builtins.str, typing.Any]]],
             transform_resources: typing.Union["_IResolvable_da3f097b", typing.Union["CfnModelPackage.TransformResourcesProperty", typing.Dict[builtins.str, typing.Any]]],
             batch_strategy: typing.Optional[builtins.str] = None,
-            environment: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            environment: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             max_concurrent_transforms: typing.Optional[jsii.Number] = None,
             max_payload_in_mb: typing.Optional[jsii.Number] = None,
         ) -> None:
@@ -37753,7 +37840,7 @@ class CfnModelPackage(
         @builtins.property
         def environment(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''The environment variables to set in the Docker container.
 
             We support up to 16 key and values entries in the map.
@@ -37761,7 +37848,7 @@ class CfnModelPackage(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-modelpackage-transformjobdefinition.html#cfn-sagemaker-modelpackage-transformjobdefinition-environment
             '''
             result = self._values.get("environment")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def max_concurrent_transforms(self) -> typing.Optional[jsii.Number]:
@@ -38654,7 +38741,7 @@ class CfnModelPackageProps:
         approval_description: typing.Optional[builtins.str] = None,
         certify_for_marketplace: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         client_token: typing.Optional[builtins.str] = None,
-        customer_metadata_properties: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        customer_metadata_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         domain: typing.Optional[builtins.str] = None,
         drift_check_baselines: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnModelPackage.DriftCheckBaselinesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         inference_specification: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnModelPackage.InferenceSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -39208,13 +39295,13 @@ class CfnModelPackageProps:
     @builtins.property
     def customer_metadata_properties(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''The metadata properties for the model package.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-modelpackage.html#cfn-sagemaker-modelpackage-customermetadataproperties
         '''
         result = self._values.get("customer_metadata_properties")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
     @builtins.property
     def domain(self) -> typing.Optional[builtins.str]:
@@ -40974,7 +41061,7 @@ class CfnModelQualityJobDefinition(
             problem_type: builtins.str,
             container_arguments: typing.Optional[typing.Sequence[builtins.str]] = None,
             container_entrypoint: typing.Optional[typing.Sequence[builtins.str]] = None,
-            environment: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            environment: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             post_analytics_processor_source_uri: typing.Optional[builtins.str] = None,
             record_preprocessor_source_uri: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -41076,13 +41163,13 @@ class CfnModelQualityJobDefinition(
         @builtins.property
         def environment(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''Sets the environment variables in the container that the monitoring job runs.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-modelqualityjobdefinition-modelqualityappspecification.html#cfn-sagemaker-modelqualityjobdefinition-modelqualityappspecification-environment
             '''
             result = self._values.get("environment")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def post_analytics_processor_source_uri(self) -> typing.Optional[builtins.str]:
@@ -43827,7 +43914,7 @@ class CfnMonitoringSchedule(
             monitoring_resources: typing.Union["_IResolvable_da3f097b", typing.Union["CfnMonitoringSchedule.MonitoringResourcesProperty", typing.Dict[builtins.str, typing.Any]]],
             role_arn: builtins.str,
             baseline_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMonitoringSchedule.BaselineConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            environment: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            environment: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             network_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMonitoringSchedule.NetworkConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             stopping_condition: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMonitoringSchedule.StoppingConditionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
@@ -44045,13 +44132,13 @@ class CfnMonitoringSchedule(
         @builtins.property
         def environment(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''Sets the environment variables in the Docker container.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-monitoringschedule-monitoringjobdefinition.html#cfn-sagemaker-monitoringschedule-monitoringjobdefinition-environment
             '''
             result = self._values.get("environment")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def network_config(
@@ -46940,7 +47027,7 @@ class CfnPartnerApp(
             self,
             *,
             admin_users: typing.Optional[typing.Sequence[builtins.str]] = None,
-            arguments: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            arguments: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         ) -> None:
             '''A collection of configuration settings for the PartnerApp.
 
@@ -46985,13 +47072,13 @@ class CfnPartnerApp(
         @builtins.property
         def arguments(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''Additional arguments passed to the Partner AI App during initialization or runtime.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-partnerapp-partnerappconfig.html#cfn-sagemaker-partnerapp-partnerappconfig-arguments
             '''
             result = self._values.get("arguments")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -48176,7 +48263,7 @@ class CfnProcessingJob(
         app_specification: typing.Union["_IResolvable_da3f097b", typing.Union["CfnProcessingJob.AppSpecificationProperty", typing.Dict[builtins.str, typing.Any]]],
         processing_resources: typing.Union["_IResolvable_da3f097b", typing.Union["CfnProcessingJob.ProcessingResourcesProperty", typing.Dict[builtins.str, typing.Any]]],
         role_arn: builtins.str,
-        environment: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        environment: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         experiment_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnProcessingJob.ExperimentConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         network_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnProcessingJob.NetworkConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         processing_inputs: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnProcessingJob.ProcessingInputsObjectProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -48451,14 +48538,14 @@ class CfnProcessingJob(
     @jsii.member(jsii_name="environment")
     def environment(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''Sets the environment variables in the Docker container.'''
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], jsii.get(self, "environment"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "environment"))
 
     @environment.setter
     def environment(
         self,
-        value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1ec6c36462db4fd0a2763426765966dac6280d9738112bf9ea87574c6222b751)
@@ -50426,7 +50513,7 @@ class CfnProcessingJobProps:
         app_specification: typing.Union["_IResolvable_da3f097b", typing.Union["CfnProcessingJob.AppSpecificationProperty", typing.Dict[builtins.str, typing.Any]]],
         processing_resources: typing.Union["_IResolvable_da3f097b", typing.Union["CfnProcessingJob.ProcessingResourcesProperty", typing.Dict[builtins.str, typing.Any]]],
         role_arn: builtins.str,
-        environment: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        environment: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         experiment_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnProcessingJob.ExperimentConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         network_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnProcessingJob.NetworkConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         processing_inputs: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnProcessingJob.ProcessingInputsObjectProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -50648,13 +50735,13 @@ class CfnProcessingJobProps:
     @builtins.property
     def environment(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''Sets the environment variables in the Docker container.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-processingjob.html#cfn-sagemaker-processingjob-environment
         '''
         result = self._values.get("environment")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
     @builtins.property
     def experiment_config(
@@ -51767,7 +51854,8 @@ class CfnSpace(
                         instance_type="instanceType",
                         lifecycle_config_arn="lifecycleConfigArn",
                         sage_maker_image_arn="sageMakerImageArn",
-                        sage_maker_image_version_arn="sageMakerImageVersionArn"
+                        sage_maker_image_version_arn="sageMakerImageVersionArn",
+                        training_plan_arn="trainingPlanArn"
                     )
                 ),
                 custom_file_systems=[sagemaker.CfnSpace.CustomFileSystemProperty(
@@ -51794,7 +51882,8 @@ class CfnSpace(
                         instance_type="instanceType",
                         lifecycle_config_arn="lifecycleConfigArn",
                         sage_maker_image_arn="sageMakerImageArn",
-                        sage_maker_image_version_arn="sageMakerImageVersionArn"
+                        sage_maker_image_version_arn="sageMakerImageVersionArn",
+                        training_plan_arn="trainingPlanArn"
                     )
                 ),
                 jupyter_server_app_settings=sagemaker.CfnSpace.JupyterServerAppSettingsProperty(
@@ -51802,7 +51891,8 @@ class CfnSpace(
                         instance_type="instanceType",
                         lifecycle_config_arn="lifecycleConfigArn",
                         sage_maker_image_arn="sageMakerImageArn",
-                        sage_maker_image_version_arn="sageMakerImageVersionArn"
+                        sage_maker_image_version_arn="sageMakerImageVersionArn",
+                        training_plan_arn="trainingPlanArn"
                     ),
                     lifecycle_config_arns=["lifecycleConfigArns"]
                 ),
@@ -51818,7 +51908,8 @@ class CfnSpace(
                         instance_type="instanceType",
                         lifecycle_config_arn="lifecycleConfigArn",
                         sage_maker_image_arn="sageMakerImageArn",
-                        sage_maker_image_version_arn="sageMakerImageVersionArn"
+                        sage_maker_image_version_arn="sageMakerImageVersionArn",
+                        training_plan_arn="trainingPlanArn"
                     ),
                     lifecycle_config_arns=["lifecycleConfigArns"]
                 ),
@@ -52363,7 +52454,7 @@ class CfnSpace(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_sagemaker as sagemaker
                 
-                e_fSFile_system_property = sagemaker.CfnSpace.EFSFileSystemProperty(
+                e_fs_file_system_property = sagemaker.CfnSpace.EFSFileSystemProperty(
                     file_system_id="fileSystemId"
                 )
             '''
@@ -52533,7 +52624,8 @@ class CfnSpace(
                         instance_type="instanceType",
                         lifecycle_config_arn="lifecycleConfigArn",
                         sage_maker_image_arn="sageMakerImageArn",
-                        sage_maker_image_version_arn="sageMakerImageVersionArn"
+                        sage_maker_image_version_arn="sageMakerImageVersionArn",
+                        training_plan_arn="trainingPlanArn"
                     ),
                     lifecycle_config_arns=["lifecycleConfigArns"]
                 )
@@ -52630,7 +52722,8 @@ class CfnSpace(
                         instance_type="instanceType",
                         lifecycle_config_arn="lifecycleConfigArn",
                         sage_maker_image_arn="sageMakerImageArn",
-                        sage_maker_image_version_arn="sageMakerImageVersionArn"
+                        sage_maker_image_version_arn="sageMakerImageVersionArn",
+                        training_plan_arn="trainingPlanArn"
                     ),
                     lifecycle_config_arns=["lifecycleConfigArns"]
                 )
@@ -52764,6 +52857,7 @@ class CfnSpace(
             "lifecycle_config_arn": "lifecycleConfigArn",
             "sage_maker_image_arn": "sageMakerImageArn",
             "sage_maker_image_version_arn": "sageMakerImageVersionArn",
+            "training_plan_arn": "trainingPlanArn",
         },
     )
     class ResourceSpecProperty:
@@ -52774,6 +52868,7 @@ class CfnSpace(
             lifecycle_config_arn: typing.Optional[builtins.str] = None,
             sage_maker_image_arn: typing.Optional[builtins.str] = None,
             sage_maker_image_version_arn: typing.Optional[builtins.str] = None,
+            training_plan_arn: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Specifies the ARN's of a SageMaker AI image and SageMaker AI image version, and the instance type that the version runs on.
 
@@ -52785,6 +52880,7 @@ class CfnSpace(
             :param lifecycle_config_arn: The Amazon Resource Name (ARN) of the Lifecycle Configuration attached to the Resource.
             :param sage_maker_image_arn: The ARN of the SageMaker AI image that the image version belongs to.
             :param sage_maker_image_version_arn: The ARN of the image version created on the instance. To clear the value set for ``SageMakerImageVersionArn`` , pass ``None`` as the value.
+            :param training_plan_arn: The Amazon Resource Name (ARN) of the training plan to use for the ResourceSpec.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-space-resourcespec.html
             :exampleMetadata: fixture=_generated
@@ -52799,7 +52895,8 @@ class CfnSpace(
                     instance_type="instanceType",
                     lifecycle_config_arn="lifecycleConfigArn",
                     sage_maker_image_arn="sageMakerImageArn",
-                    sage_maker_image_version_arn="sageMakerImageVersionArn"
+                    sage_maker_image_version_arn="sageMakerImageVersionArn",
+                    training_plan_arn="trainingPlanArn"
                 )
             '''
             if __debug__:
@@ -52808,6 +52905,7 @@ class CfnSpace(
                 check_type(argname="argument lifecycle_config_arn", value=lifecycle_config_arn, expected_type=type_hints["lifecycle_config_arn"])
                 check_type(argname="argument sage_maker_image_arn", value=sage_maker_image_arn, expected_type=type_hints["sage_maker_image_arn"])
                 check_type(argname="argument sage_maker_image_version_arn", value=sage_maker_image_version_arn, expected_type=type_hints["sage_maker_image_version_arn"])
+                check_type(argname="argument training_plan_arn", value=training_plan_arn, expected_type=type_hints["training_plan_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if instance_type is not None:
                 self._values["instance_type"] = instance_type
@@ -52817,6 +52915,8 @@ class CfnSpace(
                 self._values["sage_maker_image_arn"] = sage_maker_image_arn
             if sage_maker_image_version_arn is not None:
                 self._values["sage_maker_image_version_arn"] = sage_maker_image_version_arn
+            if training_plan_arn is not None:
+                self._values["training_plan_arn"] = training_plan_arn
 
         @builtins.property
         def instance_type(self) -> typing.Optional[builtins.str]:
@@ -52860,6 +52960,15 @@ class CfnSpace(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-space-resourcespec.html#cfn-sagemaker-space-resourcespec-sagemakerimageversionarn
             '''
             result = self._values.get("sage_maker_image_version_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def training_plan_arn(self) -> typing.Optional[builtins.str]:
+            '''The Amazon Resource Name (ARN) of the training plan to use for the ResourceSpec.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-space-resourcespec.html#cfn-sagemaker-space-resourcespec-trainingplanarn
+            '''
+            result = self._values.get("training_plan_arn")
             return typing.cast(typing.Optional[builtins.str], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -53026,7 +53135,8 @@ class CfnSpace(
                         instance_type="instanceType",
                         lifecycle_config_arn="lifecycleConfigArn",
                         sage_maker_image_arn="sageMakerImageArn",
-                        sage_maker_image_version_arn="sageMakerImageVersionArn"
+                        sage_maker_image_version_arn="sageMakerImageVersionArn",
+                        training_plan_arn="trainingPlanArn"
                     )
                 )
             '''
@@ -53173,7 +53283,8 @@ class CfnSpace(
                         instance_type="instanceType",
                         lifecycle_config_arn="lifecycleConfigArn",
                         sage_maker_image_arn="sageMakerImageArn",
-                        sage_maker_image_version_arn="sageMakerImageVersionArn"
+                        sage_maker_image_version_arn="sageMakerImageVersionArn",
+                        training_plan_arn="trainingPlanArn"
                     )
                 )
             '''
@@ -53296,7 +53407,8 @@ class CfnSpace(
                             instance_type="instanceType",
                             lifecycle_config_arn="lifecycleConfigArn",
                             sage_maker_image_arn="sageMakerImageArn",
-                            sage_maker_image_version_arn="sageMakerImageVersionArn"
+                            sage_maker_image_version_arn="sageMakerImageVersionArn",
+                            training_plan_arn="trainingPlanArn"
                         )
                     ),
                     custom_file_systems=[sagemaker.CfnSpace.CustomFileSystemProperty(
@@ -53323,7 +53435,8 @@ class CfnSpace(
                             instance_type="instanceType",
                             lifecycle_config_arn="lifecycleConfigArn",
                             sage_maker_image_arn="sageMakerImageArn",
-                            sage_maker_image_version_arn="sageMakerImageVersionArn"
+                            sage_maker_image_version_arn="sageMakerImageVersionArn",
+                            training_plan_arn="trainingPlanArn"
                         )
                     ),
                     jupyter_server_app_settings=sagemaker.CfnSpace.JupyterServerAppSettingsProperty(
@@ -53331,7 +53444,8 @@ class CfnSpace(
                             instance_type="instanceType",
                             lifecycle_config_arn="lifecycleConfigArn",
                             sage_maker_image_arn="sageMakerImageArn",
-                            sage_maker_image_version_arn="sageMakerImageVersionArn"
+                            sage_maker_image_version_arn="sageMakerImageVersionArn",
+                            training_plan_arn="trainingPlanArn"
                         ),
                         lifecycle_config_arns=["lifecycleConfigArns"]
                     ),
@@ -53347,7 +53461,8 @@ class CfnSpace(
                             instance_type="instanceType",
                             lifecycle_config_arn="lifecycleConfigArn",
                             sage_maker_image_arn="sageMakerImageArn",
-                            sage_maker_image_version_arn="sageMakerImageVersionArn"
+                            sage_maker_image_version_arn="sageMakerImageVersionArn",
+                            training_plan_arn="trainingPlanArn"
                         ),
                         lifecycle_config_arns=["lifecycleConfigArns"]
                     ),
@@ -53682,7 +53797,8 @@ class CfnSpaceProps:
                             instance_type="instanceType",
                             lifecycle_config_arn="lifecycleConfigArn",
                             sage_maker_image_arn="sageMakerImageArn",
-                            sage_maker_image_version_arn="sageMakerImageVersionArn"
+                            sage_maker_image_version_arn="sageMakerImageVersionArn",
+                            training_plan_arn="trainingPlanArn"
                         )
                     ),
                     custom_file_systems=[sagemaker.CfnSpace.CustomFileSystemProperty(
@@ -53709,7 +53825,8 @@ class CfnSpaceProps:
                             instance_type="instanceType",
                             lifecycle_config_arn="lifecycleConfigArn",
                             sage_maker_image_arn="sageMakerImageArn",
-                            sage_maker_image_version_arn="sageMakerImageVersionArn"
+                            sage_maker_image_version_arn="sageMakerImageVersionArn",
+                            training_plan_arn="trainingPlanArn"
                         )
                     ),
                     jupyter_server_app_settings=sagemaker.CfnSpace.JupyterServerAppSettingsProperty(
@@ -53717,7 +53834,8 @@ class CfnSpaceProps:
                             instance_type="instanceType",
                             lifecycle_config_arn="lifecycleConfigArn",
                             sage_maker_image_arn="sageMakerImageArn",
-                            sage_maker_image_version_arn="sageMakerImageVersionArn"
+                            sage_maker_image_version_arn="sageMakerImageVersionArn",
+                            training_plan_arn="trainingPlanArn"
                         ),
                         lifecycle_config_arns=["lifecycleConfigArns"]
                     ),
@@ -53733,7 +53851,8 @@ class CfnSpaceProps:
                             instance_type="instanceType",
                             lifecycle_config_arn="lifecycleConfigArn",
                             sage_maker_image_arn="sageMakerImageArn",
-                            sage_maker_image_version_arn="sageMakerImageVersionArn"
+                            sage_maker_image_version_arn="sageMakerImageVersionArn",
+                            training_plan_arn="trainingPlanArn"
                         ),
                         lifecycle_config_arns=["lifecycleConfigArns"]
                     ),
@@ -55304,7 +55423,7 @@ class CfnUserProfile(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_sagemaker as sagemaker
                 
-                e_fSFile_system_config_property = sagemaker.CfnUserProfile.EFSFileSystemConfigProperty(
+                e_fs_file_system_config_property = sagemaker.CfnUserProfile.EFSFileSystemConfigProperty(
                     file_system_id="fileSystemId",
                 
                     # the properties below are optional
@@ -58554,12 +58673,12 @@ def _typecheckingstub__3a19719ba9f3f785eebfbcc6ee996f6178944dfe9cbd5d5cdf73341bd
     execution_role: builtins.str,
     instance_count: jsii.Number,
     instance_group_name: builtins.str,
-    instance_type: builtins.str,
     capacity_requirements: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ClusterCapacityRequirementsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     current_count: typing.Optional[jsii.Number] = None,
     image_id: typing.Optional[builtins.str] = None,
     instance_requirements: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.InstanceRequirementsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     instance_storage_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ClusterInstanceStorageConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    instance_type: typing.Optional[builtins.str] = None,
     kubernetes_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ClusterKubernetesConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     life_cycle_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ClusterLifeCycleConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     min_instance_count: typing.Optional[jsii.Number] = None,
@@ -58585,7 +58704,7 @@ def _typecheckingstub__43caf7c774c2545f8cff945a7d450e1acd83d6c11b7011b4cab6d25be
 
 def _typecheckingstub__f5927607ea6d6ff01a0f035e8bd449c5cdc52208b93b59ce415bc238b5ff9d28(
     *,
-    labels: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    labels: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     taints: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ClusterKubernetesTaintProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -58958,7 +59077,7 @@ def _typecheckingstub__11ad7b07799b19e9d0c959ac5d51f2235fe7a36d54964df0e345ae868
     image_uri: builtins.str,
     container_arguments: typing.Optional[typing.Sequence[builtins.str]] = None,
     container_entrypoint: typing.Optional[typing.Sequence[builtins.str]] = None,
-    environment: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    environment: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     post_analytics_processor_source_uri: typing.Optional[builtins.str] = None,
     record_preprocessor_source_uri: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -59258,6 +59377,7 @@ def _typecheckingstub__6a98e719c58aab3299db52c4086bfb65ee6438882423af805478e9ea3
     app_security_group_management: typing.Optional[builtins.str] = None,
     default_space_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.DefaultSpaceSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     domain_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.DomainSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    home_efs_file_system_creation: typing.Optional[builtins.str] = None,
     kms_key_id: typing.Optional[builtins.str] = None,
     subnet_ids: typing.Optional[typing.Sequence[typing.Union[builtins.str, _ISubnetRef_ac31e361]]] = None,
     tag_propagation: typing.Optional[builtins.str] = None,
@@ -59345,6 +59465,12 @@ def _typecheckingstub__f5d0e056a481e730ebed277f032ef13b3337668137169bd966cc3fc66
 
 def _typecheckingstub__a80dc18546bde6c82a5e78a8e60c044ce75c01a498f10fd5d6422d2fecfbbd61(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.DomainSettingsProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a9589f8b34b2e8391a11cc034603626420caad5f1d67aa17312ff497ba293f4b(
+    value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -59574,6 +59700,7 @@ def _typecheckingstub__a15c1a8a4f296645dbaf164af882f41bb1cf89c7585a52dc9b76a9ade
     lifecycle_config_arn: typing.Optional[builtins.str] = None,
     sage_maker_image_arn: typing.Optional[builtins.str] = None,
     sage_maker_image_version_arn: typing.Optional[builtins.str] = None,
+    training_plan_arn: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -59649,6 +59776,7 @@ def _typecheckingstub__d70b90cbf9af0f3b53a18e5f11f7de868ef5fe3e6110bb229fd135001
     app_security_group_management: typing.Optional[builtins.str] = None,
     default_space_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.DefaultSpaceSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     domain_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.DomainSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    home_efs_file_system_creation: typing.Optional[builtins.str] = None,
     kms_key_id: typing.Optional[builtins.str] = None,
     subnet_ids: typing.Optional[typing.Sequence[typing.Union[builtins.str, _ISubnetRef_ac31e361]]] = None,
     tag_propagation: typing.Optional[builtins.str] = None,
@@ -60672,7 +60800,7 @@ def _typecheckingstub__f5aed592935acb4ecc3dffe218101a8b9053d16d99e4a24219409fd2b
     *,
     artifact_url: typing.Optional[builtins.str] = None,
     deployed_image: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInferenceComponent.DeployedImageProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    environment: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    environment: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     image: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -61420,7 +61548,7 @@ def _typecheckingstub__1f01cf0d16de54b691554f90fc0164a32bb034cb11f48e1da830de2f9
     *,
     config_uri: builtins.str,
     image_uri: builtins.str,
-    environment: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    environment: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -61621,7 +61749,7 @@ def _typecheckingstub__21ba0d4cc0226b207bf2ec8b60d2dec29d0e16f53ed13490a4eadd31a
 def _typecheckingstub__bdc804b35b707b6b83db59dd5856c727f91c3eaf822ead69849965c8d835fb16(
     *,
     caveats_and_recommendations: typing.Optional[builtins.str] = None,
-    custom_details: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    custom_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     ethical_considerations: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -61664,7 +61792,7 @@ def _typecheckingstub__aea006f10e4b9e47fd972d6bbaf6414142d5740197c53c1291d43731d
     datasets: typing.Optional[typing.Sequence[builtins.str]] = None,
     evaluation_job_arn: typing.Optional[builtins.str] = None,
     evaluation_observation: typing.Optional[builtins.str] = None,
-    metadata: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    metadata: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     metric_groups: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnModelCard.MetricGroupProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -62031,7 +62159,7 @@ def _typecheckingstub__ebe56328bde0b850895826fabfc7bc3442ae0788e844a26866e772ad1
     *,
     config_uri: builtins.str,
     image_uri: builtins.str,
-    environment: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    environment: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -62133,7 +62261,7 @@ def _typecheckingstub__dd16b0de7cecf20a90c23d8d97096e81424f40b485b97eeee13cb706d
     approval_description: typing.Optional[builtins.str] = None,
     certify_for_marketplace: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     client_token: typing.Optional[builtins.str] = None,
-    customer_metadata_properties: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    customer_metadata_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     domain: typing.Optional[builtins.str] = None,
     drift_check_baselines: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnModelPackage.DriftCheckBaselinesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     inference_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnModelPackage.InferenceSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -62214,7 +62342,7 @@ def _typecheckingstub__89d64f853866a4eba94f202d8d78bafb1c880d82debc68888016437a9
     pass
 
 def _typecheckingstub__dd585f917b3f9ab436b00b5bec7661845c3d88a37a2a6e7b37c3e2c851fd45b4(
-    value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -62514,7 +62642,7 @@ def _typecheckingstub__863ee4313d8978810e469a123f1fc9cf3a202aa7d038afc51cd8fa610
     *,
     image: builtins.str,
     container_hostname: typing.Optional[builtins.str] = None,
-    environment: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    environment: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     framework: typing.Optional[builtins.str] = None,
     framework_version: typing.Optional[builtins.str] = None,
     image_digest: typing.Optional[builtins.str] = None,
@@ -62606,7 +62734,7 @@ def _typecheckingstub__ad90453f586dca988e2139c0764adcc4e222e4f795136ffe7266e6b1a
     transform_output: typing.Union[_IResolvable_da3f097b, typing.Union[CfnModelPackage.TransformOutputProperty, typing.Dict[builtins.str, typing.Any]]],
     transform_resources: typing.Union[_IResolvable_da3f097b, typing.Union[CfnModelPackage.TransformResourcesProperty, typing.Dict[builtins.str, typing.Any]]],
     batch_strategy: typing.Optional[builtins.str] = None,
-    environment: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    environment: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     max_concurrent_transforms: typing.Optional[jsii.Number] = None,
     max_payload_in_mb: typing.Optional[jsii.Number] = None,
 ) -> None:
@@ -62725,7 +62853,7 @@ def _typecheckingstub__378bde633f0e72c03caed7fddbf9a121418d898f476e84e86c7b4d379
     approval_description: typing.Optional[builtins.str] = None,
     certify_for_marketplace: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     client_token: typing.Optional[builtins.str] = None,
-    customer_metadata_properties: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    customer_metadata_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     domain: typing.Optional[builtins.str] = None,
     drift_check_baselines: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnModelPackage.DriftCheckBaselinesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     inference_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnModelPackage.InferenceSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -62945,7 +63073,7 @@ def _typecheckingstub__be45c2268dae58e29dd4db030dc1f3380067168548e1d2ff4e0a4642b
     problem_type: builtins.str,
     container_arguments: typing.Optional[typing.Sequence[builtins.str]] = None,
     container_entrypoint: typing.Optional[typing.Sequence[builtins.str]] = None,
-    environment: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    environment: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     post_analytics_processor_source_uri: typing.Optional[builtins.str] = None,
     record_preprocessor_source_uri: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -63241,7 +63369,7 @@ def _typecheckingstub__b910b71aa0bd7c4735c78fd94a919ccf37569efb82cd95f526e9b54a3
     monitoring_resources: typing.Union[_IResolvable_da3f097b, typing.Union[CfnMonitoringSchedule.MonitoringResourcesProperty, typing.Dict[builtins.str, typing.Any]]],
     role_arn: builtins.str,
     baseline_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMonitoringSchedule.BaselineConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    environment: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    environment: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     network_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMonitoringSchedule.NetworkConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     stopping_condition: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMonitoringSchedule.StoppingConditionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -63710,7 +63838,7 @@ def _typecheckingstub__a0b5e54b4f9355cd8b3f672fa93bf2831dc955eee865a01bd9f51f0c6
 def _typecheckingstub__4fe9c97147b4eae07c6bd61f56a8d78f05229fb88ed99c9642f55d171410989d(
     *,
     admin_users: typing.Optional[typing.Sequence[builtins.str]] = None,
-    arguments: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    arguments: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -63875,7 +64003,7 @@ def _typecheckingstub__f5caa0fb2646fa1f3ce1e3bdbe163fb26bd7b3e5aa7475ce61a509e9a
     app_specification: typing.Union[_IResolvable_da3f097b, typing.Union[CfnProcessingJob.AppSpecificationProperty, typing.Dict[builtins.str, typing.Any]]],
     processing_resources: typing.Union[_IResolvable_da3f097b, typing.Union[CfnProcessingJob.ProcessingResourcesProperty, typing.Dict[builtins.str, typing.Any]]],
     role_arn: builtins.str,
-    environment: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    environment: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     experiment_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProcessingJob.ExperimentConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     network_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProcessingJob.NetworkConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     processing_inputs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProcessingJob.ProcessingInputsObjectProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -63930,7 +64058,7 @@ def _typecheckingstub__a1bb0eb733cee7c27b86719b27a5d2c98a44d3b3fa07e8072aaeaa3fe
     pass
 
 def _typecheckingstub__1ec6c36462db4fd0a2763426765966dac6280d9738112bf9ea87574c6222b751(
-    value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -64138,7 +64266,7 @@ def _typecheckingstub__4c841bdeabe6eb0f21694d7661b9f6116b0889d3f055cd152271dc4be
     app_specification: typing.Union[_IResolvable_da3f097b, typing.Union[CfnProcessingJob.AppSpecificationProperty, typing.Dict[builtins.str, typing.Any]]],
     processing_resources: typing.Union[_IResolvable_da3f097b, typing.Union[CfnProcessingJob.ProcessingResourcesProperty, typing.Dict[builtins.str, typing.Any]]],
     role_arn: builtins.str,
-    environment: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    environment: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     experiment_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProcessingJob.ExperimentConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     network_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProcessingJob.NetworkConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     processing_inputs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProcessingJob.ProcessingInputsObjectProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -64444,6 +64572,7 @@ def _typecheckingstub__79b889d20ec4ee307fedce4172f7c39782dc99bf76625acfdf5b00983
     lifecycle_config_arn: typing.Optional[builtins.str] = None,
     sage_maker_image_arn: typing.Optional[builtins.str] = None,
     sage_maker_image_version_arn: typing.Optional[builtins.str] = None,
+    training_plan_arn: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

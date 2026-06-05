@@ -3,7 +3,7 @@ import re
 from abc import ABC, abstractmethod
 from decimal import Decimal
 from ipaddress import IPv4Address, IPv6Address
-from typing import Any, Callable, Generator, List, Optional
+from typing import Any, Callable, Generator, List, Optional, Tuple
 from uuid import UUID
 
 from aiochclient.exceptions import ChClientError
@@ -21,7 +21,16 @@ except ImportError:
         return dt.datetime.strptime(string, '%Y-%m-%d %H:%M:%S')
 
     def datetime_parse_f(string):
-        return dt.datetime.strptime(string, '%Y-%m-%d %H:%M:%S.%f')
+        # ClickHouse DateTime64 may carry up to 9 fractional digits
+        # (nanoseconds), but Python datetime only supports microseconds and
+        # strptime's "%f" rejects more than 6 digits. Truncate the fractional
+        # part to microseconds so DateTime64(7..9) parses — matching the
+        # behaviour of ciso8601 when it is installed.
+        head, _, frac = string.partition('.')
+        parsed = dt.datetime.strptime(head, '%Y-%m-%d %H:%M:%S')
+        if frac:
+            parsed = parsed.replace(microsecond=int(frac[:6].ljust(6, '0')))
+        return parsed
 
 
 __all__ = ["what_py_converter", "rows2ch", "json2ch", "py2ch", "empty_convertor"]
@@ -101,39 +110,39 @@ class BaseType(ABC):
     @classmethod
     def seq_parser(cls, raw: str) -> Generator[str, None, None]:
         """
-        Generator for parsing tuples and arrays.
-        Returns elements one by one
+        Generator for parsing the body of tuples, arrays and maps.
+
+        Yields the top-level comma-separated elements one by one, keeping
+        quoted strings and nested brackets intact, so structural characters
+        like ``,``, ``(``, ``)``, ``[`` or ``]`` inside a quoted string are
+        not treated as separators.
         """
         if not raw:
-            return None
+            return
         cur = []
+        depth = 0
         in_str = False
-        in_arr = False
-        in_tup = False
         escape_char = False
         for sym in raw:
-            if not (in_str or in_arr or in_tup):
-                if sym == cls.CM:
-                    yield "".join(cur)
-                    cur.clear()
-                    continue
+            if in_str:
+                cur.append(sym)
+                if escape_char:
+                    escape_char = False
+                elif sym == cls.ESCAPE_OP:
+                    escape_char = True
                 elif sym == cls.DQ:
-                    in_str = not in_str
-                elif sym == cls.ARR_OP:
-                    in_arr = True
-                elif sym == cls.TUP_OP:
-                    in_tup = True
-            elif in_str and sym == cls.DQ:
-                if not escape_char:
-                    in_str = not in_str
-            elif in_arr and sym == cls.ARR_CLS:
-                in_arr = False
-            elif in_tup and sym == cls.TUP_CLS:
-                in_tup = False
-            if in_str and sym == cls.ESCAPE_OP:
-                escape_char = not escape_char
-            else:
-                escape_char = False
+                    in_str = False
+                continue
+            if sym == cls.DQ:
+                in_str = True
+            elif sym == cls.ARR_OP or sym == cls.TUP_OP:
+                depth += 1
+            elif sym == cls.ARR_CLS or sym == cls.TUP_CLS:
+                depth -= 1
+            elif sym == cls.CM and depth == 0:
+                yield "".join(cur)
+                cur.clear()
+                continue
             cur.append(sym)
         yield "".join(cur)
 
@@ -147,9 +156,17 @@ class BaseType(ABC):
 
 class StrType(BaseType):
     def p_type(self, string: str) -> str:
+        string = self.decode(string.encode())
         if self.container:
             return remove_single_quotes(string)
         return string
+
+    def convert(self, value: bytes) -> str:
+        # ``value`` is the raw, still backslash-escaped bytes from ClickHouse.
+        # ``p_type`` does the (single) escape-decoding, so we only utf-8 decode
+        # here — decoding twice would re-interpret escape sequences and, for
+        # example, turn a literal ``\t`` into a tab or drop a trailing backslash.
+        return self.p_type(value.decode())
 
     @staticmethod
     def unconvert(value: str) -> bytes:
@@ -299,7 +316,7 @@ class TupleType(BaseType):
 
     def p_type(self, string: str) -> tuple:
         return tuple(
-            tp.p_type(self.decode(val.encode()))
+            tp.p_type(val)
             for tp, val in zip(self.types, self.seq_parser(string.strip("()")))
         )
 
@@ -322,12 +339,30 @@ class MapType(BaseType):
         self.value_type = what_py_type(tps[comma_index + 1 :], container=True)
 
     def p_type(self, string: str) -> dict:
-        key, value = string[1:-1].split(':', 1)
-        return {
-            self.key_type.p_type(self.decode(key.encode())): self.value_type.p_type(
-                self.decode(value.encode())
-            )
-        }
+        result = {}
+        for pair in self.seq_parser(string[1:-1]):
+            key, value = self._split_kv(pair)
+            result[self.key_type.p_type(key)] = self.value_type.p_type(value)
+        return result
+
+    @staticmethod
+    def _split_kv(pair: str) -> Tuple[str, str]:
+        """Split a ``key:value`` map entry at its first top-level colon."""
+        in_str = False
+        escape_char = False
+        for i, sym in enumerate(pair):
+            if in_str:
+                if escape_char:
+                    escape_char = False
+                elif sym == "\\":
+                    escape_char = True
+                elif sym == "'":
+                    in_str = False
+            elif sym == "'":
+                in_str = True
+            elif sym == ":":
+                return pair[:i], pair[i + 1 :]
+        return pair, ""
 
     def convert(self, value: bytes) -> dict:
         return self.p_type(value.decode())
@@ -350,7 +385,7 @@ class ArrayType(BaseType):
 
     def p_type(self, string: str) -> list:
         return [
-            self.type.p_type(self.decode(val.encode()))
+            self.type.p_type(val)
             for val in self.seq_parser(string[1:-1])
         ]
 
@@ -375,7 +410,7 @@ class NestedType(BaseType):
     def p_type(self, string: str) -> List[tuple]:
         return [
             tuple(
-                tp.p_type(self.decode(elem.encode()))
+                tp.p_type(elem)
                 for tp, elem in zip(self.types, self.seq_parser(val.strip("()")))
             )
             for val in self.seq_parser(string[1:-1])
@@ -523,16 +558,24 @@ def what_py_converter(name: str, container: bool = False) -> Callable:
 
 
 def py2ch(value):
-    try:
-        return PY_TYPES_MAPPING[type(value)](value)
-    except KeyError:
+    converter = PY_TYPES_MAPPING.get(type(value))
+    if converter is None:
+        # Fall back to the closest registered base type, walking the MRO so
+        # the most specific match wins (e.g. datetime before date). This lets
+        # subclasses of supported types — StrEnum/IntEnum, namedtuples, etc. —
+        # be inserted too.
+        for base in type(value).__mro__:
+            converter = PY_TYPES_MAPPING.get(base)
+            if converter is not None:
+                break
+    if converter is None:
         raise ChClientError(
             f"Unrecognized type: '{type(value)}'. "
-            f"The value type should be exactly one of "
+            f"The value type should be one of "
             f"int, float, str, dt.date, dt.datetime, "
-            f"dict, tuple, list, uuid.UUID (or None). "
-            f"No subclasses yet."
+            f"dict, tuple, list, uuid.UUID (or a subclass of one of them, or None)."
         )
+    return converter(value)
 
 
 def rows2ch(*rows):

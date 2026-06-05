@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: returns
-Version: 0.27.0
+Version: 0.28.0
 Summary: Make your functions return something meaningful, typed, and safe!
 License: BSD-3-Clause
 License-File: LICENSE
@@ -24,7 +24,7 @@ Classifier: Typing :: Typed
 Provides-Extra: check-laws
 Provides-Extra: compatible-mypy
 Requires-Dist: hypothesis (>=6.151,<7.0) ; extra == "check-laws"
-Requires-Dist: mypy (>=1.19,<1.21) ; extra == "compatible-mypy"
+Requires-Dist: mypy (>=1.19,<2.2) ; extra == "compatible-mypy"
 Requires-Dist: pytest (>=8,<10) ; extra == "check-laws"
 Requires-Dist: typing-extensions (>=4.0,<5.0)
 Project-URL: Funding, https://github.com/sponsors/dry-python

@@ -65,6 +65,11 @@ class Config:
         return self._config.get("task_id_base", 0)
 
     @property
+    def default_mode(self) -> str:
+        """Default workflow mode when task has no mode set."""
+        return self._config.get("default_mode", Consts.DEFAULT_MODE)
+
+    @property
     def worktree_base_dir(self) -> Path | None:
         raw = self._config.get("worktree_base_dir")
         if raw:

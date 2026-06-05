@@ -1,7 +1,7 @@
 """Unit tests for :class:`ErrorInjectionMiddleware` (Tier-12 PR 12.6 / PR 12.7).
 
-Pins the contract documented in ``src/notebooklm/_middleware_error_injection.py``
-and ADR-009 §"Chain ordering":
+Pins the contract documented in ``src/notebooklm/_middleware/error_injection.py``
+and ADR-0009 §"Chain ordering":
 
 - **Pass-through when env var is unset.** The middleware delegates straight
   to ``next_call``; production behavior is byte-for-byte unchanged.
@@ -13,7 +13,7 @@ and ADR-009 §"Chain ordering":
   resolves to ``"429"`` AND a builder is wired, the middleware raises
   :class:`TransportRateLimited` (carrying the synthetic ``Retry-After``);
   ``"5xx"`` raises :class:`TransportServerError`. This is the contract
-  that lets the OUTER ``RetryMiddleware`` retry, restoring ADR-009
+  that lets the OUTER ``RetryMiddleware`` retry, restoring ADR-0009
   §"ErrorInjection inside Retry — synthetic transient failures trigger
   retry" (codex iter-1 catch on PR 12.7).
 - **Return synthetic response for expired_csrf (HTTP 400).** That mode
@@ -48,8 +48,8 @@ import pytest
 from _fixtures.chain import make_request
 from cassette_patterns import build_synthetic_error_response
 from notebooklm._error_injection import ERROR_INJECT_ENV_VAR
-from notebooklm._middleware import NextCall, RpcRequest, RpcResponse, build_chain
-from notebooklm._middleware_error_injection import ErrorInjectionMiddleware
+from notebooklm._middleware.core import NextCall, RpcRequest, RpcResponse, build_chain
+from notebooklm._middleware.error_injection import ErrorInjectionMiddleware
 from notebooklm._transport_errors import TransportRateLimited, TransportServerError
 
 
@@ -139,7 +139,7 @@ async def test_429_mode_raises_transport_rate_limited(
 ) -> None:
     """``429`` mode raises :class:`TransportRateLimited` for ``RetryMiddleware``.
 
-    Restores ADR-009 §"ErrorInjection inside Retry — synthetic transient
+    Restores ADR-0009 §"ErrorInjection inside Retry — synthetic transient
     failures trigger retry" (codex iter-1 catch on PR 12.7). The raised
     exception carries the synthetic ``Retry-After`` so the outer retry
     honors rate-limit timing.
@@ -275,7 +275,7 @@ async def test_retry_outside_error_injection_retries_synthetic_429(
     returned response and Retry never saw it. With the exception-raising
     fix, Retry catches and retries N times before re-raising.
     """
-    from notebooklm._middleware_retry import RetryMiddleware
+    from notebooklm._middleware.retry import RetryMiddleware
 
     monkeypatch.setenv(ERROR_INJECT_ENV_VAR, "429")
     slept: list[float] = []
@@ -307,7 +307,7 @@ async def test_retry_outside_error_injection_retries_synthetic_5xx(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """End-to-end: chain ``[Retry, ErrorInjection]`` retries synthetic 5xx too."""
-    from notebooklm._middleware_retry import RetryMiddleware
+    from notebooklm._middleware.retry import RetryMiddleware
 
     monkeypatch.setenv(ERROR_INJECT_ENV_VAR, "5xx")
     slept: list[float] = []
@@ -357,11 +357,11 @@ async def test_auth_refresh_outside_error_injection_triggers_refresh_on_expired_
 
     Test shape: env var stays on across the retry leg, so the retry leg
     also raises ``HTTPStatusError(400)``. The exactly-once contract from
-    ADR-009 §"Retry semantics" means refresh runs exactly once and the
+    ADR-0009 §"Retry semantics" means refresh runs exactly once and the
     second 400 propagates without recursion.
     """
-    from notebooklm._middleware_auth_refresh import AuthRefreshMiddleware
-    from notebooklm._session_helpers import is_auth_error as auth_error_predicate
+    from notebooklm._middleware.auth_refresh import AuthRefreshMiddleware
+    from notebooklm._runtime.helpers import is_auth_error as auth_error_predicate
 
     monkeypatch.setenv(ERROR_INJECT_ENV_VAR, "expired_csrf")
     refresh_calls: list[None] = []
@@ -405,8 +405,8 @@ async def test_auth_refresh_outside_error_injection_completes_when_env_flips_off
     chain returns 200 cleanly. This pins the full refresh-then-retry
     success path, not just the propagation path.
     """
-    from notebooklm._middleware_auth_refresh import AuthRefreshMiddleware
-    from notebooklm._session_helpers import is_auth_error as auth_error_predicate
+    from notebooklm._middleware.auth_refresh import AuthRefreshMiddleware
+    from notebooklm._runtime.helpers import is_auth_error as auth_error_predicate
 
     monkeypatch.setenv(ERROR_INJECT_ENV_VAR, "expired_csrf")
     refresh_calls: list[None] = []
@@ -534,7 +534,7 @@ async def test_activation_flip_between_calls_is_observed(
 
 def test_middleware_satisfies_protocol() -> None:
     """``ErrorInjectionMiddleware`` instance is assignable to ``Middleware``."""
-    from notebooklm._middleware import Middleware
+    from notebooklm._middleware.core import Middleware
 
     middleware: Middleware = ErrorInjectionMiddleware()
     assert callable(middleware)

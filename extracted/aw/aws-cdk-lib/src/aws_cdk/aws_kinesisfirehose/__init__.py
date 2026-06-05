@@ -1600,7 +1600,7 @@ class CfnDeliveryStream(
                 
                 amazon_open_search_serverless_buffering_hints_property = kinesisfirehose.CfnDeliveryStream.AmazonOpenSearchServerlessBufferingHintsProperty(
                     interval_in_seconds=123,
-                    size_in_mBs=123
+                    size_in_m_bs=123
                 )
             '''
             if __debug__:
@@ -1711,7 +1711,7 @@ class CfnDeliveryStream(
                         # the properties below are optional
                         buffering_hints=kinesisfirehose.CfnDeliveryStream.BufferingHintsProperty(
                             interval_in_seconds=123,
-                            size_in_mBs=123
+                            size_in_m_bs=123
                         ),
                         cloud_watch_logging_options=kinesisfirehose.CfnDeliveryStream.CloudWatchLoggingOptionsProperty(
                             enabled=False,
@@ -1732,7 +1732,7 @@ class CfnDeliveryStream(
                     # the properties below are optional
                     buffering_hints=kinesisfirehose.CfnDeliveryStream.AmazonOpenSearchServerlessBufferingHintsProperty(
                         interval_in_seconds=123,
-                        size_in_mBs=123
+                        size_in_m_bs=123
                     ),
                     cloud_watch_logging_options=kinesisfirehose.CfnDeliveryStream.CloudWatchLoggingOptionsProperty(
                         enabled=False,
@@ -2001,7 +2001,7 @@ class CfnDeliveryStream(
                 
                 amazonopensearchservice_buffering_hints_property = kinesisfirehose.CfnDeliveryStream.AmazonopensearchserviceBufferingHintsProperty(
                     interval_in_seconds=123,
-                    size_in_mBs=123
+                    size_in_m_bs=123
                 )
             '''
             if __debug__:
@@ -2122,7 +2122,7 @@ class CfnDeliveryStream(
                         # the properties below are optional
                         buffering_hints=kinesisfirehose.CfnDeliveryStream.BufferingHintsProperty(
                             interval_in_seconds=123,
-                            size_in_mBs=123
+                            size_in_m_bs=123
                         ),
                         cloud_watch_logging_options=kinesisfirehose.CfnDeliveryStream.CloudWatchLoggingOptionsProperty(
                             enabled=False,
@@ -2143,7 +2143,7 @@ class CfnDeliveryStream(
                     # the properties below are optional
                     buffering_hints=kinesisfirehose.CfnDeliveryStream.AmazonopensearchserviceBufferingHintsProperty(
                         interval_in_seconds=123,
-                        size_in_mBs=123
+                        size_in_m_bs=123
                     ),
                     cloud_watch_logging_options=kinesisfirehose.CfnDeliveryStream.CloudWatchLoggingOptionsProperty(
                         enabled=False,
@@ -2549,7 +2549,7 @@ class CfnDeliveryStream(
                 
                 buffering_hints_property = kinesisfirehose.CfnDeliveryStream.BufferingHintsProperty(
                     interval_in_seconds=123,
-                    size_in_mBs=123
+                    size_in_m_bs=123
                 )
             '''
             if __debug__:
@@ -2907,7 +2907,7 @@ class CfnDeliveryStream(
                             hive_json_ser_de=kinesisfirehose.CfnDeliveryStream.HiveJsonSerDeProperty(
                                 timestamp_formats=["timestampFormats"]
                             ),
-                            open_xJson_ser_de=kinesisfirehose.CfnDeliveryStream.OpenXJsonSerDeProperty(
+                            open_x_json_ser_de=kinesisfirehose.CfnDeliveryStream.OpenXJsonSerDeProperty(
                                 case_insensitive=False,
                                 column_to_json_key_mappings={
                                     "column_to_json_key_mappings_key": "columnToJsonKeyMappings"
@@ -3492,7 +3492,7 @@ class CfnDeliveryStream(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_kinesisfirehose as kinesisfirehose
                 
-                database_source_vPCConfiguration_property = kinesisfirehose.CfnDeliveryStream.DatabaseSourceVPCConfigurationProperty(
+                database_source_vpc_configuration_property = kinesisfirehose.CfnDeliveryStream.DatabaseSourceVPCConfigurationProperty(
                     vpc_endpoint_service_name="vpcEndpointServiceName"
                 )
             '''
@@ -3779,7 +3779,7 @@ class CfnDeliveryStream(
                     hive_json_ser_de=kinesisfirehose.CfnDeliveryStream.HiveJsonSerDeProperty(
                         timestamp_formats=["timestampFormats"]
                     ),
-                    open_xJson_ser_de=kinesisfirehose.CfnDeliveryStream.OpenXJsonSerDeProperty(
+                    open_x_json_ser_de=kinesisfirehose.CfnDeliveryStream.OpenXJsonSerDeProperty(
                         case_insensitive=False,
                         column_to_json_key_mappings={
                             "column_to_json_key_mappings_key": "columnToJsonKeyMappings"
@@ -3998,7 +3998,7 @@ class CfnDeliveryStream(
                 from aws_cdk import aws_kinesisfirehose as kinesisfirehose
                 
                 direct_put_source_configuration_property = kinesisfirehose.CfnDeliveryStream.DirectPutSourceConfigurationProperty(
-                    throughput_hint_in_mBs=123
+                    throughput_hint_in_m_bs=123
                 )
             '''
             if __debug__:
@@ -4199,7 +4199,7 @@ class CfnDeliveryStream(
                 
                 elasticsearch_buffering_hints_property = kinesisfirehose.CfnDeliveryStream.ElasticsearchBufferingHintsProperty(
                     interval_in_seconds=123,
-                    size_in_mBs=123
+                    size_in_m_bs=123
                 )
             '''
             if __debug__:
@@ -4320,7 +4320,7 @@ class CfnDeliveryStream(
                         # the properties below are optional
                         buffering_hints=kinesisfirehose.CfnDeliveryStream.BufferingHintsProperty(
                             interval_in_seconds=123,
-                            size_in_mBs=123
+                            size_in_m_bs=123
                         ),
                         cloud_watch_logging_options=kinesisfirehose.CfnDeliveryStream.CloudWatchLoggingOptionsProperty(
                             enabled=False,
@@ -4341,7 +4341,7 @@ class CfnDeliveryStream(
                     # the properties below are optional
                     buffering_hints=kinesisfirehose.CfnDeliveryStream.ElasticsearchBufferingHintsProperty(
                         interval_in_seconds=123,
-                        size_in_mBs=123
+                        size_in_m_bs=123
                     ),
                     cloud_watch_logging_options=kinesisfirehose.CfnDeliveryStream.CloudWatchLoggingOptionsProperty(
                         enabled=False,
@@ -4801,7 +4801,7 @@ class CfnDeliveryStream(
                     # the properties below are optional
                     buffering_hints=kinesisfirehose.CfnDeliveryStream.BufferingHintsProperty(
                         interval_in_seconds=123,
-                        size_in_mBs=123
+                        size_in_m_bs=123
                     ),
                     cloud_watch_logging_options=kinesisfirehose.CfnDeliveryStream.CloudWatchLoggingOptionsProperty(
                         enabled=False,
@@ -4817,7 +4817,7 @@ class CfnDeliveryStream(
                                 hive_json_ser_de=kinesisfirehose.CfnDeliveryStream.HiveJsonSerDeProperty(
                                     timestamp_formats=["timestampFormats"]
                                 ),
-                                open_xJson_ser_de=kinesisfirehose.CfnDeliveryStream.OpenXJsonSerDeProperty(
+                                open_x_json_ser_de=kinesisfirehose.CfnDeliveryStream.OpenXJsonSerDeProperty(
                                     case_insensitive=False,
                                     column_to_json_key_mappings={
                                         "column_to_json_key_mappings_key": "columnToJsonKeyMappings"
@@ -4893,7 +4893,7 @@ class CfnDeliveryStream(
                         # the properties below are optional
                         buffering_hints=kinesisfirehose.CfnDeliveryStream.BufferingHintsProperty(
                             interval_in_seconds=123,
-                            size_in_mBs=123
+                            size_in_m_bs=123
                         ),
                         cloud_watch_logging_options=kinesisfirehose.CfnDeliveryStream.CloudWatchLoggingOptionsProperty(
                             enabled=False,
@@ -5436,7 +5436,7 @@ class CfnDeliveryStream(
                         # the properties below are optional
                         buffering_hints=kinesisfirehose.CfnDeliveryStream.BufferingHintsProperty(
                             interval_in_seconds=123,
-                            size_in_mBs=123
+                            size_in_m_bs=123
                         ),
                         cloud_watch_logging_options=kinesisfirehose.CfnDeliveryStream.CloudWatchLoggingOptionsProperty(
                             enabled=False,
@@ -5457,7 +5457,7 @@ class CfnDeliveryStream(
                     # the properties below are optional
                     buffering_hints=kinesisfirehose.CfnDeliveryStream.BufferingHintsProperty(
                         interval_in_seconds=123,
-                        size_in_mBs=123
+                        size_in_m_bs=123
                     ),
                     cloud_watch_logging_options=kinesisfirehose.CfnDeliveryStream.CloudWatchLoggingOptionsProperty(
                         enabled=False,
@@ -5807,7 +5807,7 @@ class CfnDeliveryStream(
                         # the properties below are optional
                         buffering_hints=kinesisfirehose.CfnDeliveryStream.BufferingHintsProperty(
                             interval_in_seconds=123,
-                            size_in_mBs=123
+                            size_in_m_bs=123
                         ),
                         cloud_watch_logging_options=kinesisfirehose.CfnDeliveryStream.CloudWatchLoggingOptionsProperty(
                             enabled=False,
@@ -5829,7 +5829,7 @@ class CfnDeliveryStream(
                     append_only=False,
                     buffering_hints=kinesisfirehose.CfnDeliveryStream.BufferingHintsProperty(
                         interval_in_seconds=123,
-                        size_in_mBs=123
+                        size_in_m_bs=123
                     ),
                     cloud_watch_logging_options=kinesisfirehose.CfnDeliveryStream.CloudWatchLoggingOptionsProperty(
                         enabled=False,
@@ -6091,7 +6091,7 @@ class CfnDeliveryStream(
                         hive_json_ser_de=kinesisfirehose.CfnDeliveryStream.HiveJsonSerDeProperty(
                             timestamp_formats=["timestampFormats"]
                         ),
-                        open_xJson_ser_de=kinesisfirehose.CfnDeliveryStream.OpenXJsonSerDeProperty(
+                        open_x_json_ser_de=kinesisfirehose.CfnDeliveryStream.OpenXJsonSerDeProperty(
                             case_insensitive=False,
                             column_to_json_key_mappings={
                                 "column_to_json_key_mappings_key": "columnToJsonKeyMappings"
@@ -6152,7 +6152,7 @@ class CfnDeliveryStream(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_kinesisfirehose as kinesisfirehose
                 
-                k_mSEncryption_config_property = kinesisfirehose.CfnDeliveryStream.KMSEncryptionConfigProperty(
+                k_ms_encryption_config_property = kinesisfirehose.CfnDeliveryStream.KMSEncryptionConfigProperty(
                     awskms_key_arn="awskmsKeyArn"
                 )
             '''
@@ -6292,7 +6292,7 @@ class CfnDeliveryStream(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_kinesisfirehose as kinesisfirehose
                 
-                m_sKSource_configuration_property = kinesisfirehose.CfnDeliveryStream.MSKSourceConfigurationProperty(
+                m_sk_source_configuration_property = kinesisfirehose.CfnDeliveryStream.MSKSourceConfigurationProperty(
                     authentication_configuration=kinesisfirehose.CfnDeliveryStream.AuthenticationConfigurationProperty(
                         connectivity="connectivity",
                         role_arn="roleArn"
@@ -6388,7 +6388,7 @@ class CfnDeliveryStream(
             self,
             *,
             case_insensitive: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            column_to_json_key_mappings: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            column_to_json_key_mappings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             convert_dots_in_json_keys_to_underscores: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         ) -> None:
             '''The OpenX SerDe.
@@ -6408,7 +6408,7 @@ class CfnDeliveryStream(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_kinesisfirehose as kinesisfirehose
                 
-                open_xJson_ser_de_property = kinesisfirehose.CfnDeliveryStream.OpenXJsonSerDeProperty(
+                open_x_json_ser_de_property = kinesisfirehose.CfnDeliveryStream.OpenXJsonSerDeProperty(
                     case_insensitive=False,
                     column_to_json_key_mappings={
                         "column_to_json_key_mappings_key": "columnToJsonKeyMappings"
@@ -6443,7 +6443,7 @@ class CfnDeliveryStream(
         @builtins.property
         def column_to_json_key_mappings(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''Maps column names to JSON keys that aren't identical to the column names.
 
             This is useful when the JSON contains keys that are Hive keywords. For example, ``timestamp`` is a Hive keyword. If you have a JSON key named ``timestamp`` , set this parameter to ``{"ts": "timestamp"}`` to map this key to a column named ``ts`` .
@@ -6451,7 +6451,7 @@ class CfnDeliveryStream(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-openxjsonserde.html#cfn-kinesisfirehose-deliverystream-openxjsonserde-columntojsonkeymappings
             '''
             result = self._values.get("column_to_json_key_mappings")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def convert_dots_in_json_keys_to_underscores(
@@ -7382,7 +7382,7 @@ class CfnDeliveryStream(
                         # the properties below are optional
                         buffering_hints=kinesisfirehose.CfnDeliveryStream.BufferingHintsProperty(
                             interval_in_seconds=123,
-                            size_in_mBs=123
+                            size_in_m_bs=123
                         ),
                         cloud_watch_logging_options=kinesisfirehose.CfnDeliveryStream.CloudWatchLoggingOptionsProperty(
                             enabled=False,
@@ -7429,7 +7429,7 @@ class CfnDeliveryStream(
                         # the properties below are optional
                         buffering_hints=kinesisfirehose.CfnDeliveryStream.BufferingHintsProperty(
                             interval_in_seconds=123,
-                            size_in_mBs=123
+                            size_in_m_bs=123
                         ),
                         cloud_watch_logging_options=kinesisfirehose.CfnDeliveryStream.CloudWatchLoggingOptionsProperty(
                             enabled=False,
@@ -7811,7 +7811,7 @@ class CfnDeliveryStream(
                     # the properties below are optional
                     buffering_hints=kinesisfirehose.CfnDeliveryStream.BufferingHintsProperty(
                         interval_in_seconds=123,
-                        size_in_mBs=123
+                        size_in_m_bs=123
                     ),
                     cloud_watch_logging_options=kinesisfirehose.CfnDeliveryStream.CloudWatchLoggingOptionsProperty(
                         enabled=False,
@@ -8403,7 +8403,7 @@ class CfnDeliveryStream(
                 
                 snowflake_buffering_hints_property = kinesisfirehose.CfnDeliveryStream.SnowflakeBufferingHintsProperty(
                     interval_in_seconds=123,
-                    size_in_mBs=123
+                    size_in_m_bs=123
                 )
             '''
             if __debug__:
@@ -8543,7 +8543,7 @@ class CfnDeliveryStream(
                         # the properties below are optional
                         buffering_hints=kinesisfirehose.CfnDeliveryStream.BufferingHintsProperty(
                             interval_in_seconds=123,
-                            size_in_mBs=123
+                            size_in_m_bs=123
                         ),
                         cloud_watch_logging_options=kinesisfirehose.CfnDeliveryStream.CloudWatchLoggingOptionsProperty(
                             enabled=False,
@@ -8566,7 +8566,7 @@ class CfnDeliveryStream(
                     # the properties below are optional
                     buffering_hints=kinesisfirehose.CfnDeliveryStream.SnowflakeBufferingHintsProperty(
                         interval_in_seconds=123,
-                        size_in_mBs=123
+                        size_in_m_bs=123
                     ),
                     cloud_watch_logging_options=kinesisfirehose.CfnDeliveryStream.CloudWatchLoggingOptionsProperty(
                         enabled=False,
@@ -9120,7 +9120,7 @@ class CfnDeliveryStream(
                 
                 splunk_buffering_hints_property = kinesisfirehose.CfnDeliveryStream.SplunkBufferingHintsProperty(
                     interval_in_seconds=123,
-                    size_in_mBs=123
+                    size_in_m_bs=123
                 )
             '''
             if __debug__:
@@ -9232,7 +9232,7 @@ class CfnDeliveryStream(
                         # the properties below are optional
                         buffering_hints=kinesisfirehose.CfnDeliveryStream.BufferingHintsProperty(
                             interval_in_seconds=123,
-                            size_in_mBs=123
+                            size_in_m_bs=123
                         ),
                         cloud_watch_logging_options=kinesisfirehose.CfnDeliveryStream.CloudWatchLoggingOptionsProperty(
                             enabled=False,
@@ -9253,7 +9253,7 @@ class CfnDeliveryStream(
                     # the properties below are optional
                     buffering_hints=kinesisfirehose.CfnDeliveryStream.SplunkBufferingHintsProperty(
                         interval_in_seconds=123,
-                        size_in_mBs=123
+                        size_in_m_bs=123
                     ),
                     cloud_watch_logging_options=kinesisfirehose.CfnDeliveryStream.CloudWatchLoggingOptionsProperty(
                         enabled=False,
@@ -11451,7 +11451,7 @@ class DestinationConfig:
                     # the properties below are optional
                     buffering_hints=kinesisfirehose.CfnDeliveryStream.BufferingHintsProperty(
                         interval_in_seconds=123,
-                        size_in_mBs=123
+                        size_in_m_bs=123
                     ),
                     cloud_watch_logging_options=kinesisfirehose.CfnDeliveryStream.CloudWatchLoggingOptionsProperty(
                         enabled=False,
@@ -11467,7 +11467,7 @@ class DestinationConfig:
                                 hive_json_ser_de=kinesisfirehose.CfnDeliveryStream.HiveJsonSerDeProperty(
                                     timestamp_formats=["timestampFormats"]
                                 ),
-                                open_xJson_ser_de=kinesisfirehose.CfnDeliveryStream.OpenXJsonSerDeProperty(
+                                open_x_json_ser_de=kinesisfirehose.CfnDeliveryStream.OpenXJsonSerDeProperty(
                                     case_insensitive=False,
                                     column_to_json_key_mappings={
                                         "column_to_json_key_mappings_key": "columnToJsonKeyMappings"
@@ -11543,7 +11543,7 @@ class DestinationConfig:
                         # the properties below are optional
                         buffering_hints=kinesisfirehose.CfnDeliveryStream.BufferingHintsProperty(
                             interval_in_seconds=123,
-                            size_in_mBs=123
+                            size_in_m_bs=123
                         ),
                         cloud_watch_logging_options=kinesisfirehose.CfnDeliveryStream.CloudWatchLoggingOptionsProperty(
                             enabled=False,
@@ -16615,7 +16615,7 @@ def _typecheckingstub__7b2563c2a3f195e01ffbb501ca4b7d501c1fb934c35f08b019e248300
 def _typecheckingstub__65dc173b1d3e5c449c2f9ee9f1727428f35f33407e71da72ecdc48c19f3fb78c(
     *,
     case_insensitive: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    column_to_json_key_mappings: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    column_to_json_key_mappings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     convert_dots_in_json_keys_to_underscores: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
 ) -> None:
     """Type checking stubs"""

@@ -1261,7 +1261,7 @@ class CfnDashboard(
             *,
             query_statement: builtins.str,
             query_parameters: typing.Optional[typing.Sequence[builtins.str]] = None,
-            view_properties: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            view_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         ) -> None:
             '''Contains information about a widget on a CloudTrail Lake dashboard.
 
@@ -1330,7 +1330,7 @@ class CfnDashboard(
         @builtins.property
         def view_properties(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''The view properties for the widget.
 
             For more information about view properties, see `View properties for widgets <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/lake-widget-properties.html>`_ in the *AWS CloudTrail User Guide* .
@@ -1338,7 +1338,7 @@ class CfnDashboard(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudtrail-dashboard-widget.html#cfn-cloudtrail-dashboard-widget-viewproperties
             '''
             result = self._values.get("view_properties")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5826,7 +5826,7 @@ def _typecheckingstub__dc8abf1361e0023c8b0a4cba28dced78eff4f36aa3c868efa3feed153
     *,
     query_statement: builtins.str,
     query_parameters: typing.Optional[typing.Sequence[builtins.str]] = None,
-    view_properties: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    view_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

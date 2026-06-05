@@ -10,7 +10,7 @@ import httpx
 import pytest
 
 import notebooklm._cookie_persistence as persistence_module
-import notebooklm._session_lifecycle as lifecycle_module
+import notebooklm._runtime.lifecycle as lifecycle_module
 from _helpers.client_factory import build_client_shell_for_tests
 from notebooklm._cookie_persistence import CookiePersistence
 from notebooklm.auth import (
@@ -61,14 +61,12 @@ async def test_client_core_save_cookies_routes_through_injected_seam_and_to_thre
     ``asyncio.to_thread`` (off the loop) and then invokes the
     constructor-injected ``cookie_saver``.
 
-    Phase 2 PR 4+5 (``.sisyphus/plans/refactor-completion-plan.md``)
-    migrated both halves of this test off the legacy
-    ``_core`` indirection:
+    Both halves of this test avoid the legacy ``_core`` indirection:
 
     - ``save_cookies_to_storage`` is injected at construction via the
       ``cookie_saver`` seam (Wave 1's :class:`ClientLifecycle` change).
     - ``asyncio.to_thread`` is patched on its canonical importing
-      module :mod:`notebooklm._session_lifecycle` (where
+      module :mod:`notebooklm._runtime.lifecycle` (where
       ``ClientLifecycle.save_cookies`` sources it via
       ``cookie_persistence.save(to_thread=asyncio.to_thread)``).
     """

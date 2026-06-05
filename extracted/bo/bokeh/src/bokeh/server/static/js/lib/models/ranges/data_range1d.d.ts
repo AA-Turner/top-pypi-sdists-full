@@ -42,6 +42,8 @@ export declare class DataRange1d extends DataRange {
     protected _plot_bounds: Map<PlotView, Rect>;
     have_updated_interactively: boolean;
     initialize(): void;
+    connect_signals(): void;
+    protected _invalidate_dataranges(): void;
     get min(): number;
     get max(): number;
     computed_renderers(): Renderer[];

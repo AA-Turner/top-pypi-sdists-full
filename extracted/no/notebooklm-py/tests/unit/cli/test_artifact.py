@@ -207,7 +207,7 @@ class TestArtifactList:
             assert result.output.count("X") >= 200
             assert "…" not in result.output
 
-    def test_artifact_list_default_truncates_long_title(self, runner, mock_auth):
+    def test_artifact_list_default_truncates_long_title(self, runner, mock_auth, narrow_console):
         """Default rendering inserts an ellipsis for over-wide titles."""
         long_title = "X" * 200
         with patch("notebooklm.cli.artifact_cmd.NotebookLMClient") as mock_client_cls:
@@ -229,6 +229,70 @@ class TestArtifactList:
             assert result.output.count("X") < 200
             assert "…" in result.output
 
+    def test_artifact_list_json_missing_notebook_emits_not_found(self, runner, mock_auth):
+        """A ``NotebookNotFoundError`` reaching the central handler maps to NOT_FOUND.
+
+        End-to-end coverage for issue #1364 via a direct raise-site:
+        ``artifact list --json`` calls ``client.notebooks.get`` to build the
+        envelope title, and ``notebooks.get`` raises ``NotebookNotFoundError``
+        on a missing notebook (it always raises — not gated by
+        ``NOTEBOOKLM_FUTURE_ERRORS``). The central handler must emit the typed
+        ``NOT_FOUND`` envelope rather than the generic ``NOTEBOOKLM_ERROR``.
+        """
+        from notebooklm.exceptions import NotebookNotFoundError
+
+        with patch("notebooklm.cli.artifact_cmd.NotebookLMClient") as mock_client_cls:
+            mock_client = create_mock_client()
+            mock_client.artifacts.list = AsyncMock(return_value=[])
+            mock_client.notes.list_mind_maps = AsyncMock(return_value=[])
+            mock_client.notebooks.get = AsyncMock(side_effect=NotebookNotFoundError("nb_123"))
+            mock_client_cls.return_value = mock_client
+
+            with patch(
+                "notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock
+            ) as mock_fetch:
+                mock_fetch.return_value = ("csrf", "session")
+                result = runner.invoke(cli, ["artifact", "list", "-n", "nb_123", "--json"])
+
+            assert result.exit_code == 1
+            data = json.loads(result.output)
+            assert data["error"] is True
+            assert data["code"] == "NOT_FOUND"
+            assert data["notebook_id"] == "nb_123"
+            assert data["id"] == "nb_123"
+
+    def test_artifact_list_future_errors_missing_notebook_emits_not_found(
+        self, runner, mock_auth, monkeypatch
+    ):
+        """The ``NOTEBOOKLM_FUTURE_ERRORS`` preview is faithful at the CLI boundary.
+
+        With the v0.8.0 error-contract preview enabled, the same missing-notebook
+        path still yields the typed ``NOT_FOUND`` envelope (code + exit 1) —
+        confirming the central handler already routes the previewed raise-sites
+        correctly so the v0.8.0 flips land with zero CLI scramble (issue #1364).
+        """
+        from notebooklm.exceptions import NotebookNotFoundError
+
+        monkeypatch.setenv("NOTEBOOKLM_FUTURE_ERRORS", "1")
+
+        with patch("notebooklm.cli.artifact_cmd.NotebookLMClient") as mock_client_cls:
+            mock_client = create_mock_client()
+            mock_client.artifacts.list = AsyncMock(return_value=[])
+            mock_client.notes.list_mind_maps = AsyncMock(return_value=[])
+            mock_client.notebooks.get = AsyncMock(side_effect=NotebookNotFoundError("nb_123"))
+            mock_client_cls.return_value = mock_client
+
+            with patch(
+                "notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock
+            ) as mock_fetch:
+                mock_fetch.return_value = ("csrf", "session")
+                result = runner.invoke(cli, ["artifact", "list", "-n", "nb_123", "--json"])
+
+            assert result.exit_code == 1
+            data = json.loads(result.output)
+            assert data["code"] == "NOT_FOUND"
+            assert data["notebook_id"] == "nb_123"
+
 
 # =============================================================================
 # ARTIFACT GET TESTS
@@ -245,7 +309,7 @@ class TestArtifactGet:
                     Artifact(id="art_123", title="Test Artifact", _artifact_type=4, status=3)
                 ]
             )
-            mock_client.artifacts.get = AsyncMock(
+            mock_client.artifacts.get_or_none = AsyncMock(
                 return_value=Artifact(
                     id="art_123",
                     title="Test Artifact",
@@ -271,7 +335,7 @@ class TestArtifactGet:
             mock_client = create_mock_client()
             # Mock list to return empty (no match for resolve_artifact_id)
             mock_client.artifacts.list = AsyncMock(return_value=[])
-            mock_client.artifacts.get = AsyncMock(return_value=None)
+            mock_client.artifacts.get_or_none = AsyncMock(return_value=None)
             mock_client_cls.return_value = mock_client
 
             with patch(
@@ -293,7 +357,7 @@ class TestArtifactGet:
                     Artifact(id="art_123", title="Test Artifact", _artifact_type=4, status=3)
                 ]
             )
-            mock_client.artifacts.get = AsyncMock(
+            mock_client.artifacts.get_or_none = AsyncMock(
                 return_value=Artifact(
                     id="art_123",
                     title="Test Artifact",
@@ -342,7 +406,7 @@ class TestArtifactGet:
             mock_client.artifacts.list = AsyncMock(
                 return_value=[Artifact(id="art_123", title="Doomed", _artifact_type=4, status=3)]
             )
-            mock_client.artifacts.get = AsyncMock(return_value=None)
+            mock_client.artifacts.get_or_none = AsyncMock(return_value=None)
             mock_client_cls.return_value = mock_client
 
             with patch(
@@ -375,7 +439,7 @@ class TestArtifactGet:
         with patch("notebooklm.cli.artifact_cmd.NotebookLMClient") as mock_client_cls:
             mock_client = create_mock_client()
             mock_client.artifacts.list = AsyncMock(return_value=[])
-            mock_client.artifacts.get = AsyncMock(return_value=None)
+            mock_client.artifacts.get_or_none = AsyncMock(return_value=None)
             mock_client_cls.return_value = mock_client
 
             with patch(
@@ -394,7 +458,7 @@ class TestArtifactGet:
         with patch("notebooklm.cli.artifact_cmd.NotebookLMClient") as mock_client_cls:
             mock_client = create_mock_client()
             mock_client.artifacts.list = AsyncMock(return_value=[])
-            mock_client.artifacts.get = AsyncMock(return_value=None)
+            mock_client.artifacts.get_or_none = AsyncMock(return_value=None)
             mock_client_cls.return_value = mock_client
 
             with patch(
@@ -419,7 +483,7 @@ class TestArtifactGet:
             mock_client.artifacts.list = AsyncMock(
                 return_value=[Artifact(id="art_xyz", title="Doomed", _artifact_type=4, status=3)]
             )
-            mock_client.artifacts.get = AsyncMock(return_value=None)
+            mock_client.artifacts.get_or_none = AsyncMock(return_value=None)
             mock_client_cls.return_value = mock_client
 
             with patch(
@@ -486,18 +550,37 @@ class TestArtifactRename:
             data = json.loads(result.output)
             assert data == {"id": "art_123", "renamed": True, "new_title": "New Title"}
 
-    def test_artifact_rename_rejects_mind_map(self, runner, mock_auth):
+    @pytest.mark.parametrize("map_kind_attr", ["NOTE_BACKED", "INTERACTIVE"])
+    def test_artifact_rename_dispatches_mind_map(self, runner, mock_auth, map_kind_attr):
+        """A mind-map id is renamed via the unified API (kind-aware), not blocked.
+
+        Both kinds must route through ``mind_maps.rename`` carrying the map's own
+        ``kind`` (not a hardcoded one), and the regular-artifact ``artifacts.rename``
+        path must stay unused for mind maps — so a regression that pinned one kind
+        or also called ``artifacts.rename`` would be caught here.
+        """
+        from notebooklm.types import MindMap, MindMapKind
+
+        map_kind = getattr(MindMapKind, map_kind_attr)
+
         with patch("notebooklm.cli.artifact_cmd.NotebookLMClient") as mock_client_cls:
             mock_client = create_mock_client()
             # Mock list for partial ID resolution (include the mind map)
             mock_client.artifacts.list = AsyncMock(
                 return_value=[Artifact(id="mm_123", title="Old Title", _artifact_type=5, status=3)]
             )
-            mock_client.notes.list_mind_maps = AsyncMock(
+            mock_client.mind_maps.list = AsyncMock(
                 return_value=[
-                    ["mm_123", ["mm_123", "{}", None, None, "Old Title"]],
+                    MindMap(
+                        id="mm_123",
+                        notebook_id="nb_123",
+                        title="Old Title",
+                        kind=map_kind,
+                    )
                 ]
             )
+            mock_client.mind_maps.rename = AsyncMock()
+            mock_client.artifacts.rename = AsyncMock()
             mock_client_cls.return_value = mock_client
 
             with patch(
@@ -508,8 +591,55 @@ class TestArtifactRename:
                     cli, ["artifact", "rename", "mm_123", "New Title", "-n", "nb_123"]
                 )
 
-            assert result.exit_code != 0
-            assert "Mind maps cannot be renamed" in result.output
+            assert result.exit_code == 0
+            assert "Renamed" in result.output
+            # The CLI ignores the rename return, so it passes return_object=False
+            # to skip the (unused) hydrate re-fetch.
+            mock_client.mind_maps.rename.assert_awaited_once_with(
+                "nb_123", "mm_123", "New Title", kind=map_kind, return_object=False
+            )
+            # Mind maps never fall through to the regular-artifact rename path.
+            mock_client.artifacts.rename.assert_not_called()
+
+    def test_artifact_rename_missing_target_emits_not_found(self, runner, mock_auth):
+        """A ``*NotFoundError`` from ``rename`` reaches the central handler as NOT_FOUND.
+
+        End-to-end coverage for issue #1364: the v0.7.0+ ``rename`` raise-site
+        (mutate-existing fail-loud, #1362) surfaces ``ArtifactNotFoundError``
+        when the target is absent — e.g. deleted between the partial-id resolve
+        and the rename. It must emit the typed ``NOT_FOUND`` envelope, not the
+        generic ``NOTEBOOKLM_ERROR``.
+        """
+        from notebooklm.exceptions import ArtifactNotFoundError
+
+        with patch("notebooklm.cli.artifact_cmd.NotebookLMClient") as mock_client_cls:
+            mock_client = create_mock_client()
+            # ``list`` resolves the partial id (proves it existed at resolve
+            # time); ``rename`` then races a delete and raises.
+            mock_client.artifacts.list = AsyncMock(
+                return_value=[Artifact(id="art_123", title="Old Title", _artifact_type=4, status=3)]
+            )
+            mock_client.mind_maps.list = AsyncMock(return_value=[])
+            mock_client.artifacts.rename = AsyncMock(
+                side_effect=ArtifactNotFoundError("art_123", "audio")
+            )
+            mock_client_cls.return_value = mock_client
+
+            with patch(
+                "notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock
+            ) as mock_fetch:
+                mock_fetch.return_value = ("csrf", "session")
+                result = runner.invoke(
+                    cli,
+                    ["artifact", "rename", "art_123", "New Title", "-n", "nb_123", "--json"],
+                )
+
+            assert result.exit_code == 1
+            data = json.loads(result.output)
+            assert data["error"] is True
+            assert data["code"] == "NOT_FOUND"
+            assert data["artifact_id"] == "art_123"
+            assert data["id"] == "art_123"
 
 
 # =============================================================================
@@ -1183,6 +1313,205 @@ class TestArtifactWait:
         assert result.exit_code == 130
         assert '"code": "CANCELLED"' in result.output
         assert "notebooklm artifact poll art_json_sigint" in result.output
+
+
+# =============================================================================
+# ARTIFACT RETRY TESTS
+# =============================================================================
+
+
+class TestArtifactRetry:
+    def _client_with_failed_artifact(self):
+        mock_client = create_mock_client()
+        # Partial-id resolution lists once and matches art_123.
+        mock_client.artifacts.list = AsyncMock(
+            return_value=[Artifact(id="art_123", title="Test", _artifact_type=1, status=4)]
+        )
+        return mock_client
+
+    def test_artifact_retry_starts_without_wait(self, runner, mock_auth):
+        from notebooklm.types import GenerationStatus
+
+        with patch("notebooklm.cli.artifact_cmd.NotebookLMClient") as mock_client_cls:
+            mock_client = self._client_with_failed_artifact()
+            mock_client.artifacts.retry_failed = AsyncMock(
+                return_value=GenerationStatus(task_id="art_123", status="in_progress")
+            )
+            mock_client_cls.return_value = mock_client
+
+            with patch(
+                "notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock
+            ) as mock_fetch:
+                mock_fetch.return_value = ("csrf", "session")
+                result = runner.invoke(cli, ["artifact", "retry", "art_123", "-n", "nb_123"])
+
+            assert result.exit_code == 0
+            assert "Retry started" in result.output
+            mock_client.artifacts.retry_failed.assert_awaited_once_with("nb_123", "art_123")
+            mock_client.artifacts.wait_for_completion.assert_not_called()
+
+    def test_artifact_retry_json_output(self, runner, mock_auth):
+        from notebooklm.types import GenerationStatus
+
+        with patch("notebooklm.cli.artifact_cmd.NotebookLMClient") as mock_client_cls:
+            mock_client = self._client_with_failed_artifact()
+            mock_client.artifacts.retry_failed = AsyncMock(
+                return_value=GenerationStatus(task_id="art_123", status="in_progress")
+            )
+            mock_client_cls.return_value = mock_client
+
+            with patch(
+                "notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock
+            ) as mock_fetch:
+                mock_fetch.return_value = ("csrf", "session")
+                result = runner.invoke(
+                    cli, ["artifact", "retry", "art_123", "-n", "nb_123", "--json"]
+                )
+
+            assert result.exit_code == 0
+            data = json.loads(result.output)
+            assert data["task_id"] == "art_123"
+            assert data["status"] == "in_progress"
+
+    def test_artifact_retry_wait_blocks_until_complete(self, runner, mock_auth):
+        from notebooklm.types import GenerationStatus
+
+        with patch("notebooklm.cli.artifact_cmd.NotebookLMClient") as mock_client_cls:
+            mock_client = self._client_with_failed_artifact()
+            mock_client.artifacts.retry_failed = AsyncMock(
+                return_value=GenerationStatus(task_id="art_123", status="in_progress")
+            )
+            mock_client.artifacts.wait_for_completion = AsyncMock(
+                return_value=MagicMock(
+                    task_id="art_123",
+                    status="completed",
+                    url="https://example.com/video.mp4",
+                    error=None,
+                )
+            )
+            mock_client_cls.return_value = mock_client
+
+            with patch(
+                "notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock
+            ) as mock_fetch:
+                mock_fetch.return_value = ("csrf", "session")
+                result = runner.invoke(
+                    cli, ["artifact", "retry", "art_123", "-n", "nb_123", "--wait"]
+                )
+
+            assert result.exit_code == 0
+            assert "Artifact completed" in result.output
+            mock_client.artifacts.wait_for_completion.assert_awaited_once()
+
+    def test_artifact_retry_wait_terminal_failure_exits_nonzero_text_mode(self, runner, mock_auth):
+        """A provider-side retry that fails again (terminal `failed`, even with
+        no extractable error string) exits non-zero in text mode — not reported
+        as a successful command."""
+        from notebooklm.types import GenerationStatus
+
+        with patch("notebooklm.cli.artifact_cmd.NotebookLMClient") as mock_client_cls:
+            mock_client = self._client_with_failed_artifact()
+            mock_client.artifacts.retry_failed = AsyncMock(
+                return_value=GenerationStatus(task_id="art_123", status="in_progress")
+            )
+            # Terminal failure with error=None — exercises the text `else` branch.
+            mock_client.artifacts.wait_for_completion = AsyncMock(
+                return_value=GenerationStatus(task_id="art_123", status="failed", error=None)
+            )
+            mock_client_cls.return_value = mock_client
+
+            with patch(
+                "notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock
+            ) as mock_fetch:
+                mock_fetch.return_value = ("csrf", "session")
+                result = runner.invoke(
+                    cli, ["artifact", "retry", "art_123", "-n", "nb_123", "--wait"]
+                )
+
+            assert result.exit_code == 1
+            assert "Artifact completed" not in result.output
+
+    def test_artifact_retry_wait_json_terminal_failure_exits_nonzero(self, runner, mock_auth):
+        """`--wait --json` with a terminal failure exits 1 with a JSON payload
+        keyed by `artifact_id` (matching `artifact wait`)."""
+        from notebooklm.types import GenerationStatus
+
+        with patch("notebooklm.cli.artifact_cmd.NotebookLMClient") as mock_client_cls:
+            mock_client = self._client_with_failed_artifact()
+            mock_client.artifacts.retry_failed = AsyncMock(
+                return_value=GenerationStatus(task_id="art_123", status="in_progress")
+            )
+            mock_client.artifacts.wait_for_completion = AsyncMock(
+                return_value=GenerationStatus(
+                    task_id="art_123", status="failed", error="Provider error"
+                )
+            )
+            mock_client_cls.return_value = mock_client
+
+            with patch(
+                "notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock
+            ) as mock_fetch:
+                mock_fetch.return_value = ("csrf", "session")
+                result = runner.invoke(
+                    cli, ["artifact", "retry", "art_123", "-n", "nb_123", "--wait", "--json"]
+                )
+
+            assert result.exit_code == 1
+            data = json.loads(result.output)
+            assert data["status"] == "failed"
+            assert data["artifact_id"] == "art_123"
+
+    def test_artifact_retry_wait_timeout_json_output(self, runner, mock_auth):
+        """Timeout with `--wait --json` emits a structured payload (keyed by
+        `artifact_id`, matching `artifact wait`) and exits 1."""
+        from notebooklm.types import GenerationStatus
+
+        with patch("notebooklm.cli.artifact_cmd.NotebookLMClient") as mock_client_cls:
+            mock_client = self._client_with_failed_artifact()
+            mock_client.artifacts.retry_failed = AsyncMock(
+                return_value=GenerationStatus(task_id="art_123", status="in_progress")
+            )
+            mock_client.artifacts.wait_for_completion = AsyncMock(
+                side_effect=TimeoutError("Timed out")
+            )
+            mock_client_cls.return_value = mock_client
+
+            with patch(
+                "notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock
+            ) as mock_fetch:
+                mock_fetch.return_value = ("csrf", "session")
+                result = runner.invoke(
+                    cli, ["artifact", "retry", "art_123", "-n", "nb_123", "--wait", "--json"]
+                )
+
+            assert result.exit_code == 1
+            data = json.loads(result.output)
+            assert data["status"] == "timeout"
+            assert data["artifact_id"] == "art_123"
+
+    def test_artifact_retry_refusal_exits_nonzero(self, runner, mock_auth):
+        """A synchronous RateLimitError refusal surfaces as a CLI error, not
+        a started task — verifies retry_failed's raise propagates through the
+        centralized CLI error handler."""
+        from notebooklm.exceptions import RateLimitError
+
+        with patch("notebooklm.cli.artifact_cmd.NotebookLMClient") as mock_client_cls:
+            mock_client = self._client_with_failed_artifact()
+            mock_client.artifacts.retry_failed = AsyncMock(
+                side_effect=RateLimitError("Rate limit exceeded", rpc_code="USER_DISPLAYABLE_ERROR")
+            )
+            mock_client_cls.return_value = mock_client
+
+            with patch(
+                "notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock
+            ) as mock_fetch:
+                mock_fetch.return_value = ("csrf", "session")
+                result = runner.invoke(
+                    cli, ["artifact", "retry", "art_123", "-n", "nb_123", "--json"]
+                )
+
+            assert result.exit_code != 0
+            assert "Retry started" not in result.output
 
 
 # =============================================================================

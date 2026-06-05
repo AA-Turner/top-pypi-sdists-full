@@ -6188,6 +6188,21 @@ https://docs.chalk.ai/cli/apply
             model_image=model_image,
         )
 
+    def delete_model_namespace(
+        self,
+        name: str,
+        environment: Optional[EnvironmentId] = None,
+    ) -> GetRegisteredModelResponse:
+        return self._get_grpc_client(environment=environment).delete_model_namespace(name=name)
+
+    def delete_model_version(
+        self,
+        name: str,
+        version: int,
+        environment: Optional[EnvironmentId] = None,
+    ) -> GetRegisteredModelVersionResponse:
+        return self._get_grpc_client(environment=environment).delete_model_version(name=name, version=version)
+
     def deploy_model_version_to_scaling_group(
         self,
         name: str,

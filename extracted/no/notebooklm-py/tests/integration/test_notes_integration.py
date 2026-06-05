@@ -138,7 +138,11 @@ class TestNotesAPI:
         httpx_mock.add_response(content=response.encode())
 
         async with NotebookLMClient(auth_tokens) as client:
-            note = await client.notes.get("nb_123", "nonexistent")
+            # v0.7.0: a miss still returns None but now emits a
+            # DeprecationWarning (flips to raising NoteNotFoundError in v0.8.0,
+            # issue #1247).
+            with pytest.warns(DeprecationWarning, match="NoteNotFoundError"):
+                note = await client.notes.get("nb_123", "nonexistent")
 
         assert note is None
 
@@ -222,7 +226,7 @@ class TestNotesAPI:
         async with NotebookLMClient(auth_tokens) as client:
             result = await client.notes.delete("nb_123", "note_001")
 
-        assert result is True
+        assert result is None
         request = httpx_mock.get_request()
         assert RPCMethod.DELETE_NOTE in str(request.url)
 
@@ -268,6 +272,6 @@ class TestNotesAPI:
         async with NotebookLMClient(auth_tokens) as client:
             result = await client.notes.delete_mind_map("nb_123", "mm_001")
 
-        assert result is True
+        assert result is None
         request = httpx_mock.get_request()
         assert RPCMethod.DELETE_NOTE in str(request.url)

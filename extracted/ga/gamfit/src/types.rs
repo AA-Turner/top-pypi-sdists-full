@@ -1605,6 +1605,26 @@ impl RidgePolicy {
             determinant_mode: RidgeDeterminantMode::PositivePart,
         }
     }
+
+    /// Solver-only stabilization: the ridge `δI` stabilizes the inner linear
+    /// solve (it bounds the Newton step `(H+δI)⁻¹∇`) but is **excluded** from
+    /// the REML/LAML objective — no `½·δ·‖β‖²` quadratic-penalty term, no
+    /// `δ`-shift of the penalty log-determinant, no `δ`-shift of the Laplace
+    /// Hessian. Use this when a numerical floor is needed purely to keep the
+    /// linear algebra finite during screening and must NOT bias the
+    /// smoothing-parameter selection or shrink identified coefficients off the
+    /// MLE. With every `include_*` false the optimized objective equals the
+    /// true penalized REML criterion, so the value surface and its analytic
+    /// gradient describe the same objective (gam#747/#748).
+    pub const fn solver_only() -> Self {
+        Self {
+            rho_independent: true,
+            include_quadratic_penalty: false,
+            include_penalty_logdet: false,
+            include_laplacehessian: false,
+            determinant_mode: RidgeDeterminantMode::PositivePart,
+        }
+    }
 }
 
 /// Concrete ridge metadata stamped into a fitted PIRLS result.
@@ -2116,5 +2136,56 @@ impl<'a> Deref for LogSmoothingParamsView<'a> {
 
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+#[cfg(test)]
+mod ridge_policy_tests {
+    use super::{RidgePassport, RidgePolicy, StabilizationKind, StabilizationLedger};
+
+    #[test]
+    fn solver_only_ridge_policy_stays_off_objective_accounting() {
+        let passport = RidgePassport::scaled_identity(1.0e-4, RidgePolicy::solver_only());
+
+        assert!(
+            !passport.policy.include_quadratic_penalty,
+            "solver-only ridge must not add a quadratic prior"
+        );
+        assert_eq!(
+            passport.penalty_logdet_ridge(),
+            0.0,
+            "solver-only ridge must not shift the penalty logdet"
+        );
+        assert_eq!(
+            passport.laplacehessianridge(),
+            0.0,
+            "solver-only ridge must not shift the Laplace Hessian"
+        );
+
+        let ledger = StabilizationLedger::from_passport(passport);
+        assert!(
+            matches!(
+                ledger.kind,
+                StabilizationKind::NumericalPerturbation {
+                    backward_error_bound: None
+                }
+            ),
+            "solver-only ridge is a numerical perturbation, not an explicit prior"
+        );
+        assert_eq!(
+            ledger.quadratic_delta(),
+            0.0,
+            "solver-only ridge must not contribute to the optimized objective"
+        );
+        assert_eq!(
+            ledger.laplace_hessian_delta(),
+            0.0,
+            "solver-only ridge must not contribute to REML curvature accounting"
+        );
+        assert_eq!(
+            ledger.penalty_logdet_delta(),
+            0.0,
+            "solver-only ridge must not contribute to determinant accounting"
+        );
     }
 }

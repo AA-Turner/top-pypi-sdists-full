@@ -1,6 +1,5 @@
 from graphdatascience.arrow_client.authenticated_flight_client import AuthenticatedArrowClient
-from graphdatascience.arrow_client.v2.remote_write_back_client import RemoteWriteBackClient
-from graphdatascience.procedure_surface.api import ConfigEndpoints, SystemEndpoints
+from graphdatascience.procedure_surface.api import ConfigEndpoints
 from graphdatascience.procedure_surface.api.catalog.scale_properties_endpoints import ScalePropertiesEndpoints
 from graphdatascience.procedure_surface.api.centrality.articlerank_endpoints import ArticleRankEndpoints
 from graphdatascience.procedure_surface.api.centrality.articulationpoints_endpoints import ArticulationPointsEndpoints
@@ -12,6 +11,7 @@ from graphdatascience.procedure_surface.api.centrality.closeness_harmonic_endpoi
 from graphdatascience.procedure_surface.api.centrality.degree_endpoints import DegreeEndpoints
 from graphdatascience.procedure_surface.api.centrality.eigenvector_endpoints import EigenvectorEndpoints
 from graphdatascience.procedure_surface.api.centrality.pagerank_endpoints import PageRankEndpoints
+from graphdatascience.procedure_surface.api.collapse_path_endpoints import CollapsePathEndpoints
 from graphdatascience.procedure_surface.api.community.clique_counting_endpoints import CliqueCountingEndpoints
 from graphdatascience.procedure_surface.api.community.conductance_endpoints import ConductanceEndpoints
 from graphdatascience.procedure_surface.api.community.hdbscan_endpoints import HdbscanEndpoints
@@ -32,7 +32,9 @@ from graphdatascience.procedure_surface.api.community.modularity_optimization_en
 from graphdatascience.procedure_surface.api.community.scc_endpoints import SccEndpoints
 from graphdatascience.procedure_surface.api.community.sllpa_endpoints import SllpaEndpoints
 from graphdatascience.procedure_surface.api.community.triangle_count_endpoints import TriangleCountEndpoints
+from graphdatascience.procedure_surface.api.community.triangles_endpoints import TrianglesEndpoints
 from graphdatascience.procedure_surface.api.community.wcc_endpoints import WccEndpoints
+from graphdatascience.procedure_surface.api.list_progress_endpoint import ListProgressEndpoint
 from graphdatascience.procedure_surface.api.model.model_catalog_endpoints import ModelCatalogEndpoints
 from graphdatascience.procedure_surface.api.node_embedding.fastrp_endpoints import FastRPEndpoints
 from graphdatascience.procedure_surface.api.node_embedding.graphsage_endpoints import GraphSageEndpoints
@@ -45,12 +47,14 @@ from graphdatascience.procedure_surface.api.pathfinding.dfs_endpoints import DFS
 from graphdatascience.procedure_surface.api.pathfinding.k_spanning_tree_endpoints import KSpanningTreeEndpoints
 from graphdatascience.procedure_surface.api.pathfinding.max_flow_endpoints import MaxFlowEndpoints
 from graphdatascience.procedure_surface.api.pathfinding.prize_steiner_tree_endpoints import PrizeSteinerTreeEndpoints
+from graphdatascience.procedure_surface.api.pathfinding.random_walk_endpoints import RandomWalkEndpoints
 from graphdatascience.procedure_surface.api.pathfinding.shortest_path_endpoints import ShortestPathEndpoints
 from graphdatascience.procedure_surface.api.pathfinding.single_source_bellman_ford_endpoints import (
     SingleSourceBellmanFordEndpoints,
 )
 from graphdatascience.procedure_surface.api.pathfinding.spanning_tree_endpoints import SpanningTreeEndpoints
 from graphdatascience.procedure_surface.api.pathfinding.steiner_tree_endpoints import SteinerTreeEndpoints
+from graphdatascience.procedure_surface.api.pipeline import PipelineEndpoints
 from graphdatascience.procedure_surface.api.similarity.knn_endpoints import KnnEndpoints
 from graphdatascience.procedure_surface.api.similarity.node_similarity_endpoints import NodeSimilarityEndpoints
 from graphdatascience.procedure_surface.arrow.catalog.catalog_arrow_endpoints import CatalogArrowEndpoints
@@ -71,6 +75,7 @@ from graphdatascience.procedure_surface.arrow.centrality.closeness_harmonic_arro
 from graphdatascience.procedure_surface.arrow.centrality.degree_arrow_endpoints import DegreeArrowEndpoints
 from graphdatascience.procedure_surface.arrow.centrality.eigenvector_arrow_endpoints import EigenvectorArrowEndpoints
 from graphdatascience.procedure_surface.arrow.centrality.pagerank_arrow_endpoints import PageRankArrowEndpoints
+from graphdatascience.procedure_surface.arrow.collapse_path_arrow_endpoints import CollapsePathArrowEndpoints
 from graphdatascience.procedure_surface.arrow.community.clique_counting_arrow_endpoints import (
     CliqueCountingArrowEndpoints,
 )
@@ -97,8 +102,11 @@ from graphdatascience.procedure_surface.arrow.community.sllpa_arrow_endpoints im
 from graphdatascience.procedure_surface.arrow.community.triangle_count_arrow_endpoints import (
     TriangleCountArrowEndpoints,
 )
+from graphdatascience.procedure_surface.arrow.community.triangles_arrow_endpoints import TrianglesArrowEndpoints
 from graphdatascience.procedure_surface.arrow.community.wcc_arrow_endpoints import WccArrowEndpoints
 from graphdatascience.procedure_surface.arrow.config_arrow_endpoints import ConfigArrowEndpoints
+from graphdatascience.procedure_surface.arrow.jobs_arrow_endpoints import JobsArrowEndpoints
+from graphdatascience.procedure_surface.arrow.list_progress_arrow_endpoint import ListProgressArrowEndpoint
 from graphdatascience.procedure_surface.arrow.model.model_catalog_arrow_endpoints import (
     ModelCatalogArrowEndpoints,
 )
@@ -124,6 +132,9 @@ from graphdatascience.procedure_surface.arrow.pathfinding.max_flow_arrow_endpoin
 from graphdatascience.procedure_surface.arrow.pathfinding.prize_steiner_tree_arrow_endpoints import (
     PrizeSteinerTreeArrowEndpoints,
 )
+from graphdatascience.procedure_surface.arrow.pathfinding.random_walk_arrow_endpoints import (
+    RandomWalkArrowEndpoints,
+)
 from graphdatascience.procedure_surface.arrow.pathfinding.shortest_path_arrow_endpoints import (
     ShortestPathArrowEndpoints,
 )
@@ -136,12 +147,15 @@ from graphdatascience.procedure_surface.arrow.pathfinding.spanning_tree_arrow_en
 from graphdatascience.procedure_surface.arrow.pathfinding.steiner_tree_arrow_endpoints import (
     SteinerTreeArrowEndpoints,
 )
+from graphdatascience.procedure_surface.arrow.pipeline.pipeline_arrow_endpoints import (
+    PipelineArrowEndpoints,
+)
 from graphdatascience.procedure_surface.arrow.similarity.knn_arrow_endpoints import KnnArrowEndpoints
 from graphdatascience.procedure_surface.arrow.similarity.node_similarity_arrow_endpoints import (
     NodeSimilarityArrowEndpoints,
 )
-from graphdatascience.procedure_surface.arrow.system_arrow_endpoints import SystemArrowEndpoints
 from graphdatascience.query_runner.neo4j_query_runner import Neo4jQueryRunner
+from graphdatascience.query_runner.protocol.write_protocols import WriteProtocol
 
 
 class SessionV2Endpoints:
@@ -155,7 +169,7 @@ class SessionV2Endpoints:
         self._db_client = db_client
         self._show_progress = show_progress
 
-        self._write_back_client = RemoteWriteBackClient(arrow_client, db_client) if db_client is not None else None
+        self._write_protocol = WriteProtocol.select(arrow_client, db_client) if db_client is not None else None
 
     def set_show_progress(self, show_progress: bool) -> None:
         self._show_progress = show_progress
@@ -197,11 +211,25 @@ class SessionV2Endpoints:
         return ConfigArrowEndpoints(self._arrow_client)
 
     @property
-    def system(self) -> SystemEndpoints:
+    def list_progress(self) -> ListProgressEndpoint:
         """
         Return system-related endpoints.
         """
-        return SystemArrowEndpoints(self._arrow_client)
+        return ListProgressArrowEndpoint(self._arrow_client)
+
+    @property
+    def jobs(self) -> JobsArrowEndpoints:
+        """
+        Return endpoints for inspecting and controlling jobs (get/list).
+        """
+        return JobsArrowEndpoints(self._arrow_client, self._write_protocol, show_progress=self._show_progress)
+
+    @property
+    def collapse_path(self) -> CollapsePathEndpoints:
+        """
+        Return endpoints for collapsing relationship paths.
+        """
+        return CollapsePathArrowEndpoints(self._arrow_client, show_progress=self._show_progress)
 
     ## Algorithms
 
@@ -211,7 +239,7 @@ class SessionV2Endpoints:
         Return endpoints for the all shortest paths algorithm.
         """
         return AllShortestPathArrowEndpoints(
-            self._arrow_client, self._write_back_client, show_progress=self._show_progress
+            self._arrow_client, self._write_protocol, show_progress=self._show_progress
         )
 
     @property
@@ -219,21 +247,21 @@ class SessionV2Endpoints:
         """
         Return endpoints for the article rank algorithm.
         """
-        return ArticleRankArrowEndpoints(self._arrow_client, self._write_back_client, show_progress=self._show_progress)
+        return ArticleRankArrowEndpoints(self._arrow_client, self._write_protocol, show_progress=self._show_progress)
 
     @property
     def bfs(self) -> BFSEndpoints:
         """
         Return endpoints for the Breadth First Search (BFS) algorithm.
         """
-        return BFSArrowEndpoints(self._arrow_client, self._write_back_client, show_progress=self._show_progress)
+        return BFSArrowEndpoints(self._arrow_client, self._write_protocol, show_progress=self._show_progress)
 
     @property
     def dfs(self) -> DFSEndpoints:
         """
         Return endpoints for the Depth First Search (DFS) algorithm.
         """
-        return DFSArrowEndpoints(self._arrow_client, self._write_back_client, show_progress=self._show_progress)
+        return DFSArrowEndpoints(self._arrow_client, self._write_protocol, show_progress=self._show_progress)
 
     @property
     def articulation_points(self) -> ArticulationPointsEndpoints:
@@ -241,7 +269,7 @@ class SessionV2Endpoints:
         Return endpoints for the articulation points algorithm.
         """
         return ArticulationPointsArrowEndpoints(
-            self._arrow_client, self._write_back_client, show_progress=self._show_progress
+            self._arrow_client, self._write_protocol, show_progress=self._show_progress
         )
 
     @property
@@ -249,30 +277,28 @@ class SessionV2Endpoints:
         """
         Return endpoints for the betweenness centrality algorithm.
         """
-        return BetweennessArrowEndpoints(self._arrow_client, self._write_back_client, show_progress=self._show_progress)
+        return BetweennessArrowEndpoints(self._arrow_client, self._write_protocol, show_progress=self._show_progress)
 
     @property
     def bridges(self) -> BridgesEndpoints:
         """
         Return endpoints for the bridges algorithm.
         """
-        return BridgesArrowEndpoints(self._arrow_client, self._write_back_client, show_progress=self._show_progress)
+        return BridgesArrowEndpoints(self._arrow_client, self._write_protocol, show_progress=self._show_progress)
 
     @property
     def bellman_ford(self) -> SingleSourceBellmanFordEndpoints:
         """
         Return endpoints for the single source Bellman-Ford algorithm.
         """
-        return BellmanFordArrowEndpoints(self._arrow_client, self._write_back_client, show_progress=self._show_progress)
+        return BellmanFordArrowEndpoints(self._arrow_client, self._write_protocol, show_progress=self._show_progress)
 
     @property
     def clique_counting(self) -> CliqueCountingEndpoints:
         """
         Return endpoints for the clique counting algorithm.
         """
-        return CliqueCountingArrowEndpoints(
-            self._arrow_client, self._write_back_client, show_progress=self._show_progress
-        )
+        return CliqueCountingArrowEndpoints(self._arrow_client, self._write_protocol, show_progress=self._show_progress)
 
     @property
     def conductance(self) -> ConductanceEndpoints:
@@ -293,7 +319,7 @@ class SessionV2Endpoints:
         """
         Return endpoints for the closeness centrality algorithm.
         """
-        return ClosenessArrowEndpoints(self._arrow_client, self._write_back_client, show_progress=self._show_progress)
+        return ClosenessArrowEndpoints(self._arrow_client, self._write_protocol, show_progress=self._show_progress)
 
     @property
     def dag(self) -> DagEndpoints:
@@ -307,21 +333,21 @@ class SessionV2Endpoints:
         """
         Return endpoints for the degree centrality algorithm.
         """
-        return DegreeArrowEndpoints(self._arrow_client, self._write_back_client, show_progress=self._show_progress)
+        return DegreeArrowEndpoints(self._arrow_client, self._write_protocol, show_progress=self._show_progress)
 
     @property
     def eigenvector_centrality(self) -> EigenvectorEndpoints:
         """
         Return endpoints for the eigenvector centrality algorithm.
         """
-        return EigenvectorArrowEndpoints(self._arrow_client, self._write_back_client, show_progress=self._show_progress)
+        return EigenvectorArrowEndpoints(self._arrow_client, self._write_protocol, show_progress=self._show_progress)
 
     @property
     def fast_rp(self) -> FastRPEndpoints:
         """
         Return endpoints for the fast RP algorithm.
         """
-        return FastRPArrowEndpoints(self._arrow_client, self._write_back_client, show_progress=self._show_progress)
+        return FastRPArrowEndpoints(self._arrow_client, self._write_protocol, show_progress=self._show_progress)
 
     @property
     def graph_sage(self) -> GraphSageEndpoints:
@@ -330,10 +356,10 @@ class SessionV2Endpoints:
         """
         return GraphSageEndpoints(
             train_endpoints=GraphSageTrainArrowEndpoints(
-                self._arrow_client, self._write_back_client, show_progress=self._show_progress
+                self._arrow_client, self._write_protocol, show_progress=self._show_progress
             ),
             predict_endpoints=GraphSagePredictArrowEndpoints(
-                self._arrow_client, self._write_back_client, show_progress=self._show_progress
+                self._arrow_client, self._write_protocol, show_progress=self._show_progress
             ),
         )
 
@@ -343,7 +369,7 @@ class SessionV2Endpoints:
         Return endpoints for the harmonic centrality algorithm.
         """
         return ClosenessHarmonicArrowEndpoints(
-            self._arrow_client, self._write_back_client, show_progress=self._show_progress
+            self._arrow_client, self._write_protocol, show_progress=self._show_progress
         )
 
     @property
@@ -351,58 +377,56 @@ class SessionV2Endpoints:
         """
         Return endpoints for the HashGNN algorithm.
         """
-        return HashGNNArrowEndpoints(self._arrow_client, self._write_back_client, show_progress=self._show_progress)
+        return HashGNNArrowEndpoints(self._arrow_client, self._write_protocol, show_progress=self._show_progress)
 
     @property
     def hdbscan(self) -> HdbscanEndpoints:
         """
         Return endpoints for the HDBSCAN algorithm.
         """
-        return HdbscanArrowEndpoints(self._arrow_client, self._write_back_client, show_progress=self._show_progress)
+        return HdbscanArrowEndpoints(self._arrow_client, self._write_protocol, show_progress=self._show_progress)
 
     @property
     def influence_maximization_celf(self) -> CelfEndpoints:
         """
         Return endpoints for the influence maximization CELF algorithm.
         """
-        return CelfArrowEndpoints(self._arrow_client, self._write_back_client, show_progress=self._show_progress)
+        return CelfArrowEndpoints(self._arrow_client, self._write_protocol, show_progress=self._show_progress)
 
     @property
     def k1_coloring(self) -> K1ColoringEndpoints:
         """
         Return endpoints for the K1 coloring algorithm.
         """
-        return K1ColoringArrowEndpoints(self._arrow_client, self._write_back_client, show_progress=self._show_progress)
+        return K1ColoringArrowEndpoints(self._arrow_client, self._write_protocol, show_progress=self._show_progress)
 
     @property
     def k_core_decomposition(self) -> KCoreEndpoints:
         """
         Return endpoints for the K-core decomposition algorithm.
         """
-        return KCoreArrowEndpoints(self._arrow_client, self._write_back_client, show_progress=self._show_progress)
+        return KCoreArrowEndpoints(self._arrow_client, self._write_protocol, show_progress=self._show_progress)
 
     @property
     def kmeans(self) -> KMeansEndpoints:
         """
         Return endpoints for the K-means algorithm.
         """
-        return KMeansArrowEndpoints(self._arrow_client, self._write_back_client, show_progress=self._show_progress)
+        return KMeansArrowEndpoints(self._arrow_client, self._write_protocol, show_progress=self._show_progress)
 
     @property
     def knn(self) -> KnnEndpoints:
         """
         Return endpoints for the K-nearest neighbors algorithm.
         """
-        return KnnArrowEndpoints(self._arrow_client, self._write_back_client, show_progress=self._show_progress)
+        return KnnArrowEndpoints(self._arrow_client, self._write_protocol, show_progress=self._show_progress)
 
     @property
     def k_spanning_tree(self) -> KSpanningTreeEndpoints:
         """
         Return endpoints for the K-spanning tree algorithm.
         """
-        return KSpanningTreeArrowEndpoints(
-            self._arrow_client, self._write_back_client, show_progress=self._show_progress
-        )
+        return KSpanningTreeArrowEndpoints(self._arrow_client, self._write_protocol, show_progress=self._show_progress)
 
     @property
     def label_propagation(self) -> LabelPropagationEndpoints:
@@ -410,7 +434,7 @@ class SessionV2Endpoints:
         Return endpoints for the label propagation algorithm.
         """
         return LabelPropagationArrowEndpoints(
-            self._arrow_client, self._write_back_client, show_progress=self._show_progress
+            self._arrow_client, self._write_protocol, show_progress=self._show_progress
         )
 
     @property
@@ -418,14 +442,14 @@ class SessionV2Endpoints:
         """
         Return endpoints for the Leiden algorithm.
         """
-        return LeidenArrowEndpoints(self._arrow_client, self._write_back_client, show_progress=self._show_progress)
+        return LeidenArrowEndpoints(self._arrow_client, self._write_protocol, show_progress=self._show_progress)
 
     @property
     def max_flow(self) -> MaxFlowEndpoints:
         """
         Return endpoints for the Max Flow algorithm.
         """
-        return MaxFlowArrowEndpoints(self._arrow_client, self._write_back_client, show_progress=self._show_progress)
+        return MaxFlowArrowEndpoints(self._arrow_client, self._write_protocol, show_progress=self._show_progress)
 
     @property
     def local_clustering_coefficient(self) -> LocalClusteringCoefficientEndpoints:
@@ -433,7 +457,7 @@ class SessionV2Endpoints:
         Return endpoints for the local clustering coefficient algorithm.
         """
         return LocalClusteringCoefficientArrowEndpoints(
-            self._arrow_client, self._write_back_client, show_progress=self._show_progress
+            self._arrow_client, self._write_protocol, show_progress=self._show_progress
         )
 
     @property
@@ -441,14 +465,14 @@ class SessionV2Endpoints:
         """
         Return endpoints for the Louvain algorithm.
         """
-        return LouvainArrowEndpoints(self._arrow_client, self._write_back_client, show_progress=self._show_progress)
+        return LouvainArrowEndpoints(self._arrow_client, self._write_protocol, show_progress=self._show_progress)
 
     @property
     def max_k_cut(self) -> MaxKCutEndpoints:
         """
         Return endpoints for the Max K-cut algorithm.
         """
-        return MaxKCutArrowEndpoints(self._arrow_client, self._write_back_client, show_progress=self._show_progress)
+        return MaxKCutArrowEndpoints(self._arrow_client, self._write_protocol, show_progress=self._show_progress)
 
     @property
     def modularity_optimization(self) -> ModularityOptimizationEndpoints:
@@ -456,7 +480,7 @@ class SessionV2Endpoints:
         Return endpoints for the modularity optimization algorithm.
         """
         return ModularityOptimizationArrowEndpoints(
-            self._arrow_client, self._write_back_client, show_progress=self._show_progress
+            self._arrow_client, self._write_protocol, show_progress=self._show_progress
         )
 
     @property
@@ -464,23 +488,21 @@ class SessionV2Endpoints:
         """
         Return endpoints for the Node2Vec algorithm.
         """
-        return Node2VecArrowEndpoints(self._arrow_client, self._write_back_client, show_progress=self._show_progress)
+        return Node2VecArrowEndpoints(self._arrow_client, self._write_protocol, show_progress=self._show_progress)
 
     @property
     def node_similarity(self) -> NodeSimilarityEndpoints:
         """
         Return endpoints for the node similarity algorithm.
         """
-        return NodeSimilarityArrowEndpoints(
-            self._arrow_client, self._write_back_client, show_progress=self._show_progress
-        )
+        return NodeSimilarityArrowEndpoints(self._arrow_client, self._write_protocol, show_progress=self._show_progress)
 
     @property
     def page_rank(self) -> PageRankEndpoints:
         """
         Return endpoints for the PageRank algorithm.
         """
-        return PageRankArrowEndpoints(self._arrow_client, self._write_back_client, show_progress=self._show_progress)
+        return PageRankArrowEndpoints(self._arrow_client, self._write_protocol, show_progress=self._show_progress)
 
     @property
     def prize_steiner_tree(self) -> PrizeSteinerTreeEndpoints:
@@ -488,15 +510,22 @@ class SessionV2Endpoints:
         Return endpoints for the prize-collecting Steiner tree algorithm.
         """
         return PrizeSteinerTreeArrowEndpoints(
-            self._arrow_client, self._write_back_client, show_progress=self._show_progress
+            self._arrow_client, self._write_protocol, show_progress=self._show_progress
         )
+
+    @property
+    def random_walk(self) -> RandomWalkEndpoints:
+        """
+        Return endpoints for the Random Walk algorithm.
+        """
+        return RandomWalkArrowEndpoints(self._arrow_client, self._write_protocol, show_progress=self._show_progress)
 
     @property
     def scc(self) -> SccEndpoints:
         """
         Return endpoints for the strongly connected components algorithm.
         """
-        return SccArrowEndpoints(self._arrow_client, self._write_back_client, show_progress=self._show_progress)
+        return SccArrowEndpoints(self._arrow_client, self._write_protocol, show_progress=self._show_progress)
 
     @property
     def scale_properties(self) -> ScalePropertiesEndpoints:
@@ -504,7 +533,7 @@ class SessionV2Endpoints:
         Return endpoints for scaling node properties.
         """
         return ScalePropertiesArrowEndpoints(
-            self._arrow_client, self._write_back_client, show_progress=self._show_progress
+            self._arrow_client, self._write_protocol, show_progress=self._show_progress
         )
 
     @property
@@ -512,45 +541,53 @@ class SessionV2Endpoints:
         """
         Return endpoints for the shortest path algorithm.
         """
-        return ShortestPathArrowEndpoints(
-            self._arrow_client, self._write_back_client, show_progress=self._show_progress
-        )
+        return ShortestPathArrowEndpoints(self._arrow_client, self._write_protocol, show_progress=self._show_progress)
 
     @property
     def spanning_tree(self) -> SpanningTreeEndpoints:
         """
         Return endpoints for the spanning tree algorithm.
         """
-        return SpanningTreeArrowEndpoints(
-            self._arrow_client, self._write_back_client, show_progress=self._show_progress
-        )
+        return SpanningTreeArrowEndpoints(self._arrow_client, self._write_protocol, show_progress=self._show_progress)
 
     @property
     def steiner_tree(self) -> SteinerTreeEndpoints:
         """
         Return endpoints for the Steiner tree algorithm.
         """
-        return SteinerTreeArrowEndpoints(self._arrow_client, self._write_back_client, show_progress=self._show_progress)
+        return SteinerTreeArrowEndpoints(self._arrow_client, self._write_protocol, show_progress=self._show_progress)
 
     @property
     def sllpa(self) -> SllpaEndpoints:
         """
         Return endpoints for the speaker-listener label propagation algorithm.
         """
-        return SllpaArrowEndpoints(self._arrow_client, self._write_back_client, show_progress=self._show_progress)
+        return SllpaArrowEndpoints(self._arrow_client, self._write_protocol, show_progress=self._show_progress)
 
     @property
     def triangle_count(self) -> TriangleCountEndpoints:
         """
         Return endpoints for the triangle count algorithm.
         """
-        return TriangleCountArrowEndpoints(
-            self._arrow_client, self._write_back_client, show_progress=self._show_progress
-        )
+        return TriangleCountArrowEndpoints(self._arrow_client, self._write_protocol, show_progress=self._show_progress)
+
+    @property
+    def pipeline(self) -> PipelineEndpoints:
+        """
+        Return endpoints for pipeline procedures.
+        """
+        return PipelineArrowEndpoints(self._arrow_client, self._write_protocol, show_progress=self._show_progress)
+
+    @property
+    def triangles(self) -> TrianglesEndpoints:
+        """
+        Return endpoint for the triangles algorithm.
+        """
+        return TrianglesArrowEndpoints(self._arrow_client, show_progress=self._show_progress)
 
     @property
     def wcc(self) -> WccEndpoints:
         """
         Return endpoints for the weakly connected components algorithm.
         """
-        return WccArrowEndpoints(self._arrow_client, self._write_back_client, show_progress=self._show_progress)
+        return WccArrowEndpoints(self._arrow_client, self._write_protocol, show_progress=self._show_progress)

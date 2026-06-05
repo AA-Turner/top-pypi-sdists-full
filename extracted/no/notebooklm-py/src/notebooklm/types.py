@@ -33,6 +33,7 @@ from ._types.common import (
     RpcTelemetryEvent,
     UnknownTypeWarning,
 )
+from ._types.mind_maps import MindMap, MindMapKind
 from ._types.notebooks import (
     Notebook,
     NotebookDescription,
@@ -41,6 +42,15 @@ from ._types.notebooks import (
     SuggestedTopic,
 )
 from ._types.notes import Note
+from ._types.research import (
+    MindMapResult,
+    ResearchSource,
+    ResearchSourceInput,
+    ResearchStart,
+    ResearchStatus,
+    ResearchTask,
+    SourceGuide,
+)
 from ._types.sharing import SharedUser, ShareStatus
 from ._types.sources import (
     Source,
@@ -115,6 +125,12 @@ _warned_source_types = _source_types._warned_source_types
 # but intentionally absent from ``__all__``.
 ArtifactTypeCode = _ArtifactTypeCode
 
+# Guards the ``ResearchSourceInput`` import from being removed as unused:
+# ``typing.get_type_hints(CitedSourceSelection)`` needs it in this facade's
+# globals after ``CitedSourceSelection.__module__`` is rewritten below.
+# Intentionally absent from ``__all__``.
+_CITED_SOURCE_SELECTION_TYPE_HINT_GLOBALS = (ResearchSourceInput,)
+
 
 __all__ = [
     # Dataclasses
@@ -139,6 +155,15 @@ __all__ = [
     "ChatMode",
     "SharedUser",
     "ShareStatus",
+    # Research / mind-map / source-guide typed returns
+    "ResearchStatus",
+    "ResearchSource",
+    "ResearchTask",
+    "ResearchStart",
+    "MindMap",
+    "MindMapKind",
+    "MindMapResult",
+    "SourceGuide",
     # Exceptions
     "SourceError",
     "SourceAddError",
@@ -209,15 +234,23 @@ for _public_moved_type in (
     ChatReference,
     ConversationTurn,
     GenerationStatus,
+    MindMap,
+    MindMapKind,
+    MindMapResult,
     Note,
     Notebook,
     NotebookDescription,
     NotebookMetadata,
     ReportSuggestion,
+    ResearchSource,
+    ResearchStart,
+    ResearchStatus,
+    ResearchTask,
     SharedUser,
     ShareStatus,
     Source,
     SourceFulltext,
+    SourceGuide,
     SourceSummary,
     SourceType,
     SuggestedTopic,

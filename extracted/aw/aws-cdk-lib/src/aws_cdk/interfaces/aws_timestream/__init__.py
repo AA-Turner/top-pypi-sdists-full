@@ -352,7 +352,7 @@ class InfluxDBClusterReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_timestream as interfaces_timestream
             
-            influx_dBCluster_reference = interfaces_timestream.InfluxDBClusterReference(
+            influx_db_cluster_reference = interfaces_timestream.InfluxDBClusterReference(
                 influx_db_cluster_arn="influxDbClusterArn",
                 influx_db_cluster_id="influxDbClusterId"
             )
@@ -420,7 +420,7 @@ class InfluxDBInstanceReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_timestream as interfaces_timestream
             
-            influx_dBInstance_reference = interfaces_timestream.InfluxDBInstanceReference(
+            influx_db_instance_reference = interfaces_timestream.InfluxDBInstanceReference(
                 influx_db_instance_arn="influxDbInstanceArn",
                 influx_db_instance_id="influxDbInstanceId"
             )

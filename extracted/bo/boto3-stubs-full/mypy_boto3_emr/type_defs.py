@@ -59,6 +59,7 @@ from .literals import (
     RepoUpgradeOnBootType,
     ScaleDownBehaviorType,
     ScalingStrategyType,
+    SessionStateType,
     SpotProvisioningAllocationStrategyType,
     SpotProvisioningTimeoutActionType,
     StatisticType,
@@ -101,6 +102,7 @@ __all__ = (
     "CancelStepsInfoTypeDef",
     "CancelStepsInputTypeDef",
     "CancelStepsOutputTypeDef",
+    "CertificateAuthorityTypeDef",
     "CloudWatchAlarmDefinitionOutputTypeDef",
     "CloudWatchAlarmDefinitionTypeDef",
     "CloudWatchAlarmDefinitionUnionTypeDef",
@@ -168,6 +170,10 @@ __all__ = (
     "GetOnClusterAppUIPresignedURLOutputTypeDef",
     "GetPersistentAppUIPresignedURLInputTypeDef",
     "GetPersistentAppUIPresignedURLOutputTypeDef",
+    "GetSessionEndpointInputTypeDef",
+    "GetSessionEndpointOutputTypeDef",
+    "GetSessionInputTypeDef",
+    "GetSessionOutputTypeDef",
     "GetStudioSessionMappingInputTypeDef",
     "GetStudioSessionMappingOutputTypeDef",
     "HadoopJarStepConfigOutputTypeDef",
@@ -232,6 +238,10 @@ __all__ = (
     "ListSecurityConfigurationsInputPaginateTypeDef",
     "ListSecurityConfigurationsInputTypeDef",
     "ListSecurityConfigurationsOutputTypeDef",
+    "ListSessionsInputPaginateTypeDef",
+    "ListSessionsInputTypeDef",
+    "ListSessionsOutputPaginatorTypeDef",
+    "ListSessionsOutputTypeDef",
     "ListStepsInputPaginateTypeDef",
     "ListStepsInputTypeDef",
     "ListStepsOutputTypeDef",
@@ -297,8 +307,18 @@ __all__ = (
     "ScriptBootstrapActionConfigTypeDef",
     "ScriptBootstrapActionConfigUnionTypeDef",
     "SecurityConfigurationSummaryTypeDef",
+    "SessionCloudWatchLoggingConfigurationOutputTypeDef",
+    "SessionCloudWatchLoggingConfigurationTypeDef",
+    "SessionManagedLoggingConfigurationTypeDef",
     "SessionMappingDetailTypeDef",
     "SessionMappingSummaryTypeDef",
+    "SessionMonitoringConfigurationOutputTypeDef",
+    "SessionMonitoringConfigurationTypeDef",
+    "SessionMonitoringConfigurationUnionTypeDef",
+    "SessionPaginatorTypeDef",
+    "SessionS3LoggingConfigurationOutputTypeDef",
+    "SessionS3LoggingConfigurationTypeDef",
+    "SessionTypeDef",
     "SetKeepJobFlowAliveWhenNoStepsInputTypeDef",
     "SetTerminationProtectionInputTypeDef",
     "SetUnhealthyNodeReplacementInputTypeDef",
@@ -312,6 +332,8 @@ __all__ = (
     "SpotResizingSpecificationTypeDef",
     "StartNotebookExecutionInputTypeDef",
     "StartNotebookExecutionOutputTypeDef",
+    "StartSessionInputTypeDef",
+    "StartSessionOutputTypeDef",
     "StepConfigOutputTypeDef",
     "StepConfigTypeDef",
     "StepConfigUnionTypeDef",
@@ -330,6 +352,8 @@ __all__ = (
     "SupportedProductConfigTypeDef",
     "TagTypeDef",
     "TerminateJobFlowsInputTypeDef",
+    "TerminateSessionInputTypeDef",
+    "TerminateSessionOutputTypeDef",
     "TimestampTypeDef",
     "UpdateStudioInputTypeDef",
     "UpdateStudioSessionMappingInputTypeDef",
@@ -405,6 +429,11 @@ class CancelStepsInputTypeDef(TypedDict):
     ClusterId: str
     StepIds: Sequence[str]
     StepCancellationOption: NotRequired[StepCancellationOptionType]
+
+
+class CertificateAuthorityTypeDef(TypedDict):
+    CertificateArn: NotRequired[str]
+    CertificateData: NotRequired[str]
 
 
 class MetricDimensionTypeDef(TypedDict):
@@ -651,6 +680,16 @@ class GetPersistentAppUIPresignedURLInputTypeDef(TypedDict):
     ExecutionRoleArn: NotRequired[str]
 
 
+class GetSessionEndpointInputTypeDef(TypedDict):
+    ClusterId: str
+    SessionId: str
+
+
+class GetSessionInputTypeDef(TypedDict):
+    ClusterId: str
+    SessionId: str
+
+
 class GetStudioSessionMappingInputTypeDef(TypedDict):
     StudioId: str
     IdentityType: IdentityTypeType
@@ -814,6 +853,13 @@ class SecurityConfigurationSummaryTypeDef(TypedDict):
     CreationDateTime: NotRequired[datetime]
 
 
+class ListSessionsInputTypeDef(TypedDict):
+    ClusterId: str
+    SessionStates: NotRequired[Sequence[SessionStateType]]
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+
+
 class ListStepsInputTypeDef(TypedDict):
     ClusterId: str
     StepStates: NotRequired[Sequence[StepStateType]]
@@ -934,6 +980,7 @@ class RemoveManagedScalingPolicyInputTypeDef(TypedDict):
 class RemoveTagsInputTypeDef(TypedDict):
     ResourceId: str
     TagKeys: Sequence[str]
+    ClusterId: NotRequired[str]
 
 
 class SupportedProductConfigTypeDef(TypedDict):
@@ -955,6 +1002,41 @@ class SimpleScalingPolicyConfigurationTypeDef(TypedDict):
 class ScriptBootstrapActionConfigTypeDef(TypedDict):
     Path: str
     Args: NotRequired[Sequence[str]]
+
+
+class SessionCloudWatchLoggingConfigurationOutputTypeDef(TypedDict):
+    Enabled: NotRequired[bool]
+    LogGroup: NotRequired[str]
+    LogStreamNamePrefix: NotRequired[str]
+    EncryptionKeyArn: NotRequired[str]
+    LogTypes: NotRequired[dict[str, list[str]]]
+
+
+class SessionCloudWatchLoggingConfigurationTypeDef(TypedDict):
+    Enabled: NotRequired[bool]
+    LogGroup: NotRequired[str]
+    LogStreamNamePrefix: NotRequired[str]
+    EncryptionKeyArn: NotRequired[str]
+    LogTypes: NotRequired[Mapping[str, Sequence[str]]]
+
+
+class SessionManagedLoggingConfigurationTypeDef(TypedDict):
+    Enabled: NotRequired[bool]
+    EncryptionKeyArn: NotRequired[str]
+
+
+class SessionS3LoggingConfigurationOutputTypeDef(TypedDict):
+    Enabled: NotRequired[bool]
+    LogUri: NotRequired[str]
+    EncryptionKeyArn: NotRequired[str]
+    LogTypes: NotRequired[dict[str, list[str]]]
+
+
+class SessionS3LoggingConfigurationTypeDef(TypedDict):
+    Enabled: NotRequired[bool]
+    LogUri: NotRequired[str]
+    EncryptionKeyArn: NotRequired[str]
+    LogTypes: NotRequired[Mapping[str, Sequence[str]]]
 
 
 class SetKeepJobFlowAliveWhenNoStepsInputTypeDef(TypedDict):
@@ -1002,6 +1084,11 @@ class StopNotebookExecutionInputTypeDef(TypedDict):
 
 class TerminateJobFlowsInputTypeDef(TypedDict):
     JobFlowIds: Sequence[str]
+
+
+class TerminateSessionInputTypeDef(TypedDict):
+    ClusterId: str
+    SessionId: str
 
 
 class UpdateStudioInputTypeDef(TypedDict):
@@ -1104,9 +1191,26 @@ class StartNotebookExecutionOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class StartSessionOutputTypeDef(TypedDict):
+    Id: str
+    ClusterId: str
+    Arn: str
+    AccountId: str
+    State: SessionStateType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class TerminateSessionOutputTypeDef(TypedDict):
+    ClusterId: str
+    SessionId: str
+    State: SessionStateType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class AddTagsInputTypeDef(TypedDict):
     ResourceId: str
     Tags: Sequence[TagTypeDef]
+    ClusterId: NotRequired[str]
 
 
 class CreateStudioInputTypeDef(TypedDict):
@@ -1426,6 +1530,13 @@ class ListSecurityConfigurationsInputPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
+class ListSessionsInputPaginateTypeDef(TypedDict):
+    ClusterId: str
+    SessionStates: NotRequired[Sequence[SessionStateType]]
+    MaxResults: NotRequired[int]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class ListStepsInputPaginateTypeDef(TypedDict):
     ClusterId: str
     StepStates: NotRequired[Sequence[StepStateType]]
@@ -1557,6 +1668,18 @@ ScriptBootstrapActionConfigUnionTypeDef = Union[
 ]
 
 
+class SessionMonitoringConfigurationOutputTypeDef(TypedDict):
+    CloudWatchLoggingConfiguration: NotRequired[SessionCloudWatchLoggingConfigurationOutputTypeDef]
+    ManagedLoggingConfiguration: NotRequired[SessionManagedLoggingConfigurationTypeDef]
+    S3LoggingConfiguration: NotRequired[SessionS3LoggingConfigurationOutputTypeDef]
+
+
+class SessionMonitoringConfigurationTypeDef(TypedDict):
+    CloudWatchLoggingConfiguration: NotRequired[SessionCloudWatchLoggingConfigurationTypeDef]
+    ManagedLoggingConfiguration: NotRequired[SessionManagedLoggingConfigurationTypeDef]
+    S3LoggingConfiguration: NotRequired[SessionS3LoggingConfigurationTypeDef]
+
+
 class StepStatusTypeDef(TypedDict):
     State: NotRequired[StepStateType]
     StateChangeReason: NotRequired[StepStateChangeReasonTypeDef]
@@ -1620,6 +1743,14 @@ class PutManagedScalingPolicyInputTypeDef(TypedDict):
 class GetClusterSessionCredentialsOutputTypeDef(TypedDict):
     Credentials: CredentialsTypeDef
     ExpiresAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetSessionEndpointOutputTypeDef(TypedDict):
+    Endpoint: str
+    AuthToken: str
+    AuthTokenExpirationTime: datetime
+    Credentials: CredentialsTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1714,6 +1845,7 @@ class ClusterTypeDef(TypedDict):
     EbsRootVolumeThroughput: NotRequired[int]
     ExtendedSupport: NotRequired[bool]
     MonitoringConfiguration: NotRequired[MonitoringConfigurationOutputTypeDef]
+    SessionEnabled: NotRequired[bool]
 
 
 MonitoringConfigurationUnionTypeDef = Union[
@@ -1752,6 +1884,57 @@ class StepConfigOutputTypeDef(TypedDict):
 class BootstrapActionConfigTypeDef(TypedDict):
     Name: str
     ScriptBootstrapAction: ScriptBootstrapActionConfigUnionTypeDef
+
+
+class SessionPaginatorTypeDef(TypedDict):
+    Id: str
+    ClusterId: str
+    Arn: str
+    State: SessionStateType
+    Name: NotRequired[str]
+    StateChangeReason: NotRequired[str]
+    ReleaseLabel: NotRequired[str]
+    ExecutionRoleArn: NotRequired[str]
+    AccountId: NotRequired[str]
+    CreatedAt: NotRequired[datetime]
+    UpdatedAt: NotRequired[datetime]
+    StartedAt: NotRequired[datetime]
+    EndedAt: NotRequired[datetime]
+    IdleSince: NotRequired[datetime]
+    EngineConfigurations: NotRequired[list[ConfigurationPaginatorTypeDef]]
+    MonitoringConfiguration: NotRequired[SessionMonitoringConfigurationOutputTypeDef]
+    SessionIdleTimeoutInMinutes: NotRequired[int]
+    CertificateAuthority: NotRequired[CertificateAuthorityTypeDef]
+    ServerUrl: NotRequired[str]
+    Tags: NotRequired[list[TagTypeDef]]
+
+
+class SessionTypeDef(TypedDict):
+    Id: str
+    ClusterId: str
+    Arn: str
+    State: SessionStateType
+    Name: NotRequired[str]
+    StateChangeReason: NotRequired[str]
+    ReleaseLabel: NotRequired[str]
+    ExecutionRoleArn: NotRequired[str]
+    AccountId: NotRequired[str]
+    CreatedAt: NotRequired[datetime]
+    UpdatedAt: NotRequired[datetime]
+    StartedAt: NotRequired[datetime]
+    EndedAt: NotRequired[datetime]
+    IdleSince: NotRequired[datetime]
+    EngineConfigurations: NotRequired[list[ConfigurationOutputTypeDef]]
+    MonitoringConfiguration: NotRequired[SessionMonitoringConfigurationOutputTypeDef]
+    SessionIdleTimeoutInMinutes: NotRequired[int]
+    CertificateAuthority: NotRequired[CertificateAuthorityTypeDef]
+    ServerUrl: NotRequired[str]
+    Tags: NotRequired[list[TagTypeDef]]
+
+
+SessionMonitoringConfigurationUnionTypeDef = Union[
+    SessionMonitoringConfigurationTypeDef, SessionMonitoringConfigurationOutputTypeDef
+]
 
 
 class StepSummaryTypeDef(TypedDict):
@@ -1866,6 +2049,34 @@ class StepDetailTypeDef(TypedDict):
 BootstrapActionConfigUnionTypeDef = Union[
     BootstrapActionConfigTypeDef, BootstrapActionConfigOutputTypeDef
 ]
+
+
+class ListSessionsOutputPaginatorTypeDef(TypedDict):
+    Sessions: list[SessionPaginatorTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class GetSessionOutputTypeDef(TypedDict):
+    Session: SessionTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ListSessionsOutputTypeDef(TypedDict):
+    Sessions: list[SessionTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class StartSessionInputTypeDef(TypedDict):
+    ClusterId: str
+    Name: NotRequired[str]
+    ExecutionRoleArn: NotRequired[str]
+    EngineConfigurations: NotRequired[Sequence[ConfigurationUnionTypeDef]]
+    MonitoringConfiguration: NotRequired[SessionMonitoringConfigurationUnionTypeDef]
+    SessionIdleTimeoutInMinutes: NotRequired[int]
+    ClientRequestToken: NotRequired[str]
+    Tags: NotRequired[Sequence[TagTypeDef]]
 
 
 class ListStepsOutputTypeDef(TypedDict):
@@ -2133,3 +2344,4 @@ class RunJobFlowInputTypeDef(TypedDict):
     EbsRootVolumeThroughput: NotRequired[int]
     ExtendedSupport: NotRequired[bool]
     MonitoringConfiguration: NotRequired[MonitoringConfigurationUnionTypeDef]
+    SessionEnabled: NotRequired[bool]

@@ -192,7 +192,7 @@ class IPSetReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_waf as interfaces_waf
             
-            i_pSet_reference = {
+            i_p_set_reference = {
                 "ip_set_id": "ipSetId"
             }
         '''
@@ -613,7 +613,7 @@ class WebACLReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_waf as interfaces_waf
             
-            web_aCLReference = interfaces_waf.WebACLReference(
+            web_acl_reference = interfaces_waf.WebACLReference(
                 web_acl_id="webAclId"
             )
         '''

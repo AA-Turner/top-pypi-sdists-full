@@ -178,7 +178,7 @@ Includes AWS SDK in the bundle asset by setting `bundleAwsSDK` to `true`. This w
 ```python
 nodejs.NodejsFunction(self, "my-handler",
     bundling=nodejs.BundlingOptions(
-        bundle_aws_sDK=True
+        bundle_aws_sdk=True
     )
 )
 ```

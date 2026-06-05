@@ -211,6 +211,8 @@ class SageHostedProvider(ProviderBase):
         """sage-hosted is "available" if the user is logged in. Free users
         can SEE the models in `sage models` (so they know the upgrade path
         exists) but get the 403 + upgrade prompt on actual call."""
+        if os.environ.get("SAGE_TESTING") == "1":
+            return True
         auth = load_auth()
         return auth is not None and bool(auth.get("id_token"))
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: seleniumbase
-Version: 4.49.5
+Version: 4.49.6
 Summary: A framework for stealthy Chromium automation with CDP Mode. Includes CAPTCHA-bypass, E2E Testing, and a Playwright integration.
 Home-page: https://github.com/seleniumbase/SeleniumBase
 Author: Michael Mintz
@@ -39,6 +39,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Internet
 Classifier: Topic :: Internet :: WWW/HTTP :: Browsers
 Classifier: Topic :: Scientific/Engineering
@@ -70,7 +71,7 @@ Requires-Dist: exceptiongroup>=1.3.1
 Requires-Dist: websockets~=15.0.1; python_version < "3.10"
 Requires-Dist: websockets>=16.0; python_version >= "3.10"
 Requires-Dist: filelock~=3.19.1; python_version < "3.10"
-Requires-Dist: filelock>=3.29.0; python_version >= "3.10"
+Requires-Dist: filelock>=3.29.1; python_version >= "3.10"
 Requires-Dist: fasteners>=0.20
 Requires-Dist: mycdp>=1.3.7
 Requires-Dist: pynose>=1.5.5
@@ -90,7 +91,7 @@ Requires-Dist: pygments>=2.20.0
 Requires-Dist: pyreadline3>=3.5.4; platform_system == "Windows"
 Requires-Dist: tabcompleter>=1.4.1
 Requires-Dist: pdbp>=1.8.2
-Requires-Dist: idna>=3.17
+Requires-Dist: idna>=3.18
 Requires-Dist: charset-normalizer<4,>=3.4.7
 Requires-Dist: urllib3<2,>=1.26.20; python_version < "3.10"
 Requires-Dist: urllib3<3,>=2.7.0; python_version >= "3.10"
@@ -135,9 +136,9 @@ Requires-Dist: markdown-it-py==4.2.0; python_version >= "3.10"
 Requires-Dist: mdurl==0.1.2
 Requires-Dist: rich<16,>=15.0.0
 Provides-Extra: allure
-Requires-Dist: allure-pytest>=2.13.5; extra == "allure"
-Requires-Dist: allure-python-commons>=2.13.5; extra == "allure"
-Requires-Dist: allure-behave>=2.13.5; extra == "allure"
+Requires-Dist: allure-pytest>=2.16.0; extra == "allure"
+Requires-Dist: allure-python-commons>=2.16.0; extra == "allure"
+Requires-Dist: allure-behave>=2.16.0; extra == "allure"
 Provides-Extra: coverage
 Requires-Dist: coverage>=7.10.7; python_version < "3.10" and extra == "coverage"
 Requires-Dist: coverage>=7.14.1; python_version >= "3.10" and extra == "coverage"
@@ -147,9 +148,6 @@ Requires-Dist: flake8==7.3.0; extra == "flake8"
 Requires-Dist: mccabe==0.7.0; extra == "flake8"
 Requires-Dist: pyflakes==3.4.0; extra == "flake8"
 Requires-Dist: pycodestyle==2.14.0; extra == "flake8"
-Provides-Extra: ipdb
-Requires-Dist: ipdb==0.13.13; extra == "ipdb"
-Requires-Dist: ipython==7.34.0; extra == "ipdb"
 Provides-Extra: mss
 Requires-Dist: mss==10.2.0; extra == "mss"
 Provides-Extra: pdfminer
@@ -163,7 +161,7 @@ Provides-Extra: pillow
 Requires-Dist: Pillow>=11.3.0; python_version < "3.10" and extra == "pillow"
 Requires-Dist: Pillow>=12.2.0; python_version >= "3.10" and extra == "pillow"
 Provides-Extra: pip-system-certs
-Requires-Dist: pip-system-certs==4.0; platform_system == "Windows" and extra == "pip-system-certs"
+Requires-Dist: pip-system-certs>=4.0; platform_system == "Windows" and extra == "pip-system-certs"
 Provides-Extra: proxy
 Requires-Dist: proxy.py==2.4.3; extra == "proxy"
 Provides-Extra: playwright
@@ -172,20 +170,6 @@ Requires-Dist: greenlet>=3.2.5; python_version < "3.10" and extra == "playwright
 Requires-Dist: greenlet>=3.5.1; python_version >= "3.10" and extra == "playwright"
 Provides-Extra: pyautogui
 Requires-Dist: PyAutoGUI>=0.9.54; platform_system != "Linux" and extra == "pyautogui"
-Provides-Extra: selenium-stealth
-Requires-Dist: selenium-stealth==1.0.6; extra == "selenium-stealth"
-Provides-Extra: selenium-wire
-Requires-Dist: selenium-wire==5.1.0; extra == "selenium-wire"
-Requires-Dist: pyOpenSSL>=24.2.1; extra == "selenium-wire"
-Requires-Dist: pyparsing>=3.1.4; extra == "selenium-wire"
-Requires-Dist: Brotli==1.1.0; extra == "selenium-wire"
-Requires-Dist: blinker==1.7.0; extra == "selenium-wire"
-Requires-Dist: h2==4.1.0; extra == "selenium-wire"
-Requires-Dist: hpack==4.0.0; extra == "selenium-wire"
-Requires-Dist: hyperframe==6.0.1; extra == "selenium-wire"
-Requires-Dist: kaitaistruct==0.10; extra == "selenium-wire"
-Requires-Dist: pyasn1==0.6.1; extra == "selenium-wire"
-Requires-Dist: zstandard>=0.23.0; extra == "selenium-wire"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -274,8 +258,8 @@ sb.quit()
 ```
 
 <p align="center">
-<img src="https://seleniumbase.github.io/cdn/img/results_normal.jpg" width="578" alt="BrowserScan Test Results: Normal">
-<br><em>(All BrowserScan bot-detection checks were passed successfully.)</em></br>
+<img src="https://seleniumbase.github.io/cdn/img/results_normal.jpg" width="588" alt="BrowserScan Test Results: Normal">
+<br><em>(All BrowserScan bot-detection tests passed successfully.)</em></br>
 </p>
 
 <b>🎭 Here's an example script that uses <a href="https://github.com/seleniumbase/SeleniumBase/blob/master/examples/cdp_mode/playwright/ReadMe.md"><span translate="no">Stealthy Playwright Mode</span></a>:</b><br />(Playwright connects to a stealthy SeleniumBase browser session.)
@@ -284,21 +268,24 @@ sb.quit()
 from playwright.sync_api import sync_playwright
 from seleniumbase import sb_cdp
 
-sb = sb_cdp.Chrome()
+sb = sb_cdp.Chrome(guest=True)
 endpoint_url = sb.get_endpoint_url()
 
 with sync_playwright() as p:
     browser = p.chromium.connect_over_cdp(endpoint_url)
     page = browser.contexts[0].pages[0]
-    page.goto("https://browserscan.net/bot-detection")
-
-sb.sleep(3)
-sb.quit()
+    page.goto("https://bot.sannysoft.com/")
+    page.wait_for_timeout(500)
 ```
+
+<p align="center">
+<img src="https://seleniumbase.github.io/other/sannysoft_success.jpg" width="470" alt="All Sannysoft tests passed successfully">
+<br><em>(All Sannysoft bot-detection tests passed successfully.)</em></br>
+</p>
 
 --------
 
-<b>**📝** The Browserscan example can be expanded into a <a href="https://github.com/seleniumbase/SeleniumBase/blob/master/examples/cdp_mode/raw_cdp_browserscan.py">test demo</a>:</b><br />(Assertions added and a few elements highlighted with JavaScript)
+<b>**📝** The Browserscan example can be expanded into a <a href="https://github.com/seleniumbase/SeleniumBase/blob/master/examples/cdp_mode/raw_cdp_browserscan.py">test demo</a>:</b><br />(Assertions added and elements highlighted with JavaScript.)
 
 ```python
 from seleniumbase import sb_cdp
@@ -706,10 +693,10 @@ pip install -e .
 <summary> ▶️ Here's sample output from a chromedriver download. (<b>click to expand</b>)</summary>
 
 ```zsh
-*** chromedriver to download = 148.0.7778.178 (Latest Stable)
+*** chromedriver to download = 149.0.7827.54 (Latest Stable)
 
 Downloading chromedriver-mac-arm64.zip from:
-https://storage.googleapis.com/chrome-for-testing-public/148.0.7778.178/mac-arm64/chromedriver-mac-arm64.zip ...
+https://storage.googleapis.com/chrome-for-testing-public/149.0.7827.54/mac-arm64/chromedriver-mac-arm64.zip ...
 Download Complete!
 
 Extracting ['chromedriver'] from chromedriver-mac-arm64.zip ...
@@ -719,8 +706,8 @@ The file [chromedriver] was saved to:
 ~/github/SeleniumBase/seleniumbase/drivers/
 chromedriver
 
-Making [chromedriver 148.0.7778.178] executable ...
-[chromedriver 148.0.7778.178] is now ready for use!
+Making [chromedriver 149.0.7827.54] executable ...
+[chromedriver 149.0.7827.54] is now ready for use!
 ```
 
 </details>
@@ -1052,7 +1039,6 @@ pytest test_coffee_cart.py --trace
 --screenshot  # (Save a screenshot at the end of each test.)
 --no-screenshot  # (No screenshots saved unless tests directly ask it.)
 --visual-baseline  # (Set the visual baseline for Visual/Layout tests.)
---wire  # (Use selenium-wire's webdriver for replacing selenium webdriver.)
 --external-pdf  # (Set Chromium "plugins.always_open_pdf_externally":True.)
 --timeout-multiplier=MULTIPLIER  # (Multiplies the default timeout values.)
 --list-fail-page  # (After each failing test, list the URL of the failure.)

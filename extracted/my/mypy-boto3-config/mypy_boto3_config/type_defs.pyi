@@ -52,6 +52,7 @@ from .literals import (
     ResourceCountGroupKeyType,
     ResourceEvaluationStatusType,
     ResourceTypeType,
+    RuleEvaluationVisibilityType,
     SortOrderType,
 )
 
@@ -571,12 +572,14 @@ class ScopeOutputTypeDef(TypedDict):
     TagKey: NotRequired[str]
     TagValue: NotRequired[str]
     ComplianceResourceId: NotRequired[str]
+    ServicePrincipals: NotRequired[list[str]]
 
 class ScopeTypeDef(TypedDict):
     ComplianceResourceTypes: NotRequired[Sequence[str]]
     TagKey: NotRequired[str]
     TagValue: NotRequired[str]
     ComplianceResourceId: NotRequired[str]
+    ServicePrincipals: NotRequired[Sequence[str]]
 
 class ConfigSnapshotDeliveryPropertiesTypeDef(TypedDict):
     deliveryFrequency: NotRequired[MaximumExecutionFrequencyType]
@@ -754,6 +757,7 @@ class DescribeConfigRuleEvaluationStatusRequestTypeDef(TypedDict):
 
 class DescribeConfigRulesFiltersTypeDef(TypedDict):
     EvaluationMode: NotRequired[EvaluationModeType]
+    RuleEvaluationVisibility: NotRequired[RuleEvaluationVisibilityType]
 
 class DescribeConfigurationAggregatorSourcesStatusRequestTypeDef(TypedDict):
     ConfigurationAggregatorName: str
@@ -2099,6 +2103,7 @@ class ConfigRuleOutputTypeDef(TypedDict):
     ConfigRuleState: NotRequired[ConfigRuleStateType]
     CreatedBy: NotRequired[str]
     EvaluationModes: NotRequired[list[EvaluationModeConfigurationTypeDef]]
+    RuleEvaluationVisibility: NotRequired[RuleEvaluationVisibilityType]
 
 class ConfigRuleTypeDef(TypedDict):
     Source: SourceTypeDef
@@ -2112,6 +2117,7 @@ class ConfigRuleTypeDef(TypedDict):
     ConfigRuleState: NotRequired[ConfigRuleStateType]
     CreatedBy: NotRequired[str]
     EvaluationModes: NotRequired[Sequence[EvaluationModeConfigurationTypeDef]]
+    RuleEvaluationVisibility: NotRequired[RuleEvaluationVisibilityType]
 
 class RemediationParameterValueTypeDef(TypedDict):
     ResourceValue: NotRequired[ResourceValueTypeDef]

@@ -102,6 +102,10 @@ class AgentTask:
         self._continuation_instruction: str | Callable[[], str] = "Continue. Complete all remaining work."
         self._continuation_exhausted_hook: Callable[[], Awaitable[None]] | None = None
         self._continuation_cap_cost: Callable[[], float] | None = None
+        # Optional `/compact <instructions>` message sent to the live session
+        # after each execution and before the exit condition runs (see
+        # _run_session_compaction). None disables it.
+        self._compaction_instruction: str | Callable[[], str] | None = None
         self.continuation_exhausted: bool = False
         # File trigger settings (set via with_file_triggers_from())
         self._file_trigger_patterns: list[str] | None = None
@@ -114,6 +118,9 @@ class AgentTask:
         self._review_fn: Callable[..., Awaitable[Any]] | None = None
         self._max_review_continuations: int = 2
         self._review_exhaustion_policy: Literal["fail", "merge", "raise"] = review_exhaustion_policy
+        # Optional `/compact <instructions>` text run before each review when this
+        # task has a review gate (set by BaseWorld.agent()).
+        self._review_compaction_instruction: str | Callable[[], str] | None = None
         # Set to True by the execution manager after a successful merge to main
         self.merged: bool = False
         # Set when a review-exhaustion policy force-merges the branch.
@@ -144,6 +151,7 @@ class AgentTask:
         continuation_instruction: str | Callable[[], str] = "Continue. Complete all remaining work.",
         on_exhausted: Callable[[], Awaitable[None]] | None = None,
         continuation_cap_cost: Callable[[], float] | None = None,
+        compaction_instruction: str | Callable[[], str] | None = None,
     ) -> AgentTask:
         """Configure a continuation loop for resilient agent execution.
 
@@ -167,7 +175,61 @@ class AgentTask:
         self._continuation_instruction = continuation_instruction
         self._continuation_exhausted_hook = on_exhausted
         self._continuation_cap_cost = continuation_cap_cost
+        self._compaction_instruction = compaction_instruction
         return self
+
+    async def _run_session_compaction(
+        self,
+        *,
+        info: Any,
+        run_agent_config: dict[str, Any],
+        runtime_dict: dict[str, Any],
+        runner_path: str,
+        workdir: str,
+        current_display_name: str | None,
+    ) -> None:
+        """Send a ``/compact <instructions>`` message to the live agent session.
+
+        Invoked right after an execution and before the exit condition (review)
+        runs, so it reaches the server while the session's prompt cache is still
+        warm. It resumes the session (``continue_session=True``) with the compaction
+        text as the only message; the agent compacts and ends the turn. Best-effort:
+        any failure is logged and swallowed so the build/review loop keeps going.
+        """
+        instruction_source = self._compaction_instruction
+        if instruction_source is None:
+            return
+        try:
+            # Resolve the (possibly callable) instruction inside the try so a
+            # raising callable is swallowed too — compaction is best-effort and
+            # must never abort the continuation/review loop.
+            compaction_text = instruction_source() if callable(instruction_source) else instruction_source
+            if not compaction_text:
+                return
+            exec_ctx = AgentContext(
+                image=self._agent.image,
+                package=self._agent.package,
+                config={**run_agent_config, "continue_session": True},
+                instruction=compaction_text,
+                display_name=current_display_name,
+                ssh_probe_timeout=self._agent.ssh_probe_timeout,
+                ssh_probe_retries=self._agent.ssh_probe_retries,
+                runtime=runtime_dict,
+                agent_code_path=self._agent_code_path,
+            )
+            logger.info(
+                "Compacting agent session before review (cache-warm) on VM %s",
+                info.runtime_id,
+            )
+            # Deliberately not stored as last_execution_span_id — the build
+            # execution span, not this maintenance compaction, is the one
+            # downstream review/audit logic cares about.
+            await vm_setup.execute_agent(info, exec_ctx, runner_path, workdir)
+        except Exception:
+            logger.warning(
+                "Mid-session compaction failed; continuing without it",
+                exc_info=True,
+            )
 
     def with_file_triggers_from(self, ctx: object) -> AgentTask:
         """Configure file triggers from a :class:`CheckpointContext`.
@@ -521,6 +583,22 @@ class AgentTask:
                     # If no exit condition configured, one-shot — break immediately
                     if self._exit_condition is None:
                         break
+
+                    # Compact the just-exited session BEFORE the (multi-minute)
+                    # review runs, while its prompt cache is still warm on the
+                    # server. This keeps the continued session small for the next
+                    # attempt and makes the compaction's own summarization call
+                    # cheap (it reads cache-hot context). Best-effort — a
+                    # compaction failure must not abort the build/review loop.
+                    if self._compaction_instruction is not None:
+                        await self._run_session_compaction(
+                            info=info,
+                            run_agent_config=run_agent_config,
+                            runtime_dict=runtime_dict,
+                            runner_path=runner_path,
+                            workdir=workdir,
+                            current_display_name=current_display_name,
+                        )
 
                     # Check exit condition (workspace is synced back after execute())
                     if await self._exit_condition():

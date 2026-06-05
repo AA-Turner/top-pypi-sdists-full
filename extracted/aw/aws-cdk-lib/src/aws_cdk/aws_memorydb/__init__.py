@@ -109,7 +109,7 @@ class CfnACL(
         # The values are placeholders you should change.
         from aws_cdk import aws_memorydb as memorydb
         
-        cfn_aCL = memorydb.CfnACL(self, "MyCfnACL",
+        cfn_acl = memorydb.CfnACL(self, "MyCfnACL",
             acl_name="aclName",
         
             # the properties below are optional
@@ -352,7 +352,7 @@ class CfnACLProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_memorydb as memorydb
             
-            cfn_aCLProps = memorydb.CfnACLProps(
+            cfn_acl_props = memorydb.CfnACLProps(
                 acl_name="aclName",
             
                 # the properties below are optional

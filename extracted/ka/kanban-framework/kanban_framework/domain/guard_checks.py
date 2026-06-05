@@ -120,9 +120,11 @@ class GuardChecks:
         else:
             try:
                 data = json.loads(ku_path.read_text(encoding="utf-8"))
-                matched = data.get("matched", [])
+                matched = (data.get("matched") or data.get("matched_knowledge")
+                           or data.get("matched_entries") or [])
                 if not matched:
-                    no_reason = data.get("no_match_reason", "")
+                    no_reason = (data.get("no_match_reason") or data.get("unmatched_reason")
+                                 or data.get("fallback_reason") or data.get("empty_reason", ""))
                     if no_reason:
                         warnings.append(f"knowledge_used.json has no matches, reason: {no_reason}")
                     else:
@@ -135,7 +137,7 @@ class GuardChecks:
         #    (e.g., empty knowledge base on new projects)
         skip_ref_check = warnings and "no matches" in warnings[-1]
         if not skip_ref_check:
-            ref_pattern = re.compile(r'\bK\d{3,}\b')
+            ref_pattern = re.compile(r'(?:知识库参考|knowledge refs?)[^]]*\[K(\d{3,})\]|\[K(\d{3,})\]')
             files_to_check = [td / "spec.md"]
             plan_dir = td / "plan"
             if plan_dir.is_dir():
@@ -146,7 +148,7 @@ class GuardChecks:
                 if not self._fs.file_exists(f):
                     continue
                 text = f.read_text(encoding="utf-8", errors="replace")
-                found_refs.update(ref_pattern.findall(text))
+                found_refs.update(f"K{m}" for groups in ref_pattern.findall(text) for m in groups if m)
 
             if found_refs:
                 warnings.append(f"Knowledge refs in artifacts: {sorted(found_refs)}")
@@ -222,16 +224,18 @@ class GuardChecks:
 
         Checks that the TDD evidence table exists and each row shows
         RED=FAIL (not PASS), proving tests were written before code.
-        Quick and lightweight modes are exempt — only full mode requires TDD evidence.
+        Only runs when the mode's guard config explicitly includes 'tdd_evidence'.
         """
-        mode = getattr(task, 'mode', '')
-        if mode in ('quick', 'lightweight') or task.lightweight:
-            return CheckResult(passed=True)
-        # Custom modes without explicit TDD guard config are exempt
-        if mode and mode not in ('quick', 'lightweight'):
-            guard_cfg = self._get_mode_execute_guard(mode)
-            if 'tdd_evidence' not in guard_cfg.get('checks', []):
+        from kanban_framework.infra.consts import Consts
+        mode = getattr(task, 'mode', '') or Consts.DEFAULT_MODE
+        guard_cfg = self._get_mode_execute_guard(mode)
+        # If guard config exists with explicit checks list, use it
+        if 'checks' in guard_cfg:
+            if 'tdd_evidence' not in guard_cfg['checks']:
                 return CheckResult(passed=True)
+        else:
+            # No guard config — default: exempt (no mode requires TDD by default)
+            return CheckResult(passed=True)
         task_dir = self._fs.task_dir(task.id)
         iter_dir = self._fs.iteration_dir(task.id, task.iteration)
         # Search all common locations (#343)
@@ -323,13 +327,12 @@ class GuardChecks:
         Parses test_spec.md for UT-xxx identifiers, then searches test files
         in the worktree for those identifiers. Reports coverage ratio.
         """
-        mode = getattr(task, 'mode', '')
-        if mode == 'quick':
-            return CheckResult(passed=True)
-        # Custom modes without explicit test_spec_coverage guard config are exempt
-        if mode and mode not in ('quick', 'lightweight'):
-            guard_cfg = self._get_mode_execute_guard(mode)
-            if 'test_spec_coverage' not in guard_cfg.get('checks', []):
+        from kanban_framework.infra.consts import Consts
+        mode = getattr(task, 'mode', '') or Consts.DEFAULT_MODE
+        guard_cfg = self._get_mode_execute_guard(mode)
+        # If guard config exists with explicit checks list, use it
+        if 'checks' in guard_cfg:
+            if 'test_spec_coverage' not in guard_cfg['checks']:
                 return CheckResult(passed=True)
         task_dir = self._fs.task_dir(task.id)
         spec_file = task_dir / "test_spec.md"

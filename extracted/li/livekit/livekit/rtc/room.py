@@ -33,7 +33,12 @@ from ._proto.track_pb2 import TrackKind
 from ._proto.rpc_pb2 import RpcMethodInvocationEvent
 from ._utils import BroadcastQueue
 from .e2ee import E2EEManager, E2EEOptions
-from .participant import LocalParticipant, Participant, RemoteParticipant
+from .participant import (
+    LocalParticipant,
+    Participant,
+    RemoteParticipant,
+    _connection_quality_from_proto,
+)
 from .track import RemoteAudioTrack, RemoteVideoTrack
 from .track_publication import RemoteTrackPublication, TrackPublication
 from .transcription import TranscriptionSegment
@@ -557,6 +562,12 @@ class Room(EventEmitter[EventTypes]):
         # start listening to room events
         self._task = self._loop.create_task(self._listen_task())
 
+        # unsubscribe from the FFI queue once the listen task ends.
+        # disconnect() unsubscribes too, but it early-returns when the
+        # room is already disconnected (e.g. removed remotely).
+        ffi_queue = self._ffi_queue
+        self._task.add_done_callback(lambda _: FfiClient.instance.queue.unsubscribe(ffi_queue))
+
         # Unblock the FFI server once this SDK is ready to receive room events.
         ready_req = proto_ffi.FfiRequest()
         ready_req.ready_for_room_event.room_handle = self._ffi_handle.handle
@@ -897,12 +908,14 @@ class Room(EventEmitter[EventTypes]):
             )
         elif which == "connection_quality_changed":
             identity = event.connection_quality_changed.participant_identity
-            # TODO: pass participant identity
             participant = self._retrieve_participant(identity)
+            quality = _connection_quality_from_proto(event.connection_quality_changed.quality)
+            if participant:
+                participant._connection_quality = quality
             self.emit(
                 "connection_quality_changed",
                 participant,
-                event.connection_quality_changed.quality,
+                quality,
             )
         elif which == "transcription_received":
             transcription = event.transcription_received

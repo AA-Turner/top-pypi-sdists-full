@@ -1,17 +1,14 @@
 """Step loader: read step definitions from workflow.json, per-mode or global.
 
-Priority: modes.<mode>.phases[].steps[] → top-level phases[].steps[] → hardcoded defaults.
+Priority: modes.<mode>.phases[].steps[] → .kanban/workflows/<mode>.json → package workflows/<mode>.json → top-level phases[].steps[] → hardcoded defaults.
 """
 from __future__ import annotations
 
 from kanban_framework.domain.steps_types import StepDef
 from kanban_framework.domain.steps_lightweight import LIGHTWEIGHT_STEPS
-from kanban_framework.domain.steps_quick import QUICK_STEPS
 
-_DEFAULTS = {
-    "lightweight": LIGHTWEIGHT_STEPS,
-    "quick":       QUICK_STEPS,
-}
+# Emergency fallback — only used when all loading paths fail
+_FALLBACK_STEPS = LIGHTWEIGHT_STEPS
 
 
 def _parse_phases_to_steps(phases_config: list[dict]) -> dict[str, list[StepDef]]:
@@ -52,15 +49,33 @@ def _parse_phases_to_steps(phases_config: list[dict]) -> dict[str, list[StepDef]
     return result
 
 
+def _load_template_steps(mode: str) -> dict[str, list[StepDef]] | None:
+    """Load steps from package workflows/<mode>.json."""
+    from pathlib import Path
+    template_file = Path(__file__).resolve().parent.parent / "workflows" / f"{mode}.json"
+    if not template_file.is_file():
+        return None
+    try:
+        import json
+        data = json.loads(template_file.read_text(encoding="utf-8"))
+        phases = data.get("phases", [])
+        if phases and any(p.get("steps") for p in phases if isinstance(p, dict)):
+            return _parse_phases_to_steps(phases)
+    except (json.JSONDecodeError, OSError):
+        pass
+    return None
+
+
 def load_steps_for_mode(workflow: dict, mode: str,
-                        kanban_dir: Path | None = None) -> dict[str, list[StepDef]]:
+                        kanban_dir=None) -> dict[str, list[StepDef]]:
     """Load steps for a mode.
 
     Priority:
       1. modes.<mode>.phases[].steps[] — per-mode in workflow.json
-      2. .kanban/workflows/<mode>.json — directory file
-      3. top-level phases[].steps[] — global fallback
-      4. Python hardcoded constants — ultimate default
+      2. .kanban/workflows/<mode>.json — user project directory
+      3. package workflows/<mode>.json — framework template
+      4. top-level phases[].steps[] — global fallback
+      5. Python hardcoded constants — emergency fallback
     """
     from pathlib import Path as _Path
 
@@ -88,11 +103,16 @@ def load_steps_for_mode(workflow: dict, mode: str,
             except (json.JSONDecodeError, OSError):
                 pass
 
-    # Priority 3: top-level phases[].steps[]
+    # Priority 3: package templates
+    template_result = _load_template_steps(mode)
+    if template_result is not None:
+        return template_result
+
+    # Priority 4: top-level phases[].steps[]
     top_phases = workflow.get("phases", [])
     if top_phases and isinstance(top_phases, list):
         if any(p.get("steps") for p in top_phases if isinstance(p, dict)):
             return _parse_phases_to_steps(top_phases)
 
-    # Priority 4: hardcoded defaults
-    return _DEFAULTS.get(mode, LIGHTWEIGHT_STEPS)
+    # Priority 5: Python hardcoded defaults (emergency fallback)
+    return _FALLBACK_STEPS

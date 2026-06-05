@@ -45,6 +45,11 @@ pub struct ConnectionOptions {
     pub grpc_override_callback: ClientGrpcOverrideCallback,
     /// Optional user data passed to each callback call.
     pub grpc_override_callback_user_data: *mut libc::c_void,
+    /// If non-null, DNS-based load balancing is enabled. When the target URL resolves to multiple
+    /// addresses, requests are distributed across them and the address list is periodically
+    /// refreshed. If null, DNS load balancing is disabled. Ignored (forced off) when
+    /// http_connect_proxy_options is also set.
+    pub dns_load_balancing_options: *const ClientDnsLoadBalancingOptions,
 }
 
 #[repr(C)]
@@ -76,6 +81,12 @@ pub struct ClientHttpConnectProxyOptions {
     pub target_host: ByteArrayRef,
     pub username: ByteArrayRef,
     pub password: ByteArrayRef,
+}
+
+#[repr(C)]
+pub struct ClientDnsLoadBalancingOptions {
+    /// How often, in milliseconds, to re-resolve DNS.
+    pub resolution_interval_millis: u64,
 }
 
 type CoreConnection = temporalio_client::Connection;
@@ -773,6 +784,9 @@ async fn call_workflow_service(
         }
         "PatchSchedule" => rpc_call_on_trait!(client, call, WorkflowService, patch_schedule),
         "PauseActivity" => rpc_call_on_trait!(client, call, WorkflowService, pause_activity),
+        "PauseActivityExecution" => {
+            rpc_call_on_trait!(client, call, WorkflowService, pause_activity_execution)
+        }
         "PauseWorkflowExecution" => {
             rpc_call_on_trait!(client, call, WorkflowService, pause_workflow_execution)
         }
@@ -848,6 +862,9 @@ async fn call_workflow_service(
             )
         }
         "ResetActivity" => rpc_call_on_trait!(client, call, WorkflowService, reset_activity),
+        "ResetActivityExecution" => {
+            rpc_call_on_trait!(client, call, WorkflowService, reset_activity_execution)
+        }
         "ResetStickyTaskQueue" => {
             rpc_call_on_trait!(client, call, WorkflowService, reset_sticky_task_queue)
         }
@@ -988,8 +1005,19 @@ async fn call_workflow_service(
         "UnpauseActivity" => {
             rpc_call_on_trait!(client, call, WorkflowService, unpause_activity)
         }
+        "UnpauseActivityExecution" => {
+            rpc_call_on_trait!(client, call, WorkflowService, unpause_activity_execution)
+        }
         "UnpauseWorkflowExecution" => {
             rpc_call_on_trait!(client, call, WorkflowService, unpause_workflow_execution)
+        }
+        "UpdateActivityExecutionOptions" => {
+            rpc_call_on_trait!(
+                client,
+                call,
+                WorkflowService,
+                update_activity_execution_options
+            )
         }
         "UpdateActivityOptions" => {
             rpc_call_on_trait!(client, call, WorkflowService, update_activity_options)
@@ -1250,6 +1278,17 @@ async fn call_cloud_service(
             rpc_call_on_trait!(client, call, CloudService, create_billing_report)
         }
         "GetBillingReport" => rpc_call_on_trait!(client, call, CloudService, get_billing_report),
+        "GetCustomRoles" => rpc_call_on_trait!(client, call, CloudService, get_custom_roles),
+        "GetCustomRole" => rpc_call_on_trait!(client, call, CloudService, get_custom_role),
+        "CreateCustomRole" => {
+            rpc_call_on_trait!(client, call, CloudService, create_custom_role)
+        }
+        "UpdateCustomRole" => {
+            rpc_call_on_trait!(client, call, CloudService, update_custom_role)
+        }
+        "DeleteCustomRole" => {
+            rpc_call_on_trait!(client, call, CloudService, delete_custom_role)
+        }
         rpc => Err(anyhow::anyhow!("Unknown RPC call {rpc}")),
     }
 }
@@ -1351,6 +1390,20 @@ impl TryFrom<&ConnectionOptions> for temporalio_client::ConnectionOptions {
         let http_connect_proxy =
             unsafe { opts.http_connect_proxy_options.as_ref() }.map(Into::into);
 
+        let dns_load_balancing =
+            unsafe { opts.dns_load_balancing_options.as_ref() }.map(Into::into);
+        let dns_load_balancing: Option<temporalio_client::DnsLoadBalancingOptions> =
+            if http_connect_proxy.is_some() {
+                if dns_load_balancing.is_some() {
+                    tracing::warn!(
+                        "Disabling DNS load balancing because http_connect_proxy_options is set"
+                    );
+                }
+                None
+            } else {
+                dns_load_balancing
+            };
+
         Ok(
             temporalio_client::ConnectionOptions::new(Url::parse(opts.target_url.to_str())?)
                 .client_name(opts.client_name.to_string())
@@ -1364,12 +1417,8 @@ impl TryFrom<&ConnectionOptions> for temporalio_client::ConnectionOptions {
                 .maybe_headers(headers)
                 .maybe_binary_headers(binary_headers)
                 .maybe_api_key(api_key)
-                .maybe_http_connect_proxy(http_connect_proxy.clone())
-                .dns_load_balancing(if http_connect_proxy.is_some() {
-                    None
-                } else {
-                    Some(temporalio_client::DnsLoadBalancingOptions::default())
-                })
+                .maybe_http_connect_proxy(http_connect_proxy)
+                .dns_load_balancing(dns_load_balancing)
                 .maybe_tls_options(tls_cfg)
                 .build(),
         )
@@ -1400,6 +1449,7 @@ impl TryFrom<&ClientTlsOptions> for temporalio_client::TlsOptions {
                     ));
                 }
             },
+            server_cert_verifier: None,
         })
     }
 }
@@ -1430,6 +1480,14 @@ impl From<&ClientKeepAliveOptions> for temporalio_client::ClientKeepAliveOptions
     }
 }
 
+impl From<&ClientDnsLoadBalancingOptions> for temporalio_client::DnsLoadBalancingOptions {
+    fn from(opts: &ClientDnsLoadBalancingOptions) -> Self {
+        let mut out = temporalio_client::DnsLoadBalancingOptions::default();
+        out.resolution_interval = Duration::from_millis(opts.resolution_interval_millis);
+        out
+    }
+}
+
 impl From<&ClientHttpConnectProxyOptions> for temporalio_client::proxy::HttpConnectProxyOptions {
     fn from(opts: &ClientHttpConnectProxyOptions) -> Self {
         temporalio_client::proxy::HttpConnectProxyOptions {
@@ -1449,5 +1507,73 @@ impl From<&GrpcMetadataHolder> for MetadataRef {
             data: value.data.as_ptr(),
             size: value.data.len(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ByteArrayRefArray;
+
+    fn base_connection_options() -> ConnectionOptions {
+        ConnectionOptions {
+            target_url: "http://localhost:7233".into(),
+            client_name: ByteArrayRef::empty(),
+            client_version: ByteArrayRef::empty(),
+            metadata: ByteArrayRefArray::empty(),
+            binary_metadata: ByteArrayRefArray::empty(),
+            api_key: ByteArrayRef::empty(),
+            identity: ByteArrayRef::empty(),
+            tls_options: std::ptr::null(),
+            retry_options: std::ptr::null(),
+            keep_alive_options: std::ptr::null(),
+            http_connect_proxy_options: std::ptr::null(),
+            grpc_override_callback: None,
+            grpc_override_callback_user_data: std::ptr::null_mut(),
+            dns_load_balancing_options: std::ptr::null(),
+        }
+    }
+
+    #[test]
+    fn dns_load_balancing_null_pointer_disables() {
+        let opts = base_connection_options();
+        let converted: temporalio_client::ConnectionOptions = (&opts).try_into().unwrap();
+        assert!(converted.dns_load_balancing.is_none());
+    }
+
+    #[test]
+    fn dns_load_balancing_non_zero_interval_passes_through() {
+        let dns = ClientDnsLoadBalancingOptions {
+            resolution_interval_millis: 5_000,
+        };
+        let opts = ConnectionOptions {
+            dns_load_balancing_options: &dns,
+            ..base_connection_options()
+        };
+        let converted: temporalio_client::ConnectionOptions = (&opts).try_into().unwrap();
+        let dns_opts = converted
+            .dns_load_balancing
+            .expect("DNS load balancing should be enabled");
+        assert_eq!(dns_opts.resolution_interval, Duration::from_millis(5_000));
+    }
+
+    #[test]
+    fn dns_load_balancing_silently_disabled_when_http_proxy_set() {
+        let dns = ClientDnsLoadBalancingOptions {
+            resolution_interval_millis: 5_000,
+        };
+        let proxy = ClientHttpConnectProxyOptions {
+            target_host: "proxy.example.com:8080".into(),
+            username: ByteArrayRef::empty(),
+            password: ByteArrayRef::empty(),
+        };
+        let opts = ConnectionOptions {
+            dns_load_balancing_options: &dns,
+            http_connect_proxy_options: &proxy,
+            ..base_connection_options()
+        };
+        let converted: temporalio_client::ConnectionOptions = (&opts).try_into().unwrap();
+        assert!(converted.dns_load_balancing.is_none());
+        assert!(converted.http_connect_proxy.is_some());
     }
 }

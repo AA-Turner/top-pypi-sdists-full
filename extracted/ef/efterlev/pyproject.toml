@@ -80,6 +80,12 @@ dependencies = [
     # pin is purely a security floor until mcp ships a release with
     # the bumped transitive.
     "python-multipart>=0.0.27,<1",
+    # Pin pyjwt>=2.13.0 directly as a security floor over the mcp transitive
+    # (mcp pulls 2.12.1). PYSEC-2026-175/177/178/179 affect 2.12.1; all fixed
+    # in 2.13.0. We don't import pyjwt ourselves (it arrives via mcp's auth
+    # support); the direct pin is purely a CVE floor until mcp ships a release
+    # with the bumped transitive. Same pattern as python-multipart above.
+    "pyjwt>=2.13.0,<3",
     # `efterlev shell` (v0.1.132+) interactive REPL — history,
     # tab-completion, key bindings. Available transitively via several
     # existing deps but pinned directly because the shell is a

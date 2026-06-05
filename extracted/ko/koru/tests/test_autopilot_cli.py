@@ -16,6 +16,32 @@ from koru.autopilot.cli_parser import build_autopilot_parser
 from koru.autopilot.cli_trace import action_trace
 
 
+@pytest.fixture(autouse=True)
+def _clear_host_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    for key in (
+        "GIO_LAUNCHED_DESKTOP_FILE",
+        "VSCODE_CODE_CACHE_PATH",
+        "VSCODE_IPC_HOOK",
+        "VSCODE_NLS_CONFIG",
+        "VSCODE_CWD",
+        "CHROME_DESKTOP",
+        "TERM_PROGRAM",
+        "TERM_PROGRAM_VERSION",
+        "CURSOR_CLI",
+        "CURSOR_AGENT",
+        "WINDSURF_VERSION",
+        "WINDSURF_CSRF_TOKEN",
+        "WINDSURF_CASCADE_TERMINAL",
+        "TERMINAL_EMULATOR",
+        "IDEA_INITIAL_DIRECTORY",
+        "PYCHARM_HOSTED",
+        "JETBRAINS_IDE",
+        "KORU_AUTOPILOT_INSTANCE",
+        "KORU_AUTOPILOT_SOCKET",
+    ):
+        monkeypatch.delenv(key, raising=False)
+
+
 def test_autopilot_parser_requires_action() -> None:
     with pytest.raises(SystemExit):
         autopilot_main([])
@@ -38,6 +64,13 @@ def test_autopilot_parser_module_preserves_drive_and_trace_options() -> None:
     assert trace_args.action == "trace"
     assert trace_args.format == "drive-dsl"
     assert trace_args.limit == 3
+
+
+def test_autopilot_parser_accepts_log_format_global_flag() -> None:
+    parser = build_autopilot_parser()
+    args = parser.parse_args(["--log-format", "jsonl", "status"])
+    assert args.log_format == "jsonl"
+    assert args.action == "status"
 
 
 def test_drive_without_daemon_errors(capsys: pytest.CaptureFixture[str], tmp_path: Path) -> None:
@@ -84,8 +117,10 @@ def test_client_uses_explicit_ide_socket_when_env_is_unset(
     monkeypatch.delenv("KORU_AUTOPILOT_INSTANCE", raising=False)
     monkeypatch.delenv("KORU_AUTOPILOT_SOCKET", raising=False)
     monkeypatch.setenv("XDG_RUNTIME_DIR", str(tmp_path))
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    monkeypatch.setenv("HOME", str(tmp_path))
 
-    client = cli_command._client(SimpleNamespace(socket=None, ide="cursor"))
+    client = cli_command._client(SimpleNamespace(socket=None, ide="cursor", project=tmp_path))
 
     assert client.socket_path == tmp_path / "koru-autopilot-cursor.sock"
     assert os.environ.get("KORU_AUTOPILOT_INSTANCE") is None
@@ -216,7 +251,7 @@ def test_drive_dry_run_direct(
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from koru.autopilot import os_injector as oi
+    import gillm.injection.os_injector as oi
 
     monkeypatch.setattr(oi, "try_drive_with_profile", lambda **_k: None)
 
@@ -231,7 +266,7 @@ def test_drive_dry_run_direct(
             return "xdotool"
 
         def type_text(self, text, *, ide="default", submit=True, dry_run=False):
-            from koru.autopilot.injector import InjectionResult
+            from gillm.injection import InjectionResult
 
             return InjectionResult(
                 backend="xdotool",
@@ -253,7 +288,7 @@ def test_drive_direct_prefers_os_injector_profile(
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from koru.autopilot import os_injector as oi_mod
+    import gillm.injection.os_injector as oi_mod
 
     class _Inj:
         session = "x11"
@@ -283,7 +318,7 @@ def test_drive_direct_honors_os_profile_override(
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from koru.autopilot import os_injector as oi_mod
+    import gillm.injection.os_injector as oi_mod
 
     monkeypatch.setattr(cli_command, "detect_running_ides", lambda: [])
 
@@ -314,8 +349,8 @@ def test_drive_direct_os_profile_requires_os_injector_when_not_available(
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from koru.autopilot import os_injector as oi_mod
-    from koru.autopilot.injector import InjectionResult
+    import gillm.injection.os_injector as oi_mod
+    from gillm.injection import InjectionResult
 
     class _Inj:
         session = "wayland"
@@ -342,8 +377,8 @@ def test_drive_direct_os_profile_os_injector_error_no_fallback(
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from koru.autopilot import os_injector as oi_mod
-    from koru.autopilot.os_injector import OsInjectorError
+    import gillm.injection.os_injector as oi_mod
+    from gillm.injection import OsInjectorError
 
     class _Inj:
         session = "wayland"
@@ -369,9 +404,9 @@ def test_drive_direct_falls_back_when_os_injector_fails(
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from koru.autopilot import os_injector as oi_mod
-    from koru.autopilot.injector import InjectionResult
-    from koru.autopilot.os_injector import OsInjectorError
+    import gillm.injection.os_injector as oi_mod
+    from gillm.injection import InjectionResult
+    from gillm.injection import OsInjectorError
 
     class _Inj:
         session = "wayland"
@@ -402,7 +437,7 @@ def test_calibrate_auto_ide_resolves_from_running_processes(
     tmp_path: Path,
 ) -> None:
     from koru.autopilot import ide as ide_mod
-    from koru.autopilot import os_injector as oi_mod
+    import gillm.injection.os_injector as oi_mod
     from koru.autopilot.ide import RunningIDE
 
     monkeypatch.setattr(cli_command.time, "sleep", lambda _s: None)
@@ -434,7 +469,7 @@ def test_calibrate_writes_profile_from_mouse(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    from koru.autopilot import os_injector as oi_mod
+    import gillm.injection.os_injector as oi_mod
 
     monkeypatch.setattr(cli_command.time, "sleep", lambda _s: None)
     monkeypatch.setattr(oi_mod, "capture_mouse_xy", lambda: (123, 456))
@@ -463,7 +498,7 @@ def test_session_start_explicit_ides(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    from koru.autopilot import os_injector as oi_mod
+    import gillm.injection.os_injector as oi_mod
 
     monkeypatch.setattr(cli_command.time, "sleep", lambda _s: None)
     coords = iter([(10, 20), (30, 40)])
@@ -491,8 +526,8 @@ def test_session_start_keeps_profile_when_smoke_fails(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    from koru.autopilot import os_injector as oi_mod
-    from koru.autopilot.os_injector import OsInjectorError
+    import gillm.injection.os_injector as oi_mod
+    from gillm.injection import OsInjectorError
 
     monkeypatch.setattr(cli_command.time, "sleep", lambda _s: None)
     monkeypatch.setattr(oi_mod, "capture_mouse_xy", lambda: (10, 20))
@@ -526,7 +561,7 @@ def test_session_start_warns_on_duplicate_coordinates(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    from koru.autopilot import os_injector as oi_mod
+    import gillm.injection.os_injector as oi_mod
 
     monkeypatch.setattr(cli_command.time, "sleep", lambda _s: None)
     coords = iter([(11, 22), (11, 22)])
@@ -591,7 +626,7 @@ def test_doctor_json_output(
         session = "x11"
 
         def probe(self):
-            from koru.autopilot.injector import BackendStatus
+            from gillm.injection import BackendStatus
 
             return [BackendStatus(name="xdotool", available=True, reason="/usr/bin/xdotool")]
 
@@ -618,7 +653,7 @@ def test_doctor_fix_text_output(
         session = "wayland"
 
         def probe(self):
-            from koru.autopilot.injector import BackendStatus
+            from gillm.injection import BackendStatus
 
             return [BackendStatus(name="ydotool", available=True, reason="/usr/bin/ydotool")]
 
@@ -655,7 +690,7 @@ def test_doctor_fix_json_output(
         session = "wayland"
 
         def probe(self):
-            from koru.autopilot.injector import BackendStatus
+            from gillm.injection import BackendStatus
 
             return [BackendStatus(name="ydotool", available=True, reason="/usr/bin/ydotool")]
 
@@ -705,10 +740,16 @@ def test_install_plugin_dry_run_auto_detect_from_term_program(
         monkeypatch.delenv(key, raising=False)
     monkeypatch.setenv("TERM_PROGRAM", "vscode")
     monkeypatch.setattr(install_plugin_cli, "detect_terminal_host_ide_id", lambda: None)
+    monkeypatch.setattr("koruide.ide.detect_running_ides", lambda: [])
     monkeypatch.setattr(
         install_plugin_cli.shutil,
         "which",
         lambda name: "/usr/bin/code" if name == "code" else None,
+    )
+    monkeypatch.setattr(
+        install_plugin_cli,
+        "_editor_bin_usable_for_cli_install",
+        lambda exe: True,
     )
     monkeypatch.setattr(install_plugin_cli, "resolve_plugin_vsix_path", lambda _p: vsix)
 
@@ -773,6 +814,91 @@ def test_install_plugin_auto_detect_ambiguous_running_ides_errors(
     assert "multiple supported IDEs detected" in err
 
 
+def test_resolve_plugin_editor_bin_skips_appimage_mount_in_path(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    appimage = tmp_path / ".mount_cursor" / "usr" / "bin" / "cursor"
+    appimage.parent.mkdir(parents=True)
+    appimage.write_text("#!/bin/sh\n", encoding="utf-8")
+    appimage.chmod(0o755)
+    system_cursor = tmp_path / "usr" / "share" / "cursor" / "bin" / "cursor"
+    system_cursor.parent.mkdir(parents=True)
+    system_cursor.write_text("#!/bin/sh\n", encoding="utf-8")
+    system_cursor.chmod(0o755)
+
+    monkeypatch.setattr(
+        install_plugin_cli.shutil,
+        "which",
+        lambda name: str(appimage) if name == "cursor" else None,
+    )
+    monkeypatch.setattr(
+        install_plugin_cli,
+        "IDE_CLI_FALLBACKS",
+        {"cursor": (str(system_cursor),)},
+    )
+    monkeypatch.setattr("koruide.ide.detect_running_ides", lambda: [])
+
+    assert install_plugin_cli.resolve_plugin_editor_bin("cursor") == str(system_cursor.resolve())
+
+
+def test_resolve_plugin_editor_bin_skips_appimage_mount_for_cli_install(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    appimage = tmp_path / ".mount_cursor" / "usr" / "share" / "cursor" / "cursor"
+    appimage.parent.mkdir(parents=True)
+    appimage.write_text("#!/bin/sh\n", encoding="utf-8")
+    appimage.chmod(0o755)
+    path_cursor = tmp_path / "usr" / "bin" / "cursor"
+    path_cursor.parent.mkdir(parents=True)
+    path_cursor.write_text("#!/bin/sh\n", encoding="utf-8")
+    path_cursor.chmod(0o755)
+
+    monkeypatch.setattr(
+        install_plugin_cli.shutil,
+        "which",
+        lambda name: str(path_cursor) if name == "cursor" else None,
+    )
+    monkeypatch.setattr(
+        "koruide.ide.detect_running_ides",
+        lambda: [
+            SimpleNamespace(
+                id="cursor",
+                label="Cursor",
+                pid=99,
+                exe=str(appimage),
+            ),
+        ],
+    )
+    monkeypatch.setattr(install_plugin_cli, "IDE_CLI_FALLBACKS", {})
+
+    assert install_plugin_cli.resolve_plugin_editor_bin("cursor") == str(path_cursor)
+
+
+def test_resolve_plugin_editor_bin_skips_snap_app_executable_for_cli_install(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        install_plugin_cli.shutil,
+        "which",
+        lambda name: "/usr/bin/code" if name == "code" else None,
+    )
+    monkeypatch.setattr(
+        "koruide.ide.detect_running_ides",
+        lambda: [
+            SimpleNamespace(
+                id="vscode",
+                label="VS Code",
+                pid=99,
+                exe="/snap/code/242/usr/share/code/code",
+            ),
+        ],
+    )
+
+    assert install_plugin_cli.resolve_plugin_editor_bin("vscode") == "/usr/bin/code"
+
+
 def test_install_plugin_exec_success_json_payload(
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
@@ -816,6 +942,12 @@ def test_install_plugin_vscodium_dry_run_uses_codium_cli(
         "which",
         lambda name: "/usr/bin/codium" if name == "codium" else None,
     )
+    monkeypatch.setattr(
+        install_plugin_cli,
+        "_editor_bin_usable_for_cli_install",
+        lambda exe: True,
+    )
+    monkeypatch.setattr("koruide.ide.detect_running_ides", lambda: [])
     monkeypatch.setattr(install_plugin_cli, "resolve_plugin_vsix_path", lambda _p: vsix)
 
     rc = autopilot_main(["install-plugin", "--ide", "vscodium", "--dry-run", "--format", "json"])

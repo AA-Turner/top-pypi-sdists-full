@@ -7,6 +7,7 @@ from typing import (
     TypeVar,
     get_args,
     get_origin,
+    get_type_hints,
     is_typeddict,
 )
 
@@ -21,7 +22,6 @@ from ._derived_signal_backend import (
 from ._device import Device
 from ._signal import Signal, SignalR, SignalRW, SignalT, SignalW
 from ._signal_backend import Primitive, SignalDatatypeT
-from ._utils import cached_get_type_hints
 
 
 class DerivedSignalFactory(Generic[TransformT]):
@@ -175,6 +175,9 @@ class DerivedSignalFactory(Generic[TransformT]):
     ) -> SignalW[SignalDatatypeT]:
         """Create a write only derived signal.
 
+        Note that there is a known bug where derived signals will timeout if setting the
+        underlying signal takes longer than 10s, see https://github.com/bluesky/ophyd-async/issues/1231.
+
         :param datatype: The datatype of the derived signal value
         :param name:
             The name of the derived signal. Should be a key within the
@@ -193,6 +196,9 @@ class DerivedSignalFactory(Generic[TransformT]):
     ) -> SignalRW[SignalDatatypeT]:
         """Create a read-write derived signal.
 
+        Note that there is a known bug where derived signals will timeout if setting the
+        underlying signal takes longer than 10s, see https://github.com/bluesky/ophyd-async/issues/1231.
+
         :param datatype: The datatype of the derived signal value
         :param name:
             The name of the derived signal. Should be a key within the
@@ -208,7 +214,9 @@ class DerivedSignalFactory(Generic[TransformT]):
 
 
 def _get_return_datatype(func: Callable[..., SignalDatatypeT]) -> type[SignalDatatypeT]:
-    args = cached_get_type_hints(func)
+    # Do not call the cached version as functions may hold strong references to
+    # device instances
+    args = get_type_hints(func)
     if "return" not in args:
         msg = f"{func} does not have a type hint for it's return value"
         raise TypeError(msg)
@@ -345,16 +353,42 @@ def derived_signal_w(
 
 
 def get_locatable_type(obj: object) -> type | None:
-    """Extract datatype from Locatable parent class.
+    """Resolve Locatable[T] through the full MRO, including TypeVar substitutions.
 
     :param obj: Object with possible Locatable inheritance
     :return: Type hint associated with Locatable, or None if not found.
     """
-    for base in getattr(obj.__class__, "__orig_bases__", []):
-        if get_origin(base) is Locatable:
+    typevar_map: dict[TypeVar, object] = {}
+
+    # Walk from subclass to base
+    for cls in obj.__class__.__mro__:
+        # If this class was parametrized.
+        orig_bases = getattr(cls, "__orig_bases__", ())
+
+        for base in orig_bases:
+            origin = get_origin(base)
             args = get_args(base)
-            if args:
-                return args[0]
+
+            if origin is None:
+                continue
+
+            # Map TypeVars to concrete types
+            parameters = getattr(origin, "__parameters__", ())
+            for param, arg in zip(parameters, args, strict=False):
+                if isinstance(arg, TypeVar) and arg in typevar_map:
+                    typevar_map[param] = typevar_map[arg]
+                else:
+                    typevar_map[param] = arg
+
+            # If this is Locatable[...] resolve its argument
+            if origin == Locatable:
+                if args:
+                    resolved = args[0]
+                    if isinstance(resolved, TypeVar):
+                        resolved = typevar_map.get(resolved)
+                    if isinstance(resolved, type):
+                        return resolved
+
     return None
 
 

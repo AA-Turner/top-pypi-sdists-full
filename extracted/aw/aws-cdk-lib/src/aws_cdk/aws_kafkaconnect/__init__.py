@@ -188,7 +188,7 @@ class CfnConnector(
         id: builtins.str,
         *,
         capacity: typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnector.CapacityProperty", typing.Dict[builtins.str, typing.Any]]],
-        connector_configuration: typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"],
+        connector_configuration: typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]],
         connector_name: builtins.str,
         kafka_cluster: typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnector.KafkaClusterProperty", typing.Dict[builtins.str, typing.Any]]],
         kafka_cluster_client_authentication: typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnector.KafkaClusterClientAuthenticationProperty", typing.Dict[builtins.str, typing.Any]]],
@@ -350,14 +350,14 @@ class CfnConnector(
     @jsii.member(jsii_name="connectorConfiguration")
     def connector_configuration(
         self,
-    ) -> typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]:
+    ) -> typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]:
         '''The configuration of the connector.'''
-        return typing.cast(typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"], jsii.get(self, "connectorConfiguration"))
+        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]], jsii.get(self, "connectorConfiguration"))
 
     @connector_configuration.setter
     def connector_configuration(
         self,
-        value: typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"],
+        value: typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__405d7e0ae6f7748331d41486bdc7f8856109d58d35c557e79a28b1b86a730e8d)
@@ -1946,7 +1946,7 @@ class CfnConnectorProps:
         self,
         *,
         capacity: typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnector.CapacityProperty", typing.Dict[builtins.str, typing.Any]]],
-        connector_configuration: typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"],
+        connector_configuration: typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]],
         connector_name: builtins.str,
         kafka_cluster: typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnector.KafkaClusterProperty", typing.Dict[builtins.str, typing.Any]]],
         kafka_cluster_client_authentication: typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnector.KafkaClusterClientAuthenticationProperty", typing.Dict[builtins.str, typing.Any]]],
@@ -2125,14 +2125,14 @@ class CfnConnectorProps:
     @builtins.property
     def connector_configuration(
         self,
-    ) -> typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]:
+    ) -> typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]:
         '''The configuration of the connector.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kafkaconnect-connector.html#cfn-kafkaconnect-connector-connectorconfiguration
         '''
         result = self._values.get("connector_configuration")
         assert result is not None, "Required property 'connector_configuration' is missing"
-        return typing.cast(typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"], result)
+        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def connector_name(self) -> builtins.str:
@@ -3246,7 +3246,7 @@ def _typecheckingstub__300d015169800cb7d305cead5c1382d5e67bfb30617c5f51d4668a050
     id: builtins.str,
     *,
     capacity: typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnector.CapacityProperty, typing.Dict[builtins.str, typing.Any]]],
-    connector_configuration: typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b],
+    connector_configuration: typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]],
     connector_name: builtins.str,
     kafka_cluster: typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnector.KafkaClusterProperty, typing.Dict[builtins.str, typing.Any]]],
     kafka_cluster_client_authentication: typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnector.KafkaClusterClientAuthenticationProperty, typing.Dict[builtins.str, typing.Any]]],
@@ -3294,7 +3294,7 @@ def _typecheckingstub__93190e39585ede0b426e62964acf4d1946b2270b8cdf90fd760fca16b
     pass
 
 def _typecheckingstub__405d7e0ae6f7748331d41486bdc7f8856109d58d35c557e79a28b1b86a730e8d(
-    value: typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b],
+    value: typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3517,7 +3517,7 @@ def _typecheckingstub__bc89e20cb6ae15c383691c63107a6550accceb0bd180b844f01270a6c
 def _typecheckingstub__12463a17cb9c37949b260894212e085ba134c7ff0644cf3913b56f022b888c0b(
     *,
     capacity: typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnector.CapacityProperty, typing.Dict[builtins.str, typing.Any]]],
-    connector_configuration: typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b],
+    connector_configuration: typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]],
     connector_name: builtins.str,
     kafka_cluster: typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnector.KafkaClusterProperty, typing.Dict[builtins.str, typing.Any]]],
     kafka_cluster_client_authentication: typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnector.KafkaClusterClientAuthenticationProperty, typing.Dict[builtins.str, typing.Any]]],

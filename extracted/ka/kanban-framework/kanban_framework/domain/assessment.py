@@ -1,6 +1,7 @@
 """Auto-detect task complexity and recommend mode — lighter by default."""
-
 from __future__ import annotations
+
+from kanban_framework.infra.consts import Consts
 
 # Keywords that signal "just do it, no planning needed"
 _QUICK_SIGNALS = [
@@ -76,18 +77,19 @@ def assess_task(title: str, description: str) -> dict:
     score = max(0.0, min(1.0, score))
 
     # Map score to mode
+    default_mode = Consts.DEFAULT_MODE
     if score < 0.35 and (quick or (light and score < 0.2)):
         mode = "quick"
         reason = f"检测到简单信号: {', '.join((quick or light)[:3])} → 建议 quick 模式，直接执行"
     elif heavy:
-        mode = "lightweight"
-        reason = f"检测到重度信号: {', '.join(heavy[:3])} → 建议 lightweight 模式，含完整评审"
+        mode = default_mode
+        reason = f"检测到重度信号: {', '.join(heavy[:3])} → 建议 {default_mode} 模式，含完整评审"
     elif light or score < 0.6:
-        mode = "lightweight"
-        reason = f"检测到轻量信号: {', '.join(light[:3])} → 建议 lightweight 模式，快速迭代"
+        mode = default_mode
+        reason = f"检测到轻量信号: {', '.join(light[:3])} → 建议 {default_mode} 模式，快速迭代"
     else:
-        mode = "lightweight"
-        reason = "无明显重度信号 → 默认 lightweight 模式"
+        mode = default_mode
+        reason = f"无明显重度信号 → 默认 {default_mode} 模式"
 
     risk_factors = []
     if any(kw in text for kw in ["数据库", "database", "data migration"]):

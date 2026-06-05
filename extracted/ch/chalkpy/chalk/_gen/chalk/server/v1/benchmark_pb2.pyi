@@ -27,6 +27,26 @@ class BenchmarkStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     BENCHMARK_STATUS_SKIPPED: _ClassVar[BenchmarkStatus]
     BENCHMARK_STATUS_CANCELED: _ClassVar[BenchmarkStatus]
 
+class BenchmarkDedicatedEngineProtocol(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    BENCHMARK_DEDICATED_ENGINE_PROTOCOL_UNSPECIFIED: _ClassVar[BenchmarkDedicatedEngineProtocol]
+    BENCHMARK_DEDICATED_ENGINE_PROTOCOL_HTTP_PYTHON: _ClassVar[BenchmarkDedicatedEngineProtocol]
+    BENCHMARK_DEDICATED_ENGINE_PROTOCOL_GRPC: _ClassVar[BenchmarkDedicatedEngineProtocol]
+    BENCHMARK_DEDICATED_ENGINE_PROTOCOL_HTTP_CPP: _ClassVar[BenchmarkDedicatedEngineProtocol]
+
+class BenchmarkResultTargetType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    BENCHMARK_RESULT_TARGET_TYPE_UNSPECIFIED: _ClassVar[BenchmarkResultTargetType]
+    BENCHMARK_RESULT_TARGET_TYPE_HTML: _ClassVar[BenchmarkResultTargetType]
+    BENCHMARK_RESULT_TARGET_TYPE_PARQUET: _ClassVar[BenchmarkResultTargetType]
+    BENCHMARK_RESULT_TARGET_TYPE_JSON: _ClassVar[BenchmarkResultTargetType]
+
+class BenchmarkRunner(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    BENCHMARK_RUNNER_UNSPECIFIED: _ClassVar[BenchmarkRunner]
+    BENCHMARK_RUNNER_GO: _ClassVar[BenchmarkRunner]
+    BENCHMARK_RUNNER_RUST: _ClassVar[BenchmarkRunner]
+
 BENCHMARK_STATUS_UNSPECIFIED: BenchmarkStatus
 BENCHMARK_STATUS_QUEUED: BenchmarkStatus
 BENCHMARK_STATUS_WORKING: BenchmarkStatus
@@ -34,6 +54,17 @@ BENCHMARK_STATUS_COMPLETED: BenchmarkStatus
 BENCHMARK_STATUS_FAILED: BenchmarkStatus
 BENCHMARK_STATUS_SKIPPED: BenchmarkStatus
 BENCHMARK_STATUS_CANCELED: BenchmarkStatus
+BENCHMARK_DEDICATED_ENGINE_PROTOCOL_UNSPECIFIED: BenchmarkDedicatedEngineProtocol
+BENCHMARK_DEDICATED_ENGINE_PROTOCOL_HTTP_PYTHON: BenchmarkDedicatedEngineProtocol
+BENCHMARK_DEDICATED_ENGINE_PROTOCOL_GRPC: BenchmarkDedicatedEngineProtocol
+BENCHMARK_DEDICATED_ENGINE_PROTOCOL_HTTP_CPP: BenchmarkDedicatedEngineProtocol
+BENCHMARK_RESULT_TARGET_TYPE_UNSPECIFIED: BenchmarkResultTargetType
+BENCHMARK_RESULT_TARGET_TYPE_HTML: BenchmarkResultTargetType
+BENCHMARK_RESULT_TARGET_TYPE_PARQUET: BenchmarkResultTargetType
+BENCHMARK_RESULT_TARGET_TYPE_JSON: BenchmarkResultTargetType
+BENCHMARK_RUNNER_UNSPECIFIED: BenchmarkRunner
+BENCHMARK_RUNNER_GO: BenchmarkRunner
+BENCHMARK_RUNNER_RUST: BenchmarkRunner
 
 class InputFeatures(_message.Message):
     __slots__ = ("input_features",)
@@ -82,6 +113,32 @@ class ContainerSpec(_message.Message):
         limit: _Optional[_Union[_builder_pb2.KubeResourceConfig, _Mapping]] = ...,
     ) -> None: ...
 
+class DedicatedBenchmarkEngine(_message.Message):
+    __slots__ = ("protocol", "replica_count", "env_vars", "container_spec")
+    class EnvVarsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
+    PROTOCOL_FIELD_NUMBER: _ClassVar[int]
+    REPLICA_COUNT_FIELD_NUMBER: _ClassVar[int]
+    ENV_VARS_FIELD_NUMBER: _ClassVar[int]
+    CONTAINER_SPEC_FIELD_NUMBER: _ClassVar[int]
+    protocol: BenchmarkDedicatedEngineProtocol
+    replica_count: int
+    env_vars: _containers.ScalarMap[str, str]
+    container_spec: ContainerSpec
+    def __init__(
+        self,
+        protocol: _Optional[_Union[BenchmarkDedicatedEngineProtocol, str]] = ...,
+        replica_count: _Optional[int] = ...,
+        env_vars: _Optional[_Mapping[str, str]] = ...,
+        container_spec: _Optional[_Union[ContainerSpec, _Mapping]] = ...,
+    ) -> None: ...
+
 class CreateBenchmarkRequest(_message.Message):
     __slots__ = (
         "warmup_qps",
@@ -104,6 +161,9 @@ class CreateBenchmarkRequest(_message.Message):
         "initial_window_size",
         "initial_conn_window_size",
         "nodepool",
+        "dedicated_engine",
+        "benchmark_runner",
+        "result_targets",
     )
     WARMUP_QPS_FIELD_NUMBER: _ClassVar[int]
     WARMUP_DURATION_FIELD_NUMBER: _ClassVar[int]
@@ -125,6 +185,9 @@ class CreateBenchmarkRequest(_message.Message):
     INITIAL_WINDOW_SIZE_FIELD_NUMBER: _ClassVar[int]
     INITIAL_CONN_WINDOW_SIZE_FIELD_NUMBER: _ClassVar[int]
     NODEPOOL_FIELD_NUMBER: _ClassVar[int]
+    DEDICATED_ENGINE_FIELD_NUMBER: _ClassVar[int]
+    BENCHMARK_RUNNER_FIELD_NUMBER: _ClassVar[int]
+    RESULT_TARGETS_FIELD_NUMBER: _ClassVar[int]
     warmup_qps: int
     warmup_duration: _duration_pb2.Duration
     qps: int
@@ -145,6 +208,9 @@ class CreateBenchmarkRequest(_message.Message):
     initial_window_size: int
     initial_conn_window_size: int
     nodepool: str
+    dedicated_engine: DedicatedBenchmarkEngine
+    benchmark_runner: BenchmarkRunner
+    result_targets: _containers.RepeatedScalarFieldContainer[BenchmarkResultTargetType]
     def __init__(
         self,
         warmup_qps: _Optional[int] = ...,
@@ -167,6 +233,9 @@ class CreateBenchmarkRequest(_message.Message):
         initial_window_size: _Optional[int] = ...,
         initial_conn_window_size: _Optional[int] = ...,
         nodepool: _Optional[str] = ...,
+        dedicated_engine: _Optional[_Union[DedicatedBenchmarkEngine, _Mapping]] = ...,
+        benchmark_runner: _Optional[_Union[BenchmarkRunner, str]] = ...,
+        result_targets: _Optional[_Iterable[_Union[BenchmarkResultTargetType, str]]] = ...,
     ) -> None: ...
 
 class CreateBenchmarkResponse(_message.Message):

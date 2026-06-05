@@ -323,14 +323,24 @@ class GetContainerResponse(_message.Message):
     def __init__(self, container: _Optional[_Union[ContainerResponse, _Mapping]] = ...) -> None: ...
 
 class ListContainersRequest(_message.Message):
-    __slots__ = ()
-    def __init__(self) -> None: ...
+    __slots__ = ("cursor", "limit")
+    CURSOR_FIELD_NUMBER: _ClassVar[int]
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
+    cursor: str
+    limit: int
+    def __init__(self, cursor: _Optional[str] = ..., limit: _Optional[int] = ...) -> None: ...
 
 class ListContainersResponse(_message.Message):
-    __slots__ = ("containers",)
+    __slots__ = ("containers", "next_cursor")
     CONTAINERS_FIELD_NUMBER: _ClassVar[int]
+    NEXT_CURSOR_FIELD_NUMBER: _ClassVar[int]
     containers: _containers.RepeatedCompositeFieldContainer[ContainerResponse]
-    def __init__(self, containers: _Optional[_Iterable[_Union[ContainerResponse, _Mapping]]] = ...) -> None: ...
+    next_cursor: str
+    def __init__(
+        self,
+        containers: _Optional[_Iterable[_Union[ContainerResponse, _Mapping]]] = ...,
+        next_cursor: _Optional[str] = ...,
+    ) -> None: ...
 
 class ExecCommandRequest(_message.Message):
     __slots__ = ("id", "name", "command", "timeout", "stdin")
@@ -477,16 +487,28 @@ class GetContainerSnapshotResponse(_message.Message):
     def __init__(self, snapshot: _Optional[_Union[ContainerSnapshot, _Mapping]] = ...) -> None: ...
 
 class ListContainerSnapshotsRequest(_message.Message):
-    __slots__ = ("source_container_id",)
+    __slots__ = ("source_container_id", "cursor", "limit")
     SOURCE_CONTAINER_ID_FIELD_NUMBER: _ClassVar[int]
+    CURSOR_FIELD_NUMBER: _ClassVar[int]
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
     source_container_id: str
-    def __init__(self, source_container_id: _Optional[str] = ...) -> None: ...
+    cursor: str
+    limit: int
+    def __init__(
+        self, source_container_id: _Optional[str] = ..., cursor: _Optional[str] = ..., limit: _Optional[int] = ...
+    ) -> None: ...
 
 class ListContainerSnapshotsResponse(_message.Message):
-    __slots__ = ("snapshots",)
+    __slots__ = ("snapshots", "next_cursor")
     SNAPSHOTS_FIELD_NUMBER: _ClassVar[int]
+    NEXT_CURSOR_FIELD_NUMBER: _ClassVar[int]
     snapshots: _containers.RepeatedCompositeFieldContainer[ContainerSnapshot]
-    def __init__(self, snapshots: _Optional[_Iterable[_Union[ContainerSnapshot, _Mapping]]] = ...) -> None: ...
+    next_cursor: str
+    def __init__(
+        self,
+        snapshots: _Optional[_Iterable[_Union[ContainerSnapshot, _Mapping]]] = ...,
+        next_cursor: _Optional[str] = ...,
+    ) -> None: ...
 
 class ContainerTTYInput(_message.Message):
     __slots__ = ("data", "resize")

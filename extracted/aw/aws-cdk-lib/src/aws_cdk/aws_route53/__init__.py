@@ -115,10 +115,10 @@ Detailed information can be found in the [documentation](https://docs.aws.amazon
 
 
 target_record = "existing.record.cdk.local"
-record = route53.ARecord.from_aRecord_attributes(self, "A",
+record = route53.ARecord.from_a_record_attributes(self, "A",
     zone=my_zone,
     record_name="test",
-    target_dNS=target_record
+    target_dns=target_record
 )
 ```
 
@@ -1430,7 +1430,7 @@ class CfnDNSSEC(
         # The values are placeholders you should change.
         from aws_cdk import aws_route53 as route53
         
-        cfn_dNSSEC = route53.CfnDNSSEC(self, "MyCfnDNSSEC",
+        cfn_dnssec = route53.CfnDNSSEC(self, "MyCfnDNSSEC",
             hosted_zone_id="hostedZoneId"
         )
     '''
@@ -1548,7 +1548,7 @@ class CfnDNSSECProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_route53 as route53
             
-            cfn_dNSSECProps = route53.CfnDNSSECProps(
+            cfn_dnssec_props = route53.CfnDNSSECProps(
                 hosted_zone_id="hostedZoneId"
             )
         '''
@@ -3080,7 +3080,7 @@ class CfnHostedZone(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_route53 as route53
                 
-                v_pCProperty = route53.CfnHostedZone.VPCProperty(
+                v_pc_property = route53.CfnHostedZone.VPCProperty(
                     vpc_id="vpcId",
                     vpc_region="vpcRegion"
                 )
@@ -12979,10 +12979,10 @@ class ARecordAttrs(RecordSetOptions):
             
             
             target_record = "existing.record.cdk.local"
-            record = route53.ARecord.from_aRecord_attributes(self, "A",
+            record = route53.ARecord.from_a_record_attributes(self, "A",
                 zone=my_zone,
                 record_name="test",
-                target_dNS=target_record
+                target_dns=target_record
             )
         '''
         if __debug__:

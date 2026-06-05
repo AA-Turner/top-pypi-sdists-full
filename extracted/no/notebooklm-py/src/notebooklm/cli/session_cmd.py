@@ -7,7 +7,7 @@ Commands:
     clear   Clear current notebook context
     auth    Authentication management (logout / inspect / check / refresh)
 
-P3.T3 split this module into thin Click handlers over four service
+This module is split into thin Click handlers over four service
 modules:
 
 * :mod:`notebooklm.cli.services.playwright_login` — Playwright login flow
@@ -15,24 +15,18 @@ modules:
 * :mod:`notebooklm.cli.services.auth_diagnostics` — ``auth check``
 * :mod:`notebooklm.cli.services.auth_source` — auth-source precedence
 
-Several names that *moved* into those services are re-imported here so
-the historical ``patch("notebooklm.cli.session_cmd.X")`` surface keeps
-working byte-for-byte. The constants tagged ``F401`` below are pure
-patch surfaces — they are not referenced from this module's body, but
-existing tests bind them on the ``notebooklm.cli.session_cmd`` namespace.
+Body-used names that *moved* into those services are re-imported here as
+the command layer's own bindings. A handful are also bound on the
+``notebooklm.cli.session_cmd`` namespace by tests that pre-date ADR-0008's
+services-side patching convention (e.g. ``_sync_server_language_to_config``,
+``_login_browser_cookies_single``); those names stay because they are
+referenced from this module's body.
 """
 
 from __future__ import annotations
 
-# ``time``, ``shutil``, ``sys``: kept as module-level imports so legacy
-# tests (e.g. ``patch("notebooklm.cli.session_cmd.time.sleep", ...)``,
-# ``patch("notebooklm.cli.session_cmd.shutil.rmtree", ...)``,
-# ``patch("notebooklm.cli.session_cmd.sys.platform", ...)``) keep working.
 import functools
 import logging
-import shutil  # noqa: F401 — preserved patch surface
-import sys  # noqa: F401 — preserved patch surface
-import time  # noqa: F401 — preserved patch surface
 from pathlib import Path
 from typing import Any, NoReturn
 
@@ -43,21 +37,18 @@ from rich.table import Table
 
 from ..client import NotebookLMClient
 from ..exceptions import AuthError, NotebookNotFoundError
-from ..paths import (  # noqa: F401 — get_browser_profile_dir / get_path_info / get_context_path / get_storage_path are patch surfaces
-    get_browser_profile_dir,
-    get_context_path,
-    get_path_info,
-    get_storage_path,
-)
+from ..paths import get_storage_path
 from .auth_runtime import handle_auth_error, run_client_workflow
-from .context import (
-    clear_context,
-    get_current_notebook,  # noqa: F401 — preserved patch surface
-    set_current_notebook,
-)
+from .context import clear_context, set_current_notebook
 from .error_handler import _output_error, exit_with_code, handle_errors
+from .playwright_login_io import (
+    prepare_paths_or_exit,
+    repair_after_refresh,
+    run_login,
+    validate_flags_or_exit,
+)
 from .rendering import console, json_output_response
-from .resolve import resolve_notebook_id  # noqa: F401 — preserved patch surface
+from .resolve import resolve_notebook_id
 from .runtime import run_async
 from .services.auth_diagnostics import (
     AuthCheckResult,
@@ -66,30 +57,19 @@ from .services.auth_diagnostics import (
 )
 from .services.auth_source import AUTH_JSON_ENV_NAME, has_env_auth_json
 
-# Direct imports replace the D1-PR-3-retired forwarding wrappers; see ADR-008.
-# Several of these names also serve as ``notebooklm.cli.session_cmd.*`` monkeypatch
-# surfaces for tests that pre-date ADR-008's services-side patching convention
-# (e.g. ``_sync_server_language_to_config``, ``_login_browser_cookies_single``,
-# ``_refresh_from_browser_cookies``, ``_enumerate_browser_accounts``).
-#
-# The names tagged ``F401`` below are *only* patch surfaces — they are not
-# called from this module's body, but tests bind them on the
-# ``notebooklm.cli.session_cmd`` namespace either via direct import
-# (``test_cookie_domain_split.py``, ``test_auth_subcommands.py``) or via the
-# dual-patch fixture in ``tests/_fixtures/cli_session.py`` (whose
-# ``patch_session_login_dual`` requires the name to exist on both modules).
+# Direct imports replace the D1-PR-3-retired forwarding wrappers; see ADR-0008.
+# These names are all called from this module's body. Several also serve as
+# ``notebooklm.cli.session_cmd.*`` monkeypatch surfaces for tests that pre-date
+# ADR-0008's services-side patching convention (e.g.
+# ``_sync_server_language_to_config``, ``_login_browser_cookies_single``,
+# ``_refresh_from_browser_cookies``, ``_enumerate_browser_accounts``); those
+# patches keep working because the body-used name stays bound here.
 from .services.login import (
-    _build_google_cookie_domains,  # noqa: F401 — patch surface
     _enumerate_browser_accounts,
-    _enumerate_one_jar,  # noqa: F401 — patch surface only
     _login_all_accounts_from_browser,
     _login_browser_cookies_single,
-    _login_with_browser_cookies,  # noqa: F401 — patch surface only
     _refresh_from_browser_cookies,
-    _resolve_optional_cookie_domains,  # noqa: F401 — patch surface only
-    _select_account,  # noqa: F401 — patch surface only
     _sync_server_language_to_config,
-    _write_extracted_cookies,  # noqa: F401 — patch surface only
 )
 from .services.login import (
     cookie_domains as _cookie_domains,
@@ -101,34 +81,6 @@ from .services.playwright_login import (
 )
 from .services.playwright_login import (
     PlaywrightLoginPlan,
-    run_playwright_login,
-)
-from .services.playwright_login import (
-    connection_error_help as _connection_error_help,  # noqa: F401 — patch surface
-)
-from .services.playwright_login import (
-    ensure_chromium_installed as _ensure_chromium_installed,  # noqa: F401 — patch surface
-)
-from .services.playwright_login import (
-    filter_storage_state_cookies_by_domain_policy as _filter_storage_state_cookies_by_domain_policy,  # noqa: F401 — patch surface
-)
-from .services.playwright_login import (
-    is_navigation_interrupted_error as _is_navigation_interrupted_error,  # noqa: F401 — patch surface
-)
-from .services.playwright_login import (
-    prepare_login_paths as _prepare_login_paths,
-)
-from .services.playwright_login import (
-    recover_page as _recover_page,  # noqa: F401 — patch surface
-)
-from .services.playwright_login import (
-    repair_playwright_account_metadata as _repair_playwright_account_metadata,
-)
-from .services.playwright_login import (
-    url_matches_base_host as _url_matches_base_host,  # noqa: F401 — patch surface
-)
-from .services.playwright_login import (
-    validate_login_flag_conflicts as _validate_login_flag_conflicts,
 )
 from .services.session_context import (
     LogoutOutcome,
@@ -152,14 +104,18 @@ async def fetch_tokens_with_domains(*args: Any, **kwargs: Any) -> Any:
 def _click_exception_from(exc: LoginConfigurationError) -> click.ClickException:
     """Translate a login-service ``LoginConfigurationError`` into a Click error.
 
-    The login services raise plain Python exceptions (ADR-015 Pattern B
+    The login services raise plain Python exceptions (ADR-0015 Pattern B
     decoupling) so the command layer owns the Click translation here.
     ``hint`` is appended to the user-facing message when present so the
     final ``Error: ...`` line carries the remediation advice.
     """
     if exc.hint:
-        return click.ClickException(f"{exc.message} {exc.hint}")
-    return click.ClickException(exc.message)
+        return click.ClickException(
+            f"{exc.message} {exc.hint}"
+        )  # cli-input-validation: login profile-name validation translation
+    return click.ClickException(
+        exc.message
+    )  # cli-input-validation: login profile-name validation translation
 
 
 def _is_valid_account_metadata(metadata: dict[str, Any]) -> bool:
@@ -184,14 +140,14 @@ def _run_playwright_login(
     storage_path: Path,
     include_domains: set[str] | None = None,
 ) -> None:
-    """Backward-compat wrapper around :func:`run_playwright_login`."""
+    """Backward-compat wrapper around :func:`run_login`."""
     plan = PlaywrightLoginPlan(
         browser=browser,
         browser_profile=browser_profile,
         storage_path=storage_path,
         include_domains=include_domains,
     )
-    run_playwright_login(plan)
+    run_login(plan)
 
 
 def _parse_include_domains(values: tuple[str, ...]) -> set[str]:
@@ -199,7 +155,9 @@ def _parse_include_domains(values: tuple[str, ...]) -> set[str]:
     try:
         return _cookie_domains._parse_include_domains(values)
     except _cookie_domains.IncludeDomainsParseError as exc:
-        raise click.BadParameter(str(exc)) from None
+        raise click.BadParameter(  # cli-input-validation: --include-domains value parse failure
+            str(exc)
+        ) from None
 
 
 def _warn_missing_optional_domains(include_domains: set[str]) -> None:
@@ -219,11 +177,11 @@ def _use_notebook_table() -> Table:
 def _render_status(report: StatusReport, *, json_output: bool) -> None:
     """Render a :class:`StatusReport` to the configured console.
 
-    Moved out of :mod:`notebooklm.cli.services.session_context` so the
-    service layer no longer reaches into ``..rendering`` (ADR-008 / C4
-    Pattern A). Supports ``--paths`` (resolved configuration paths) and
-    ``--json`` (machine-readable envelope); preserves the legacy
-    contract from the pre-refactor service-side renderer byte-for-byte.
+    Lives here rather than in
+    :mod:`notebooklm.cli.services.session_context` so the service layer
+    does not reach into ``..rendering`` (ADR-0008). Supports ``--paths``
+    (resolved configuration paths) and ``--json`` (machine-readable
+    envelope).
     """
     if report.paths is not None:
         # --paths flag was set; render the paths view and stop.
@@ -328,10 +286,9 @@ def _render_status(report: StatusReport, *, json_output: bool) -> None:
 def _render_logout_outcome(outcome: LogoutOutcome) -> None:
     """Render a :class:`LogoutOutcome` and apply its exit policy.
 
-    Owns the presentation + exit policy that the pre-refactor
-    ``run_logout`` service function owned (C4 Pattern A,
-    typed-outcome lift). On per-step :class:`OSError` failures, prints
-    the same diagnostic the service used to print, then exits 1; on
+    Owns the presentation + exit policy for the ``run_logout`` flow,
+    keeping the service function Click-free. On per-step
+    :class:`OSError` failures, prints the diagnostic and then exits 1; on
     success prints either the green "Logged out." line or the yellow
     "No active session found." no-op line and returns normally.
     """
@@ -381,7 +338,7 @@ def _render_auth_check_result(result: AuthCheckResult) -> None:
 
     The presentation + exit-code policy lives here in the command layer
     so ``services/auth_diagnostics.py`` can stay free of rendering and
-    exit imports (ADR-008 boundary).
+    exit imports (ADR-0008 boundary).
     """
     plan = result.plan
     all_passed = result.all_passed
@@ -481,7 +438,7 @@ def _render_auth_inspect(
     """Render ``auth inspect`` results (text table or JSON envelope).
 
     Moved here from ``services/auth_diagnostics.py`` so the service module
-    stays free of rendering imports (ADR-008 boundary).
+    stays free of rendering imports (ADR-0008 boundary).
     """
     if json_output:
         json_output_response(
@@ -681,7 +638,7 @@ def register_session_commands(cli):
                 )
                 exit_with_code(1)
 
-            _validate_login_flag_conflicts(
+            validate_flags_or_exit(
                 browser_cookies=browser_cookies,
                 account_email=account_email,
                 all_accounts=all_accounts,
@@ -709,7 +666,7 @@ def register_session_commands(cli):
                     return
                 active_profile = ctx.obj.get("profile") if ctx.obj else None
                 # Inject ``click.confirm`` as the overwrite confirmer so the
-                # login service stays Click-free (ADR-015 Pattern B). The
+                # login service stays Click-free (ADR-0015 Pattern B). The
                 # service defaults ``confirm=None`` to "auto-accept" for
                 # non-interactive callers; production CLI runs always inject
                 # an actual prompt here.
@@ -729,7 +686,7 @@ def register_session_commands(cli):
                 return
 
             profile = ctx.obj.get("profile") if ctx.obj else None
-            storage_path, browser_profile = _prepare_login_paths(profile, storage, fresh)
+            storage_path, browser_profile = prepare_paths_or_exit(profile, storage, fresh)
             _run_playwright_login(
                 browser=browser,
                 browser_profile=browser_profile,
@@ -1112,7 +1069,7 @@ def register_session_commands(cli):
             if storage_path.exists():
                 metadata = read_account_metadata(storage_path)
                 if not _is_valid_account_metadata(metadata):
-                    _repair_playwright_account_metadata(storage_path, quiet=quiet)
+                    repair_after_refresh(storage_path, quiet=quiet)
 
             if not quiet:
                 console.print(f"[green]ok[/green] refreshed: {storage_path}")

@@ -1728,6 +1728,96 @@ class CdkCommands:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.cloud_assembly_schema.CloudFormationResourceJson",
+    jsii_struct_bases=[],
+    name_mapping={
+        "logical_id": "logicalId",
+        "template_path": "templatePath",
+        "property_paths": "propertyPaths",
+    },
+)
+class CloudFormationResourceJson:
+    def __init__(
+        self,
+        *,
+        logical_id: builtins.str,
+        template_path: builtins.str,
+        property_paths: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''A node in the construct creation stack trace.
+
+        :param logical_id: The logical ID of the resource in the CloudFormation template.
+        :param template_path: The path to the CloudFormation template containing this resource.
+        :param property_paths: Properties within the construct where the violation was detected. Either a single component, in which case it regards a top-level property name, or a JSON path (starting with ``$.``) to indicate a deeper property. Default: - no locations
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk.cloud_assembly_schema import CloudFormationResourceJson
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import cloud_assembly_schema
+            
+            cloud_formation_resource_json = CloudFormationResourceJson(
+                logical_id="logicalId",
+                template_path="templatePath",
+            
+                # the properties below are optional
+                property_paths=["propertyPaths"]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0a133e2bbded2b7fd078b172492fd6c23f0041e77c72d0403218d9071e1e4900)
+            check_type(argname="argument logical_id", value=logical_id, expected_type=type_hints["logical_id"])
+            check_type(argname="argument template_path", value=template_path, expected_type=type_hints["template_path"])
+            check_type(argname="argument property_paths", value=property_paths, expected_type=type_hints["property_paths"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "logical_id": logical_id,
+            "template_path": template_path,
+        }
+        if property_paths is not None:
+            self._values["property_paths"] = property_paths
+
+    @builtins.property
+    def logical_id(self) -> builtins.str:
+        '''The logical ID of the resource in the CloudFormation template.'''
+        result = self._values.get("logical_id")
+        assert result is not None, "Required property 'logical_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def template_path(self) -> builtins.str:
+        '''The path to the CloudFormation template containing this resource.'''
+        result = self._values.get("template_path")
+        assert result is not None, "Required property 'template_path' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def property_paths(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Properties within the construct where the violation was detected.
+
+        Either a single component, in which case it regards a top-level property
+        name, or a JSON path (starting with ``$.``) to indicate a deeper property.
+
+        :default: - no locations
+        '''
+        result = self._values.get("property_paths")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CloudFormationResourceJson(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.cloud_assembly_schema.ContainerImageAssetCacheOption",
     jsii_struct_bases=[],
     name_mapping={"type": "type", "params": "params"},
@@ -6041,6 +6131,7 @@ class IntegManifest:
                         stacks=["stacks"],
             
                         # the properties below are optional
+                        allow_delete_failures=False,
                         allow_destroy=["allowDestroy"],
                         assertion_stack="assertionStack",
                         assertion_stack_name="assertionStackName",
@@ -6981,6 +7072,21 @@ class Manifest(
             check_type(argname="argument file_path", value=file_path, expected_type=type_hints["file_path"])
         return typing.cast("IntegManifest", jsii.sinvoke(cls, "loadIntegManifest", [file_path]))
 
+    @jsii.member(jsii_name="loadValidationReport")
+    @builtins.classmethod
+    def load_validation_report(
+        cls,
+        file_path: builtins.str,
+    ) -> "PolicyValidationReportJson":
+        '''Load and validate the policy validation report from file.
+
+        :param file_path: - path to the validation report file.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5273b743ff8d5d8e0340c8076476cf3a2c232d0ec30a51aef55a20f9762f3f41)
+            check_type(argname="argument file_path", value=file_path, expected_type=type_hints["file_path"])
+        return typing.cast("PolicyValidationReportJson", jsii.sinvoke(cls, "loadValidationReport", [file_path]))
+
     @jsii.member(jsii_name="saveAssemblyManifest")
     @builtins.classmethod
     def save_assembly_manifest(
@@ -7358,6 +7464,354 @@ class PluginContextQuery:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.cloud_assembly_schema.PluginReportJson",
+    jsii_struct_bases=[],
+    name_mapping={
+        "conclusion": "conclusion",
+        "plugin_name": "pluginName",
+        "violations": "violations",
+        "metadata": "metadata",
+        "plugin_version": "pluginVersion",
+        "suppressed_violations": "suppressedViolations",
+    },
+)
+class PluginReportJson:
+    def __init__(
+        self,
+        *,
+        conclusion: builtins.str,
+        plugin_name: builtins.str,
+        violations: typing.Sequence[typing.Union["PolicyViolationJson", typing.Dict[builtins.str, typing.Any]]],
+        metadata: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        plugin_version: typing.Optional[builtins.str] = None,
+        suppressed_violations: typing.Optional[typing.Sequence[typing.Union["SuppressedViolationJson", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''A report from a single validation plugin.
+
+        :param conclusion: Whether the plugin's validation passed or failed.
+        :param plugin_name: The name of the plugin that produced this report.
+        :param violations: Violations found by this plugin.
+        :param metadata: Additional plugin-specific metadata. Default: - no metadata
+        :param plugin_version: Version of the plugin that produced this report. Default: - no version
+        :param suppressed_violations: Violations that were suppressed via acknowledgement. These violations matched an acknowledged rule ID and were excluded from the active violations list. They are retained for audit trail and reporting purposes. Default: - no suppressed violations
+
+        Example::
+
+            from aws_cdk.cloud_assembly_schema import PluginReportJson
+            from aws_cdk.cloud_assembly_schema import PluginReportJson
+            
+            
+            report = PluginReportJson(
+                plugin_name="my-plugin",
+                conclusion="success",
+                violations=[]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0b848d9165601d29c707960e358566dce4c0330a961ea095e05a2efa0addaad1)
+            check_type(argname="argument conclusion", value=conclusion, expected_type=type_hints["conclusion"])
+            check_type(argname="argument plugin_name", value=plugin_name, expected_type=type_hints["plugin_name"])
+            check_type(argname="argument violations", value=violations, expected_type=type_hints["violations"])
+            check_type(argname="argument metadata", value=metadata, expected_type=type_hints["metadata"])
+            check_type(argname="argument plugin_version", value=plugin_version, expected_type=type_hints["plugin_version"])
+            check_type(argname="argument suppressed_violations", value=suppressed_violations, expected_type=type_hints["suppressed_violations"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "conclusion": conclusion,
+            "plugin_name": plugin_name,
+            "violations": violations,
+        }
+        if metadata is not None:
+            self._values["metadata"] = metadata
+        if plugin_version is not None:
+            self._values["plugin_version"] = plugin_version
+        if suppressed_violations is not None:
+            self._values["suppressed_violations"] = suppressed_violations
+
+    @builtins.property
+    def conclusion(self) -> builtins.str:
+        '''Whether the plugin's validation passed or failed.'''
+        result = self._values.get("conclusion")
+        assert result is not None, "Required property 'conclusion' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def plugin_name(self) -> builtins.str:
+        '''The name of the plugin that produced this report.'''
+        result = self._values.get("plugin_name")
+        assert result is not None, "Required property 'plugin_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def violations(self) -> typing.List["PolicyViolationJson"]:
+        '''Violations found by this plugin.'''
+        result = self._values.get("violations")
+        assert result is not None, "Required property 'violations' is missing"
+        return typing.cast(typing.List["PolicyViolationJson"], result)
+
+    @builtins.property
+    def metadata(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''Additional plugin-specific metadata.
+
+        :default: - no metadata
+        '''
+        result = self._values.get("metadata")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def plugin_version(self) -> typing.Optional[builtins.str]:
+        '''Version of the plugin that produced this report.
+
+        :default: - no version
+        '''
+        result = self._values.get("plugin_version")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def suppressed_violations(
+        self,
+    ) -> typing.Optional[typing.List["SuppressedViolationJson"]]:
+        '''Violations that were suppressed via acknowledgement.
+
+        These violations matched an acknowledged rule ID and were excluded
+        from the active violations list. They are retained for audit
+        trail and reporting purposes.
+
+        :default: - no suppressed violations
+        '''
+        result = self._values.get("suppressed_violations")
+        return typing.cast(typing.Optional[typing.List["SuppressedViolationJson"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PluginReportJson(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.cloud_assembly_schema.PolicyValidationReportJson",
+    jsii_struct_bases=[],
+    name_mapping={
+        "plugin_reports": "pluginReports",
+        "version": "version",
+        "title": "title",
+    },
+)
+class PolicyValidationReportJson:
+    def __init__(
+        self,
+        *,
+        plugin_reports: typing.Sequence[typing.Union["PluginReportJson", typing.Dict[builtins.str, typing.Any]]],
+        version: builtins.str,
+        title: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''The top-level structure of the policy validation report file.
+
+        :param plugin_reports: Reports from all validation plugins that ran during synthesis.
+        :param version: Protocol version.
+        :param title: Report title, if present.
+
+        Example::
+
+            from aws_cdk.cloud_assembly_schema import PolicyValidationReportJson, PluginReportJson
+            from aws_cdk.cloud_assembly_schema import PolicyValidationReportJson
+            
+            
+            report = PolicyValidationReportJson(
+                version="1.0",
+                plugin_reports=[PluginReportJson(
+                    plugin_name="my-plugin",
+                    conclusion="success",
+                    violations=[]
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dc980f5571eaf07e2af9ac3f99be12fc5484e5b8a11935e498f7481d1bb8cda2)
+            check_type(argname="argument plugin_reports", value=plugin_reports, expected_type=type_hints["plugin_reports"])
+            check_type(argname="argument version", value=version, expected_type=type_hints["version"])
+            check_type(argname="argument title", value=title, expected_type=type_hints["title"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "plugin_reports": plugin_reports,
+            "version": version,
+        }
+        if title is not None:
+            self._values["title"] = title
+
+    @builtins.property
+    def plugin_reports(self) -> typing.List["PluginReportJson"]:
+        '''Reports from all validation plugins that ran during synthesis.'''
+        result = self._values.get("plugin_reports")
+        assert result is not None, "Required property 'plugin_reports' is missing"
+        return typing.cast(typing.List["PluginReportJson"], result)
+
+    @builtins.property
+    def version(self) -> builtins.str:
+        '''Protocol version.'''
+        result = self._values.get("version")
+        assert result is not None, "Required property 'version' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def title(self) -> typing.Optional[builtins.str]:
+        '''Report title, if present.'''
+        result = self._values.get("title")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PolicyValidationReportJson(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.cloud_assembly_schema.PolicyViolationJson",
+    jsii_struct_bases=[],
+    name_mapping={
+        "description": "description",
+        "rule_name": "ruleName",
+        "severity": "severity",
+        "violating_constructs": "violatingConstructs",
+        "custom_severity": "customSeverity",
+        "rule_metadata": "ruleMetadata",
+        "suggested_fix": "suggestedFix",
+    },
+)
+class PolicyViolationJson:
+    def __init__(
+        self,
+        *,
+        description: builtins.str,
+        rule_name: builtins.str,
+        severity: builtins.str,
+        violating_constructs: typing.Sequence[typing.Union["ViolatingConstructJson", typing.Dict[builtins.str, typing.Any]]],
+        custom_severity: typing.Optional[builtins.str] = None,
+        rule_metadata: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        suggested_fix: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''A single policy violation found by a validation plugin.
+
+        :param description: A description of the violation.
+        :param rule_name: The name of the rule that was violated.
+        :param severity: The severity of the violation.
+        :param violating_constructs: Constructs that violated the rule.
+        :param custom_severity: If the plugin wants to report using a non-standard severity, put it here.
+        :param rule_metadata: Additional rule-specific metadata. Default: - no metadata
+        :param suggested_fix: How to fix the violation. Default: - no fix provided
+
+        Example::
+
+            from aws_cdk.cloud_assembly_schema import PolicyViolationJson, ViolatingConstructJson
+            from aws_cdk.cloud_assembly_schema import PolicyViolationJson
+            
+            
+            violation = PolicyViolationJson(
+                rule_name="no-public-access",
+                description="S3 bucket should not allow public access",
+                severity="error",
+                violating_constructs=[ViolatingConstructJson(construct_path="MyStack/MyBucket")]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__96ecca1ae8a134daecf7e42cf25a49b72453a945e75500e4e14558a0e21a9f6c)
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument rule_name", value=rule_name, expected_type=type_hints["rule_name"])
+            check_type(argname="argument severity", value=severity, expected_type=type_hints["severity"])
+            check_type(argname="argument violating_constructs", value=violating_constructs, expected_type=type_hints["violating_constructs"])
+            check_type(argname="argument custom_severity", value=custom_severity, expected_type=type_hints["custom_severity"])
+            check_type(argname="argument rule_metadata", value=rule_metadata, expected_type=type_hints["rule_metadata"])
+            check_type(argname="argument suggested_fix", value=suggested_fix, expected_type=type_hints["suggested_fix"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "description": description,
+            "rule_name": rule_name,
+            "severity": severity,
+            "violating_constructs": violating_constructs,
+        }
+        if custom_severity is not None:
+            self._values["custom_severity"] = custom_severity
+        if rule_metadata is not None:
+            self._values["rule_metadata"] = rule_metadata
+        if suggested_fix is not None:
+            self._values["suggested_fix"] = suggested_fix
+
+    @builtins.property
+    def description(self) -> builtins.str:
+        '''A description of the violation.'''
+        result = self._values.get("description")
+        assert result is not None, "Required property 'description' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def rule_name(self) -> builtins.str:
+        '''The name of the rule that was violated.'''
+        result = self._values.get("rule_name")
+        assert result is not None, "Required property 'rule_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def severity(self) -> builtins.str:
+        '''The severity of the violation.'''
+        result = self._values.get("severity")
+        assert result is not None, "Required property 'severity' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def violating_constructs(self) -> typing.List["ViolatingConstructJson"]:
+        '''Constructs that violated the rule.'''
+        result = self._values.get("violating_constructs")
+        assert result is not None, "Required property 'violating_constructs' is missing"
+        return typing.cast(typing.List["ViolatingConstructJson"], result)
+
+    @builtins.property
+    def custom_severity(self) -> typing.Optional[builtins.str]:
+        '''If the plugin wants to report using a non-standard severity, put it here.'''
+        result = self._values.get("custom_severity")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def rule_metadata(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''Additional rule-specific metadata.
+
+        :default: - no metadata
+        '''
+        result = self._values.get("rule_metadata")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def suggested_fix(self) -> typing.Optional[builtins.str]:
+        '''How to fix the violation.
+
+        :default: - no fix provided
+        '''
+        result = self._values.get("suggested_fix")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PolicyViolationJson(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.cloud_assembly_schema.PropertyMutationMetadataEntry",
     jsii_struct_bases=[],
     name_mapping={"property_name": "propertyName", "stack_trace": "stackTrace"},
@@ -7534,7 +7988,7 @@ class SSMParameterContextQuery(ContextLookupRoleOptions):
             
             # assume_role_additional_options: Any
             
-            s_sMParameter_context_query = SSMParameterContextQuery(
+            s_sm_parameter_context_query = SSMParameterContextQuery(
                 account="account",
                 parameter_name="parameterName",
                 region="region",
@@ -7813,6 +8267,205 @@ class SecurityGroupContextQuery(ContextLookupRoleOptions):
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.cloud_assembly_schema.SuppressedViolationJson",
+    jsii_struct_bases=[PolicyViolationJson],
+    name_mapping={
+        "description": "description",
+        "rule_name": "ruleName",
+        "severity": "severity",
+        "violating_constructs": "violatingConstructs",
+        "custom_severity": "customSeverity",
+        "rule_metadata": "ruleMetadata",
+        "suggested_fix": "suggestedFix",
+        "acknowledged_id": "acknowledgedId",
+        "acknowledged_at": "acknowledgedAt",
+        "acknowledged_stack_trace": "acknowledgedStackTrace",
+        "reason": "reason",
+    },
+)
+class SuppressedViolationJson(PolicyViolationJson):
+    def __init__(
+        self,
+        *,
+        description: builtins.str,
+        rule_name: builtins.str,
+        severity: builtins.str,
+        violating_constructs: typing.Sequence[typing.Union["ViolatingConstructJson", typing.Dict[builtins.str, typing.Any]]],
+        custom_severity: typing.Optional[builtins.str] = None,
+        rule_metadata: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        suggested_fix: typing.Optional[builtins.str] = None,
+        acknowledged_id: builtins.str,
+        acknowledged_at: typing.Optional[builtins.str] = None,
+        acknowledged_stack_trace: typing.Optional[builtins.str] = None,
+        reason: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''A violation that was acknowledged/suppressed and excluded from the active violation set.
+
+        :param description: A description of the violation.
+        :param rule_name: The name of the rule that was violated.
+        :param severity: The severity of the violation.
+        :param violating_constructs: Constructs that violated the rule.
+        :param custom_severity: If the plugin wants to report using a non-standard severity, put it here.
+        :param rule_metadata: Additional rule-specific metadata. Default: - no metadata
+        :param suggested_fix: How to fix the violation. Default: - no fix provided
+        :param acknowledged_id: The acknowledgement ID that caused this violation to be suppressed. Format: ``<plugin-name>::<rule-name>`` (spaces replaced with hyphens).
+        :param acknowledged_at: The construct path where the acknowledgement was declared. Default: - unknown
+        :param acknowledged_stack_trace: Stack trace showing where the acknowledgement was declared. A ``\\n``-delimited string of stack frames. Default: - no stack trace
+        :param reason: The reason given for the acknowledgement, if provided. Default: - no reason given
+
+        Example::
+
+            from aws_cdk.cloud_assembly_schema import SuppressedViolationJson, ViolatingConstructJson
+            from aws_cdk.cloud_assembly_schema import SuppressedViolationJson
+            
+            
+            suppressed = SuppressedViolationJson(
+                rule_name="no-public-access",
+                description="S3 bucket should not allow public access",
+                severity="warning",
+                violating_constructs=[ViolatingConstructJson(construct_path="MyStack/MyBucket")],
+                acknowledged_id="my-plugin::no-public-access"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d30c2aebccffc41eabd242223394f5350d4f260fa6222e87942a3ab62698bb9c)
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument rule_name", value=rule_name, expected_type=type_hints["rule_name"])
+            check_type(argname="argument severity", value=severity, expected_type=type_hints["severity"])
+            check_type(argname="argument violating_constructs", value=violating_constructs, expected_type=type_hints["violating_constructs"])
+            check_type(argname="argument custom_severity", value=custom_severity, expected_type=type_hints["custom_severity"])
+            check_type(argname="argument rule_metadata", value=rule_metadata, expected_type=type_hints["rule_metadata"])
+            check_type(argname="argument suggested_fix", value=suggested_fix, expected_type=type_hints["suggested_fix"])
+            check_type(argname="argument acknowledged_id", value=acknowledged_id, expected_type=type_hints["acknowledged_id"])
+            check_type(argname="argument acknowledged_at", value=acknowledged_at, expected_type=type_hints["acknowledged_at"])
+            check_type(argname="argument acknowledged_stack_trace", value=acknowledged_stack_trace, expected_type=type_hints["acknowledged_stack_trace"])
+            check_type(argname="argument reason", value=reason, expected_type=type_hints["reason"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "description": description,
+            "rule_name": rule_name,
+            "severity": severity,
+            "violating_constructs": violating_constructs,
+            "acknowledged_id": acknowledged_id,
+        }
+        if custom_severity is not None:
+            self._values["custom_severity"] = custom_severity
+        if rule_metadata is not None:
+            self._values["rule_metadata"] = rule_metadata
+        if suggested_fix is not None:
+            self._values["suggested_fix"] = suggested_fix
+        if acknowledged_at is not None:
+            self._values["acknowledged_at"] = acknowledged_at
+        if acknowledged_stack_trace is not None:
+            self._values["acknowledged_stack_trace"] = acknowledged_stack_trace
+        if reason is not None:
+            self._values["reason"] = reason
+
+    @builtins.property
+    def description(self) -> builtins.str:
+        '''A description of the violation.'''
+        result = self._values.get("description")
+        assert result is not None, "Required property 'description' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def rule_name(self) -> builtins.str:
+        '''The name of the rule that was violated.'''
+        result = self._values.get("rule_name")
+        assert result is not None, "Required property 'rule_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def severity(self) -> builtins.str:
+        '''The severity of the violation.'''
+        result = self._values.get("severity")
+        assert result is not None, "Required property 'severity' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def violating_constructs(self) -> typing.List["ViolatingConstructJson"]:
+        '''Constructs that violated the rule.'''
+        result = self._values.get("violating_constructs")
+        assert result is not None, "Required property 'violating_constructs' is missing"
+        return typing.cast(typing.List["ViolatingConstructJson"], result)
+
+    @builtins.property
+    def custom_severity(self) -> typing.Optional[builtins.str]:
+        '''If the plugin wants to report using a non-standard severity, put it here.'''
+        result = self._values.get("custom_severity")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def rule_metadata(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''Additional rule-specific metadata.
+
+        :default: - no metadata
+        '''
+        result = self._values.get("rule_metadata")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def suggested_fix(self) -> typing.Optional[builtins.str]:
+        '''How to fix the violation.
+
+        :default: - no fix provided
+        '''
+        result = self._values.get("suggested_fix")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def acknowledged_id(self) -> builtins.str:
+        '''The acknowledgement ID that caused this violation to be suppressed.
+
+        Format: ``<plugin-name>::<rule-name>`` (spaces replaced with hyphens).
+        '''
+        result = self._values.get("acknowledged_id")
+        assert result is not None, "Required property 'acknowledged_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def acknowledged_at(self) -> typing.Optional[builtins.str]:
+        '''The construct path where the acknowledgement was declared.
+
+        :default: - unknown
+        '''
+        result = self._values.get("acknowledged_at")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def acknowledged_stack_trace(self) -> typing.Optional[builtins.str]:
+        '''Stack trace showing where the acknowledgement was declared.
+
+        A ``\\n``-delimited string of stack frames.
+
+        :default: - no stack trace
+        '''
+        result = self._values.get("acknowledged_stack_trace")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def reason(self) -> typing.Optional[builtins.str]:
+        '''The reason given for the acknowledgement, if provided.
+
+        :default: - no reason given
+        '''
+        result = self._values.get("reason")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SuppressedViolationJson(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.cloud_assembly_schema.Tag",
     jsii_struct_bases=[],
     name_mapping={"key": "key", "value": "value"},
@@ -7887,6 +8540,7 @@ class Tag:
     jsii_type="aws-cdk-lib.cloud_assembly_schema.TestOptions",
     jsii_struct_bases=[],
     name_mapping={
+        "allow_delete_failures": "allowDeleteFailures",
         "allow_destroy": "allowDestroy",
         "cdk_command_options": "cdkCommandOptions",
         "diff_assets": "diffAssets",
@@ -7899,6 +8553,7 @@ class TestOptions:
     def __init__(
         self,
         *,
+        allow_delete_failures: typing.Optional[builtins.bool] = None,
         allow_destroy: typing.Optional[typing.Sequence[builtins.str]] = None,
         cdk_command_options: typing.Optional[typing.Union["CdkCommands", typing.Dict[builtins.str, typing.Any]]] = None,
         diff_assets: typing.Optional[builtins.bool] = None,
@@ -7908,6 +8563,7 @@ class TestOptions:
     ) -> None:
         '''The set of options to control the workflow of the test runner.
 
+        :param allow_delete_failures: Whether to allow resources that fail to delete during a stack update. When false, the test will fail if CloudFormation skips deleting a resource during a stack update. When true, only a warning is printed. Default: false
         :param allow_destroy: List of CloudFormation resource types in this stack that can be destroyed as part of an update without failing the test. This list should only include resources that for this specific integration test we are sure will not cause errors or an outage if destroyed. For example, maybe we know that a new resource will be created first before the old resource is destroyed which prevents any outage. e.g. ['AWS::IAM::Role'] Default: - do not allow destruction of any resources on update
         :param cdk_command_options: Additional options to use for each CDK command. Default: - runner default options
         :param diff_assets: Whether or not to include asset hashes in the diff Asset hashes can introduces a lot of unneccessary noise into tests, but there are some cases where asset hashes *should* be included. For example any tests involving custom resources or bundling Default: false
@@ -7925,6 +8581,7 @@ class TestOptions:
             from aws_cdk import cloud_assembly_schema
             
             test_options = TestOptions(
+                allow_delete_failures=False,
                 allow_destroy=["allowDestroy"],
                 cdk_command_options=CdkCommands(
                     deploy=DeployCommand(
@@ -8027,6 +8684,7 @@ class TestOptions:
             hooks = Hooks(**hooks)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__87885fac73fc14075c22fe051717d21aa5da7c4113e34310cff21b849bc534d7)
+            check_type(argname="argument allow_delete_failures", value=allow_delete_failures, expected_type=type_hints["allow_delete_failures"])
             check_type(argname="argument allow_destroy", value=allow_destroy, expected_type=type_hints["allow_destroy"])
             check_type(argname="argument cdk_command_options", value=cdk_command_options, expected_type=type_hints["cdk_command_options"])
             check_type(argname="argument diff_assets", value=diff_assets, expected_type=type_hints["diff_assets"])
@@ -8034,6 +8692,8 @@ class TestOptions:
             check_type(argname="argument regions", value=regions, expected_type=type_hints["regions"])
             check_type(argname="argument stack_update_workflow", value=stack_update_workflow, expected_type=type_hints["stack_update_workflow"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if allow_delete_failures is not None:
+            self._values["allow_delete_failures"] = allow_delete_failures
         if allow_destroy is not None:
             self._values["allow_destroy"] = allow_destroy
         if cdk_command_options is not None:
@@ -8046,6 +8706,18 @@ class TestOptions:
             self._values["regions"] = regions
         if stack_update_workflow is not None:
             self._values["stack_update_workflow"] = stack_update_workflow
+
+    @builtins.property
+    def allow_delete_failures(self) -> typing.Optional[builtins.bool]:
+        '''Whether to allow resources that fail to delete during a stack update.
+
+        When false, the test will fail if CloudFormation skips deleting a resource
+        during a stack update. When true, only a warning is printed.
+
+        :default: false
+        '''
+        result = self._values.get("allow_delete_failures")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def allow_destroy(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -8248,6 +8920,143 @@ class UnconfiguredBehavesLike:
 
     def __repr__(self) -> str:
         return "UnconfiguredBehavesLike(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.cloud_assembly_schema.ViolatingConstructJson",
+    jsii_struct_bases=[],
+    name_mapping={
+        "construct_path": "constructPath",
+        "cloud_formation_resource": "cloudFormationResource",
+        "construct_fqn": "constructFqn",
+        "library_version": "libraryVersion",
+        "stack_traces": "stackTraces",
+    },
+)
+class ViolatingConstructJson:
+    def __init__(
+        self,
+        *,
+        construct_path: builtins.str,
+        cloud_formation_resource: typing.Optional[typing.Union["CloudFormationResourceJson", typing.Dict[builtins.str, typing.Any]]] = None,
+        construct_fqn: typing.Optional[builtins.str] = None,
+        library_version: typing.Optional[builtins.str] = None,
+        stack_traces: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''A construct that violated a policy rule.
+
+        :param construct_path: The construct path as defined in the application. Default: - no construct path
+        :param cloud_formation_resource: If this construct violation regards a CloudFormation resource, a reference to the resource details.
+        :param construct_fqn: The fully qualified name of the construct class (includes the library name). Default: - no construct info
+        :param library_version: The version of the library that contains this construct. The library name is the first component of the construct FQN. Default: - no version info
+        :param stack_traces: Stack traces associated with this violation. This can be all the stack traces where a violating property got its value, or just the construct creation stack trace. Every element of the array is a stack trace, where each stack trace is a ``\\n``-delimited string. Default: - No stack traces
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk.cloud_assembly_schema import ViolatingConstructJson, CloudFormationResourceJson
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import cloud_assembly_schema
+            
+            violating_construct_json = ViolatingConstructJson(
+                construct_path="constructPath",
+            
+                # the properties below are optional
+                cloud_formation_resource=CloudFormationResourceJson(
+                    logical_id="logicalId",
+                    template_path="templatePath",
+            
+                    # the properties below are optional
+                    property_paths=["propertyPaths"]
+                ),
+                construct_fqn="constructFqn",
+                library_version="libraryVersion",
+                stack_traces=["stackTraces"]
+            )
+        '''
+        if isinstance(cloud_formation_resource, dict):
+            cloud_formation_resource = CloudFormationResourceJson(**cloud_formation_resource)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fdf6572ca3a8d3437bf84fb32e61d27af367f5845f78fef3306f6fffcf7b5ff5)
+            check_type(argname="argument construct_path", value=construct_path, expected_type=type_hints["construct_path"])
+            check_type(argname="argument cloud_formation_resource", value=cloud_formation_resource, expected_type=type_hints["cloud_formation_resource"])
+            check_type(argname="argument construct_fqn", value=construct_fqn, expected_type=type_hints["construct_fqn"])
+            check_type(argname="argument library_version", value=library_version, expected_type=type_hints["library_version"])
+            check_type(argname="argument stack_traces", value=stack_traces, expected_type=type_hints["stack_traces"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "construct_path": construct_path,
+        }
+        if cloud_formation_resource is not None:
+            self._values["cloud_formation_resource"] = cloud_formation_resource
+        if construct_fqn is not None:
+            self._values["construct_fqn"] = construct_fqn
+        if library_version is not None:
+            self._values["library_version"] = library_version
+        if stack_traces is not None:
+            self._values["stack_traces"] = stack_traces
+
+    @builtins.property
+    def construct_path(self) -> builtins.str:
+        '''The construct path as defined in the application.
+
+        :default: - no construct path
+        '''
+        result = self._values.get("construct_path")
+        assert result is not None, "Required property 'construct_path' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def cloud_formation_resource(self) -> typing.Optional["CloudFormationResourceJson"]:
+        '''If this construct violation regards a CloudFormation resource, a reference to the resource details.'''
+        result = self._values.get("cloud_formation_resource")
+        return typing.cast(typing.Optional["CloudFormationResourceJson"], result)
+
+    @builtins.property
+    def construct_fqn(self) -> typing.Optional[builtins.str]:
+        '''The fully qualified name of the construct class (includes the library name).
+
+        :default: - no construct info
+        '''
+        result = self._values.get("construct_fqn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def library_version(self) -> typing.Optional[builtins.str]:
+        '''The version of the library that contains this construct.
+
+        The library name is the first component of the construct FQN.
+
+        :default: - no version info
+        '''
+        result = self._values.get("library_version")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def stack_traces(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Stack traces associated with this violation.
+
+        This can be all the stack traces where a violating property got its value,
+        or just the construct creation stack trace.
+
+        Every element of the array is a stack trace, where each stack trace is a ``\\n``-delimited string.
+
+        :default: - No stack traces
+        '''
+        result = self._values.get("stack_traces")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ViolatingConstructJson(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -9243,6 +10052,7 @@ class LoadBalancerContextQuery(LoadBalancerFilter):
     jsii_type="aws-cdk-lib.cloud_assembly_schema.TestCase",
     jsii_struct_bases=[TestOptions],
     name_mapping={
+        "allow_delete_failures": "allowDeleteFailures",
         "allow_destroy": "allowDestroy",
         "cdk_command_options": "cdkCommandOptions",
         "diff_assets": "diffAssets",
@@ -9258,6 +10068,7 @@ class TestCase(TestOptions):
     def __init__(
         self,
         *,
+        allow_delete_failures: typing.Optional[builtins.bool] = None,
         allow_destroy: typing.Optional[typing.Sequence[builtins.str]] = None,
         cdk_command_options: typing.Optional[typing.Union["CdkCommands", typing.Dict[builtins.str, typing.Any]]] = None,
         diff_assets: typing.Optional[builtins.bool] = None,
@@ -9270,6 +10081,7 @@ class TestCase(TestOptions):
     ) -> None:
         '''Represents an integration test case.
 
+        :param allow_delete_failures: Whether to allow resources that fail to delete during a stack update. When false, the test will fail if CloudFormation skips deleting a resource during a stack update. When true, only a warning is printed. Default: false
         :param allow_destroy: List of CloudFormation resource types in this stack that can be destroyed as part of an update without failing the test. This list should only include resources that for this specific integration test we are sure will not cause errors or an outage if destroyed. For example, maybe we know that a new resource will be created first before the old resource is destroyed which prevents any outage. e.g. ['AWS::IAM::Role'] Default: - do not allow destruction of any resources on update
         :param cdk_command_options: Additional options to use for each CDK command. Default: - runner default options
         :param diff_assets: Whether or not to include asset hashes in the diff Asset hashes can introduces a lot of unneccessary noise into tests, but there are some cases where asset hashes *should* be included. For example any tests involving custom resources or bundling Default: false
@@ -9293,6 +10105,7 @@ class TestCase(TestOptions):
                 stacks=["stacks"],
             
                 # the properties below are optional
+                allow_delete_failures=False,
                 allow_destroy=["allowDestroy"],
                 assertion_stack="assertionStack",
                 assertion_stack_name="assertionStackName",
@@ -9397,6 +10210,7 @@ class TestCase(TestOptions):
             hooks = Hooks(**hooks)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__db3fe7ed770cad2fbb895987d45a3a52df9ebdb3b3e8652039785a2999e6f883)
+            check_type(argname="argument allow_delete_failures", value=allow_delete_failures, expected_type=type_hints["allow_delete_failures"])
             check_type(argname="argument allow_destroy", value=allow_destroy, expected_type=type_hints["allow_destroy"])
             check_type(argname="argument cdk_command_options", value=cdk_command_options, expected_type=type_hints["cdk_command_options"])
             check_type(argname="argument diff_assets", value=diff_assets, expected_type=type_hints["diff_assets"])
@@ -9409,6 +10223,8 @@ class TestCase(TestOptions):
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "stacks": stacks,
         }
+        if allow_delete_failures is not None:
+            self._values["allow_delete_failures"] = allow_delete_failures
         if allow_destroy is not None:
             self._values["allow_destroy"] = allow_destroy
         if cdk_command_options is not None:
@@ -9425,6 +10241,18 @@ class TestCase(TestOptions):
             self._values["assertion_stack"] = assertion_stack
         if assertion_stack_name is not None:
             self._values["assertion_stack_name"] = assertion_stack_name
+
+    @builtins.property
+    def allow_delete_failures(self) -> typing.Optional[builtins.bool]:
+        '''Whether to allow resources that fail to delete during a stack update.
+
+        When false, the test will fail if CloudFormation skips deleting a resource
+        during a stack update. When true, only a warning is printed.
+
+        :default: false
+        '''
+        result = self._values.get("allow_delete_failures")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def allow_destroy(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -9547,6 +10375,7 @@ __all__ = [
     "CcApiContextQuery",
     "CdkCommand",
     "CdkCommands",
+    "CloudFormationResourceJson",
     "ContainerImageAssetCacheOption",
     "ContainerImageAssetMetadataEntry",
     "ContextLookupRoleOptions",
@@ -9584,16 +10413,21 @@ __all__ = [
     "MissingContext",
     "NestedCloudAssemblyProperties",
     "PluginContextQuery",
+    "PluginReportJson",
+    "PolicyValidationReportJson",
+    "PolicyViolationJson",
     "PropertyMutationMetadataEntry",
     "RequireApproval",
     "RuntimeInfo",
     "SSMParameterContextQuery",
     "SecurityGroupContextQuery",
+    "SuppressedViolationJson",
     "Tag",
     "TestCase",
     "TestOptions",
     "TreeArtifactProperties",
     "UnconfiguredBehavesLike",
+    "ViolatingConstructJson",
     "VpcContextQuery",
 ]
 
@@ -9704,6 +10538,15 @@ def _typecheckingstub__95ac9609e4f4d0c031d4e642395354b784dff236227aa06f3731df5f7
     *,
     deploy: typing.Optional[typing.Union[DeployCommand, typing.Dict[builtins.str, typing.Any]]] = None,
     destroy: typing.Optional[typing.Union[DestroyCommand, typing.Dict[builtins.str, typing.Any]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0a133e2bbded2b7fd078b172492fd6c23f0041e77c72d0403218d9071e1e4900(
+    *,
+    logical_id: builtins.str,
+    template_path: builtins.str,
+    property_paths: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10106,6 +10949,12 @@ def _typecheckingstub__633f66b76e82fdca841018e97eb59fc4ea9aa150a20d1e0b3a69fbf50
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__5273b743ff8d5d8e0340c8076476cf3a2c232d0ec30a51aef55a20f9762f3f41(
+    file_path: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__1461b7e78a2d33c07931bce60df24a9c3db0ca9beb19b2f02d9d86e262073ffa(
     manifest: typing.Union[AssemblyManifest, typing.Dict[builtins.str, typing.Any]],
     file_path: builtins.str,
@@ -10160,6 +11009,40 @@ def _typecheckingstub__e904ca937e50d9783874bf1fb0d167b1784afebb80b64c89916b1427d
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__0b848d9165601d29c707960e358566dce4c0330a961ea095e05a2efa0addaad1(
+    *,
+    conclusion: builtins.str,
+    plugin_name: builtins.str,
+    violations: typing.Sequence[typing.Union[PolicyViolationJson, typing.Dict[builtins.str, typing.Any]]],
+    metadata: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    plugin_version: typing.Optional[builtins.str] = None,
+    suppressed_violations: typing.Optional[typing.Sequence[typing.Union[SuppressedViolationJson, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dc980f5571eaf07e2af9ac3f99be12fc5484e5b8a11935e498f7481d1bb8cda2(
+    *,
+    plugin_reports: typing.Sequence[typing.Union[PluginReportJson, typing.Dict[builtins.str, typing.Any]]],
+    version: builtins.str,
+    title: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__96ecca1ae8a134daecf7e42cf25a49b72453a945e75500e4e14558a0e21a9f6c(
+    *,
+    description: builtins.str,
+    rule_name: builtins.str,
+    severity: builtins.str,
+    violating_constructs: typing.Sequence[typing.Union[ViolatingConstructJson, typing.Dict[builtins.str, typing.Any]]],
+    custom_severity: typing.Optional[builtins.str] = None,
+    rule_metadata: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    suggested_fix: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__d76614e0ece1ebf6e51841e3d832ec95115d2de361c44b5670f029f0a0fd398c(
     *,
     property_name: builtins.str,
@@ -10201,6 +11084,23 @@ def _typecheckingstub__ab27bdfc9deaaa99cc0b29d10214dea6da9d91e77b9d18d5a5f9a2b7f
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__d30c2aebccffc41eabd242223394f5350d4f260fa6222e87942a3ab62698bb9c(
+    *,
+    description: builtins.str,
+    rule_name: builtins.str,
+    severity: builtins.str,
+    violating_constructs: typing.Sequence[typing.Union[ViolatingConstructJson, typing.Dict[builtins.str, typing.Any]]],
+    custom_severity: typing.Optional[builtins.str] = None,
+    rule_metadata: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    suggested_fix: typing.Optional[builtins.str] = None,
+    acknowledged_id: builtins.str,
+    acknowledged_at: typing.Optional[builtins.str] = None,
+    acknowledged_stack_trace: typing.Optional[builtins.str] = None,
+    reason: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__2dff2df53008ccb9c0c772f8e5e1040e54c1f5a0e71c6267f41bf1819e91d077(
     *,
     key: builtins.str,
@@ -10211,6 +11111,7 @@ def _typecheckingstub__2dff2df53008ccb9c0c772f8e5e1040e54c1f5a0e71c6267f41bf1819
 
 def _typecheckingstub__87885fac73fc14075c22fe051717d21aa5da7c4113e34310cff21b849bc534d7(
     *,
+    allow_delete_failures: typing.Optional[builtins.bool] = None,
     allow_destroy: typing.Optional[typing.Sequence[builtins.str]] = None,
     cdk_command_options: typing.Optional[typing.Union[CdkCommands, typing.Dict[builtins.str, typing.Any]]] = None,
     diff_assets: typing.Optional[builtins.bool] = None,
@@ -10232,6 +11133,17 @@ def _typecheckingstub__caf7f415b13e4b8b8fe665a8c3c45311cfc86ffd8c0d9404530f34ee2
     *,
     v1: typing.Any = None,
     v2: typing.Any = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fdf6572ca3a8d3437bf84fb32e61d27af367f5845f78fef3306f6fffcf7b5ff5(
+    *,
+    construct_path: builtins.str,
+    cloud_formation_resource: typing.Optional[typing.Union[CloudFormationResourceJson, typing.Dict[builtins.str, typing.Any]]] = None,
+    construct_fqn: typing.Optional[builtins.str] = None,
+    library_version: typing.Optional[builtins.str] = None,
+    stack_traces: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10310,6 +11222,7 @@ def _typecheckingstub__684496ae759db19b352bca3cc225ef7242df94dfd04fc23412be9b315
 
 def _typecheckingstub__db3fe7ed770cad2fbb895987d45a3a52df9ebdb3b3e8652039785a2999e6f883(
     *,
+    allow_delete_failures: typing.Optional[builtins.bool] = None,
     allow_destroy: typing.Optional[typing.Sequence[builtins.str]] = None,
     cdk_command_options: typing.Optional[typing.Union[CdkCommands, typing.Dict[builtins.str, typing.Any]]] = None,
     diff_assets: typing.Optional[builtins.bool] = None,

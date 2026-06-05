@@ -1,6 +1,6 @@
 [project]
 name = "notebooklm-py"
-version = "0.6.0"
+version = "0.7.0"
 description = "Unofficial Python library for automating Google NotebookLM"
 dynamic = ["readme"]
 requires-python = ">=3.10"
@@ -54,7 +54,7 @@ dev = [
     "python-dotenv>=1.0.0,<2",
     "mypy>=1.0.0,<3",
     "pre-commit>=4.5.1,<5",
-    "ruff==0.15.14",
+    "ruff==0.15.15",
     "tomli>=2.0.0,<3; python_version < '3.11'",  # for tests/unit/test_install_docs.py on Python 3.10 (tomllib is 3.11+)
     "vcrpy>=6.0.0,<9",
     "packaging>=23.0,<27",  # for tests/unit/test_version_gate.py (PEP 440 version parsing)
@@ -141,7 +141,7 @@ fail_under = 90
 # rationale in the commit message.
 [tool.notebooklm.per_file_coverage_floors]
 "src/notebooklm/__main__.py" = 0
-"src/notebooklm/cli/_firefox_containers.py" = 75
+"src/notebooklm/cli/_firefox_containers.py" = 95
 "src/notebooklm/cli/doctor_cmd.py" = 63
 "src/notebooklm/cli/profile_cmd.py" = 74
 "src/notebooklm/cli/session_cmd.py" = 83

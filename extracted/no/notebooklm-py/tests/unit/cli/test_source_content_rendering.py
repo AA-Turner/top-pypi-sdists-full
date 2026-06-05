@@ -13,7 +13,7 @@ from click.testing import CliRunner
 from notebooklm.notebooklm_cli import cli
 from notebooklm.types import Source, SourceFulltext
 
-from .conftest import create_mock_client
+from .conftest import create_mock_client, source_guide
 
 
 @contextmanager
@@ -55,7 +55,7 @@ def test_source_get_not_found_renderer_exits_one(
 ) -> None:
     source_id = "11111111-2222-3333-4444-555555555555"
     client = create_mock_client()
-    client.sources.get = AsyncMock(return_value=None)
+    client.sources.get_or_none = AsyncMock(return_value=None)
     args = ["source", "get", source_id, "-n", "nb_123"]
     if json_output:
         args.append("--json")
@@ -430,7 +430,7 @@ def test_source_guide_empty_text_renderer_uses_empty_state(
 ) -> None:
     client = _client_resolving_source()
     client.sources.get_guide = AsyncMock(
-        return_value={"summary": "  ", "keywords": ["", "  ", 7, None]}
+        return_value=source_guide({"summary": "  ", "keywords": ["", "  ", 7, None]})
     )
 
     with _patched_source_client(client):
@@ -449,7 +449,9 @@ def test_source_guide_populated_renderer_strips_keywords(
 ) -> None:
     client = _client_resolving_source()
     client.sources.get_guide = AsyncMock(
-        return_value={"summary": "Summary text", "keywords": [" alpha ", "", "beta", "  "]}
+        return_value=source_guide(
+            {"summary": "Summary text", "keywords": [" alpha ", "", "beta", "  "]}
+        )
     )
     args = ["source", "guide", "src_1", "-n", "nb_123"]
     if json_output:

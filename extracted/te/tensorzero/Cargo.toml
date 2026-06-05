@@ -3,8 +3,8 @@ members = ["autopilot-client", "bip39-uuid-substitution", "durable-tools", "dura
 resolver = "2"
 
 [workspace.package]
-version = "2026.5.2"
-rust-version = "1.93.0"
+version = "2026.6.0"
+rust-version = "1.94.0"
 license = "Apache-2.0"
 edition = "2024"
 
@@ -59,16 +59,32 @@ ts-rs = { version = "12.0.1", features = [
     "chrono-impl",
     "no-serde-warnings",
 ] }
-pin-project = "1.1.12"
+pin-project = "1.1.13"
 chrono = { version = "0.4.43", features = ["serde"] }
-tracing-opentelemetry-instrumentation-sdk = { version = "0.32.5", features = [
+opentelemetry = "0.32.0"
+opentelemetry-http = "0.32.0"
+opentelemetry-otlp = { version = "0.32.0", default-features = false, features = [
+    "grpc-tonic",
+    "tls",
+    "tls-roots",
+    "http-proto",
+    "trace",
+    "metrics",
+    "logs",
+    "internal-logs",
+] }
+opentelemetry-semantic-conventions = "0.32.0"
+opentelemetry_sdk = "0.32.0"
+tracing-opentelemetry = "0.33.0"
+init-tracing-opentelemetry = { version = "0.38.0", features = ["xray"] }
+tracing-opentelemetry-instrumentation-sdk = { version = "0.38.0", features = [
     "tracing_level_info",
 ] }
 tower-http = { version = "0.6.10", features = ["trace"] }
 mime = { git = "https://github.com/hyperium/mime", rev = "1ef137c7358fc64e07c8a640e4e9ba2a784b7f7d", features = [
     "serde1",
 ] }
-sqlx = { version = "0.9.0-alpha.1", features = [
+sqlx = { version = "0.9.0", features = [
     "runtime-tokio",
     "tls-rustls",
     "postgres",

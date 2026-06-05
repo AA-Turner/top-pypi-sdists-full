@@ -1,21 +1,21 @@
 use crate::basis::{
     BSplineBasisSpec, BSplineBoundaryConditions, BSplineEndpointBoundaryCondition,
     BSplineIdentifiability, BSplineKnotSpec, BasisBuildResult, BasisError, BasisMetadata,
-    BasisOptions, BasisPsiDerivativeResult, BasisPsiSecondDerivativeResult, CenterStrategy,
-    CenterStrategyKind, Dense, DuchonBasisSpec, DuchonNullspaceOrder, DuchonOperatorPenaltySpec,
-    KnotSource, KroneckerFactoredBasis, MaternBasisSpec, MaternIdentifiability,
-    OneDimensionalBoundary, PenaltyCandidate, PenaltyInfo, PenaltySource, SpatialIdentifiability,
-    SphericalSplineBasisSpec, SphericalSplineIdentifiability, ThinPlateBasisSpec,
-    apply_sum_to_zero_constraint, build_bspline_basis_1d, build_duchon_basis,
-    build_duchon_basis_log_kappa_derivatives, build_duchon_basiswithworkspace, build_matern_basis,
-    build_matern_basis_log_kappa_aniso_derivatives, build_matern_basis_log_kappa_derivatives,
-    build_matern_basiswithworkspace, build_matern_collocation_operator_matrices,
-    build_spherical_spline_basis, build_thin_plate_basis,
-    build_thin_plate_basis_log_kappa_derivatives, center_strategy_is_auto, center_strategy_kind,
-    center_strategy_num_centers, center_strategy_with_num_centers, estimate_penalty_nullity,
-    filter_active_penalty_candidates, filter_active_penalty_candidates_with_ops,
-    initial_aniso_contrasts, orthogonality_transform_for_design, pairwise_distance_bounds,
-    pairwise_distance_bounds_sampled, points_in_aniso_y_space, select_centers_by_strategy,
+    BasisOptions, BasisPsiDerivativeResult, BasisPsiSecondDerivativeResult, BasisWorkspace,
+    CenterStrategy, CenterStrategyKind, Dense, DuchonBasisSpec, KnotSource, KroneckerFactoredBasis,
+    MaternBasisSpec, MaternIdentifiability, OneDimensionalBoundary, PenaltyCandidate, PenaltyInfo,
+    PenaltySource, SpatialIdentifiability, SphericalSplineBasisSpec,
+    SphericalSplineIdentifiability, ThinPlateBasisSpec, apply_sum_to_zero_constraint,
+    build_bspline_basis_1d, build_duchon_basis, build_duchon_basiswithworkspace,
+    build_matern_basis, build_matern_basis_log_kappa_aniso_derivatives,
+    build_matern_basis_log_kappa_derivatives, build_matern_basiswithworkspace,
+    build_matern_collocation_operator_matrices, build_spherical_spline_basis,
+    build_thin_plate_basis, build_thin_plate_basis_log_kappa_derivatives, center_strategy_is_auto,
+    center_strategy_kind, center_strategy_num_centers, center_strategy_with_num_centers,
+    estimate_penalty_nullity, filter_active_penalty_candidates,
+    filter_active_penalty_candidates_with_ops, initial_aniso_contrasts,
+    orthogonality_transform_for_design, pairwise_distance_bounds, pairwise_distance_bounds_sampled,
+    points_in_aniso_y_space, select_centers_by_strategy,
 };
 use crate::construction::{
     kronecker_logdet_and_derivatives, kronecker_marginal_eigensystems, kronecker_product,
@@ -50,7 +50,7 @@ use crate::types::{
 };
 use crate::util::quantile::quantile_from_sorted;
 use faer::sparse::{SparseColMat, Triplet};
-use ndarray::{Array1, Array2, ArrayView1, ArrayView2, ArrayViewMut2, s};
+use ndarray::{Array1, Array2, ArrayView1, ArrayView2, ArrayViewMut2, Axis, s};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 use std::f64;
@@ -539,14 +539,55 @@ impl SmoothBasisSpec {
             | Self::Duchon { .. } => RADIAL_FLOOR,
             Self::Pca { basis_matrix, .. } => basis_matrix.ncols().max(1),
             Self::TensorBSpline { spec, .. } => {
-                // Tensor-product column count is the product of per-marginal
-                // column counts; a TensorMarginalSpec::Categorical without a
-                // frozen level list cannot be sized from the spec alone, so
-                // we fall back to the radial floor for that margin.
-                let mut total: usize = 1;
+                // A `te(...)` smooth is *penalized*: each margin carries a
+                // difference (wiggliness) penalty and the tensor inherits a
+                // Kronecker-sum penalty `S = Σ_i I ⊗ … ⊗ S_i ⊗ … ⊗ I`. The raw
+                // column count is the *product* of the per-marginal column
+                // counts, but that product is the lower bound for an
+                // *unpenalized* tensor regression — it is the number of rows you
+                // would need to identify every interaction column with no
+                // regularization. The penalty regularizes all of those
+                // interaction directions; only the combined penalty *null space*
+                // (the tensor product of the per-margin polynomial trends, a
+                // handful of columns) must be identified by the data, and the
+                // smoothing-parameter search shrinks the rest. The effective
+                // degrees of freedom of the fitted `te()` are therefore a small
+                // fraction of the column product, which is exactly why mgcv
+                // fits a default `te(x, y)` on a couple hundred rows.
+                //
+                // The honest *penalized* lower bound is the **sum** of the
+                // per-marginal column counts, not their product: a row floor of
+                // `Σ_i k_i` still guarantees enough data to identify each
+                // margin's additive main-effect (the largest sub-block the
+                // penalty cannot shrink to zero), while no longer conflating
+                // unpenalized column-count identifiability with penalized
+                // well-posedness. This accepts moderate-`n` penalized tensors
+                // (e.g. a 20×20 default basis on n=200) yet still rejects a
+                // genuinely undersized fit where `n < Σ_i k_i` and even the
+                // additive part is rank-deficient.
+                //
+                // Binary / low-cardinality margins (#724): gam will accept a
+                // `te(x, badh)` whose `badh ∈ {0, 1}` margin nominally requests
+                // more basis columns than `badh` has unique values, where mgcv
+                // refuses the unpenalized term as ill-posed ("badh has
+                // insufficient unique values to support k knots"). This is
+                // correct-by-design, *not* a degenerate fit: the marginal
+                // wiggliness penalty on the `badh` axis has a null space that is
+                // exactly its identifiable trend (the two cell means of a binary
+                // covariate), and the Kronecker-sum penalty shrinks every tensor
+                // column outside that null space toward zero. The resulting fit
+                // is the well-posed "per-level `x` smooth + binary main effect"
+                // that mgcv reaches only after manually collapsing the basis —
+                // gam reaches it automatically because the penalty, not the raw
+                // column count, sets the effective rank. A genuinely
+                // rank-deficient design (penalty null space wider than the data
+                // can support) is still caught downstream by the inner pivoted
+                // factorization, which owns the exact n-vs-rank decision; this
+                // pre-fit gate only refuses the grossly-undersized formula.
+                let mut total: usize = 0;
                 for marginal in &spec.marginalspecs {
                     let m = bspline_basis_min_rows(marginal);
-                    total = total.saturating_mul(m.max(1));
+                    total = total.saturating_add(m.max(1));
                 }
                 total.max(RADIAL_FLOOR)
             }
@@ -877,9 +918,12 @@ pub struct LinearTermSpec {
     /// design column. `len() >= 1`; `len() == 1` is a plain linear effect.
     #[serde(default)]
     pub feature_cols: Vec<usize>,
-    /// Default ridge penalty on this linear coefficient.
-    /// Non-intercept linear terms are penalized by default; set false only to
-    /// opt into an explicitly unpenalized parametric effect.
+    /// Optional ridge (`S = I`, REML-selected `λ`) on this linear coefficient.
+    /// A parametric linear term carries no wiggliness, so it is **unpenalized by
+    /// default** — gam reports the MLE, matching mgcv/glm/survreg/VGAM (which
+    /// penalize parametric terms only under an explicit `paraPen`). Set `true`
+    /// to opt into an explicit shrinkage ridge (a zero-mean Gaussian prior
+    /// `β ~ N(0, λ⁻¹)`); doing so adds one outer REML smoothing coordinate.
     #[serde(default = "default_linear_term_double_penalty")]
     pub double_penalty: bool,
     #[serde(default)]
@@ -908,7 +952,14 @@ impl LinearTermSpec {
 }
 
 const fn default_linear_term_double_penalty() -> bool {
-    true
+    // Parametric/linear terms are unpenalized by default — a single linear
+    // coefficient has no roughness for a smoothing penalty to control, so the
+    // historical `S = I`, REML-selected `λ` shrank every linear coefficient off
+    // the MLE and injected a spurious outer smoothing coordinate (#749). Mature
+    // tools (mgcv/glm/survreg/VGAM) leave parametric terms unpenalized; gam now
+    // matches that and reports the MLE. An explicit `double_penalty = true`
+    // still opts a term into a ridge.
+    false
 }
 
 const fn default_pca_smooth_penalty() -> f64 {
@@ -2753,6 +2804,17 @@ fn center_aniso_log_scales(eta: &[f64]) -> Vec<f64> {
 }
 
 fn spatial_term_supports_hyper_optimization(spec: &TermCollectionSpec, term_idx: usize) -> bool {
+    // Ordinary penalized thin-plate regression splines do not have an
+    // identifiable kernel scale once REML is already learning the smoothing
+    // penalty. Treat the resolved length scale as fixed geometry; enrolling a
+    // scalar TPS kappa axis creates the flat ρ/κ valleys reported in #718,
+    // #721, #731, and #732.
+    if let Some(term) = spec.smooth_terms.get(term_idx)
+        && let SmoothBasisSpec::ThinPlate { .. } = &term.basis
+    {
+        return false;
+    }
+
     // Duchon anisotropy η is a FIXED, geometry-derived basis parameter, NOT a
     // REML hyper axis: the metric is estimated once from the knot-cloud spread
     // (`maybe_initialize_aniso_contrasts`, applied on every basis build) and the
@@ -2785,8 +2847,9 @@ fn spatial_term_supports_hyper_optimization(spec: &TermCollectionSpec, term_idx:
 }
 
 /// Returns `true` when a spatial term has NO outer optimization axes — i.e.
-/// the user provided an explicit `length_scale` without enabling anisotropy,
-/// so both the scalar κ and per-axis ψ contrasts are fixed.
+/// the user provided an explicit `length_scale` and the term does not enroll
+/// REML-side per-axis ψ contrasts, so both the scalar κ and any fixed geometry
+/// anisotropy are anchored.
 ///
 /// This is the per-term predicate that distinguishes "fixed kernel scale"
 /// from "optimize the kernel scale" within the family entry points that
@@ -2794,12 +2857,8 @@ fn spatial_term_supports_hyper_optimization(spec: &TermCollectionSpec, term_idx:
 /// marginal-slope, where the joint-spatial outer solver otherwise spends
 /// ~80 iters stalled on the user's chosen ρ at high gradient).
 pub fn spatial_term_has_locked_kappa(spec: &TermCollectionSpec, term_idx: usize) -> bool {
-    let aniso = get_spatial_aniso_log_scales(spec, term_idx);
-    let aniso_active = matches!(
-        (aniso.as_ref(), get_spatial_feature_dim(spec, term_idx)),
-        (Some(eta), Some(d)) if eta.len() == d && d > 0
-    );
-    get_spatial_length_scale(spec, term_idx).is_some() && !aniso_active
+    get_spatial_length_scale(spec, term_idx).is_some()
+        && !spatial_term_uses_per_axis_psi(spec, term_idx)
 }
 
 /// Per-term data-derived ψ = log κ bounds.
@@ -3693,7 +3752,23 @@ fn auto_initial_length_scale(data: ArrayView2<'_, f64>, feature_cols: &[usize]) 
 /// was left at the auto sentinel (`0.0`), overwrite it with
 /// [`auto_initial_length_scale`].
 fn auto_init_length_scale_in_place(data: ArrayView2<'_, f64>, term: &mut SmoothTermSpec) {
-    match &mut term.basis {
+    auto_init_length_scale_in_basis(data, &mut term.basis);
+}
+
+/// Replace the `0.0` auto-init length-scale sentinel with a data-derived value
+/// for any Matern / thin-plate kernel reachable from this basis — including the
+/// inner kernel of a `by=`/factor-smooth wrapper.
+///
+/// `by=<factor>` and the sum-to-zero factor smooth wrap a spatial kernel inside
+/// `SmoothBasisSpec::ByVariable` / `SmoothBasisSpec::FactorSumToZero` /
+/// `SmoothBasisSpec::BySmooth`, so the wrapper variant is what the planner sees.
+/// Without recursing into the wrapped basis the inner ThinPlate/Matern keeps the
+/// `0.0` sentinel (the post-`1605b3a6e` builder default), which makes the kernel
+/// distance divide by `length_scale² = 0`, producing a non-finite design at both
+/// fit and predict time. Recurse so the inner kernel is initialized identically
+/// to a top-level one.
+fn auto_init_length_scale_in_basis(data: ArrayView2<'_, f64>, basis: &mut SmoothBasisSpec) {
+    match basis {
         SmoothBasisSpec::Matern {
             feature_cols, spec, ..
         } => {
@@ -3707,6 +3782,13 @@ fn auto_init_length_scale_in_place(data: ArrayView2<'_, f64>, term: &mut SmoothT
             if spec.length_scale == 0.0 {
                 spec.length_scale = auto_initial_length_scale(data, feature_cols);
             }
+        }
+        SmoothBasisSpec::ByVariable { inner, .. }
+        | SmoothBasisSpec::FactorSumToZero { inner, .. } => {
+            auto_init_length_scale_in_basis(data, inner);
+        }
+        SmoothBasisSpec::BySmooth { smooth, .. } => {
+            auto_init_length_scale_in_basis(data, smooth);
         }
         _ => {}
     }
@@ -4091,6 +4173,7 @@ fn freeze_raw_spatial_metadata(metadata: BasisMetadata, raw_cols: usize) -> Basi
             identifiability_transform: None,
             input_scales,
             aniso_log_scales,
+            operator_collocation_points,
         } => BasisMetadata::Duchon {
             centers,
             length_scale,
@@ -4100,6 +4183,7 @@ fn freeze_raw_spatial_metadata(metadata: BasisMetadata, raw_cols: usize) -> Basi
             identifiability_transform: Some(Array2::eye(raw_cols)),
             input_scales,
             aniso_log_scales,
+            operator_collocation_points,
         },
         other => other,
     }
@@ -4116,27 +4200,60 @@ fn matern_operator_penalty_triplet_from_metadata(
         include_intercept,
         identifiability_transform,
         aniso_log_scales,
-        ..
+        input_scales,
     } = metadata
     else {
         crate::bail_invalid_basis!("Matérn operator penalties require Matérn metadata");
+    };
+    // The metadata records `length_scale` in *original* (un-standardized) data
+    // coordinates, while `centers` live in the *standardized* coordinate frame
+    // (per-axis division by `input_scales`). The realized design built the
+    // kernel against those standardized centers using the σ_geom-compensated
+    // effective length scale `length_scale / σ_geom`. The collocation operators
+    // here are evaluated on the same standardized centers, so they must use the
+    // SAME effective length scale — otherwise the penalty regularizes a
+    // different RKHS range than the design lives in, leaving rough coefficient
+    // directions effectively unpenalized. That mismatch is benign in 1-D
+    // (no standardization) but produces a catastrophic out-of-sample blow-up in
+    // d ≥ 2 where σ_geom ≠ 1 (#706).
+    let penalty_length_scale = match input_scales.as_deref() {
+        Some(scales) => compensate_length_scale_for_standardization(*length_scale, scales),
+        None => *length_scale,
     };
     let penalty_centers = crate::basis::expand_periodic_centers(centers, periodic.as_deref())?;
     let ops = build_matern_collocation_operator_matrices(
         penalty_centers.view(),
         None,
-        *length_scale,
+        penalty_length_scale,
         *nu,
         *include_intercept,
         identifiability_transform.as_ref().map(|z| z.view()),
         aniso_log_scales.as_deref(),
     )?;
+    // Gate the operator dials on the Matérn-ν RKHS Sobolev order m = ν + d/2:
+    // the order-j derivative is controlled in L2 iff j ≤ m, so mass (j=0) is
+    // always on, tension (j=1) on for m ≥ 1, stiffness (j=2) on for m ≥ 2. The
+    // roughest kernel ν=1/2 in d=1 (m=1, the exponential/OU H¹ process) thereby
+    // keeps mass+tension but DROPS stiffness — whose 2nd-derivative roughness
+    // its RKHS norm does not control — instead of over-smoothing the oscillation
+    // it is meant to track (#707). The threshold matches
+    // `DuchonOperatorPenaltySpec::matern_for_smoothness`.
+    const ORDER_EPS: f64 = 1e-9;
+    let d = penalty_centers.ncols();
+    let m = nu.half_integer_value() + 0.5 * d as f64;
     let mut candidates = Vec::with_capacity(3);
-    for (raw, source) in [
-        (ops.d0.t().dot(&ops.d0), PenaltySource::OperatorMass),
-        (ops.d1.t().dot(&ops.d1), PenaltySource::OperatorTension),
-        (ops.d2.t().dot(&ops.d2), PenaltySource::OperatorStiffness),
+    for (raw, source, min_order) in [
+        (ops.d0.t().dot(&ops.d0), PenaltySource::OperatorMass, 0.0),
+        (ops.d1.t().dot(&ops.d1), PenaltySource::OperatorTension, 1.0),
+        (
+            ops.d2.t().dot(&ops.d2),
+            PenaltySource::OperatorStiffness,
+            2.0,
+        ),
     ] {
+        if m + ORDER_EPS < min_order {
+            continue;
+        }
         let sym = (&raw + &raw.t()) * 0.5;
         let (matrix, normalization_scale) = normalize_penalty_in_constrained_space(&sym);
         candidates.push(PenaltyCandidate {
@@ -4816,6 +4933,14 @@ fn build_tensor_bspline_basis(
     let mut kronecker_marginal_penalties =
         Vec::<Array2<f64>>::with_capacity(normalized_marginal_penalties.len());
 
+    // Accumulate the Kronecker-sum of the per-margin penalties, `Σ_dim S_dim`,
+    // whose null space is exactly the *joint* null space of all marginal
+    // penalties — the tensor of the marginal polynomial null spaces, i.e. the
+    // bilinear (low-order) directions that no marginal roughness operator
+    // touches. The tensor double penalty (below) shrinks only this joint null,
+    // never the already-penalized interaction range.
+    let mut marginal_kron_sum = Array2::<f64>::zeros((total_cols, total_cols));
+
     for dim in 0..normalized_marginal_penalties.len() {
         let mut s_dim = Array2::<f64>::eye(1);
         let mut factors = Vec::<Array2<f64>>::with_capacity(marginalnum_basis.len());
@@ -4831,6 +4956,7 @@ fn build_tensor_bspline_basis(
         if dim == kronecker_marginal_penalties.len() {
             kronecker_marginal_penalties.push(normalized_marginal_penalties[dim].0.clone());
         }
+        marginal_kron_sum += &s_dim;
 
         candidates.push(PenaltyCandidate {
             matrix: s_dim,
@@ -4843,16 +4969,30 @@ fn build_tensor_bspline_basis(
     }
 
     if spec.double_penalty {
-        let ridge = Array2::<f64>::eye(total_cols);
-        let (matrix, normalization_scale) = normalize_penalty_in_constrained_space(&ridge);
-        candidates.push(PenaltyCandidate {
-            matrix,
-            nullspace_dim_hint: 0,
-            source: PenaltySource::TensorGlobalRidge,
-            normalization_scale,
-            kronecker_factors: None,
-            op: None,
-        });
+        // mgcv `select=TRUE` semantics, mirrored from the 1D double penalty:
+        // the extra penalty shrinks ONLY the directions left unpenalized by the
+        // primary (marginal) penalties — here the joint null space of the
+        // Kronecker-sum `Σ_dim S_dim` (the bilinear tensor null `Z₀ ⊗ Z₁`).
+        // A full identity ridge `I` over *all* tensor coefficients (the prior
+        // behavior) instead penalizes the already-penalized interaction range
+        // as well, and REML/LAML then places positive weight on it and
+        // systematically over-smooths the recovered surface; mgcv's `te`/`ti`
+        // carry no such global ridge. Penalizing the null subspace alone keeps
+        // the interaction range governed solely by the per-margin λ's.
+        if let Some(shrink) =
+            crate::terms::basis::build_nullspace_shrinkage_penalty(&marginal_kron_sum)?
+        {
+            let (matrix, normalization_scale) =
+                normalize_penalty_in_constrained_space(&shrink.sym_penalty);
+            candidates.push(PenaltyCandidate {
+                matrix,
+                nullspace_dim_hint: 0,
+                source: PenaltySource::TensorGlobalRidge,
+                normalization_scale,
+                kronecker_factors: None,
+                op: None,
+            });
+        }
     }
 
     let z_opt = match &spec.identifiability {
@@ -6803,18 +6943,15 @@ fn build_single_local_smooth_term(
     let linear_constraints_local =
         merge_linear_constraints_global(shape_linear_constraints, boundary_linear_constraints);
 
-    // Joint-null absorption rotation. On the fit path `term.joint_null_rotation`
-    // is `None` and we compute Q from the final per-smooth penalty set
-    // (after all in-smooth reparameterizations have already been applied).
-    // On the predict path the resolved `TermCollectionSpec` was frozen from
-    // the fitted `SmoothTerm` via `freeze_term_collection_from_design`, so
-    // `term.joint_null_rotation` carries the *exact* fit-time Q — reuse it
-    // verbatim. Recomputing would produce a Q' that's mathematically
-    // equivalent only up to sign flips on eigenvectors of degenerate
-    // eigenvalues, which would silently break bit-equivalent save → load →
-    // predict because the fitted β lives in the fit-time γ-coordinates.
+    // Joint-null absorption rotation. Fresh fit specs compute Q from the final
+    // per-smooth penalty set (after all in-smooth reparameterizations have
+    // already been applied). Frozen specs already carry the complete realized
+    // coefficient chart in their `FrozenTransform`; recomputing Q there would
+    // rotate an already-frozen chart a second time and desynchronize value
+    // rebuilds from derivative operators.
     let joint_null_rotation = match term.joint_null_rotation.clone() {
         Some(persisted) => Some(persisted),
+        None if smooth_has_frozen_identifiability(term) => None,
         None => crate::terms::basis::compute_joint_null_rotation(&penalties_t)?,
     };
 
@@ -7353,12 +7490,10 @@ fn build_term_collection_design_inner(
         let bp = if let Some(factors) = localinfo.penalty.kronecker_factors.as_ref() {
             BlockwisePenalty::kronecker(offset_range, bp_smooth.local.clone(), factors.clone())
                 .with_op(bp_smooth.op.clone())
-        } else if matches!(localinfo.penalty.source, PenaltySource::TensorGlobalRidge)
-            || matches!(
-                localinfo.penalty.source,
-                PenaltySource::Other(ref s) if s.starts_with("RandomEffectRidge")
-            )
-        {
+        } else if matches!(
+            localinfo.penalty.source,
+            PenaltySource::Other(ref s) if s.starts_with("RandomEffectRidge")
+        ) {
             BlockwisePenalty::ridge(offset_range, 1.0)
         } else {
             BlockwisePenalty::new(offset_range, bp_smooth.local.clone())
@@ -8007,10 +8142,35 @@ fn apply_global_smooth_identifiability(
         local_nullspaces[idx] = nullspace_constrained;
         local_penaltyinfo[idx] = penaltyinfo_constrained;
         local_linear_constraints[idx] = linear_constraints_constrained;
-        local_metadata[idx] = Some(with_identifiability_transform(
-            &term.metadata,
-            z_opt.as_ref(),
-        )?);
+        let realized_transform = match (term.joint_null_rotation.as_ref(), z_opt.as_ref()) {
+            (Some(rotation), Some(z)) => {
+                Some(crate::linalg::faer_ndarray::fast_ab(&rotation.rotation, z))
+            }
+            (Some(rotation), None) => Some(rotation.rotation.clone()),
+            (None, Some(z)) => Some(z.clone()),
+            (None, None) => None,
+        };
+        // Block-replicated factor smooths (`bs="sz"` → `FactorSumToZero`) carry a
+        // PER-MARGINAL metadata (predict rebuilds the single inner marginal then
+        // re-stacks the `L-1` sum-to-zero deviation blocks). Their realized
+        // transform — the joint-null absorption rotation `Q` (and any global
+        // orthogonality `Z`) — lives in the FULL `p·(L-1)`-column design space, so
+        // it cannot be folded into the per-marginal metadata (the dimensions don't
+        // compose: `existing pxr` vs `extra (p·(L-1))x(p·(L-1))`). The raw design
+        // builder already applies `Q` to the re-stacked design and recomputes it
+        // deterministically from the (frozen) penalties at predict time, so the
+        // per-marginal metadata must be left untouched here; folding it in both
+        // crashed basis generation and would double-count `Q` on rebuild (#700).
+        let metadata_is_per_marginal_block =
+            matches!(termspec.basis, SmoothBasisSpec::FactorSumToZero { .. });
+        local_metadata[idx] = if metadata_is_per_marginal_block {
+            Some(term.metadata.clone())
+        } else {
+            Some(with_identifiability_transform(
+                &term.metadata,
+                realized_transform.as_ref(),
+            )?)
+        };
     }
 
     let total_p: usize = local_dims.iter().sum();
@@ -8078,13 +8238,11 @@ fn apply_global_smooth_identifiability(
             linear_constraints_local: local_linear_constraints[idx].clone(),
             // Global orthogonality transforms break Kronecker structure.
             kronecker_factored: None,
-            // Joint-null absorption rotation: the global orthogonality
-            // rebuild path above re-applies an orthogonalizing transform to
-            // `local_penalties`/`local_designs`, which would compose with
-            // any previously-applied joint-null Q in a non-trivial way.
-            // Stage-2 scope drops the cached Q on this path; rebuild-time
-            // re-application is a Stage-3+ follow-up and rebuilt models
-            // skip absorption-based prediction replay until then.
+            // The final raw-basis → coefficient chart, including any
+            // stage-2 joint-null Q and global orthogonality Z, is embedded in
+            // `metadata` above. Keeping Q separately here would apply it twice
+            // on frozen rebuilds and would put derivative operators in a
+            // different chart from the value path.
             joint_null_rotation: None,
         });
         if let Some(lin_local) = &local_linear_constraints[idx] {
@@ -8275,18 +8433,19 @@ fn maybe_smooth_identifiability_transform(
         return Ok(Some(transform.clone()));
     }
 
-    let Some(c) = constraint_block else {
-        return Ok(None);
-    };
-    if c.ncols() == 0 {
-        return Ok(None);
+    if let Some(c) = constraint_block {
+        if c.ncols() == 0 {
+            Ok(None)
+        } else {
+            Ok(Some(orthogonality_transform_for_design(
+                design_local,
+                c,
+                None, // fixed subspace: do not use iteration-varying PIRLS weights
+            )?))
+        }
+    } else {
+        Ok(None)
     }
-    let z = orthogonality_transform_for_design(
-        design_local,
-        c,
-        None, // fixed subspace: do not use iteration-varying PIRLS weights
-    )?;
-    Ok(Some(z))
 }
 
 fn spatial_identifiability_policy(termspec: &SmoothTermSpec) -> Option<&SpatialIdentifiability> {
@@ -8510,6 +8669,7 @@ fn with_identifiability_transform(
             identifiability_transform,
             input_scales,
             aniso_log_scales,
+            operator_collocation_points,
         } => Ok(BasisMetadata::Duchon {
             centers: centers.clone(),
             length_scale: *length_scale,
@@ -8518,6 +8678,7 @@ fn with_identifiability_transform(
             nullspace_order: *nullspace_order,
             input_scales: input_scales.clone(),
             aniso_log_scales: aniso_log_scales.clone(),
+            operator_collocation_points: operator_collocation_points.clone(),
             identifiability_transform: compose_identifiability_transforms(
                 identifiability_transform.as_ref(),
                 transform,
@@ -9666,7 +9827,7 @@ fn extract_spatial_operator_runtime_caches(
         let tension_global_idx = global_base_idx + tension_local;
         let stiffness_global_idx = global_base_idx + stiffness_local;
 
-        let (feature_cols, mut d0, mut d1, mut d2, collocation_points, dim) =
+        let (feature_cols, mut d0, mut d1, mut d2, collocation_points, dim, center_mass_rows) =
             match (&termspec.basis, &term_fit.metadata) {
                 (
                     SmoothBasisSpec::Matern { feature_cols, .. },
@@ -9677,13 +9838,25 @@ fn extract_spatial_operator_runtime_caches(
                         include_intercept,
                         identifiability_transform,
                         aniso_log_scales,
+                        input_scales,
                         ..
                     },
                 ) => {
+                    // Match the σ_geom-compensated effective length scale the
+                    // design (and shipped penalties) use against the standardized
+                    // centers; the raw metadata length_scale lives in original
+                    // coordinates and would put this overlay on a different kernel
+                    // range than the penalties it scales (#706).
+                    let collocation_length_scale = match input_scales.as_deref() {
+                        Some(scales) => {
+                            compensate_length_scale_for_standardization(*length_scale, scales)
+                        }
+                        None => *length_scale,
+                    };
                     let ops = build_matern_collocation_operator_matrices(
                         centers.view(),
                         None,
-                        *length_scale,
+                        collocation_length_scale,
                         *nu,
                         *include_intercept,
                         identifiability_transform.as_ref().map(|z| z.view()),
@@ -9696,17 +9869,61 @@ fn extract_spatial_operator_runtime_caches(
                         ops.d2,
                         ops.collocation_points,
                         centers.ncols(),
+                        false,
                     )
                 }
-                // The redesigned non-periodic/periodic/cyclic Duchon bases ship a
-                // single native reproducing-norm penalty (`Primary`) plus a
-                // null-space shrinkage ridge — never the mass/tension/stiffness
-                // operator triplet the Charbonnier spatial-adaptive overlay
-                // requires. A Duchon term therefore never reaches this match (the
-                // operator-penalty lookup above `continue`s for it), so there is
-                // no Duchon arm here; only Matérn carries the operator triplet.
+                (
+                    SmoothBasisSpec::Duchon { feature_cols, .. },
+                    BasisMetadata::Duchon {
+                        centers,
+                        length_scale,
+                        power,
+                        nullspace_order,
+                        identifiability_transform,
+                        input_scales,
+                        aniso_log_scales,
+                        operator_collocation_points: Some(collocation_points),
+                        ..
+                    },
+                ) => {
+                    let collocation_length_scale = match (length_scale, input_scales.as_deref()) {
+                        (Some(ls), Some(scales)) => {
+                            Some(compensate_length_scale_for_standardization(*ls, scales))
+                        }
+                        (Some(ls), None) => Some(*ls),
+                        (None, _) => None,
+                    };
+                    let ops =
+                        crate::basis::build_duchon_collocation_operator_matriceswithworkspace(
+                            centers.view(),
+                            collocation_points.view(),
+                            None,
+                            collocation_length_scale,
+                            *power,
+                            *nullspace_order,
+                            aniso_log_scales.as_deref(),
+                            identifiability_transform.as_ref().map(|z| z.view()),
+                            2,
+                            &mut BasisWorkspace::default(),
+                        )?;
+                    (
+                        feature_cols.clone(),
+                        ops.d0,
+                        ops.d1,
+                        ops.d2,
+                        ops.collocation_points,
+                        centers.ncols(),
+                        true,
+                    )
+                }
                 _ => continue,
             };
+        if center_mass_rows && d0.nrows() > 0 && d0.ncols() > 0 {
+            let means = d0.sum_axis(Axis(0)).mapv(|v| v / d0.nrows() as f64);
+            for mut row in d0.rows_mut() {
+                row -= &means;
+            }
+        }
 
         // Runtime operator caches must live on the same normalized penalty scale as the
         // shipped design penalties. The basis builders normalize S0=D0'D0, S1=D1'D1, and
@@ -10946,6 +11163,7 @@ fn adaptive_fit_options_base(options: &FitOptions, design: &TermCollectionDesign
         nullspace_dims: design.nullspace_dims.clone(),
         linear_constraints: design.linear_constraints.clone(),
         firth_bias_reduction: options.firth_bias_reduction,
+        robust_identification: options.robust_identification,
         adaptive_regularization: None,
         penalty_shrinkage_floor: options.penalty_shrinkage_floor,
         // Propagate user-supplied rho_prior so the baseline/refit and the
@@ -12100,10 +12318,6 @@ impl CustomFamily for SpatialAdaptiveExactFamily {
 
     fn exact_newton_outerobjective(&self) -> ExactNewtonOuterObjective {
         ExactNewtonOuterObjective::StrictPseudoLaplace
-    }
-
-    fn exact_newton_allows_semidefinitehessian(&self) -> bool {
-        true
     }
 
     fn exact_newton_joint_hessian(
@@ -13631,6 +13845,7 @@ fn external_opts_for_design(
         nullspace_dims: design.nullspace_dims.clone(),
         linear_constraints: design.linear_constraints.clone(),
         firth_bias_reduction: Some(options.firth_bias_reduction),
+        robust_identification: options.robust_identification,
         penalty_shrinkage_floor: options.penalty_shrinkage_floor,
         rho_prior: options.rho_prior.clone(),
         // Propagate Kronecker structure so the joint optimizer minimizes the
@@ -14066,10 +14281,13 @@ fn try_build_spatial_term_log_kappa_derivative(
             input_scales,
         } => {
             let mut x = select_columns(data, feature_cols).map_err(EstimationError::from)?;
+            let mut spec_local = spec.clone();
             if let Some(s) = input_scales {
                 apply_input_standardization(&mut x, s);
+                spec_local.length_scale =
+                    compensate_length_scale_for_standardization(spec.length_scale, s);
             }
-            build_thin_plate_basis_log_kappa_derivatives(x.view(), spec)
+            build_thin_plate_basis_log_kappa_derivatives(x.view(), &spec_local)
                 .map_err(EstimationError::from)?
         }
         SmoothBasisSpec::Sphere { .. } => return Ok(None),
@@ -14079,10 +14297,13 @@ fn try_build_spatial_term_log_kappa_derivative(
             input_scales,
         } => {
             let mut x = select_columns(data, feature_cols).map_err(EstimationError::from)?;
+            let mut spec_local = spec.clone();
             if let Some(s) = input_scales {
                 apply_input_standardization(&mut x, s);
+                spec_local.length_scale =
+                    compensate_length_scale_for_standardization(spec.length_scale, s);
             }
-            build_matern_basis_log_kappa_derivatives(x.view(), spec)
+            build_matern_basis_log_kappa_derivatives(x.view(), &spec_local)
                 .map_err(EstimationError::from)?
         }
         SmoothBasisSpec::Duchon {
@@ -14091,11 +14312,32 @@ fn try_build_spatial_term_log_kappa_derivative(
             input_scales,
         } => {
             let mut x = select_columns(data, feature_cols).map_err(EstimationError::from)?;
+            let mut spec_local = spec.clone();
             if let Some(s) = input_scales {
                 apply_input_standardization(&mut x, s);
+                spec_local.length_scale =
+                    compensate_optional_length_scale_for_standardization(spec.length_scale, s);
             }
-            build_duchon_basis_log_kappa_derivatives(x.view(), spec)
-                .map_err(EstimationError::from)?
+            let BasisMetadata::Duchon {
+                centers,
+                identifiability_transform,
+                operator_collocation_points,
+                ..
+            } = &smooth_term.metadata
+            else {
+                return Ok(None);
+            };
+            crate::basis::build_duchon_basis_log_kappa_derivativeswith_collocationwithworkspace(
+                x.view(),
+                &spec_local,
+                centers.view(),
+                identifiability_transform.as_ref(),
+                operator_collocation_points
+                    .as_ref()
+                    .map(|points| points.view()),
+                &mut BasisWorkspace::default(),
+            )
+            .map_err(EstimationError::from)?
         }
         SmoothBasisSpec::BSpline1D { .. }
         | SmoothBasisSpec::TensorBSpline { .. }
@@ -14107,19 +14349,56 @@ fn try_build_spatial_term_log_kappa_derivative(
             return Ok(None);
         }
     };
-    let implicit_operator = derivative_bundle.implicit_operator.map(std::sync::Arc::new);
+    let mut implicit_operator = derivative_bundle.implicit_operator;
     let BasisPsiDerivativeResult {
-        design_derivative: local_x_psi,
-        penalties_derivative: local_s_psi,
+        design_derivative: mut local_x_psi,
+        penalties_derivative: mut local_s_psi,
         implicit_operator: local_implicit_first_unused,
     } = derivative_bundle.first;
     let BasisPsiSecondDerivativeResult {
-        designsecond_derivative: local_x_psi_psi,
-        penaltiessecond_derivative: local_s_psi_psi,
+        designsecond_derivative: mut local_x_psi_psi,
+        penaltiessecond_derivative: mut local_s_psi_psi,
         implicit_operator: local_implicit_second_unused,
     } = derivative_bundle.second;
     assert!(local_implicit_first_unused.is_none());
     assert!(local_implicit_second_unused.is_none());
+
+    if let Some(rotation) = smooth_term.joint_null_rotation.as_ref() {
+        let q = &rotation.rotation;
+        if let Some(op) = implicit_operator.take() {
+            implicit_operator = Some(op.append_full_transform(q).map_err(EstimationError::from)?);
+        } else {
+            if local_x_psi.ncols() != q.nrows() || local_x_psi_psi.ncols() != q.nrows() {
+                return Ok(None);
+            }
+            local_x_psi = fast_ab(&local_x_psi, q);
+            local_x_psi_psi = fast_ab(&local_x_psi_psi, q);
+        }
+        let rotate_penalty = |s_local: Array2<f64>| -> Option<Array2<f64>> {
+            if s_local.nrows() != q.nrows() || s_local.ncols() != q.nrows() {
+                return None;
+            }
+            let qt_s = crate::linalg::faer_ndarray::fast_atb(q, &s_local);
+            Some(crate::linalg::faer_ndarray::fast_ab(&qt_s, q))
+        };
+        let Some(rotated_s_psi) = local_s_psi
+            .into_iter()
+            .map(|s| rotate_penalty(s))
+            .collect::<Option<Vec<_>>>()
+        else {
+            return Ok(None);
+        };
+        local_s_psi = rotated_s_psi;
+        let Some(rotated_s_psi_psi) = local_s_psi_psi
+            .into_iter()
+            .map(|s| rotate_penalty(s))
+            .collect::<Option<Vec<_>>>()
+        else {
+            return Ok(None);
+        };
+        local_s_psi_psi = rotated_s_psi_psi;
+    }
+    let implicit_operator = implicit_operator.map(std::sync::Arc::new);
 
     if let Some(ref op) = implicit_operator {
         if op.p_out() != smooth_term.coeff_range.len() {
@@ -14987,10 +15266,7 @@ fn spatial_log_kappa_hyper_dirs_frominfo_list(
 /// and the hyper_dirs builder `try_build_spatial_log_kappa_derivativeinfo_list`
 /// all consult it, so the outer optimizer's `n_params = rho_dim + Σ ψ_per_term`
 /// always matches the gradient length produced by the inner unified evaluator.
-fn spatial_term_uses_per_axis_psi(
-    resolvedspec: &TermCollectionSpec,
-    term_idx: usize,
-) -> bool {
+fn spatial_term_uses_per_axis_psi(resolvedspec: &TermCollectionSpec, term_idx: usize) -> bool {
     let Some(d) = get_spatial_feature_dim(resolvedspec, term_idx) else {
         return false;
     };
@@ -16403,11 +16679,27 @@ pub fn get_spatial_length_scale(spec: &TermCollectionSpec, term_idx: usize) -> O
 ///
 /// This is the single canonical freezer — every model-save path should call
 /// this rather than rolling ad-hoc freezing logic.
-fn freeze_inner_smooth_basis_from_metadata(
+/// Freeze a smooth basis spec from its fit-time metadata so that predict-time
+/// rebuilds reproduce the exact fitted geometry instead of recomputing any
+/// data-dependent construction (knot selection, radial reparameterization,
+/// eigen-truncation, identifiability constraint) on the prediction rows.
+///
+/// This is the SINGLE source of truth for freezing, shared by stand-alone
+/// terms and by `by=`-wrapped / factor-sum-to-zero inner smooths. The wrapper
+/// arms recurse into this same function, so every inner basis kind is frozen
+/// with identical logic. A previous split implementation froze only B-spline
+/// inners, leaving spatial inner bases (`bs='tp'`/`matern`/`duchon`/`sos`)
+/// unfrozen and recomputed on the prediction grid (#704).
+fn freeze_smooth_basis_from_metadata(
     basis: &mut SmoothBasisSpec,
     metadata: &BasisMetadata,
-) -> Result<(), String> {
-    match (basis, metadata) {
+    term_name: &str,
+) -> Result<(), EstimationError> {
+    match (&mut *basis, metadata) {
+        (SmoothBasisSpec::ByVariable { inner, .. }, meta)
+        | (SmoothBasisSpec::FactorSumToZero { inner, .. }, meta) => {
+            freeze_smooth_basis_from_metadata(inner, meta, term_name)?;
+        }
         (
             SmoothBasisSpec::BSpline1D { spec: s, .. },
             BasisMetadata::BSpline1D {
@@ -16418,12 +16710,9 @@ fn freeze_inner_smooth_basis_from_metadata(
                 ..
             },
         ) => {
-            // Issue #340: when fit-time auto-shrink lowered the effective
-            // degree, persist it into the frozen spec so reload / predict
-            // sees the same `(degree, knots)` geometry that was actually
-            // fitted. Without this, a serialized cubic-spec + linear-knots
-            // pair would mismatch and downstream Cox-de Boor would index
-            // off the end of the clamped knot vector.
+            // Issue #340: bake the fit-time effective degree into the
+            // frozen spec so reload sees a self-consistent
+            // (degree, knots) pair.
             if let Some(d) = meta_degree {
                 s.degree = *d;
             }
@@ -16435,21 +16724,339 @@ fn freeze_inner_smooth_basis_from_metadata(
                     },
                 )
                 .unwrap_or_else(|| BSplineKnotSpec::Provided(knots.clone()));
-            s.identifiability = identifiability_transform
-                .as_ref()
-                .map(|z| BSplineIdentifiability::FrozenTransform {
+            s.identifiability = match identifiability_transform {
+                Some(z) => BSplineIdentifiability::FrozenTransform {
                     transform: z.clone(),
-                })
-                .unwrap_or(BSplineIdentifiability::None);
+                },
+                None => BSplineIdentifiability::None,
+            };
+            // Boundary projections are folded into `identifiability_transform`
+            // by `build_bspline_basis_1d`. A frozen prediction spec must
+            // rebuild the same raw knot basis and apply the captured
+            // transform exactly once; keeping the original boundary
+            // conditions would project the raw basis a second time and
+            // shrink its width before `FrozenTransform` is applied.
             s.boundary_conditions = Default::default();
-            Ok(())
         }
-        (SmoothBasisSpec::ByVariable { inner, .. }, meta)
-        | (SmoothBasisSpec::FactorSumToZero { inner, .. }, meta) => {
-            freeze_inner_smooth_basis_from_metadata(inner, meta)
+        (
+            SmoothBasisSpec::ThinPlate {
+                spec: s,
+                input_scales,
+                ..
+            },
+            BasisMetadata::ThinPlate {
+                centers,
+                length_scale,
+                periodic: meta_periodic,
+                identifiability_transform,
+                input_scales: meta_scales,
+                radial_reparam,
+            },
+        ) => {
+            s.center_strategy = crate::basis::CenterStrategy::UserProvided(centers.clone());
+            s.length_scale = *length_scale;
+            s.identifiability = match identifiability_transform {
+                Some(z) => SpatialIdentifiability::FrozenTransform {
+                    transform: z.clone(),
+                },
+                None => match &s.identifiability {
+                    SpatialIdentifiability::FrozenTransform { .. } => s.identifiability.clone(),
+                    _ => SpatialIdentifiability::None,
+                },
+            };
+            s.radial_reparam = radial_reparam.clone();
+            s.periodic = meta_periodic.clone();
+            *input_scales = meta_scales.clone();
         }
-        _ => Ok(()),
+        (
+            SmoothBasisSpec::ThinPlate { feature_cols, .. },
+            BasisMetadata::Duchon {
+                centers,
+                length_scale,
+                periodic: meta_periodic,
+                power,
+                nullspace_order,
+                identifiability_transform,
+                input_scales: meta_scales,
+                aniso_log_scales: meta_aniso,
+                ..
+            },
+        ) => {
+            // Auto-promotion path: the basis builder rewrote a canonical-TPS
+            // request to a pure Duchon spline because k < polynomial-nullspace
+            // size at this dimension. Bake the resolved Duchon parameters into
+            // the spec so predict-time goes through the same Duchon code path.
+            let identifiability = match identifiability_transform {
+                Some(z) => SpatialIdentifiability::FrozenTransform {
+                    transform: z.clone(),
+                },
+                None => SpatialIdentifiability::None,
+            };
+            *basis = SmoothBasisSpec::Duchon {
+                feature_cols: feature_cols.clone(),
+                spec: DuchonBasisSpec {
+                    periodic: meta_periodic.clone(),
+                    center_strategy: crate::basis::CenterStrategy::UserProvided(centers.clone()),
+                    length_scale: *length_scale,
+                    power: *power,
+                    nullspace_order: *nullspace_order,
+                    identifiability,
+                    aniso_log_scales: meta_aniso.clone(),
+                    operator_penalties: Default::default(),
+                    boundary: OneDimensionalBoundary::Open,
+                },
+                input_scales: meta_scales.clone(),
+            };
+        }
+        (
+            SmoothBasisSpec::Sphere { spec: s, .. },
+            BasisMetadata::Sphere {
+                centers,
+                penalty_order,
+                method,
+                max_degree,
+                wahba_kernel,
+                constraint_transform,
+            },
+        ) => {
+            s.center_strategy = crate::basis::CenterStrategy::UserProvided(centers.clone());
+            s.penalty_order = *penalty_order;
+            s.method = *method;
+            s.max_degree = *max_degree;
+            s.wahba_kernel = *wahba_kernel;
+            // #532: freeze the realized-design transform (the composed
+            // `z · z_parametric` captured at fit time) so the predict-time
+            // rebuild reuses it verbatim instead of recomputing the
+            // center-space `z`, which would drop the parametric
+            // orthogonalization and resurrect the intercept collision. The
+            // Harmonic method never carries a constraint transform.
+            s.identifiability = match constraint_transform {
+                Some(z) => SphericalSplineIdentifiability::FrozenTransform {
+                    transform: z.clone(),
+                },
+                None => SphericalSplineIdentifiability::CenterSumToZero,
+            };
+        }
+        (
+            SmoothBasisSpec::Matern {
+                spec: s,
+                input_scales,
+                ..
+            },
+            BasisMetadata::Matern {
+                centers,
+                length_scale,
+                periodic: meta_periodic,
+                nu,
+                include_intercept,
+                identifiability_transform,
+                input_scales: meta_scales,
+                aniso_log_scales: meta_aniso,
+            },
+        ) => {
+            s.center_strategy = crate::basis::CenterStrategy::UserProvided(centers.clone());
+            s.length_scale = *length_scale;
+            s.nu = *nu;
+            s.include_intercept = *include_intercept;
+            s.identifiability = match identifiability_transform {
+                Some(z) => MaternIdentifiability::FrozenTransform {
+                    transform: z.clone(),
+                },
+                None => MaternIdentifiability::None,
+            };
+            s.aniso_log_scales = meta_aniso.clone();
+            s.periodic = meta_periodic.clone();
+            *input_scales = meta_scales.clone();
+        }
+        (
+            SmoothBasisSpec::Duchon {
+                spec: s,
+                input_scales,
+                ..
+            },
+            BasisMetadata::Duchon {
+                centers,
+                length_scale,
+                periodic: meta_periodic,
+                power,
+                nullspace_order,
+                identifiability_transform,
+                input_scales: meta_scales,
+                aniso_log_scales: meta_aniso,
+                ..
+            },
+        ) => {
+            s.center_strategy = crate::basis::CenterStrategy::UserProvided(centers.clone());
+            s.length_scale = *length_scale;
+            s.power = *power;
+            s.nullspace_order = *nullspace_order;
+            s.identifiability = match identifiability_transform {
+                Some(z) => SpatialIdentifiability::FrozenTransform {
+                    transform: z.clone(),
+                },
+                None => match &s.identifiability {
+                    // If the spec already carries a frozen transform but the
+                    // metadata lost it (e.g. raw rebuild stripped it), keep
+                    // the existing frozen transform rather than downgrading.
+                    SpatialIdentifiability::FrozenTransform { .. } => s.identifiability.clone(),
+                    _ => SpatialIdentifiability::None,
+                },
+            };
+            s.aniso_log_scales = meta_aniso.clone();
+            s.periodic = meta_periodic.clone();
+            *input_scales = meta_scales.clone();
+        }
+        (
+            SmoothBasisSpec::Sphere { spec: s, .. },
+            BasisMetadata::SphereHarmonics {
+                max_degree,
+                radians,
+            },
+        ) => {
+            s.max_degree = Some(*max_degree);
+            s.radians = *radians;
+        }
+        (
+            SmoothBasisSpec::TensorBSpline {
+                feature_cols,
+                spec: s,
+            },
+            BasisMetadata::TensorBSpline {
+                feature_cols: fitted_cols,
+                knots,
+                degrees,
+                periods,
+                identifiability_transform,
+            },
+        ) => {
+            if s.marginalspecs.len() != knots.len() || s.marginalspecs.len() != degrees.len() {
+                crate::bail_invalid_estim!(
+                    "tensor freeze mismatch for '{}': marginalspecs={}, knots={}, degrees={}",
+                    term_name,
+                    s.marginalspecs.len(),
+                    knots.len(),
+                    degrees.len()
+                );
+            }
+            *feature_cols = fitted_cols.clone();
+            for i in 0..s.marginalspecs.len() {
+                s.marginalspecs[i].degree = degrees[i];
+                s.marginalspecs[i].knotspec = match (periods[i], knots[i].len()) {
+                    (Some(period), num_basis) if num_basis >= 1 => {
+                        // Periodic uniform reconstructs the open
+                        // `[start, start + period)` data range from the
+                        // first knot and the saved period. `knots[i].len()`
+                        // is the periodic control-site count.
+                        let domain_start = knots[i][0];
+                        BSplineKnotSpec::PeriodicUniform {
+                            data_range: (domain_start, domain_start + period),
+                            num_basis,
+                        }
+                    }
+                    _ => BSplineKnotSpec::Provided(knots[i].clone()),
+                };
+            }
+            s.periods = periods.clone();
+            s.identifiability = match identifiability_transform {
+                Some(z) => TensorBSplineIdentifiability::FrozenTransform {
+                    transform: z.clone(),
+                },
+                None => TensorBSplineIdentifiability::None,
+            };
+        }
+        (
+            SmoothBasisSpec::FactorSmooth { spec: s },
+            BasisMetadata::FactorSmooth {
+                knots,
+                degree,
+                periodic,
+                group_levels,
+                ..
+            },
+        ) => {
+            s.marginal.knotspec = periodic
+                .map(
+                    |(domain_start, period, num_basis)| BSplineKnotSpec::PeriodicUniform {
+                        data_range: (domain_start, domain_start + period),
+                        num_basis,
+                    },
+                )
+                .unwrap_or_else(|| BSplineKnotSpec::Provided(knots.clone()));
+            // Restore the FROZEN marginal degree (#555 predict-replay). With
+            // a `Provided(knots)` knotspec the per-margin basis count is
+            // `knots.len() - (degree + 1)`, so if fit-time auto-shrink
+            // lowered the marginal degree (small per-group n: cubic →
+            // quadratic/linear), rebuilding with the original spec degree
+            // would yield a different per-level `p` and corrupt the
+            // block-diagonal replay. Mirror the sibling BySmooth arm, which
+            // restores `inner.degree = *degree` for exactly this reason.
+            s.marginal.degree = *degree;
+            s.group_frozen_levels = Some(group_levels.clone());
+        }
+        (
+            SmoothBasisSpec::BySmooth { smooth, by_kind },
+            BasisMetadata::FactorSmooth {
+                knots,
+                degree,
+                periodic,
+                group_levels,
+                ..
+            },
+        ) => {
+            if let ByVarKind::Factor { frozen_levels, .. } = by_kind {
+                *frozen_levels = Some(group_levels.clone());
+            }
+            if let SmoothBasisSpec::BSpline1D { spec: inner, .. } = smooth.as_mut() {
+                // Issue #340: FactorSmooth metadata records the per-axis
+                // spline degree directly (not optional); reflect it on
+                // the inner spec so reload sees a self-consistent
+                // (degree, knots) pair after fit-time auto-shrink.
+                inner.degree = *degree;
+                inner.knotspec = periodic
+                    .map(
+                        |(domain_start, period, num_basis)| BSplineKnotSpec::PeriodicUniform {
+                            data_range: (domain_start, domain_start + period),
+                            num_basis,
+                        },
+                    )
+                    .unwrap_or_else(|| BSplineKnotSpec::Provided(knots.clone()));
+                inner.identifiability = BSplineIdentifiability::None;
+            }
+        }
+        (
+            SmoothBasisSpec::BySmooth { smooth, by_kind },
+            BasisMetadata::BySmooth { inner, levels, .. },
+        ) => {
+            // A `by=` smooth whose metadata is wrapped in `BySmooth`:
+            // restore the frozen grouping levels, then recurse so the inner
+            // basis is frozen with EXACTLY the same logic used for a
+            // stand-alone term.
+            if let ByVarKind::Factor { frozen_levels, .. } = by_kind
+                && let Some(levels) = levels
+            {
+                *frozen_levels = Some(levels.clone());
+            }
+            freeze_smooth_basis_from_metadata(smooth, inner, term_name)?;
+        }
+        (SmoothBasisSpec::BySmooth { smooth, .. }, metadata) => {
+            // `by=` wrapper carrying the inner basis metadata directly
+            // (numeric `by`, or a factor `by` lowered to one gated block).
+            // Recurse so a spatial inner basis (thin-plate, Matern, Duchon,
+            // sphere, tensor, …) is frozen identically to a stand-alone
+            // term. Previously only a B-spline inner was frozen here, so a
+            // `s(x, by=g, bs='tp')` smooth left its data-dependent kernel
+            // and eigen-truncation to be recomputed on the prediction grid,
+            // crashing the predict-time design rebuild (#704).
+            freeze_smooth_basis_from_metadata(smooth, metadata, term_name)?;
+        }
+        _ => {
+            crate::bail_invalid_estim!(
+                "smooth metadata/spec type mismatch while freezing term '{}'",
+                term_name
+            );
+        }
     }
+    Ok(())
 }
 
 pub fn freeze_term_collection_from_design(
@@ -16487,417 +17094,7 @@ pub fn freeze_term_collection_from_design(
         // rotation). Without this propagation, models reloaded from disk
         // produce wrong η at predict-time for any smooth with `Some(Q)`.
         term.joint_null_rotation = fitted.joint_null_rotation.clone();
-        // Auto-promotion: when canonical TPS is mathematically infeasible at
-        // the requested (d, k), `build_thin_plate_basis_with_workspace`
-        // delegates to `build_duchon_basis_with_workspace` and returns
-        // `BasisMetadata::Duchon`. The user's spec, however, is still
-        // `SmoothBasisSpec::ThinPlate`. Without a rewrite the freezer's
-        // type-paired match would land on the catch-all error arm and the
-        // entire fit would fail at serialization time — even though the fit
-        // itself succeeded against the promoted Duchon basis. Rewrite the
-        // term's basis variant to Duchon so the standard (Duchon, Duchon)
-        // arm below stores the captured Duchon parameters and predict-time
-        // takes the Duchon path directly with the frozen centers/power.
-        if matches!(&term.basis, SmoothBasisSpec::ThinPlate { .. })
-            && matches!(&fitted.metadata, BasisMetadata::Duchon { .. })
-        {
-            let (feature_cols, original_identifiability) = match &term.basis {
-                SmoothBasisSpec::ThinPlate {
-                    feature_cols, spec, ..
-                } => (feature_cols.clone(), spec.identifiability.clone()),
-                _ => {
-                    crate::bail_invalid_estim!(
-                        "internal: TPS-to-Duchon rewrite guard saw non-ThinPlate basis variant"
-                            .to_string(),
-                    );
-                }
-            };
-            term.basis = SmoothBasisSpec::Duchon {
-                feature_cols,
-                spec: DuchonBasisSpec {
-                    // Center strategy / length_scale / power / nullspace_order
-                    // are placeholders — the (Duchon, Duchon) arm below
-                    // overwrites them with the frozen values from the metadata
-                    // captured during the actual basis build.
-                    center_strategy: CenterStrategy::FarthestPoint { num_centers: 0 },
-                    periodic: None,
-                    length_scale: None,
-                    power: 0.0,
-                    nullspace_order: DuchonNullspaceOrder::Zero,
-                    identifiability: original_identifiability,
-                    aniso_log_scales: None,
-                    operator_penalties: DuchonOperatorPenaltySpec::default(),
-                    boundary: OneDimensionalBoundary::Open,
-                },
-                input_scales: None,
-            };
-        }
-        match (&mut term.basis, &fitted.metadata) {
-            (SmoothBasisSpec::ByVariable { inner, .. }, meta)
-            | (SmoothBasisSpec::FactorSumToZero { inner, .. }, meta) => {
-                freeze_inner_smooth_basis_from_metadata(inner, meta)
-                    .map_err(BasisError::InvalidInput)?;
-            }
-            (
-                SmoothBasisSpec::BSpline1D { spec: s, .. },
-                BasisMetadata::BSpline1D {
-                    knots,
-                    identifiability_transform,
-                    periodic,
-                    degree: meta_degree,
-                    ..
-                },
-            ) => {
-                // Issue #340: bake the fit-time effective degree into the
-                // frozen spec so reload sees a self-consistent
-                // (degree, knots) pair.
-                if let Some(d) = meta_degree {
-                    s.degree = *d;
-                }
-                s.knotspec = periodic
-                    .map(
-                        |(domain_start, period, num_basis)| BSplineKnotSpec::PeriodicUniform {
-                            data_range: (domain_start, domain_start + period),
-                            num_basis,
-                        },
-                    )
-                    .unwrap_or_else(|| BSplineKnotSpec::Provided(knots.clone()));
-                s.identifiability = match identifiability_transform {
-                    Some(z) => BSplineIdentifiability::FrozenTransform {
-                        transform: z.clone(),
-                    },
-                    None => BSplineIdentifiability::None,
-                };
-                // Boundary projections are folded into `identifiability_transform`
-                // by `build_bspline_basis_1d`. A frozen prediction spec must
-                // rebuild the same raw knot basis and apply the captured
-                // transform exactly once; keeping the original boundary
-                // conditions would project the raw basis a second time and
-                // shrink its width before `FrozenTransform` is applied.
-                s.boundary_conditions = Default::default();
-            }
-            (
-                SmoothBasisSpec::ThinPlate {
-                    spec: s,
-                    input_scales,
-                    ..
-                },
-                BasisMetadata::ThinPlate {
-                    centers,
-                    length_scale,
-                    periodic: meta_periodic,
-                    identifiability_transform,
-                    input_scales: meta_scales,
-                    radial_reparam,
-                },
-            ) => {
-                s.center_strategy = crate::basis::CenterStrategy::UserProvided(centers.clone());
-                s.length_scale = *length_scale;
-                s.identifiability = match identifiability_transform {
-                    Some(z) => SpatialIdentifiability::FrozenTransform {
-                        transform: z.clone(),
-                    },
-                    None => match &s.identifiability {
-                        SpatialIdentifiability::FrozenTransform { .. } => s.identifiability.clone(),
-                        _ => SpatialIdentifiability::None,
-                    },
-                };
-                s.radial_reparam = radial_reparam.clone();
-                s.periodic = meta_periodic.clone();
-                *input_scales = meta_scales.clone();
-            }
-            (
-                SmoothBasisSpec::ThinPlate { feature_cols, .. },
-                BasisMetadata::Duchon {
-                    centers,
-                    length_scale,
-                    periodic: meta_periodic,
-                    power,
-                    nullspace_order,
-                    identifiability_transform,
-                    input_scales: meta_scales,
-                    aniso_log_scales: meta_aniso,
-                },
-            ) => {
-                // Auto-promotion path: the basis builder rewrote a canonical-TPS
-                // request to a pure Duchon spline because k < polynomial-nullspace
-                // size at this dimension. Bake the resolved Duchon parameters into
-                // the spec so predict-time goes through the same Duchon code path.
-                let identifiability = match identifiability_transform {
-                    Some(z) => SpatialIdentifiability::FrozenTransform {
-                        transform: z.clone(),
-                    },
-                    None => SpatialIdentifiability::None,
-                };
-                term.basis = SmoothBasisSpec::Duchon {
-                    feature_cols: feature_cols.clone(),
-                    spec: DuchonBasisSpec {
-                        periodic: meta_periodic.clone(),
-                        center_strategy: crate::basis::CenterStrategy::UserProvided(
-                            centers.clone(),
-                        ),
-                        length_scale: *length_scale,
-                        power: *power,
-                        nullspace_order: *nullspace_order,
-                        identifiability,
-                        aniso_log_scales: meta_aniso.clone(),
-                        operator_penalties: Default::default(),
-                        boundary: OneDimensionalBoundary::Open,
-                    },
-                    input_scales: meta_scales.clone(),
-                };
-            }
-            (
-                SmoothBasisSpec::Sphere { spec: s, .. },
-                BasisMetadata::Sphere {
-                    centers,
-                    penalty_order,
-                    method,
-                    max_degree,
-                    wahba_kernel,
-                    constraint_transform,
-                },
-            ) => {
-                s.center_strategy = crate::basis::CenterStrategy::UserProvided(centers.clone());
-                s.penalty_order = *penalty_order;
-                s.method = *method;
-                s.max_degree = *max_degree;
-                s.wahba_kernel = *wahba_kernel;
-                // #532: freeze the realized-design transform (the composed
-                // `z · z_parametric` captured at fit time) so the predict-time
-                // rebuild reuses it verbatim instead of recomputing the
-                // center-space `z`, which would drop the parametric
-                // orthogonalization and resurrect the intercept collision. The
-                // Harmonic method never carries a constraint transform.
-                s.identifiability = match constraint_transform {
-                    Some(z) => SphericalSplineIdentifiability::FrozenTransform {
-                        transform: z.clone(),
-                    },
-                    None => SphericalSplineIdentifiability::CenterSumToZero,
-                };
-            }
-            (
-                SmoothBasisSpec::Matern {
-                    spec: s,
-                    input_scales,
-                    ..
-                },
-                BasisMetadata::Matern {
-                    centers,
-                    length_scale,
-                    periodic: meta_periodic,
-                    nu,
-                    include_intercept,
-                    identifiability_transform,
-                    input_scales: meta_scales,
-                    aniso_log_scales: meta_aniso,
-                },
-            ) => {
-                s.center_strategy = crate::basis::CenterStrategy::UserProvided(centers.clone());
-                s.length_scale = *length_scale;
-                s.nu = *nu;
-                s.include_intercept = *include_intercept;
-                s.identifiability = match identifiability_transform {
-                    Some(z) => MaternIdentifiability::FrozenTransform {
-                        transform: z.clone(),
-                    },
-                    None => MaternIdentifiability::None,
-                };
-                s.aniso_log_scales = meta_aniso.clone();
-                s.periodic = meta_periodic.clone();
-                *input_scales = meta_scales.clone();
-            }
-            (
-                SmoothBasisSpec::Duchon {
-                    spec: s,
-                    input_scales,
-                    ..
-                },
-                BasisMetadata::Duchon {
-                    centers,
-                    length_scale,
-                    periodic: meta_periodic,
-                    power,
-                    nullspace_order,
-                    identifiability_transform,
-                    input_scales: meta_scales,
-                    aniso_log_scales: meta_aniso,
-                },
-            ) => {
-                s.center_strategy = crate::basis::CenterStrategy::UserProvided(centers.clone());
-                s.length_scale = *length_scale;
-                s.power = *power;
-                s.nullspace_order = *nullspace_order;
-                s.identifiability = match identifiability_transform {
-                    Some(z) => SpatialIdentifiability::FrozenTransform {
-                        transform: z.clone(),
-                    },
-                    None => match &s.identifiability {
-                        // If the spec already carries a frozen transform but the
-                        // metadata lost it (e.g. raw rebuild stripped it), keep
-                        // the existing frozen transform rather than downgrading.
-                        SpatialIdentifiability::FrozenTransform { .. } => s.identifiability.clone(),
-                        _ => SpatialIdentifiability::None,
-                    },
-                };
-                s.aniso_log_scales = meta_aniso.clone();
-                s.periodic = meta_periodic.clone();
-                *input_scales = meta_scales.clone();
-            }
-            (
-                SmoothBasisSpec::Sphere { spec: s, .. },
-                BasisMetadata::SphereHarmonics {
-                    max_degree,
-                    radians,
-                },
-            ) => {
-                s.max_degree = Some(*max_degree);
-                s.radians = *radians;
-            }
-            (
-                SmoothBasisSpec::TensorBSpline {
-                    feature_cols,
-                    spec: s,
-                },
-                BasisMetadata::TensorBSpline {
-                    feature_cols: fitted_cols,
-                    knots,
-                    degrees,
-                    periods,
-                    identifiability_transform,
-                },
-            ) => {
-                if s.marginalspecs.len() != knots.len() || s.marginalspecs.len() != degrees.len() {
-                    crate::bail_invalid_estim!(
-                        "tensor freeze mismatch for '{}': marginalspecs={}, knots={}, degrees={}",
-                        term.name,
-                        s.marginalspecs.len(),
-                        knots.len(),
-                        degrees.len()
-                    );
-                }
-                *feature_cols = fitted_cols.clone();
-                for i in 0..s.marginalspecs.len() {
-                    s.marginalspecs[i].degree = degrees[i];
-                    s.marginalspecs[i].knotspec = match (periods[i], knots[i].len()) {
-                        (Some(period), num_basis) if num_basis >= 1 => {
-                            // Periodic uniform reconstructs the open
-                            // `[start, start + period)` data range from the
-                            // first knot and the saved period. `knots[i].len()`
-                            // is the periodic control-site count.
-                            let domain_start = knots[i][0];
-                            BSplineKnotSpec::PeriodicUniform {
-                                data_range: (domain_start, domain_start + period),
-                                num_basis,
-                            }
-                        }
-                        _ => BSplineKnotSpec::Provided(knots[i].clone()),
-                    };
-                }
-                s.periods = periods.clone();
-                s.identifiability = match identifiability_transform {
-                    Some(z) => TensorBSplineIdentifiability::FrozenTransform {
-                        transform: z.clone(),
-                    },
-                    None => TensorBSplineIdentifiability::None,
-                };
-            }
-            (
-                SmoothBasisSpec::FactorSmooth { spec: s },
-                BasisMetadata::FactorSmooth {
-                    knots,
-                    degree,
-                    periodic,
-                    group_levels,
-                    ..
-                },
-            ) => {
-                s.marginal.knotspec = periodic
-                    .map(
-                        |(domain_start, period, num_basis)| BSplineKnotSpec::PeriodicUniform {
-                            data_range: (domain_start, domain_start + period),
-                            num_basis,
-                        },
-                    )
-                    .unwrap_or_else(|| BSplineKnotSpec::Provided(knots.clone()));
-                // Restore the FROZEN marginal degree (#555 predict-replay). With
-                // a `Provided(knots)` knotspec the per-margin basis count is
-                // `knots.len() - (degree + 1)`, so if fit-time auto-shrink
-                // lowered the marginal degree (small per-group n: cubic →
-                // quadratic/linear), rebuilding with the original spec degree
-                // would yield a different per-level `p` and corrupt the
-                // block-diagonal replay. Mirror the sibling BySmooth arm, which
-                // restores `inner.degree = *degree` for exactly this reason.
-                s.marginal.degree = *degree;
-                s.group_frozen_levels = Some(group_levels.clone());
-            }
-            (
-                SmoothBasisSpec::BySmooth { smooth, by_kind },
-                BasisMetadata::FactorSmooth {
-                    knots,
-                    degree,
-                    periodic,
-                    group_levels,
-                    ..
-                },
-            ) => {
-                if let ByVarKind::Factor { frozen_levels, .. } = by_kind {
-                    *frozen_levels = Some(group_levels.clone());
-                }
-                if let SmoothBasisSpec::BSpline1D { spec: inner, .. } = smooth.as_mut() {
-                    // Issue #340: FactorSmooth metadata records the per-axis
-                    // spline degree directly (not optional); reflect it on
-                    // the inner spec so reload sees a self-consistent
-                    // (degree, knots) pair after fit-time auto-shrink.
-                    inner.degree = *degree;
-                    inner.knotspec = periodic
-                        .map(
-                            |(domain_start, period, num_basis)| BSplineKnotSpec::PeriodicUniform {
-                                data_range: (domain_start, domain_start + period),
-                                num_basis,
-                            },
-                        )
-                        .unwrap_or_else(|| BSplineKnotSpec::Provided(knots.clone()));
-                    inner.identifiability = BSplineIdentifiability::None;
-                }
-            }
-            (SmoothBasisSpec::BySmooth { smooth, .. }, metadata) => {
-                if let SmoothBasisSpec::BSpline1D { spec: inner, .. } = smooth.as_mut()
-                    && let BasisMetadata::BSpline1D {
-                        knots,
-                        periodic,
-                        identifiability_transform,
-                        degree: meta_degree,
-                        ..
-                    } = metadata
-                {
-                    // Issue #340: persist auto-shrunk effective degree.
-                    if let Some(d) = meta_degree {
-                        inner.degree = *d;
-                    }
-                    inner.knotspec = periodic
-                        .map(
-                            |(domain_start, period, num_basis)| BSplineKnotSpec::PeriodicUniform {
-                                data_range: (domain_start, domain_start + period),
-                                num_basis,
-                            },
-                        )
-                        .unwrap_or_else(|| BSplineKnotSpec::Provided(knots.clone()));
-                    inner.identifiability = match identifiability_transform {
-                        Some(z) => BSplineIdentifiability::FrozenTransform {
-                            transform: z.clone(),
-                        },
-                        None => BSplineIdentifiability::None,
-                    };
-                }
-            }
-            _ => {
-                crate::bail_invalid_estim!(
-                    "smooth metadata/spec type mismatch while freezing term '{}'",
-                    term.name
-                );
-            }
-        }
+        freeze_smooth_basis_from_metadata(&mut term.basis, &fitted.metadata, &term.name)?;
     }
 
     // ── random-effect terms ─────────────────────────────────────────────
@@ -21480,8 +21677,8 @@ mod tests {
         let sd = build_smooth_design(data.view(), &terms).unwrap();
         assert_eq!(sd.nrows(), n);
         assert_eq!(sd.terms.len(), 1);
-        assert_eq!(sd.penalties.len(), 3);
-        assert_eq!(sd.nullspace_dims.len(), 3);
+        assert_eq!(sd.penalties.len(), 4);
+        assert_eq!(sd.nullspace_dims.len(), 4);
     }
 
     #[test]
@@ -21585,99 +21782,6 @@ mod tests {
             }
             other => panic!("expected Duchon metadata, got {other:?}"),
         }
-    }
-
-    #[test]
-    fn adaptive_cache_respects_frozen_joint_duchon_transform() {
-        let n = 12usize;
-        let d = 4usize;
-        let mut data = Array2::<f64>::zeros((n, d));
-        for i in 0..n {
-            for j in 0..d {
-                data[[i, j]] = (i as f64) * 0.13 + (j as f64) * 0.17;
-            }
-        }
-
-        let spec = TermCollectionSpec {
-            linear_terms: vec![],
-            random_effect_terms: vec![],
-            smooth_terms: vec![SmoothTermSpec {
-                name: "duchon_joint".to_string(),
-                basis: SmoothBasisSpec::Duchon {
-                    feature_cols: (0..d).collect(),
-                    spec: DuchonBasisSpec {
-                        periodic: None,
-                        center_strategy: CenterStrategy::FarthestPoint { num_centers: 4 },
-                        length_scale: Some(1.0),
-                        power: 3.0,
-                        nullspace_order: DuchonNullspaceOrder::Zero,
-                        identifiability: SpatialIdentifiability::default(),
-                        aniso_log_scales: None,
-                        operator_penalties: DuchonOperatorPenaltySpec::default(),
-                        boundary: OneDimensionalBoundary::Open,
-                    },
-                    input_scales: None,
-                },
-                shape: ShapeConstraint::None,
-                joint_null_rotation: None,
-            }],
-        };
-
-        let design =
-            build_term_collection_design(data.view(), &spec).expect("term collection design");
-        let caches =
-            extract_spatial_operator_runtime_caches(&spec, &design).expect("adaptive caches");
-        assert_eq!(caches.len(), 1);
-        assert_eq!(
-            caches[0].coeff_global_range.len(),
-            design.smooth.terms[0].coeff_range.len()
-        );
-    }
-
-    #[test]
-    fn frozen_joint_duchonspec_rebuild_keeps_adaptive_cache_in_sync() {
-        let n = 12usize;
-        let d = 4usize;
-        let mut data = Array2::<f64>::zeros((n, d));
-        for i in 0..n {
-            for j in 0..d {
-                data[[i, j]] = (i as f64) * 0.13 + (j as f64) * 0.17;
-            }
-        }
-
-        let spec = TermCollectionSpec {
-            linear_terms: vec![],
-            random_effect_terms: vec![],
-            smooth_terms: vec![SmoothTermSpec {
-                name: "duchon_joint".to_string(),
-                basis: SmoothBasisSpec::Duchon {
-                    feature_cols: (0..d).collect(),
-                    spec: DuchonBasisSpec {
-                        periodic: None,
-                        center_strategy: CenterStrategy::FarthestPoint { num_centers: 4 },
-                        length_scale: Some(1.0),
-                        power: 3.0,
-                        nullspace_order: DuchonNullspaceOrder::Zero,
-                        identifiability: SpatialIdentifiability::default(),
-                        aniso_log_scales: None,
-                        operator_penalties: DuchonOperatorPenaltySpec::default(),
-                        boundary: OneDimensionalBoundary::Open,
-                    },
-                    input_scales: None,
-                },
-                shape: ShapeConstraint::None,
-                joint_null_rotation: None,
-            }],
-        };
-
-        let design = build_term_collection_design(data.view(), &spec).expect("base design");
-        let frozen = freeze_term_collection_from_design(&spec, &design).expect("freeze spec");
-        let rebuilt = build_term_collection_design(data.view(), &frozen).expect("rebuilt design");
-        let caches =
-            extract_spatial_operator_runtime_caches(&frozen, &rebuilt).expect("adaptive caches");
-        assert_eq!(caches.len(), 1);
-        assert_eq!(caches[0].termname, "duchon_joint");
-        assert_eq!(rebuilt.smooth.terms[0].coeff_range.len(), 3);
     }
 
     #[test]
@@ -22956,7 +23060,7 @@ mod tests {
                         nullspace_order: DuchonNullspaceOrder::Linear,
                         identifiability: SpatialIdentifiability::default(),
                         aniso_log_scales: None,
-                        operator_penalties: DuchonOperatorPenaltySpec::default(),
+                        operator_penalties: DuchonOperatorPenaltySpec::all_active(),
                         boundary: OneDimensionalBoundary::Open,
                     },
                     input_scales: None,
@@ -23188,7 +23292,7 @@ mod tests {
                         nullspace_order: DuchonNullspaceOrder::Linear,
                         identifiability: SpatialIdentifiability::default(),
                         aniso_log_scales: None,
-                        operator_penalties: DuchonOperatorPenaltySpec::default(),
+                        operator_penalties: DuchonOperatorPenaltySpec::all_active(),
                         boundary: OneDimensionalBoundary::Open,
                     },
                     input_scales: None,
@@ -23784,8 +23888,11 @@ mod tests {
 
     #[test]
     fn iso_kappa_duchon_dx_dpsi_matches_fd() {
-        // Compare analytic dX/dψ (from build_duchon_basis_log_kappa_derivatives)
-        // against centered FD of X(ψ+h) - X(ψ-h).
+        // Compare the production frozen-spec dX/dψ path against centered FD
+        // of X(ψ+h) - X(ψ-h). This intentionally goes through
+        // `try_build_spatial_term_log_kappa_derivative`: the formula layer owns
+        // the frozen centers, length-scale compensation, and composed
+        // identifiability transform.
         let n = 80usize;
         let mut data = Array2::<f64>::zeros((n, 1));
         for i in 0..n {
@@ -23834,19 +23941,17 @@ mod tests {
 
         // Build derivative at psi=0.
         let psi_eval = 0.0_f64;
-        let duchon_spec =
-            if let SmoothBasisSpec::Duchon { spec: ref s, .. } = frozen.smooth_terms[0].basis {
-                s.clone()
-            } else {
-                panic!("expected Duchon");
-            };
-        let mut duchon_spec_at = duchon_spec.clone();
-        duchon_spec_at.length_scale = Some((-psi_eval).exp());
-        let bundle =
-            crate::basis::build_duchon_basis_log_kappa_derivatives(data.view(), &duchon_spec_at)
-                .expect("derivatives");
-        let op = bundle.implicit_operator.expect("implicit operator");
+        let derivative_bundle =
+            try_build_spatial_term_log_kappa_derivative(data.view(), &frozen, &design, 0)
+                .expect("formula Duchon derivative should build")
+                .expect("Duchon derivative should be available");
+        let global_range = derivative_bundle.0;
+        let p_total = derivative_bundle.1;
+        let implicit_operator = derivative_bundle.8;
+        let op = implicit_operator.expect("Duchon derivative should expose implicit operator");
         let p = op.p_out();
+        assert_eq!(p_total, design.design.ncols());
+        assert_eq!(global_range.end - global_range.start, p);
 
         // FD reference.
         let h = 1e-4_f64;
@@ -23885,7 +23990,7 @@ mod tests {
 
         // Also check transpose_mul: X_tau^T v for v of length n.
         // FD reference: X_tau^T v should be (X(+h)^T - X(-h)^T)/(2h) · v.
-        let smooth_start = 1usize;
+        let smooth_start = global_range.start;
         let v_test = Array1::<f64>::from_shape_fn(n, |i| (i as f64 * 0.07).sin());
         let analytic_tv = op.transpose_mul(0, &v_test.view()).expect("transpose_mul");
         let fd_tv_full = (&x_plus.t() - &x_minus.t()) / (2.0 * h);
@@ -25115,7 +25220,7 @@ mod tests {
             } => {
                 let x =
                     select_columns(data.view(), feature_cols).expect("select Duchon feature cols");
-                build_duchon_basis_log_kappa_derivatives(x.view(), spec)
+                crate::basis::build_duchon_basis_log_kappa_derivatives(x.view(), spec)
                     .expect("direct Duchon derivative bundle should build")
             }
             _ => panic!("expected Duchon term"),
@@ -25462,6 +25567,40 @@ mod tests {
     }
 
     #[test]
+    fn thin_plate_terms_anchor_length_scale_and_enroll_no_kappa_axis() {
+        let spec = TermCollectionSpec {
+            linear_terms: vec![],
+            random_effect_terms: vec![],
+            smooth_terms: vec![SmoothTermSpec {
+                name: "thin_plate".to_string(),
+                basis: SmoothBasisSpec::ThinPlate {
+                    feature_cols: vec![0, 1],
+                    spec: ThinPlateBasisSpec {
+                        periodic: None,
+                        center_strategy: CenterStrategy::FarthestPoint { num_centers: 6 },
+                        length_scale: 0.75,
+                        double_penalty: false,
+                        identifiability: SpatialIdentifiability::default(),
+                        radial_reparam: None,
+                    },
+                    input_scales: None,
+                },
+                shape: ShapeConstraint::None,
+                joint_null_rotation: None,
+            }],
+        };
+
+        assert!(
+            spatial_length_scale_term_indices(&spec).is_empty(),
+            "penalized thin-plate regression splines must not contribute a redundant isotropic kappa axis"
+        );
+        assert!(
+            all_spatial_terms_kappa_fixed(&spec),
+            "with no TPS kappa axis, all spatial terms are effectively fixed-geometry"
+        );
+    }
+
+    #[test]
     fn pure_duchon_from_length_scales_aniso_is_isotropic_single_psi() {
         let spec = TermCollectionSpec {
             linear_terms: vec![],
@@ -25507,6 +25646,48 @@ mod tests {
         assert_eq!(coords.as_array().len(), 1);
         let expected_psi = -opts.min_length_scale.ln();
         assert!((coords.as_array()[0] - expected_psi).abs() <= 1e-12);
+    }
+
+    #[test]
+    fn explicit_duchon_aniso_length_scale_is_locked_kappa() {
+        let spec = TermCollectionSpec {
+            linear_terms: vec![],
+            random_effect_terms: vec![],
+            smooth_terms: vec![SmoothTermSpec {
+                name: "duchon_fixed_geometry".to_string(),
+                basis: SmoothBasisSpec::Duchon {
+                    feature_cols: vec![0, 1, 2],
+                    spec: DuchonBasisSpec {
+                        periodic: None,
+                        center_strategy: CenterStrategy::UserProvided(array![
+                            [0.0, 0.0, 0.0],
+                            [1.0, 0.0, 0.0],
+                            [0.0, 1.0, 0.0],
+                            [0.0, 0.0, 1.0],
+                        ]),
+                        length_scale: Some(1.0),
+                        power: 1.0,
+                        nullspace_order: DuchonNullspaceOrder::Linear,
+                        identifiability: SpatialIdentifiability::None,
+                        aniso_log_scales: Some(vec![0.7, 0.2, 0.1]),
+                        operator_penalties: DuchonOperatorPenaltySpec::default(),
+                        boundary: OneDimensionalBoundary::Open,
+                    },
+                    input_scales: None,
+                },
+                shape: ShapeConstraint::None,
+                joint_null_rotation: None,
+            }],
+        };
+
+        assert!(
+            spatial_term_has_locked_kappa(&spec, 0),
+            "Duchon anisotropy is fixed geometry and must not force ψ optimization"
+        );
+        assert!(
+            all_spatial_terms_kappa_fixed(&spec),
+            "a Duchon term with explicit length_scale and fixed anisotropy has no REML κ/ψ axis"
+        );
     }
 
     #[test]
@@ -27527,7 +27708,7 @@ mod tests {
     }
 
     #[test]
-    fn exact_spatial_adaptive_high_center_duchon_fit_no_longer_fails_in_outer_solver() {
+    fn high_center_duchon_fit_ignores_unavailable_spatial_adaptive_overlay() {
         let n = 320usize;
         let mut data = Array2::<f64>::zeros((n, 1));
         let mut y = Array1::<f64>::zeros(n);
@@ -27586,13 +27767,10 @@ mod tests {
         assert!(fit.fit.beta.iter().all(|v| v.is_finite()));
         assert!(fit.fit.deviance.is_finite());
         assert!(fit.fit.edf_total().is_some_and(f64::is_finite));
-        let diag = fit
-            .adaptive_diagnostics
-            .as_ref()
-            .expect("adaptive diagnostics should be present");
-        assert!(diag.epsilon_0.is_finite() && diag.epsilon_0 > 0.0);
-        assert!(diag.epsilon_g.is_finite() && diag.epsilon_g > 0.0);
-        assert!(diag.epsilon_c.is_finite() && diag.epsilon_c > 0.0);
+        assert!(
+            fit.adaptive_diagnostics.is_none(),
+            "Duchon does not expose the complete operator triplet required by the runtime adaptive overlay"
+        );
     }
 
     #[test]
@@ -27798,7 +27976,7 @@ mod tests {
                         nullspace_order: DuchonNullspaceOrder::Zero,
                         identifiability: SpatialIdentifiability::default(),
                         aniso_log_scales: None,
-                        operator_penalties: DuchonOperatorPenaltySpec::default(),
+                        operator_penalties: DuchonOperatorPenaltySpec::all_active(),
                         boundary: OneDimensionalBoundary::Open,
                     },
                     input_scales: None,
@@ -27809,7 +27987,7 @@ mod tests {
         };
 
         let design = build_term_collection_design(data.view(), &spec).expect("design");
-        assert_eq!(design.penalties.len(), 3);
+        assert_eq!(design.penalties.len(), 4);
         let caches =
             extract_spatial_operator_runtime_caches(&spec, &design).expect("runtime caches");
         assert_eq!(caches.len(), 1);

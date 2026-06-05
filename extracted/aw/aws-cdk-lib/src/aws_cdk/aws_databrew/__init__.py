@@ -4372,7 +4372,7 @@ class CfnJob(
         def __init__(
             self,
             *,
-            parameters: typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"],
+            parameters: typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]],
             statistic: builtins.str,
         ) -> None:
             '''Override of a particular evaluation for a profile job.
@@ -4408,14 +4408,14 @@ class CfnJob(
         @builtins.property
         def parameters(
             self,
-        ) -> typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]:
             '''A map that includes overrides of an evaluation’s parameters.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-databrew-job-statisticoverride.html#cfn-databrew-job-statisticoverride-parameters
             '''
             result = self._values.get("parameters")
             assert result is not None, "Required property 'parameters' is missing"
-            return typing.cast(typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]], result)
 
         @builtins.property
         def statistic(self) -> builtins.str:
@@ -5789,7 +5789,7 @@ class CfnRecipe(
             self,
             *,
             operation: builtins.str,
-            parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         ) -> None:
             '''Represents a transformation and associated parameters that are used to apply a change to an AWS Glue DataBrew dataset.
 
@@ -5837,13 +5837,13 @@ class CfnRecipe(
         @builtins.property
         def parameters(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''Contextual parameters for the transformation.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-databrew-recipe-action.html#cfn-databrew-recipe-action-parameters
             '''
             result = self._values.get("parameters")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9895,7 +9895,7 @@ def _typecheckingstub__36cbb7ddc57b126c173c7d3b9841eba443a5af77f44820b20fbcf2cb7
 
 def _typecheckingstub__8cc2e0c65b4112821594dd512c8dd2fbcee67b601d0054b87929d6a5d2651482(
     *,
-    parameters: typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b],
+    parameters: typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]],
     statistic: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -10088,7 +10088,7 @@ def _typecheckingstub__2d21a60e57e66a69e507d7dba5c522976f57f8bb1bfe4305961694def
 def _typecheckingstub__c28210de1e452e744c40689008a4142516dab307cd51f1110171632b98ebe243(
     *,
     operation: builtins.str,
-    parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

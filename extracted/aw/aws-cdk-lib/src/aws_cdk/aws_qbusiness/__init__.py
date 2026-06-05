@@ -6289,7 +6289,7 @@ class CfnPlugin(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_qbusiness as qbusiness
                 
-                a_pISchema_property = qbusiness.CfnPlugin.APISchemaProperty(
+                a_pi_schema_property = qbusiness.CfnPlugin.APISchemaProperty(
                     payload="payload",
                     s3=qbusiness.CfnPlugin.S3Property(
                         bucket="bucket",
@@ -8291,7 +8291,7 @@ class CfnWebExperience(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_qbusiness as qbusiness
                 
-                open_iDConnect_provider_configuration_property = qbusiness.CfnWebExperience.OpenIDConnectProviderConfigurationProperty(
+                open_id_connect_provider_configuration_property = qbusiness.CfnWebExperience.OpenIDConnectProviderConfigurationProperty(
                     secrets_arn="secretsArn",
                     secrets_role="secretsRole"
                 )

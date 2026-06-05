@@ -1,4 +1,4 @@
-from typing import List, Optional, Union
+from typing import List, Optional
 
 from ..habanero_utils import check_kwargs, sub_str
 from ..request import request
@@ -142,21 +142,42 @@ class Crossref:
     **Facet count options**
 
     * `affiliation` - Author affiliation. Allowed value: *
-    * `year` - Earliest year of publication, synonym for published. Allowed value: *
-    * `funder-name` - Funder literal name as deposited alongside DOIs. Allowed value: *
-    * `funder-doi` - Funder DOI. Allowed value: *
-    * `orcid` - Contributor ORCID. Max value: 100
-    * `container-title` - Work container title, such as journal title, or book title. Max value: 100
-    * `assertion` - Custom Crossmark assertion name. Allowed value: *
     * `archive` - Archive location. Allowed value: *
-    * `update-type` - Significant update type. Allowed value: *
-    * `issn` - Journal ISSN (any - print, electronic, link). Max value: 100
-    * `published` - Earliest year of publication. Allowed value: *
-    * `type-name` - Work type name, such as journal-article or book-chapter. Allowed value: *
-    * `license` - License URI of work. Allowed value: *
-    * `category-name` - Category name of work. Allowed value: *
-    * `relation-type` - Relation type described by work or described by another work with work as object. Allowed value: *
+    * `assertion` - Custom Crossmark assertion name. Allowed value: *
     * `assertion-group` - Custom Crossmark assertion group name. Allowed value: *
+    * `category-name` - Category name of work. Allowed value: *
+    * `container-title` - Work container title, such as journal title, or book title. Max value: 100
+    * `funder-doi` - Funder DOI. Allowed value: *
+    * `funder-name` - Funder literal name as deposited alongside DOIs. Allowed value: *
+    * `issn` - Journal ISSN (any - print, electronic, link). Max value: 100
+    * `journal-issue` - journal issue number.
+    * `journal-volume` - journal volume.
+    * `license` - License URI of work. Allowed value: *
+    * `link-application` - intended application of the full text link
+    * `orcid` - Contributor ORCID. Max value: 100
+    * `published` - Earliest year of publication. Allowed value: *
+    * `publisher-name` - publisher name of work.
+    * `relation-type` - Relation type described by work or described by another work with work as object. Allowed value: *
+    * `ror-id` - institution ROR ID.
+    * `source` - source of the DOI.
+    * `type-name` - Work type name, such as journal-article or book-chapter. Allowed value: *
+    * `update-type` - Significant update type. Allowed value: *
+
+
+    .. _Select:
+
+    **Select parameter options**
+
+    DOI, ISBN, ISSN, URL, abstract, accepted, alternative-id, approved,
+    archive, article-number, assertion, author, chair, clinical-trial-number,
+    container-title, content-created, content-domain, contributor, created,
+    degree, deposited, editor, event, funder, group-title, indexed,
+    is-referenced-by-count, issn-type, issue, issued, license, link, member,
+    original-title, page, posted, prefix, published, published-online,
+    published-print, publisher, publisher-location, reference,
+    references-count, relation, resource, score, short-container-title,
+    short-title, standards-body, subject, subtitle, title, translator, type,
+    update-policy, update-to, updated-by, volume
 
 
     |
@@ -208,7 +229,7 @@ class Crossref:
         progress_bar: bool = False,
         warn: bool = False,
         **kwargs,
-    ) -> dict:
+    ) -> dict | list[dict]:
         """
         Search Crossref works
 
@@ -235,8 +256,8 @@ class Crossref:
             See Facets_ for options.
         :param select: Crossref metadata records can be
             quite large. Sometimes you just want a few elements from the schema. You can "select"
-            a subset of elements to return. This can make your API calls much more efficient. Not
-            clear yet which fields are allowed here.
+            a subset of elements to return. This can make your API calls much more efficient. See
+            Select_ for options.
         :param cursor: Cursor character string to do deep paging. Default is None.
             Pass in '*' to start deep paging. Any combination of query, filters and facets may be
             used with deep paging cursors. While rows may be specified along with cursor, offset
@@ -253,7 +274,8 @@ class Crossref:
             Returns `None` when `warn=True` for each DOI that errors.
         :param kwargs: additional named arguments passed on to `requests.get`, e.g., field
             queries (see examples and FieldQueries_)
-        :rtype: dict
+        :returns: list[dict] when cursor is used, and dict when cursor is not used
+        :rtype: dict | list[dict]
 
         Usage::
 
@@ -386,7 +408,7 @@ class Crossref:
 
     def members(
         self,
-        ids: List[str] | str | None = None,
+        ids: List[str] | str | int | None = None,
         query: Optional[str] = None,
         filter: Optional[dict] = None,
         offset: Optional[float] = None,
@@ -430,8 +452,8 @@ class Crossref:
             See Facets_ for options.
         :param select: Crossref metadata records can be
             quite large. Sometimes you just want a few elements from the schema. You can "select"
-            a subset of elements to return. This can make your API calls much more efficient. Not
-            clear yet which fields are allowed here.
+            a subset of elements to return. This can make your API calls much more efficient. See
+            Select_ for options.
         :param works: If true, works returned as well. Default: false
         :param cursor: Cursor character string to do deep paging. Default is None.
             Pass in '*' to start deep paging. Any combination of query, filters and facets may be
@@ -542,8 +564,8 @@ class Crossref:
             See Facets_ for options.
         :param select: Crossref metadata records can be
             quite large. Sometimes you just want a few elements from the schema. You can "select"
-            a subset of elements to return. This can make your API calls much more efficient. Not
-            clear yet which fields are allowed here.
+            a subset of elements to return. This can make your API calls much more efficient. See
+            Select_ for options.
         :param works: If true, works returned as well. Default: false
         :param cursor: Cursor character string to do deep paging. Default is None.
             Pass in '*' to start deep paging. Any combination of query, filters and facets may be
@@ -664,8 +686,8 @@ class Crossref:
             See Facets_ for options.
         :param select: Crossref metadata records can be
             quite large. Sometimes you just want a few elements from the schema. You can "select"
-            a subset of elements to return. This can make your API calls much more efficient. Not
-            clear yet which fields are allowed here.
+            a subset of elements to return. This can make your API calls much more efficient. See
+            Select_ for options.
         :param works: If true, works returned as well. Default: false
         :param cursor: Cursor character string to do deep paging. Default is None.
             Pass in '*' to start deep paging. Any combination of query, filters and facets may be
@@ -787,8 +809,8 @@ class Crossref:
             See Facets_ for options.
         :param select: Crossref metadata records can be
             quite large. Sometimes you just want a few elements from the schema. You can "select"
-            a subset of elements to return. This can make your API calls much more efficient. Not
-            clear yet which fields are allowed here.
+            a subset of elements to return. This can make your API calls much more efficient. See
+            Select_ for options.
         :param works: If true, works returned as well. Default: false
         :param cursor: Cursor character string to do deep paging. Default is None.
             Pass in '*' to start deep paging. Any combination of query, filters and facets may be
@@ -910,8 +932,8 @@ class Crossref:
             See Facets_ for options.
         :param select: Crossref metadata records can be
             quite large. Sometimes you just want a few elements from the schema. You can "select"
-            a subset of elements to return. This can make your API calls much more efficient. Not
-            clear yet which fields are allowed here.
+            a subset of elements to return. This can make your API calls much more efficient. See
+            Select_ for options.
         :param works: If true, works returned as well. Default: false
         :param cursor: Cursor character string to do deep paging. Default is None.
             Pass in '*' to start deep paging. Any combination of query, filters and facets may be
@@ -1023,7 +1045,7 @@ class Crossref:
         )
         return res
 
-    def registration_agency(self, ids: Union[List[str], str], **kwargs) -> list:
+    def registration_agency(self, ids: List[str] | str, **kwargs) -> list:
         """
         Determine registration agency for DOIs
 

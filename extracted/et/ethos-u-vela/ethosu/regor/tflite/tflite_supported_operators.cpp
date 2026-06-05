@@ -73,7 +73,7 @@ void Failure(const Operation *op, const std::string &extra)
         auto tfLiteType = TfLiteMapping::OpTypeToBuiltinOperator(opType);
         type = TfLiteMapping::BuiltinOperatorToString(tfLiteType);
     }
-    LOG_WARN("\nWarning (supported operators) operator:{} ofm:{}\n", std::move(type), name);
+    LOG_WARN("\nWarning (supported operators) operator: {}, ofm: '{}'\n", std::move(type), name);
     if ( extra.size() )
     {
         LOG_WARN("Reason: {}\n", extra);
@@ -193,7 +193,7 @@ bool TensQuantized(const Operation *op)
         {
             auto usage = item.first;
             const auto &conn = item.second;
-            if ( conn.tensor->Type() != DataType::Int64 &&
+            if ( conn.tensor->Type() != DataType::Int64 && conn.tensor->Type() != DataType::Bool8 &&
                  (((IsIFM(usage) || IsOFM(usage)) && (conn.tensor->Type() != DataType::Int32 || op->Type() == OpType::Quantize)) || usage == TensorUsage::Weights) )
             {
                 const Quantization &quant = conn.quantization;
@@ -246,8 +246,9 @@ bool PerAxisQuant(const Operation *op)
 {
     for ( const auto *list : {&op->Inputs(), &op->Outputs()} )
     {
-        for ( const auto &[usage, conn] : list->pairs() )
+        for ( const auto &entry : list->pairs() )
         {
+            const auto &conn = entry.second;
             if ( conn.quantization.scales.size() > 1 || conn.quantization.zeroPoints.size() > 1 )
             {
                 Failure(op, "Operation does not support per-axis quantization");

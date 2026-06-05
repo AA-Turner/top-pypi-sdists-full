@@ -1365,6 +1365,9 @@ class CfnOriginEndpoint(
                 manifest_name="manifestName",
         
                 # the properties below are optional
+                availability_start_time_configuration=mediapackagev2.CfnOriginEndpoint.DashAvailabilityStartTimeConfigurationProperty(
+                    fixed_availability_start_time="fixedAvailabilityStartTime"
+                ),
                 base_urls=[mediapackagev2.CfnOriginEndpoint.DashBaseUrlProperty(
                     url="url",
         
@@ -1409,7 +1412,8 @@ class CfnOriginEndpoint(
                     title="title"
                 ),
                 scte_dash=mediapackagev2.CfnOriginEndpoint.ScteDashProperty(
-                    ad_marker_dash="adMarkerDash"
+                    ad_marker_dash="adMarkerDash",
+                    scte_in_manifests="scteInManifests"
                 ),
                 segment_template_format="segmentTemplateFormat",
                 subtitle_configuration=mediapackagev2.CfnOriginEndpoint.DashSubtitleConfigurationProperty(
@@ -1418,6 +1422,7 @@ class CfnOriginEndpoint(
                     )
                 ),
                 suggested_presentation_delay_seconds=123,
+                uri_path_type="uriPathType",
                 utc_timing=mediapackagev2.CfnOriginEndpoint.DashUtcTimingProperty(
                     timing_mode="timingMode",
                     timing_source="timingSource"
@@ -1443,7 +1448,8 @@ class CfnOriginEndpoint(
                 manifest_window_seconds=123,
                 program_date_time_interval_seconds=123,
                 scte_hls=mediapackagev2.CfnOriginEndpoint.ScteHlsProperty(
-                    ad_marker_hls="adMarkerHls"
+                    ad_marker_hls="adMarkerHls",
+                    scte_in_manifests="scteInManifests"
                 ),
                 start_tag=mediapackagev2.CfnOriginEndpoint.StartTagProperty(
                     time_offset=123,
@@ -1451,6 +1457,7 @@ class CfnOriginEndpoint(
                     # the properties below are optional
                     precise=False
                 ),
+                uri_path_type="uriPathType",
                 url="url",
                 url_encode_child_manifest=False
             )],
@@ -1470,7 +1477,8 @@ class CfnOriginEndpoint(
                 manifest_window_seconds=123,
                 program_date_time_interval_seconds=123,
                 scte_hls=mediapackagev2.CfnOriginEndpoint.ScteHlsProperty(
-                    ad_marker_hls="adMarkerHls"
+                    ad_marker_hls="adMarkerHls",
+                    scte_in_manifests="scteInManifests"
                 ),
                 start_tag=mediapackagev2.CfnOriginEndpoint.StartTagProperty(
                     time_offset=123,
@@ -1478,6 +1486,7 @@ class CfnOriginEndpoint(
                     # the properties below are optional
                     precise=False
                 ),
+                uri_path_type="uriPathType",
                 url="url",
                 url_encode_child_manifest=False
             )],
@@ -1524,6 +1533,7 @@ class CfnOriginEndpoint(
                 ),
                 include_iframe_only_streams=False,
                 scte=mediapackagev2.CfnOriginEndpoint.ScteProperty(
+                    custom_ad_types=["customAdTypes"],
                     scte_filter=["scteFilter"],
                     scte_in_segments="scteInSegments"
                 ),
@@ -1536,7 +1546,8 @@ class CfnOriginEndpoint(
             tags=[CfnTag(
                 key="key",
                 value="value"
-            )]
+            )],
+            uri_separator="uriSeparator"
         )
     '''
 
@@ -1558,6 +1569,7 @@ class CfnOriginEndpoint(
         segment: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOriginEndpoint.SegmentProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         startover_window_seconds: typing.Optional[jsii.Number] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        uri_separator: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Create a new ``AWS::MediaPackageV2::OriginEndpoint``.
 
@@ -1576,6 +1588,7 @@ class CfnOriginEndpoint(
         :param segment: The segment associated with the origin endpoint.
         :param startover_window_seconds: The size of the window (in seconds) to specify a window of the live stream that's available for on-demand viewing. Viewers can start-over or catch-up on content that falls within the window.
         :param tags: The tags associated with the origin endpoint.
+        :param uri_separator: 
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7dba3dfc2892c78e53aee7675a7a24aa25c0b29481aca92446e31a0d8e885454)
@@ -1595,6 +1608,7 @@ class CfnOriginEndpoint(
             segment=segment,
             startover_window_seconds=startover_window_seconds,
             tags=tags,
+            uri_separator=uri_separator,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -1937,6 +1951,68 @@ class CfnOriginEndpoint(
             type_hints = typing.get_type_hints(_typecheckingstub__65cc25545f38d01b8ccc61c9494f0994747ef22d12fc3c94c71cb091aff2f324)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="uriSeparator")
+    def uri_separator(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "uriSeparator"))
+
+    @uri_separator.setter
+    def uri_separator(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0578864b3e0b6596626a33a27e42499cab016dedcde625fdc9cd5d70adc1ff26)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "uriSeparator", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediapackagev2.CfnOriginEndpoint.DashAvailabilityStartTimeConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"fixed_availability_start_time": "fixedAvailabilityStartTime"},
+    )
+    class DashAvailabilityStartTimeConfigurationProperty:
+        def __init__(self, *, fixed_availability_start_time: builtins.str) -> None:
+            '''
+            :param fixed_availability_start_time: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashavailabilitystarttimeconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediapackagev2 as mediapackagev2
+                
+                dash_availability_start_time_configuration_property = mediapackagev2.CfnOriginEndpoint.DashAvailabilityStartTimeConfigurationProperty(
+                    fixed_availability_start_time="fixedAvailabilityStartTime"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__b08f61ec9db3f1fdcd263035446f62e72246fa10baf1fdc8683a110410f5d4a7)
+                check_type(argname="argument fixed_availability_start_time", value=fixed_availability_start_time, expected_type=type_hints["fixed_availability_start_time"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "fixed_availability_start_time": fixed_availability_start_time,
+            }
+
+        @builtins.property
+        def fixed_availability_start_time(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashavailabilitystarttimeconfiguration.html#cfn-mediapackagev2-originendpoint-dashavailabilitystarttimeconfiguration-fixedavailabilitystarttime
+            '''
+            result = self._values.get("fixed_availability_start_time")
+            assert result is not None, "Required property 'fixed_availability_start_time' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DashAvailabilityStartTimeConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_mediapackagev2.CfnOriginEndpoint.DashBaseUrlProperty",
@@ -2315,6 +2391,7 @@ class CfnOriginEndpoint(
         jsii_struct_bases=[],
         name_mapping={
             "manifest_name": "manifestName",
+            "availability_start_time_configuration": "availabilityStartTimeConfiguration",
             "base_urls": "baseUrls",
             "compactness": "compactness",
             "drm_signaling": "drmSignaling",
@@ -2330,6 +2407,7 @@ class CfnOriginEndpoint(
             "segment_template_format": "segmentTemplateFormat",
             "subtitle_configuration": "subtitleConfiguration",
             "suggested_presentation_delay_seconds": "suggestedPresentationDelaySeconds",
+            "uri_path_type": "uriPathType",
             "utc_timing": "utcTiming",
         },
     )
@@ -2338,6 +2416,7 @@ class CfnOriginEndpoint(
             self,
             *,
             manifest_name: builtins.str,
+            availability_start_time_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOriginEndpoint.DashAvailabilityStartTimeConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             base_urls: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOriginEndpoint.DashBaseUrlProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             compactness: typing.Optional[builtins.str] = None,
             drm_signaling: typing.Optional[builtins.str] = None,
@@ -2353,11 +2432,13 @@ class CfnOriginEndpoint(
             segment_template_format: typing.Optional[builtins.str] = None,
             subtitle_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOriginEndpoint.DashSubtitleConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             suggested_presentation_delay_seconds: typing.Optional[jsii.Number] = None,
+            uri_path_type: typing.Optional[builtins.str] = None,
             utc_timing: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOriginEndpoint.DashUtcTimingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The DASH manifest configuration associated with the origin endpoint.
 
             :param manifest_name: A short string that's appended to the endpoint URL. The child manifest name creates a unique path to this endpoint.
+            :param availability_start_time_configuration: 
             :param base_urls: The base URLs to use for retrieving segments.
             :param compactness: The layout of the DASH manifest that MediaPackage produces. ``STANDARD`` indicates a default manifest, which is compacted. ``NONE`` indicates a full manifest. For information about compactness, see `DASH manifest compactness <https://docs.aws.amazon.com/mediapackage/latest/userguide/compacted.html>`_ in the *AWS Elemental MediaPackage v2 User Guide* .
             :param drm_signaling: Determines how the DASH manifest signals the DRM content.
@@ -2373,6 +2454,7 @@ class CfnOriginEndpoint(
             :param segment_template_format: Determines the type of variable used in the ``media`` URL of the ``SegmentTemplate`` tag in the manifest. Also specifies if segment timeline information is included in ``SegmentTimeline`` or ``SegmentTemplate`` . Value description: - ``NUMBER_WITH_TIMELINE`` - The ``$Number$`` variable is used in the ``media`` URL. The value of this variable is the sequential number of the segment. A full ``SegmentTimeline`` object is presented in each ``SegmentTemplate`` .
             :param subtitle_configuration: The configuration for DASH subtitles.
             :param suggested_presentation_delay_seconds: The amount of time (in seconds) that the player should be from the end of the manifest.
+            :param uri_path_type: 
             :param utc_timing: Determines the type of UTC timing included in the DASH Media Presentation Description (MPD).
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashmanifestconfiguration.html
@@ -2388,6 +2470,9 @@ class CfnOriginEndpoint(
                     manifest_name="manifestName",
                 
                     # the properties below are optional
+                    availability_start_time_configuration=mediapackagev2.CfnOriginEndpoint.DashAvailabilityStartTimeConfigurationProperty(
+                        fixed_availability_start_time="fixedAvailabilityStartTime"
+                    ),
                     base_urls=[mediapackagev2.CfnOriginEndpoint.DashBaseUrlProperty(
                         url="url",
                 
@@ -2432,7 +2517,8 @@ class CfnOriginEndpoint(
                         title="title"
                     ),
                     scte_dash=mediapackagev2.CfnOriginEndpoint.ScteDashProperty(
-                        ad_marker_dash="adMarkerDash"
+                        ad_marker_dash="adMarkerDash",
+                        scte_in_manifests="scteInManifests"
                     ),
                     segment_template_format="segmentTemplateFormat",
                     subtitle_configuration=mediapackagev2.CfnOriginEndpoint.DashSubtitleConfigurationProperty(
@@ -2441,6 +2527,7 @@ class CfnOriginEndpoint(
                         )
                     ),
                     suggested_presentation_delay_seconds=123,
+                    uri_path_type="uriPathType",
                     utc_timing=mediapackagev2.CfnOriginEndpoint.DashUtcTimingProperty(
                         timing_mode="timingMode",
                         timing_source="timingSource"
@@ -2450,6 +2537,7 @@ class CfnOriginEndpoint(
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__20e3bfad4ae40517c778173bab356d7bd208497ee33a09fdc9e380135384dfc6)
                 check_type(argname="argument manifest_name", value=manifest_name, expected_type=type_hints["manifest_name"])
+                check_type(argname="argument availability_start_time_configuration", value=availability_start_time_configuration, expected_type=type_hints["availability_start_time_configuration"])
                 check_type(argname="argument base_urls", value=base_urls, expected_type=type_hints["base_urls"])
                 check_type(argname="argument compactness", value=compactness, expected_type=type_hints["compactness"])
                 check_type(argname="argument drm_signaling", value=drm_signaling, expected_type=type_hints["drm_signaling"])
@@ -2465,10 +2553,13 @@ class CfnOriginEndpoint(
                 check_type(argname="argument segment_template_format", value=segment_template_format, expected_type=type_hints["segment_template_format"])
                 check_type(argname="argument subtitle_configuration", value=subtitle_configuration, expected_type=type_hints["subtitle_configuration"])
                 check_type(argname="argument suggested_presentation_delay_seconds", value=suggested_presentation_delay_seconds, expected_type=type_hints["suggested_presentation_delay_seconds"])
+                check_type(argname="argument uri_path_type", value=uri_path_type, expected_type=type_hints["uri_path_type"])
                 check_type(argname="argument utc_timing", value=utc_timing, expected_type=type_hints["utc_timing"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "manifest_name": manifest_name,
             }
+            if availability_start_time_configuration is not None:
+                self._values["availability_start_time_configuration"] = availability_start_time_configuration
             if base_urls is not None:
                 self._values["base_urls"] = base_urls
             if compactness is not None:
@@ -2499,6 +2590,8 @@ class CfnOriginEndpoint(
                 self._values["subtitle_configuration"] = subtitle_configuration
             if suggested_presentation_delay_seconds is not None:
                 self._values["suggested_presentation_delay_seconds"] = suggested_presentation_delay_seconds
+            if uri_path_type is not None:
+                self._values["uri_path_type"] = uri_path_type
             if utc_timing is not None:
                 self._values["utc_timing"] = utc_timing
 
@@ -2513,6 +2606,16 @@ class CfnOriginEndpoint(
             result = self._values.get("manifest_name")
             assert result is not None, "Required property 'manifest_name' is missing"
             return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def availability_start_time_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.DashAvailabilityStartTimeConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashmanifestconfiguration.html#cfn-mediapackagev2-originendpoint-dashmanifestconfiguration-availabilitystarttimeconfiguration
+            '''
+            result = self._values.get("availability_start_time_configuration")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.DashAvailabilityStartTimeConfigurationProperty"]], result)
 
         @builtins.property
         def base_urls(
@@ -2674,6 +2777,14 @@ class CfnOriginEndpoint(
             '''
             result = self._values.get("suggested_presentation_delay_seconds")
             return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def uri_path_type(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashmanifestconfiguration.html#cfn-mediapackagev2-originendpoint-dashmanifestconfiguration-uripathtype
+            '''
+            result = self._values.get("uri_path_type")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
         def utc_timing(
@@ -3571,6 +3682,7 @@ class CfnOriginEndpoint(
             "program_date_time_interval_seconds": "programDateTimeIntervalSeconds",
             "scte_hls": "scteHls",
             "start_tag": "startTag",
+            "uri_path_type": "uriPathType",
             "url": "url",
             "url_encode_child_manifest": "urlEncodeChildManifest",
         },
@@ -3586,6 +3698,7 @@ class CfnOriginEndpoint(
             program_date_time_interval_seconds: typing.Optional[jsii.Number] = None,
             scte_hls: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOriginEndpoint.ScteHlsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             start_tag: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOriginEndpoint.StartTagProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            uri_path_type: typing.Optional[builtins.str] = None,
             url: typing.Optional[builtins.str] = None,
             url_encode_child_manifest: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         ) -> None:
@@ -3598,6 +3711,7 @@ class CfnOriginEndpoint(
             :param program_date_time_interval_seconds: The ``EXT-X-PROGRAM-DATE-TIME`` interval, in seconds, associated with the HLS manifest configuration.
             :param scte_hls: THE SCTE-35 HLS configuration associated with the HLS manifest configuration.
             :param start_tag: To insert an EXT-X-START tag in your HLS playlist, specify a StartTag configuration object with a valid TimeOffset. When you do, you can also optionally specify whether to include a PRECISE value in the EXT-X-START tag.
+            :param uri_path_type: 
             :param url: The URL of the HLS manifest configuration.
             :param url_encode_child_manifest: When enabled, MediaPackage URL-encodes the query string for API requests for HLS child manifests to comply with AWS Signature Version 4 (SigV4) signature signing protocol. For more information, see `AWS Signature Version 4 for API requests <https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_sigv.html>`_ in *AWS Identity and Access Management User Guide* .
 
@@ -3626,7 +3740,8 @@ class CfnOriginEndpoint(
                     manifest_window_seconds=123,
                     program_date_time_interval_seconds=123,
                     scte_hls=mediapackagev2.CfnOriginEndpoint.ScteHlsProperty(
-                        ad_marker_hls="adMarkerHls"
+                        ad_marker_hls="adMarkerHls",
+                        scte_in_manifests="scteInManifests"
                     ),
                     start_tag=mediapackagev2.CfnOriginEndpoint.StartTagProperty(
                         time_offset=123,
@@ -3634,6 +3749,7 @@ class CfnOriginEndpoint(
                         # the properties below are optional
                         precise=False
                     ),
+                    uri_path_type="uriPathType",
                     url="url",
                     url_encode_child_manifest=False
                 )
@@ -3647,6 +3763,7 @@ class CfnOriginEndpoint(
                 check_type(argname="argument program_date_time_interval_seconds", value=program_date_time_interval_seconds, expected_type=type_hints["program_date_time_interval_seconds"])
                 check_type(argname="argument scte_hls", value=scte_hls, expected_type=type_hints["scte_hls"])
                 check_type(argname="argument start_tag", value=start_tag, expected_type=type_hints["start_tag"])
+                check_type(argname="argument uri_path_type", value=uri_path_type, expected_type=type_hints["uri_path_type"])
                 check_type(argname="argument url", value=url, expected_type=type_hints["url"])
                 check_type(argname="argument url_encode_child_manifest", value=url_encode_child_manifest, expected_type=type_hints["url_encode_child_manifest"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3664,6 +3781,8 @@ class CfnOriginEndpoint(
                 self._values["scte_hls"] = scte_hls
             if start_tag is not None:
                 self._values["start_tag"] = start_tag
+            if uri_path_type is not None:
+                self._values["uri_path_type"] = uri_path_type
             if url is not None:
                 self._values["url"] = url
             if url_encode_child_manifest is not None:
@@ -3742,6 +3861,14 @@ class CfnOriginEndpoint(
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.StartTagProperty"]], result)
 
         @builtins.property
+        def uri_path_type(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-hlsmanifestconfiguration.html#cfn-mediapackagev2-originendpoint-hlsmanifestconfiguration-uripathtype
+            '''
+            result = self._values.get("uri_path_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
         def url(self) -> typing.Optional[builtins.str]:
             '''The URL of the HLS manifest configuration.
 
@@ -3785,6 +3912,7 @@ class CfnOriginEndpoint(
             "program_date_time_interval_seconds": "programDateTimeIntervalSeconds",
             "scte_hls": "scteHls",
             "start_tag": "startTag",
+            "uri_path_type": "uriPathType",
             "url": "url",
             "url_encode_child_manifest": "urlEncodeChildManifest",
         },
@@ -3800,6 +3928,7 @@ class CfnOriginEndpoint(
             program_date_time_interval_seconds: typing.Optional[jsii.Number] = None,
             scte_hls: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOriginEndpoint.ScteHlsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             start_tag: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOriginEndpoint.StartTagProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            uri_path_type: typing.Optional[builtins.str] = None,
             url: typing.Optional[builtins.str] = None,
             url_encode_child_manifest: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         ) -> None:
@@ -3812,6 +3941,7 @@ class CfnOriginEndpoint(
             :param program_date_time_interval_seconds: Inserts ``EXT-X-PROGRAM-DATE-TIME`` tags in the output manifest at the interval that you specify. If you don't enter an interval, ``EXT-X-PROGRAM-DATE-TIME`` tags aren't included in the manifest. The tags sync the stream to the wall clock so that viewers can seek to a specific time in the playback timeline on the player. Irrespective of this parameter, if any ``ID3Timed`` metadata is in the HLS input, MediaPackage passes through that metadata to the HLS output.
             :param scte_hls: The SCTE-35 HLS configuration associated with the low-latency HLS (LL-HLS) manifest configuration of the origin endpoint.
             :param start_tag: To insert an EXT-X-START tag in your HLS playlist, specify a StartTag configuration object with a valid TimeOffset. When you do, you can also optionally specify whether to include a PRECISE value in the EXT-X-START tag.
+            :param uri_path_type: 
             :param url: The URL of the low-latency HLS (LL-HLS) manifest configuration of the origin endpoint.
             :param url_encode_child_manifest: When enabled, MediaPackage URL-encodes the query string for API requests for LL-HLS child manifests to comply with AWS Signature Version 4 (SigV4) signature signing protocol. For more information, see `AWS Signature Version 4 for API requests <https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_sigv.html>`_ in *AWS Identity and Access Management User Guide* .
 
@@ -3840,7 +3970,8 @@ class CfnOriginEndpoint(
                     manifest_window_seconds=123,
                     program_date_time_interval_seconds=123,
                     scte_hls=mediapackagev2.CfnOriginEndpoint.ScteHlsProperty(
-                        ad_marker_hls="adMarkerHls"
+                        ad_marker_hls="adMarkerHls",
+                        scte_in_manifests="scteInManifests"
                     ),
                     start_tag=mediapackagev2.CfnOriginEndpoint.StartTagProperty(
                         time_offset=123,
@@ -3848,6 +3979,7 @@ class CfnOriginEndpoint(
                         # the properties below are optional
                         precise=False
                     ),
+                    uri_path_type="uriPathType",
                     url="url",
                     url_encode_child_manifest=False
                 )
@@ -3861,6 +3993,7 @@ class CfnOriginEndpoint(
                 check_type(argname="argument program_date_time_interval_seconds", value=program_date_time_interval_seconds, expected_type=type_hints["program_date_time_interval_seconds"])
                 check_type(argname="argument scte_hls", value=scte_hls, expected_type=type_hints["scte_hls"])
                 check_type(argname="argument start_tag", value=start_tag, expected_type=type_hints["start_tag"])
+                check_type(argname="argument uri_path_type", value=uri_path_type, expected_type=type_hints["uri_path_type"])
                 check_type(argname="argument url", value=url, expected_type=type_hints["url"])
                 check_type(argname="argument url_encode_child_manifest", value=url_encode_child_manifest, expected_type=type_hints["url_encode_child_manifest"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3878,6 +4011,8 @@ class CfnOriginEndpoint(
                 self._values["scte_hls"] = scte_hls
             if start_tag is not None:
                 self._values["start_tag"] = start_tag
+            if uri_path_type is not None:
+                self._values["uri_path_type"] = uri_path_type
             if url is not None:
                 self._values["url"] = url
             if url_encode_child_manifest is not None:
@@ -3960,6 +4095,14 @@ class CfnOriginEndpoint(
             '''
             result = self._values.get("start_tag")
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.StartTagProperty"]], result)
+
+        @builtins.property
+        def uri_path_type(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-lowlatencyhlsmanifestconfiguration.html#cfn-mediapackagev2-originendpoint-lowlatencyhlsmanifestconfiguration-uripathtype
+            '''
+            result = self._values.get("uri_path_type")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
         def url(self) -> typing.Optional[builtins.str]:
@@ -4116,17 +4259,22 @@ class CfnOriginEndpoint(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_mediapackagev2.CfnOriginEndpoint.ScteDashProperty",
         jsii_struct_bases=[],
-        name_mapping={"ad_marker_dash": "adMarkerDash"},
+        name_mapping={
+            "ad_marker_dash": "adMarkerDash",
+            "scte_in_manifests": "scteInManifests",
+        },
     )
     class ScteDashProperty:
         def __init__(
             self,
             *,
             ad_marker_dash: typing.Optional[builtins.str] = None,
+            scte_in_manifests: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The SCTE configuration.
 
             :param ad_marker_dash: Choose how ad markers are included in the packaged content. If you include ad markers in the content stream in your upstream encoders, then you need to inform MediaPackage what to do with the ad markers in the output. Value description: - ``Binary`` - The SCTE-35 marker is expressed as a hex-string (Base64 string) rather than full XML. - ``XML`` - The SCTE marker is expressed fully in XML.
+            :param scte_in_manifests: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-sctedash.html
             :exampleMetadata: fixture=_generated
@@ -4138,15 +4286,19 @@ class CfnOriginEndpoint(
                 from aws_cdk import aws_mediapackagev2 as mediapackagev2
                 
                 scte_dash_property = mediapackagev2.CfnOriginEndpoint.ScteDashProperty(
-                    ad_marker_dash="adMarkerDash"
+                    ad_marker_dash="adMarkerDash",
+                    scte_in_manifests="scteInManifests"
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__13ac94f52ccc71367f414c5388529d309fac2b39d9caa3e0e662dc2cfae97455)
                 check_type(argname="argument ad_marker_dash", value=ad_marker_dash, expected_type=type_hints["ad_marker_dash"])
+                check_type(argname="argument scte_in_manifests", value=scte_in_manifests, expected_type=type_hints["scte_in_manifests"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if ad_marker_dash is not None:
                 self._values["ad_marker_dash"] = ad_marker_dash
+            if scte_in_manifests is not None:
+                self._values["scte_in_manifests"] = scte_in_manifests
 
         @builtins.property
         def ad_marker_dash(self) -> typing.Optional[builtins.str]:
@@ -4164,6 +4316,14 @@ class CfnOriginEndpoint(
             result = self._values.get("ad_marker_dash")
             return typing.cast(typing.Optional[builtins.str], result)
 
+        @builtins.property
+        def scte_in_manifests(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-sctedash.html#cfn-mediapackagev2-originendpoint-sctedash-scteinmanifests
+            '''
+            result = self._values.get("scte_in_manifests")
+            return typing.cast(typing.Optional[builtins.str], result)
+
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -4178,17 +4338,22 @@ class CfnOriginEndpoint(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_mediapackagev2.CfnOriginEndpoint.ScteHlsProperty",
         jsii_struct_bases=[],
-        name_mapping={"ad_marker_hls": "adMarkerHls"},
+        name_mapping={
+            "ad_marker_hls": "adMarkerHls",
+            "scte_in_manifests": "scteInManifests",
+        },
     )
     class ScteHlsProperty:
         def __init__(
             self,
             *,
             ad_marker_hls: typing.Optional[builtins.str] = None,
+            scte_in_manifests: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The SCTE-35 HLS configuration associated with the origin endpoint.
 
             :param ad_marker_hls: The SCTE-35 HLS ad-marker configuration.
+            :param scte_in_manifests: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-sctehls.html
             :exampleMetadata: fixture=_generated
@@ -4200,15 +4365,19 @@ class CfnOriginEndpoint(
                 from aws_cdk import aws_mediapackagev2 as mediapackagev2
                 
                 scte_hls_property = mediapackagev2.CfnOriginEndpoint.ScteHlsProperty(
-                    ad_marker_hls="adMarkerHls"
+                    ad_marker_hls="adMarkerHls",
+                    scte_in_manifests="scteInManifests"
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__8d4f889b0a331f5c9a9819d549afcb4b4239d6f7040f9146668998df9485e7ea)
                 check_type(argname="argument ad_marker_hls", value=ad_marker_hls, expected_type=type_hints["ad_marker_hls"])
+                check_type(argname="argument scte_in_manifests", value=scte_in_manifests, expected_type=type_hints["scte_in_manifests"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if ad_marker_hls is not None:
                 self._values["ad_marker_hls"] = ad_marker_hls
+            if scte_in_manifests is not None:
+                self._values["scte_in_manifests"] = scte_in_manifests
 
         @builtins.property
         def ad_marker_hls(self) -> typing.Optional[builtins.str]:
@@ -4217,6 +4386,14 @@ class CfnOriginEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-sctehls.html#cfn-mediapackagev2-originendpoint-sctehls-admarkerhls
             '''
             result = self._values.get("ad_marker_hls")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def scte_in_manifests(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-sctehls.html#cfn-mediapackagev2-originendpoint-sctehls-scteinmanifests
+            '''
+            result = self._values.get("scte_in_manifests")
             return typing.cast(typing.Optional[builtins.str], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -4234,6 +4411,7 @@ class CfnOriginEndpoint(
         jsii_type="aws-cdk-lib.aws_mediapackagev2.CfnOriginEndpoint.ScteProperty",
         jsii_struct_bases=[],
         name_mapping={
+            "custom_ad_types": "customAdTypes",
             "scte_filter": "scteFilter",
             "scte_in_segments": "scteInSegments",
         },
@@ -4242,11 +4420,13 @@ class CfnOriginEndpoint(
         def __init__(
             self,
             *,
+            custom_ad_types: typing.Optional[typing.Sequence[builtins.str]] = None,
             scte_filter: typing.Optional[typing.Sequence[builtins.str]] = None,
             scte_in_segments: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The SCTE-35 configuration associated with the origin endpoint.
 
+            :param custom_ad_types:  When configured, events matching these types produce ad markers (such as SCTE35-OUT and SCTE35-IN in HLS DATERANGE tags) in manifests. Valid values: PROGRAM | CHAPTER | UNSCHEDULED_EVENT | ALTERNATE_CONTENT_OPPORTUNITY | NETWORK If you don't specify any values, the default is empty (only default ad types are used).
             :param scte_filter: The filter associated with the SCTE-35 configuration.
             :param scte_in_segments: Controls whether SCTE-35 messages are included in segment files. - None – SCTE-35 messages are not included in segments (default) - All – SCTE-35 messages are embedded in segment data For DASH manifests, when set to ``All`` , an ``InbandEventStream`` tag signals that SCTE messages are present in segments. This setting works independently of manifest ad markers.
 
@@ -4260,19 +4440,33 @@ class CfnOriginEndpoint(
                 from aws_cdk import aws_mediapackagev2 as mediapackagev2
                 
                 scte_property = mediapackagev2.CfnOriginEndpoint.ScteProperty(
+                    custom_ad_types=["customAdTypes"],
                     scte_filter=["scteFilter"],
                     scte_in_segments="scteInSegments"
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__ef2f402f6bd5f38be28bfd79b40a3e8bf701cd6b9384547f9b36a386a6075a98)
+                check_type(argname="argument custom_ad_types", value=custom_ad_types, expected_type=type_hints["custom_ad_types"])
                 check_type(argname="argument scte_filter", value=scte_filter, expected_type=type_hints["scte_filter"])
                 check_type(argname="argument scte_in_segments", value=scte_in_segments, expected_type=type_hints["scte_in_segments"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if custom_ad_types is not None:
+                self._values["custom_ad_types"] = custom_ad_types
             if scte_filter is not None:
                 self._values["scte_filter"] = scte_filter
             if scte_in_segments is not None:
                 self._values["scte_in_segments"] = scte_in_segments
+
+        @builtins.property
+        def custom_ad_types(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''
+            When configured, events matching these types produce ad markers (such as SCTE35-OUT and SCTE35-IN in HLS DATERANGE tags) in manifests. Valid values: PROGRAM | CHAPTER | UNSCHEDULED_EVENT | ALTERNATE_CONTENT_OPPORTUNITY | NETWORK  If you don't specify any values, the default is empty (only default ad types are used).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-scte.html#cfn-mediapackagev2-originendpoint-scte-customadtypes
+            '''
+            result = self._values.get("custom_ad_types")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
         @builtins.property
         def scte_filter(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -4380,6 +4574,7 @@ class CfnOriginEndpoint(
                     ),
                     include_iframe_only_streams=False,
                     scte=mediapackagev2.CfnOriginEndpoint.ScteProperty(
+                        custom_ad_types=["customAdTypes"],
                         scte_filter=["scteFilter"],
                         scte_in_segments="scteInSegments"
                     ),
@@ -5155,6 +5350,7 @@ class CfnOriginEndpointPolicyProps:
         "segment": "segment",
         "startover_window_seconds": "startoverWindowSeconds",
         "tags": "tags",
+        "uri_separator": "uriSeparator",
     },
 )
 class CfnOriginEndpointProps:
@@ -5174,6 +5370,7 @@ class CfnOriginEndpointProps:
         segment: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOriginEndpoint.SegmentProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         startover_window_seconds: typing.Optional[jsii.Number] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        uri_separator: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnOriginEndpoint``.
 
@@ -5190,6 +5387,7 @@ class CfnOriginEndpointProps:
         :param segment: The segment associated with the origin endpoint.
         :param startover_window_seconds: The size of the window (in seconds) to specify a window of the live stream that's available for on-demand viewing. Viewers can start-over or catch-up on content that falls within the window.
         :param tags: The tags associated with the origin endpoint.
+        :param uri_separator: 
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-originendpoint.html
         :exampleMetadata: fixture=_generated
@@ -5212,6 +5410,9 @@ class CfnOriginEndpointProps:
                     manifest_name="manifestName",
             
                     # the properties below are optional
+                    availability_start_time_configuration=mediapackagev2.CfnOriginEndpoint.DashAvailabilityStartTimeConfigurationProperty(
+                        fixed_availability_start_time="fixedAvailabilityStartTime"
+                    ),
                     base_urls=[mediapackagev2.CfnOriginEndpoint.DashBaseUrlProperty(
                         url="url",
             
@@ -5256,7 +5457,8 @@ class CfnOriginEndpointProps:
                         title="title"
                     ),
                     scte_dash=mediapackagev2.CfnOriginEndpoint.ScteDashProperty(
-                        ad_marker_dash="adMarkerDash"
+                        ad_marker_dash="adMarkerDash",
+                        scte_in_manifests="scteInManifests"
                     ),
                     segment_template_format="segmentTemplateFormat",
                     subtitle_configuration=mediapackagev2.CfnOriginEndpoint.DashSubtitleConfigurationProperty(
@@ -5265,6 +5467,7 @@ class CfnOriginEndpointProps:
                         )
                     ),
                     suggested_presentation_delay_seconds=123,
+                    uri_path_type="uriPathType",
                     utc_timing=mediapackagev2.CfnOriginEndpoint.DashUtcTimingProperty(
                         timing_mode="timingMode",
                         timing_source="timingSource"
@@ -5290,7 +5493,8 @@ class CfnOriginEndpointProps:
                     manifest_window_seconds=123,
                     program_date_time_interval_seconds=123,
                     scte_hls=mediapackagev2.CfnOriginEndpoint.ScteHlsProperty(
-                        ad_marker_hls="adMarkerHls"
+                        ad_marker_hls="adMarkerHls",
+                        scte_in_manifests="scteInManifests"
                     ),
                     start_tag=mediapackagev2.CfnOriginEndpoint.StartTagProperty(
                         time_offset=123,
@@ -5298,6 +5502,7 @@ class CfnOriginEndpointProps:
                         # the properties below are optional
                         precise=False
                     ),
+                    uri_path_type="uriPathType",
                     url="url",
                     url_encode_child_manifest=False
                 )],
@@ -5317,7 +5522,8 @@ class CfnOriginEndpointProps:
                     manifest_window_seconds=123,
                     program_date_time_interval_seconds=123,
                     scte_hls=mediapackagev2.CfnOriginEndpoint.ScteHlsProperty(
-                        ad_marker_hls="adMarkerHls"
+                        ad_marker_hls="adMarkerHls",
+                        scte_in_manifests="scteInManifests"
                     ),
                     start_tag=mediapackagev2.CfnOriginEndpoint.StartTagProperty(
                         time_offset=123,
@@ -5325,6 +5531,7 @@ class CfnOriginEndpointProps:
                         # the properties below are optional
                         precise=False
                     ),
+                    uri_path_type="uriPathType",
                     url="url",
                     url_encode_child_manifest=False
                 )],
@@ -5371,6 +5578,7 @@ class CfnOriginEndpointProps:
                     ),
                     include_iframe_only_streams=False,
                     scte=mediapackagev2.CfnOriginEndpoint.ScteProperty(
+                        custom_ad_types=["customAdTypes"],
                         scte_filter=["scteFilter"],
                         scte_in_segments="scteInSegments"
                     ),
@@ -5383,7 +5591,8 @@ class CfnOriginEndpointProps:
                 tags=[CfnTag(
                     key="key",
                     value="value"
-                )]
+                )],
+                uri_separator="uriSeparator"
             )
         '''
         if __debug__:
@@ -5401,6 +5610,7 @@ class CfnOriginEndpointProps:
             check_type(argname="argument segment", value=segment, expected_type=type_hints["segment"])
             check_type(argname="argument startover_window_seconds", value=startover_window_seconds, expected_type=type_hints["startover_window_seconds"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument uri_separator", value=uri_separator, expected_type=type_hints["uri_separator"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "channel_group_name": channel_group_name,
             "channel_name": channel_name,
@@ -5425,6 +5635,8 @@ class CfnOriginEndpointProps:
             self._values["startover_window_seconds"] = startover_window_seconds
         if tags is not None:
             self._values["tags"] = tags
+        if uri_separator is not None:
+            self._values["uri_separator"] = uri_separator
 
     @builtins.property
     def channel_group_name(self) -> builtins.str:
@@ -5562,6 +5774,14 @@ class CfnOriginEndpointProps:
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    @builtins.property
+    def uri_separator(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-originendpoint.html#cfn-mediapackagev2-originendpoint-uriseparator
+        '''
+        result = self._values.get("uri_separator")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5842,6 +6062,7 @@ def _typecheckingstub__7dba3dfc2892c78e53aee7675a7a24aa25c0b29481aca92446e31a0d8
     segment: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.SegmentProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     startover_window_seconds: typing.Optional[jsii.Number] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    uri_separator: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5948,6 +6169,19 @@ def _typecheckingstub__65cc25545f38d01b8ccc61c9494f0994747ef22d12fc3c94c71cb091a
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__0578864b3e0b6596626a33a27e42499cab016dedcde625fdc9cd5d70adc1ff26(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b08f61ec9db3f1fdcd263035446f62e72246fa10baf1fdc8683a110410f5d4a7(
+    *,
+    fixed_availability_start_time: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__be1d880fe401caed5e0186c4f4a6b76f8d63f2e78cf2fcbb490b66d185d4af29(
     *,
     url: builtins.str,
@@ -5986,6 +6220,7 @@ def _typecheckingstub__280a149dc1f481cd4b69b2b250e75d424c71bee34e699369b2294841b
 def _typecheckingstub__20e3bfad4ae40517c778173bab356d7bd208497ee33a09fdc9e380135384dfc6(
     *,
     manifest_name: builtins.str,
+    availability_start_time_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.DashAvailabilityStartTimeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     base_urls: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.DashBaseUrlProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     compactness: typing.Optional[builtins.str] = None,
     drm_signaling: typing.Optional[builtins.str] = None,
@@ -6001,6 +6236,7 @@ def _typecheckingstub__20e3bfad4ae40517c778173bab356d7bd208497ee33a09fdc9e380135
     segment_template_format: typing.Optional[builtins.str] = None,
     subtitle_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.DashSubtitleConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     suggested_presentation_delay_seconds: typing.Optional[jsii.Number] = None,
+    uri_path_type: typing.Optional[builtins.str] = None,
     utc_timing: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.DashUtcTimingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -6095,6 +6331,7 @@ def _typecheckingstub__b59520e6fbce62f410265deeb9cc043e1cf408c2c3cc498907eb73fcc
     program_date_time_interval_seconds: typing.Optional[jsii.Number] = None,
     scte_hls: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.ScteHlsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     start_tag: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.StartTagProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    uri_path_type: typing.Optional[builtins.str] = None,
     url: typing.Optional[builtins.str] = None,
     url_encode_child_manifest: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
 ) -> None:
@@ -6110,6 +6347,7 @@ def _typecheckingstub__7ba3db62514b88b8da1b21ec0b9459116f857508c0670adb698a120b3
     program_date_time_interval_seconds: typing.Optional[jsii.Number] = None,
     scte_hls: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.ScteHlsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     start_tag: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.StartTagProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    uri_path_type: typing.Optional[builtins.str] = None,
     url: typing.Optional[builtins.str] = None,
     url_encode_child_manifest: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
 ) -> None:
@@ -6129,6 +6367,7 @@ def _typecheckingstub__5eb842c2ab9f37a97b78623838b99a1722e0398b4d9b44ac0a32ee5e1
 def _typecheckingstub__13ac94f52ccc71367f414c5388529d309fac2b39d9caa3e0e662dc2cfae97455(
     *,
     ad_marker_dash: typing.Optional[builtins.str] = None,
+    scte_in_manifests: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6136,12 +6375,14 @@ def _typecheckingstub__13ac94f52ccc71367f414c5388529d309fac2b39d9caa3e0e662dc2cf
 def _typecheckingstub__8d4f889b0a331f5c9a9819d549afcb4b4239d6f7040f9146668998df9485e7ea(
     *,
     ad_marker_hls: typing.Optional[builtins.str] = None,
+    scte_in_manifests: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__ef2f402f6bd5f38be28bfd79b40a3e8bf701cd6b9384547f9b36a386a6075a98(
     *,
+    custom_ad_types: typing.Optional[typing.Sequence[builtins.str]] = None,
     scte_filter: typing.Optional[typing.Sequence[builtins.str]] = None,
     scte_in_segments: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -6276,6 +6517,7 @@ def _typecheckingstub__d261c9ffb32b381ea679962b9a614498343af1f15dd4bdfdbf788de76
     segment: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.SegmentProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     startover_window_seconds: typing.Optional[jsii.Number] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    uri_separator: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

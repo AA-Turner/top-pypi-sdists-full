@@ -19,6 +19,12 @@ from typing import (
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
+class ChartMetricsBackend(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    CHART_METRICS_BACKEND_UNSPECIFIED: _ClassVar[ChartMetricsBackend]
+    CHART_METRICS_BACKEND_TIMESCALE: _ClassVar[ChartMetricsBackend]
+    CHART_METRICS_BACKEND_VICTORIA_METRICS: _ClassVar[ChartMetricsBackend]
+
 class MetricFormulaOperandKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     METRIC_FORMULA_OPERAND_KIND_UNSPECIFIED: _ClassVar[MetricFormulaOperandKind]
@@ -33,6 +39,9 @@ class MetricHealthStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     METRIC_HEALTH_STATUS_UNHEALTHY: _ClassVar[MetricHealthStatus]
     METRIC_HEALTH_STATUS_NO_CHECKS: _ClassVar[MetricHealthStatus]
 
+CHART_METRICS_BACKEND_UNSPECIFIED: ChartMetricsBackend
+CHART_METRICS_BACKEND_TIMESCALE: ChartMetricsBackend
+CHART_METRICS_BACKEND_VICTORIA_METRICS: ChartMetricsBackend
 METRIC_FORMULA_OPERAND_KIND_UNSPECIFIED: MetricFormulaOperandKind
 METRIC_FORMULA_OPERAND_KIND_SERIES: MetricFormulaOperandKind
 METRIC_FORMULA_OPERAND_KIND_DATASET: MetricFormulaOperandKind
@@ -286,6 +295,7 @@ class GetChartSnapshotRequest(_message.Message):
         "use_sketch_metrics_table",
         "return_sql_query_string",
         "exclude_incomplete_last_bucket",
+        "metrics_backend",
     )
     METRIC_CONFIG_FIELD_NUMBER: _ClassVar[int]
     START_TIME_FIELD_NUMBER: _ClassVar[int]
@@ -294,6 +304,7 @@ class GetChartSnapshotRequest(_message.Message):
     USE_SKETCH_METRICS_TABLE_FIELD_NUMBER: _ClassVar[int]
     RETURN_SQL_QUERY_STRING_FIELD_NUMBER: _ClassVar[int]
     EXCLUDE_INCOMPLETE_LAST_BUCKET_FIELD_NUMBER: _ClassVar[int]
+    METRICS_BACKEND_FIELD_NUMBER: _ClassVar[int]
     metric_config: _chart_pb2.MetricConfig
     start_time: _timestamp_pb2.Timestamp
     end_time: _timestamp_pb2.Timestamp
@@ -301,6 +312,7 @@ class GetChartSnapshotRequest(_message.Message):
     use_sketch_metrics_table: bool
     return_sql_query_string: bool
     exclude_incomplete_last_bucket: bool
+    metrics_backend: ChartMetricsBackend
     def __init__(
         self,
         metric_config: _Optional[_Union[_chart_pb2.MetricConfig, _Mapping]] = ...,
@@ -310,6 +322,7 @@ class GetChartSnapshotRequest(_message.Message):
         use_sketch_metrics_table: bool = ...,
         return_sql_query_string: bool = ...,
         exclude_incomplete_last_bucket: bool = ...,
+        metrics_backend: _Optional[_Union[ChartMetricsBackend, str]] = ...,
     ) -> None: ...
 
 class GetChartSnapshotResponse(_message.Message):
@@ -339,6 +352,7 @@ class GetChartSnapshotByQueryRequest(_message.Message):
         "use_sketch_metrics_table",
         "return_sql_query_string",
         "exclude_incomplete_last_bucket",
+        "metrics_backend",
     )
     QUERY_FIELD_NUMBER: _ClassVar[int]
     START_TIME_FIELD_NUMBER: _ClassVar[int]
@@ -347,6 +361,7 @@ class GetChartSnapshotByQueryRequest(_message.Message):
     USE_SKETCH_METRICS_TABLE_FIELD_NUMBER: _ClassVar[int]
     RETURN_SQL_QUERY_STRING_FIELD_NUMBER: _ClassVar[int]
     EXCLUDE_INCOMPLETE_LAST_BUCKET_FIELD_NUMBER: _ClassVar[int]
+    METRICS_BACKEND_FIELD_NUMBER: _ClassVar[int]
     query: str
     start_time: _timestamp_pb2.Timestamp
     end_time: _timestamp_pb2.Timestamp
@@ -354,6 +369,7 @@ class GetChartSnapshotByQueryRequest(_message.Message):
     use_sketch_metrics_table: bool
     return_sql_query_string: bool
     exclude_incomplete_last_bucket: bool
+    metrics_backend: ChartMetricsBackend
     def __init__(
         self,
         query: _Optional[str] = ...,
@@ -363,6 +379,7 @@ class GetChartSnapshotByQueryRequest(_message.Message):
         use_sketch_metrics_table: bool = ...,
         return_sql_query_string: bool = ...,
         exclude_incomplete_last_bucket: bool = ...,
+        metrics_backend: _Optional[_Union[ChartMetricsBackend, str]] = ...,
     ) -> None: ...
 
 class GetChartSnapshotByQueryResponse(_message.Message):

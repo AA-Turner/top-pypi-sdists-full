@@ -102,13 +102,14 @@ class Element:
         self.tags: list[str] = []
 
         # Convert all the k/v pairs in raw_dict into instance attributes for
-        # this object. These should all either be strings or lists of strings.
+        # this object. These should all either be bools, strings or lists of
+        # strings.
         for k, v in raw_dict.items():
             # We have extracted the element name and description already
             if k in ["name", "desc"]:
                 continue
 
-            if isinstance(v, str):
+            if isinstance(v, (str, bool)):
                 setattr(self, k, v)
             elif isinstance(v, list):
                 # This is a list, but we should check slightly more: it should
@@ -127,16 +128,16 @@ class Element:
             else:
                 msg = (
                     f"The {k} field in the testplan element with name "
-                    f"{self.name} is neither a string nor a list of strings."
+                    f"{self.name} is not a bool, string or list."
                 )
                 raise TypeError(msg)
 
         # Check that self.tags is still a list (and wasn't overwritten with a
-        # string when parsing the raw dict)
+        # bool or string when parsing the raw dict)
         if not isinstance(self.tags, list):
             msg = (
                 "The tags field in the testplan element with name "
-                f"{self.name} is a string but should be a list of strings "
+                f"{self.name} was supplied with a single element, not a list of strings "
                 "(if supplied)."
             )
             raise TypeError(msg)
@@ -223,7 +224,7 @@ class Testpoint(Element):
             msg = f"The testpoint named {self.name} has no stage."
             raise ValueError(msg)
         if not isinstance(self.stage, str):
-            msg = f"The stage of the testpoint named {self.name} should be a string, not a list."
+            msg = f"The stage of the testpoint named {self.name} should be a string."
             raise TypeError(msg)
         if self.stage not in Testpoint.stages:
             msg = (
@@ -451,7 +452,7 @@ class Testplan:
             try:
                 self._parse_testplan(filename, tags, repo_top)
             except Exception as e:
-                msg = f"Error when parsing testplan at {filename}."
+                msg = f"Error when parsing testplan at {filename}: {e}"
                 raise RuntimeError(msg) from e
 
         # Represents current progress towards each stage. Stage = N.A.
@@ -559,6 +560,19 @@ class Testplan:
 
         Testplan._check_duplicates("testpoint", all_tps)
         Testplan._check_duplicates("covergroup", all_cgs)
+
+        # The testplan might have been filtered with a set of tags. Apply that
+        # filter, then check that we haven't discarded everything.
+        self.testpoints = [t for t in all_tps if t.has_tags(tags)]
+        self.covergroups = [cg for cg in all_cgs if cg.has_tags(tags)]
+
+        if not (self.testpoints or self.covergroups):
+            msg = (
+                f"Merged testplan has no testpoints or covergroups, after "
+                f"filtering with tags {tags}. Before filtering, the numbers of "
+                f"testpoints and covergroups were {len(all_tps)}, {len(all_cgs)}."
+            )
+            raise ValueError(msg)
 
         # Wildcards in testpoints can mostly point to any value from the
         # object. The following names are *not* allowed (because they wouldn't

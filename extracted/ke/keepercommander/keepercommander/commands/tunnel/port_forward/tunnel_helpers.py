@@ -129,20 +129,6 @@ def _version_at_least(version, min_version):
         return False
 
 
-# Minimum keeper-pam-webrtc-rs version that exposes force_close_tube. Both the
-# local Rust crate AND the remote peer must satisfy this gate before Commander
-# escalates a soft close to a force close. Local check uses hasattr (the binding
-# attribute is missing on older crates), remote check uses the SDP-advertised
-# version string.
-FORCE_CLOSE_MIN_VERSION = "2.1.18"
-
-# Default delay between the soft close and the force-close escalation. Matches
-# the consumer-side budget agreed with the gateway (gateway-side
-# KEEPER_GATEWAY_FORCE_CLOSE_TIMEOUT is 6s; we run faster on the consumer because
-# at lease expiry there is no reason to wait long).
-FORCE_CLOSE_DELAY_SECONDS = 3.0
-
-
 def print_above_keeper_prompt(msg):
     """Print ``msg`` so the keeper-shell prompt redraws itself underneath it.
 
@@ -179,66 +165,6 @@ def print_above_keeper_prompt(msg):
             app.invalidate()
         except Exception:
             pass
-
-
-def escalate_close(
-    tube_registry,
-    tube_id,
-    *,
-    remote_webrtc_version=None,
-    reason=None,
-    hard_after_seconds=FORCE_CLOSE_DELAY_SECONDS,
-    log_prefix="",
-):
-    """
-    Soft-close a tube now, then escalate to force_close_tube after
-    `hard_after_seconds` if both endpoints support it.
-
-    The soft close stops new channel creation and emits CloseConnection control
-    frames; the force close (when available) drops the local TCP listener,
-    severs in-flight forwarded TCP streams (SSH, MySQL, etc.) and tears down
-    the peer connection on a short bounded budget.
-
-    Returns the scheduled `threading.Timer` (or None if escalation is not
-    available) so callers can cancel it on a clean exit.
-    """
-    if reason is None:
-        reason = CloseConnectionReasons.AdminClosed
-
-    try:
-        tube_registry.close_tube(tube_id, reason=reason)
-    except Exception as e:
-        logging.debug(f"{log_prefix}soft close_tube failed: {e}")
-
-    has_local = hasattr(tube_registry, "force_close_tube")
-    has_remote = _version_at_least(remote_webrtc_version, FORCE_CLOSE_MIN_VERSION)
-    if not has_local:
-        logging.debug(
-            f"{log_prefix}force_close_tube unavailable in local keeper_pam_webrtc_rs - "
-            f"soft close only"
-        )
-        return None
-    if not has_remote:
-        logging.debug(
-            f"{log_prefix}remote keeper-pam-webrtc {remote_webrtc_version!r} < "
-            f"{FORCE_CLOSE_MIN_VERSION} - soft close only"
-        )
-        return None
-
-    def _do_force_close():
-        try:
-            logging.debug(
-                f"{log_prefix}escalating to force_close_tube({tube_id}) after "
-                f"{hard_after_seconds}s"
-            )
-            tube_registry.force_close_tube(tube_id, reason=reason)
-        except Exception as e:
-            logging.debug(f"{log_prefix}force_close_tube failed: {e}")
-
-    timer = threading.Timer(hard_after_seconds, _do_force_close)
-    timer.daemon = True
-    timer.start()
-    return timer
 
 
 # Constants
@@ -820,8 +746,65 @@ def tunnel_decrypt(symmetric_key: AESGCM, encrypted_data: str):
         return None
 
 
+def get_config_uid_from_local_vault(params, record_uid):
+    """
+    Resolve resource_uid -> config_uid by scanning the user's local PAM
+    Configuration records (record_version=6) for one whose `pamResources.resourceRef`
+    list contains `record_uid`. Returns the config record_uid (str) on match, or
+    None if no local config owns this resource.
+
+    Web Vault parity: zero network, no gateway required. Used as the primary
+    lookup in `get_config_uid`; the legacy `get_dag_leafs` path remains as a
+    fallback (e.g. vault not yet synced).
+    """
+    if not record_uid:
+        return None
+    try:
+        from .... import vault, vault_extensions
+    except Exception as e:
+        logging.debug('local-vault config scan: imports failed: %s', e)
+        return None
+    try:
+        for kr in vault_extensions.find_records(params, record_version=6):
+            if not isinstance(kr, vault.TypedRecord):
+                continue
+            try:
+                field = kr.get_typed_field('pamResources')
+                if not field:
+                    continue
+                value = field.get_default_value(dict)
+                if not value:
+                    continue
+                refs = value.get('resourceRef') or []
+                if record_uid in refs:
+                    return kr.record_uid
+            except Exception as e:
+                logging.debug('local-vault config scan: skipping record %s: %s',
+                              getattr(kr, 'record_uid', '?'), e)
+                continue
+    except Exception as e:
+        logging.debug('local-vault config scan failed: %s', e)
+    return None
+
+
 def get_config_uid(params, encrypted_session_token, encrypted_transmission_key, record_uid):
-    # try to get config from dag
+    # Tier 1: local vault scan (fastest, no network) — Web Vault parity.
+    local_config_uid = get_config_uid_from_local_vault(params, record_uid)
+    if local_config_uid:
+        return local_config_uid
+
+    # Tier 2: krouter per-graph PAM_LINK get_leafs (server-side, no gateway).
+    # Precise single-owner resolution — the Web Vault uses the same call. The
+    # legacy graphId=0 lookup below can return a stale/duplicate config when a
+    # resource still carries link edges under more than one PAM config; loading
+    # that graph then raises DAGPathException ("Found multiple vertex that use
+    # the path") on the next get_vertex. Resolving the owner precisely here
+    # avoids it. Mirrors the dag-api-migration resolution order.
+    link_config_uid = get_config_uid_via_pam_link(params, record_uid)
+    if link_config_uid:
+        return link_config_uid
+
+    # Tier 3: legacy gateway-mediated lookup via the old `/api/user/get_leafs`.
     try:
         rs = get_dag_leafs(params, encrypted_session_token, encrypted_transmission_key, record_uid)
         # response: "[{\"type\":\"rec\",\"value\":\"Jagbt2dxrft_91FovB5dwg\",\"name\":null}]"
@@ -832,6 +815,32 @@ def get_config_uid(params, encrypted_session_token, encrypted_transmission_key, 
     except Exception as e:
         print(f"{bcolors.FAIL}Error getting configuration: {e}{bcolors.ENDC}")
     return None
+
+
+def get_config_uid_via_pam_link(params, record_uid):
+    """Resolve a resource record's PAM Config UID via KRouter's PAM_LINK graph.
+
+    Returns the config_uid that owns the resource. Used as a fallback when
+    ``get_config_uid`` (legacy ``/api/user/get_leafs`` with graphId=0) returns
+    nothing for resources whose link lives only in the new PAM_LINK stream.
+
+    Returns the config_uid as a base64-url-safe string, or empty string on
+    failure / no link.
+    """
+    try:
+        from ....keeper_dag.proto import GraphSync_pb2 as gs_pb2
+        from ...pam.router_helper import _post_request_to_router
+        record_uid_bytes = url_safe_str_to_bytes(record_uid)
+        rq = gs_pb2.GraphSyncLeafsQuery(vertices=[record_uid_bytes])
+        rs = _post_request_to_router(params, 'graph-sync/pam/get_leafs',
+                                     rq_proto=rq, rs_type=gs_pb2.GraphSyncRefsResult)
+        if rs and rs.refs:
+            for ref in rs.refs:
+                if ref.value:
+                    return utils.base64_url_encode(ref.value)
+    except Exception as e:
+        logging.debug('get_config_uid_via_pam_link: lookup failed for %s: %s', record_uid, e)
+    return ''
 
 
 def get_keeper_tokens(params):
@@ -1771,6 +1780,25 @@ class TunnelSignalHandler:
 
             elif new_state == "closed":
                 logging.debug(f"Connection closed for tube {tube_id}")
+                # The WebRTC peer connection reached "closed" state. This can happen
+                # without a preceding channel_closed signal (e.g. ICE timeout, network
+                # drop). If we don't clean up here the Rust tube keeps running and any
+                # active forwarded TCP sessions (SSH, MySQL, etc.) keep flowing while
+                # Commander stops reporting the tunnel entirely.
+                if tube_id and self.tube_registry:
+                    try:
+                        self.tube_registry.close_tube(tube_id, reason=CloseConnectionReasons.Normal)
+                    except Exception:
+                        pass  # Already closed — idempotent
+                if tube_id:
+                    session = get_tunnel_session(tube_id)
+                    if session:
+                        if hasattr(session, 'signal_handler') and session.signal_handler:
+                            session.signal_handler.cleanup()
+                        if session.websocket_stop_event and session.websocket_thread:
+                            session.websocket_stop_event.set()
+                            session.websocket_thread.join(timeout=5.0)
+                    unregister_tunnel_session(tube_id)
 
             else:
                 logging.debug(f"Connection state for tube {tube_id}: {new_state}")

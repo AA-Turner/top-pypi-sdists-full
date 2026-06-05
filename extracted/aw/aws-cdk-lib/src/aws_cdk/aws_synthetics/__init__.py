@@ -2477,7 +2477,7 @@ class CfnCanary(
             self,
             *,
             active_tracing: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            environment_variables: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            environment_variables: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             ephemeral_storage: typing.Optional[jsii.Number] = None,
             memory_in_mb: typing.Optional[jsii.Number] = None,
             timeout_in_seconds: typing.Optional[jsii.Number] = None,
@@ -2548,7 +2548,7 @@ class CfnCanary(
         @builtins.property
         def environment_variables(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''Specifies the keys and values to use for any environment variables used in the canary script.
 
             Use the following format:
@@ -2560,7 +2560,7 @@ class CfnCanary(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-runconfig.html#cfn-synthetics-canary-runconfig-environmentvariables
             '''
             result = self._values.get("environment_variables")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def ephemeral_storage(self) -> typing.Optional[jsii.Number]:
@@ -2827,7 +2827,7 @@ class CfnCanary(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_synthetics as synthetics
                 
-                v_pCConfig_property = synthetics.CfnCanary.VPCConfigProperty(
+                v_pc_config_property = synthetics.CfnCanary.VPCConfigProperty(
                     security_group_ids=["securityGroupIds"],
                     subnet_ids=["subnetIds"],
                 
@@ -5490,7 +5490,7 @@ class AssetCode(
             follow_symlinks=cdk.SymlinkFollowMode.NEVER,
             ignore_mode=cdk.IgnoreMode.GLOB,
             readers=[grantable],
-            source_kMSKey=key_ref
+            source_kms_key=key_ref
         )
     '''
 
@@ -6403,7 +6403,7 @@ def _typecheckingstub__e7a2c989ca2c701e49af0e8032c8c49bb52546c68c9e6359df8e7a9f2
 def _typecheckingstub__fa148862e82948accbbe951e7afcee721aa7014754c81106d2648fe1c5cf28e2(
     *,
     active_tracing: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    environment_variables: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    environment_variables: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     ephemeral_storage: typing.Optional[jsii.Number] = None,
     memory_in_mb: typing.Optional[jsii.Number] = None,
     timeout_in_seconds: typing.Optional[jsii.Number] = None,

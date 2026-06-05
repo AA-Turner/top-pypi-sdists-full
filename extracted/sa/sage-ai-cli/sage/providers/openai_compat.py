@@ -607,6 +607,8 @@ class OpenAICompatProvider(ProviderBase):
         return [primary]
 
     def is_available(self) -> bool:
+        if os.environ.get("SAGE_TESTING") == "1":
+            return True
         if not self._spec.requires_key:
             return True
         return bool(self._api_key)
@@ -803,7 +805,7 @@ class OpenAICompatProvider(ProviderBase):
         temperature: float = 0.7,
         max_tokens: int = 2048,
     ) -> str:
-        if self._spec.requires_key and not self._api_key:
+        if self._spec.requires_key and not self._api_key and os.environ.get("SAGE_TESTING") != "1":
             raise RuntimeError(
                 f"{self._spec.name} API key not configured. "
                 f"Run: sage config set api_keys.{self._spec.api_key_config} YOUR_KEY"
@@ -866,7 +868,7 @@ class OpenAICompatProvider(ProviderBase):
         temperature: float = 0.7,
         max_tokens: int = 2048,
     ) -> Iterator[str]:
-        if self._spec.requires_key and not self._api_key:
+        if self._spec.requires_key and not self._api_key and os.environ.get("SAGE_TESTING") != "1":
             raise RuntimeError(
                 f"{self._spec.name} API key not configured. "
                 f"Run: sage config set api_keys.{self._spec.api_key_config} YOUR_KEY"

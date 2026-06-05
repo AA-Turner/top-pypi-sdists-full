@@ -1006,7 +1006,7 @@ class CfnIdMappingWorkflow(
             *,
             provider_service_arn: builtins.str,
             intermediate_source_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnIdMappingWorkflow.IntermediateSourceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            provider_configuration: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            provider_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         ) -> None:
             '''An object containing the ``providerServiceARN`` , ``intermediateSourceConfiguration`` , and ``providerConfiguration`` .
 
@@ -1074,13 +1074,13 @@ class CfnIdMappingWorkflow(
         @builtins.property
         def provider_configuration(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''The required configuration fields to use with the provider service.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-entityresolution-idmappingworkflow-providerproperties.html#cfn-entityresolution-idmappingworkflow-providerproperties-providerconfiguration
             '''
             result = self._values.get("provider_configuration")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1948,7 +1948,7 @@ class CfnIdNamespace(
             self,
             *,
             provider_service_arn: builtins.str,
-            provider_configuration: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            provider_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         ) -> None:
             '''An object containing ``providerConfiguration`` and ``providerServiceArn`` .
 
@@ -1996,13 +1996,13 @@ class CfnIdNamespace(
         @builtins.property
         def provider_configuration(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''An object which defines any additional configurations required by the provider service.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-entityresolution-idnamespace-namespaceproviderproperties.html#cfn-entityresolution-idnamespace-namespaceproviderproperties-providerconfiguration
             '''
             result = self._values.get("provider_configuration")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3382,7 +3382,7 @@ class CfnMatchingWorkflow(
             *,
             provider_service_arn: builtins.str,
             intermediate_source_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMatchingWorkflow.IntermediateSourceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            provider_configuration: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            provider_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         ) -> None:
             '''An object containing the ``providerServiceARN`` , ``intermediateSourceConfiguration`` , and ``providerConfiguration`` .
 
@@ -3450,13 +3450,13 @@ class CfnMatchingWorkflow(
         @builtins.property
         def provider_configuration(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''The required configuration fields to use with the provider service.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-entityresolution-matchingworkflow-providerproperties.html#cfn-entityresolution-matchingworkflow-providerproperties-providerconfiguration
             '''
             result = self._values.get("provider_configuration")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5291,7 +5291,7 @@ def _typecheckingstub__14038cffce86b081db1c8ac49ebcf0ca7c79dab49ef3c8d99bd5529be
     *,
     provider_service_arn: builtins.str,
     intermediate_source_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIdMappingWorkflow.IntermediateSourceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    provider_configuration: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    provider_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5435,7 +5435,7 @@ def _typecheckingstub__aa5718722693305710be5b352d71edd25fd091931c7c10bc186aa634a
 def _typecheckingstub__8d5dbe88736667d56bc74050ba3debedc70aa5658eb42d955598a1141fa6accd(
     *,
     provider_service_arn: builtins.str,
-    provider_configuration: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    provider_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5628,7 +5628,7 @@ def _typecheckingstub__9d0c8e14a190c02dfa2c1fa72a0c82e1ead9fb5ffa0de2fbba168caff
     *,
     provider_service_arn: builtins.str,
     intermediate_source_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMatchingWorkflow.IntermediateSourceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    provider_configuration: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    provider_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

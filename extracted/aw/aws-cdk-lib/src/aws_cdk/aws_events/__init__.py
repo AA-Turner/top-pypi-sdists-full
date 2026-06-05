@@ -6780,9 +6780,9 @@ class CfnRule(
         def __init__(
             self,
             *,
-            header_parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            header_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             path_parameter_values: typing.Optional[typing.Sequence[builtins.str]] = None,
-            query_string_parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            query_string_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         ) -> None:
             '''These are custom parameter to be used when the target is an API Gateway APIs or EventBridge ApiDestinations.
 
@@ -6827,13 +6827,13 @@ class CfnRule(
         @builtins.property
         def header_parameters(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''The headers that need to be sent as part of request invoking the API Gateway API or EventBridge ApiDestination.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-events-rule-httpparameters.html#cfn-events-rule-httpparameters-headerparameters
             '''
             result = self._values.get("header_parameters")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def path_parameter_values(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -6847,13 +6847,13 @@ class CfnRule(
         @builtins.property
         def query_string_parameters(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''The query string keys/values that need to be sent as part of request invoking the API Gateway API or EventBridge ApiDestination.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-events-rule-httpparameters.html#cfn-events-rule-httpparameters-querystringparameters
             '''
             result = self._values.get("query_string_parameters")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6879,7 +6879,7 @@ class CfnRule(
             self,
             *,
             input_template: builtins.str,
-            input_paths_map: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            input_paths_map: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         ) -> None:
             '''Contains the parameters needed for you to provide custom input to a target based on one or more pieces of data extracted from the event.
 
@@ -6969,7 +6969,7 @@ class CfnRule(
         @builtins.property
         def input_paths_map(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''Map of JSON paths to be extracted from the event.
 
             You can then insert these in the template in ``InputTemplate`` to produce the output you want to be sent to the target.
@@ -6981,7 +6981,7 @@ class CfnRule(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-events-rule-inputtransformer.html#cfn-events-rule-inputtransformer-inputpathsmap
             '''
             result = self._values.get("input_paths_map")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -12132,7 +12132,7 @@ class RuleTargetInput(
         )
         
         rule.add_target(targets.AppSync(api,
-            graph_qLOperation="mutation Publish($message: String!){ publish(message: $message) { message } }",
+            graph_ql_operation="mutation Publish($message: String!){ publish(message: $message) { message } }",
             variables=events.RuleTargetInput.from_object({
                 "message": "hello world"
             })
@@ -14221,9 +14221,9 @@ def _typecheckingstub__ca7c7356595fbbf690b3042b0aca8ce2d8827d85b48a9a2f58a4f05f1
 
 def _typecheckingstub__e070c286b05f9b8c290e58cc12a24f67364e1027f09cd3d5f4b4a7413603e262(
     *,
-    header_parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    header_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     path_parameter_values: typing.Optional[typing.Sequence[builtins.str]] = None,
-    query_string_parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    query_string_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14231,7 +14231,7 @@ def _typecheckingstub__e070c286b05f9b8c290e58cc12a24f67364e1027f09cd3d5f4b4a7413
 def _typecheckingstub__8522462011c60f4061bf027a1209a1ecdeb26e93459566abb5448778090139f1(
     *,
     input_template: builtins.str,
-    input_paths_map: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    input_paths_map: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

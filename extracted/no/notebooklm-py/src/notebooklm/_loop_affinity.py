@@ -4,7 +4,7 @@ A single small helper that compares a previously-captured event loop reference
 against ``asyncio.get_running_loop()`` and raises an actionable
 :class:`RuntimeError` on mismatch. Lives in its own module so the helpers
 that need to call it (``_transport_drain.py`` / ``_reqid_counter.py`` /
-``_session_auth.py`` / ``_artifact_polling.py`` / ``_chat.py``) can import it
+``_runtime/auth.py`` / ``_artifact/polling.py`` / ``_chat/api.py``) can import it
 without dragging in the deleted concrete session type just to reach a
 bound-loop attribute.
 
@@ -17,7 +17,7 @@ Design constraints:
 
 * ``bound_loop is None`` is a silent no-op so callers that haven't yet
   observed an ``open()`` (most notably standalone fixtures that construct
-  the helpers directly without a :class:`Session`) keep working without
+  the helpers directly without a :class:`NotebookLMClient`) keep working without
   a special-case branch on every call site.
 
 * The error message is intentionally stable so downstream call sites can

@@ -2204,6 +2204,13 @@ class SAGEAgent:
 
         if _is_gf_exec and written and not classification.read_only and not is_info:
             all_written = list(written)
+            for _mf in _manifest_exec:
+                if _mf not in all_written:
+                    try:
+                        if (self.cwd / _mf).is_file():
+                            all_written.append(_mf)
+                    except Exception:
+                        pass
 
             _MAX_EXEC_BATCHES = int(os.environ.get("SAGE_BATCH_LIMIT", "250"))
             _empty_rounds = 0  # consecutive batches with no new files
@@ -2245,8 +2252,13 @@ class SAGEAgent:
                 # subsystem to build, not the full list of everything missing.
                 _next_subsystem = "the next layer of the project"
                 if _missing:
-                    _first_missing_dir = _missing[0].split("/")[0] if "/" in _missing[0] else "root"
-                    _subsystem_files = [f for f in _missing if f.startswith(_first_missing_dir)][:20]
+                    if "/" in _missing[0]:
+                        _first_missing_dir = _missing[0].split("/")[0]
+                        _subsystem_files = [f for f in _missing if f.startswith(_first_missing_dir + "/")]
+                    else:
+                        _first_missing_dir = "root"
+                        _subsystem_files = [f for f in _missing if "/" not in f]
+                    _subsystem_files = _subsystem_files[:20]
                     _next_subsystem = (
                         f"the '{_first_missing_dir}' subsystem:\n"
                         + "\n".join(f"  {f}" for f in _subsystem_files[:15])

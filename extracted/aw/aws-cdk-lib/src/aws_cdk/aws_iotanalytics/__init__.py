@@ -5267,7 +5267,7 @@ class CfnPipeline(
         def __init__(
             self,
             *,
-            attributes: typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"],
+            attributes: typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]],
             name: builtins.str,
             next: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -5311,7 +5311,7 @@ class CfnPipeline(
         @builtins.property
         def attributes(
             self,
-        ) -> typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]:
             '''A list of 1-50 "AttributeNameMapping" objects that map an existing attribute to a new attribute.
 
             .. epigraph::
@@ -5322,7 +5322,7 @@ class CfnPipeline(
             '''
             result = self._values.get("attributes")
             assert result is not None, "Required property 'attributes' is missing"
-            return typing.cast(typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]], result)
 
         @builtins.property
         def name(self) -> builtins.str:
@@ -7099,7 +7099,7 @@ def _typecheckingstub__ef4301ffee8a8b9c56444ba866610802447f4507a483114152269c2d1
 
 def _typecheckingstub__577567edb1bcbc381086b32d827a8fa916777984a8a94532f921964c944864e3(
     *,
-    attributes: typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b],
+    attributes: typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]],
     name: builtins.str,
     next: typing.Optional[builtins.str] = None,
 ) -> None:

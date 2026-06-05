@@ -230,13 +230,19 @@ rollouts_per_example = 8
 # checkpoint_id = "..."
 
 # Optional: SFT distillation teacher
-# To use SFT, change the top-level loss to "sft" and uncomment this block.
+# To use SFT, change loss to "sft" and uncomment this block. Defaults to Prime Inference.
 # [teacher]
 # model = "openai/gpt-oss-120b"
 #
 # [teacher.sampling]
 # max_tokens = 2048
 # reasoning_effort = "medium"
+
+# Optional: override the Prime Inference default with a custom OAI-compatible endpoint.
+# Uncomment this block only when pointing at OpenAI, OpenRouter, self-hosted vLLM, etc.
+# [teacher.client]
+# base_url = "https://api.openai.com/v1"
+# api_key_var = "OPENAI_API_KEY"
 
 [sampling]
 max_tokens = 2048
@@ -380,9 +386,6 @@ class SamplingConfig(BaseModel):
 
     max_tokens: int | None = None
     temperature: float | None = None
-    repetition_penalty: float | None = None
-    min_tokens: int | None = None
-    seed: int | None = None
     temp_scheduler: TemperatureSchedulerConfig | None = None
     extra_body: Dict[str, Any] | None = None
     enable_thinking: bool | None = None
@@ -411,14 +414,26 @@ class TeacherSamplingConfig(BaseModel):
         return self
 
 
+class TeacherClientConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    base_url: str = Field(..., min_length=1)
+    api_key_var: str = Field(..., min_length=1)
+    headers_from_env: Dict[str, str] | None = None
+    skip_model_check: bool | None = None
+
+
 class TeacherConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     model: str
+    client: TeacherClientConfig | None = None
     sampling: TeacherSamplingConfig | None = None
 
     def to_api_dict(self) -> Dict[str, Any]:
         result: Dict[str, Any] = {"model": {"name": self.model}}
+        if self.client is not None:
+            result["client"] = self.client.model_dump(exclude_none=True)
         if self.sampling is not None:
             result["sampling"] = self.sampling.model_dump(exclude_none=True)
         return result
@@ -970,9 +985,6 @@ def create_run(
         has_sampling = (
             cfg.sampling.max_tokens
             or cfg.sampling.temperature is not None
-            or cfg.sampling.repetition_penalty is not None
-            or cfg.sampling.min_tokens is not None
-            or cfg.sampling.seed is not None
             or cfg.sampling.temp_scheduler is not None
             or cfg.sampling.extra_body is not None
             or cfg.sampling.enable_thinking is not None
@@ -984,12 +996,6 @@ def create_run(
                 console.print(f"  Max Tokens:          {cfg.sampling.max_tokens}")
             if cfg.sampling.temperature is not None:
                 console.print(f"  Temperature:         {cfg.sampling.temperature}")
-            if cfg.sampling.repetition_penalty is not None:
-                console.print(f"  Repetition Penalty:  {cfg.sampling.repetition_penalty}")
-            if cfg.sampling.min_tokens is not None:
-                console.print(f"  Min Tokens:          {cfg.sampling.min_tokens}")
-            if cfg.sampling.seed is not None:
-                console.print(f"  Seed:                {cfg.sampling.seed}")
             if cfg.sampling.temp_scheduler is not None:
                 ts = cfg.sampling.temp_scheduler
                 sched = f"{ts.type} ({ts.start_temperature} → {ts.end_temperature})"
@@ -1132,9 +1138,6 @@ def create_run(
             max_steps=cfg.max_steps,
             max_tokens=cfg.sampling.max_tokens,
             temperature=cfg.sampling.temperature,
-            repetition_penalty=cfg.sampling.repetition_penalty,
-            min_tokens=cfg.sampling.min_tokens,
-            seed=cfg.sampling.seed,
             temp_scheduler=cfg.sampling.temp_scheduler.model_dump(exclude_none=True)
             if cfg.sampling.temp_scheduler
             else None,

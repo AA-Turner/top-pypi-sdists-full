@@ -124,6 +124,8 @@ def handle_import(km: KnowledgeManager, args: list[str]) -> dict:
     while i < len(args):
         if args[i] == "--entry-file" and i + 1 < len(args):
             file_path = args[i + 1]; i += 2
+        elif not file_path and not args[i].startswith("-") and Path(args[i]).exists():
+            file_path = args[i]; i += 1
         else:
             i += 1
     if not file_path:

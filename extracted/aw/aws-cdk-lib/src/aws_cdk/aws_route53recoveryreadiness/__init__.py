@@ -1254,7 +1254,7 @@ class CfnResourceSet(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_route53recoveryreadiness as route53recoveryreadiness
                 
-                d_nSTarget_resource_property = route53recoveryreadiness.CfnResourceSet.DNSTargetResourceProperty(
+                d_ns_target_resource_property = route53recoveryreadiness.CfnResourceSet.DNSTargetResourceProperty(
                     domain_name="domainName",
                     hosted_zone_arn="hostedZoneArn",
                     record_set_id="recordSetId",
@@ -1367,7 +1367,7 @@ class CfnResourceSet(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_route53recoveryreadiness as route53recoveryreadiness
                 
-                n_lBResource_property = route53recoveryreadiness.CfnResourceSet.NLBResourceProperty(
+                n_lb_resource_property = route53recoveryreadiness.CfnResourceSet.NLBResourceProperty(
                     arn="arn"
                 )
             '''

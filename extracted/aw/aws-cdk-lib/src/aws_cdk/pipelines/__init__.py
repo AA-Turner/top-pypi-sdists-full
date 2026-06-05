@@ -1203,21 +1203,21 @@ The following code assumes you have created and are managing your buckets in the
 separate cdk repo and are just importing them for use in one of your (many) pipelines.
 
 ```python
-# shared_xRegion_us_west1_bucket_arn: str
-# shared_xRegion_us_west1_key_arn: str
+# shared_x_region_us_west1_bucket_arn: str
+# shared_x_region_us_west1_key_arn: str
 
-# shared_xRegion_us_west2_bucket_arn: str
-# shared_xRegion_us_west2_key_arn: str
+# shared_x_region_us_west2_bucket_arn: str
+# shared_x_region_us_west2_key_arn: str
 
 
 us_west1_bucket = s3.Bucket.from_bucket_attributes(scope, "UsWest1Bucket",
-    bucket_arn=shared_xRegion_us_west1_bucket_arn,
-    encryption_key=kms.Key.from_key_arn(scope, "UsWest1BucketKeyArn", shared_xRegion_us_west1_bucket_arn)
+    bucket_arn=shared_x_region_us_west1_bucket_arn,
+    encryption_key=kms.Key.from_key_arn(scope, "UsWest1BucketKeyArn", shared_x_region_us_west1_bucket_arn)
 )
 
 us_west2_bucket = s3.Bucket.from_bucket_attributes(scope, "UsWest2Bucket",
-    bucket_arn=shared_xRegion_us_west2_bucket_arn,
-    encryption_key=kms.Key.from_key_arn(scope, "UsWest2BucketKeyArn", shared_xRegion_us_west2_key_arn)
+    bucket_arn=shared_x_region_us_west2_bucket_arn,
+    encryption_key=kms.Key.from_key_arn(scope, "UsWest2BucketKeyArn", shared_x_region_us_west2_key_arn)
 )
 
 cross_region_replication_buckets = {

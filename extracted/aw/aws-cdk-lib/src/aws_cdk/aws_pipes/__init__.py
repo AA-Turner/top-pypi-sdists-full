@@ -2649,7 +2649,7 @@ class CfnPipe(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_pipes as pipes
                 
-                m_qBroker_access_credentials_property = pipes.CfnPipe.MQBrokerAccessCredentialsProperty(
+                m_q_broker_access_credentials_property = pipes.CfnPipe.MQBrokerAccessCredentialsProperty(
                     basic_auth="basicAuth"
                 )
             '''
@@ -2710,7 +2710,7 @@ class CfnPipe(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_pipes as pipes
                 
-                m_sKAccess_credentials_property = pipes.CfnPipe.MSKAccessCredentialsProperty(
+                m_sk_access_credentials_property = pipes.CfnPipe.MSKAccessCredentialsProperty(
                     client_certificate_tls_auth="clientCertificateTlsAuth",
                     sasl_scram512_auth="saslScram512Auth"
                 )
@@ -3004,9 +3004,9 @@ class CfnPipe(
         def __init__(
             self,
             *,
-            header_parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            header_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             path_parameter_values: typing.Optional[typing.Sequence[builtins.str]] = None,
-            query_string_parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            query_string_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         ) -> None:
             '''These are custom parameter to be used when the target is an API Gateway REST APIs or EventBridge ApiDestinations.
 
@@ -3051,13 +3051,13 @@ class CfnPipe(
         @builtins.property
         def header_parameters(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''The headers that need to be sent as part of request invoking the API Gateway REST API or EventBridge ApiDestination.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-pipeenrichmenthttpparameters.html#cfn-pipes-pipe-pipeenrichmenthttpparameters-headerparameters
             '''
             result = self._values.get("header_parameters")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def path_parameter_values(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -3071,13 +3071,13 @@ class CfnPipe(
         @builtins.property
         def query_string_parameters(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''The query string keys/values that need to be sent as part of request invoking the API Gateway REST API or EventBridge ApiDestination.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-pipeenrichmenthttpparameters.html#cfn-pipes-pipe-pipeenrichmenthttpparameters-querystringparameters
             '''
             result = self._values.get("query_string_parameters")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3354,7 +3354,7 @@ class CfnPipe(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_pipes as pipes
                 
-                pipe_source_active_mQBroker_parameters_property = pipes.CfnPipe.PipeSourceActiveMQBrokerParametersProperty(
+                pipe_source_active_mq_broker_parameters_property = pipes.CfnPipe.PipeSourceActiveMQBrokerParametersProperty(
                     credentials=pipes.CfnPipe.MQBrokerAccessCredentialsProperty(
                         basic_auth="basicAuth"
                     ),
@@ -3478,7 +3478,7 @@ class CfnPipe(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_pipes as pipes
                 
-                pipe_source_dynamo_dBStream_parameters_property = pipes.CfnPipe.PipeSourceDynamoDBStreamParametersProperty(
+                pipe_source_dynamo_db_stream_parameters_property = pipes.CfnPipe.PipeSourceDynamoDBStreamParametersProperty(
                     starting_position="startingPosition",
                 
                     # the properties below are optional
@@ -4276,7 +4276,7 @@ class CfnPipe(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_pipes as pipes
                 
-                pipe_source_rabbit_mQBroker_parameters_property = pipes.CfnPipe.PipeSourceRabbitMQBrokerParametersProperty(
+                pipe_source_rabbit_mq_broker_parameters_property = pipes.CfnPipe.PipeSourceRabbitMQBrokerParametersProperty(
                     credentials=pipes.CfnPipe.MQBrokerAccessCredentialsProperty(
                         basic_auth="basicAuth"
                     ),
@@ -4665,7 +4665,7 @@ class CfnPipe(
             array_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.BatchArrayPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             container_overrides: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.BatchContainerOverridesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             depends_on: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.BatchJobDependencyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             retry_strategy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.BatchRetryStrategyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The parameters for using an AWS Batch job as a target.
@@ -4807,7 +4807,7 @@ class CfnPipe(
         @builtins.property
         def parameters(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''Additional parameters passed to the job that replace parameter substitution placeholders that are set in the job definition.
 
             Parameters are specified as a key and value pair mapping. Parameters included here override any corresponding parameter defaults from the job definition.
@@ -4815,7 +4815,7 @@ class CfnPipe(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-pipetargetbatchjobparameters.html#cfn-pipes-pipe-pipetargetbatchjobparameters-parameters
             '''
             result = self._values.get("parameters")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def retry_strategy(
@@ -5438,9 +5438,9 @@ class CfnPipe(
         def __init__(
             self,
             *,
-            header_parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            header_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             path_parameter_values: typing.Optional[typing.Sequence[builtins.str]] = None,
-            query_string_parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            query_string_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         ) -> None:
             '''These are custom parameter to be used when the target is an API Gateway REST APIs or EventBridge ApiDestinations.
 
@@ -5483,13 +5483,13 @@ class CfnPipe(
         @builtins.property
         def header_parameters(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''The headers that need to be sent as part of request invoking the API Gateway REST API or EventBridge ApiDestination.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-pipetargethttpparameters.html#cfn-pipes-pipe-pipetargethttpparameters-headerparameters
             '''
             result = self._values.get("header_parameters")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def path_parameter_values(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -5503,13 +5503,13 @@ class CfnPipe(
         @builtins.property
         def query_string_parameters(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''The query string keys/values that need to be sent as part of request invoking the API Gateway REST API or EventBridge ApiDestination.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-pipetargethttpparameters.html#cfn-pipes-pipe-pipetargethttpparameters-querystringparameters
             '''
             result = self._values.get("query_string_parameters")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8000,9 +8000,9 @@ def _typecheckingstub__d27b7177804b8a4677a880ec362095763e2c62871f3c70d4aadd38189
 
 def _typecheckingstub__1c0ef57785475dd0f00d9483a37fb4e2993490bc25effa27f975d3eb152d45a0(
     *,
-    header_parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    header_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     path_parameter_values: typing.Optional[typing.Sequence[builtins.str]] = None,
-    query_string_parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    query_string_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8132,7 +8132,7 @@ def _typecheckingstub__a1cb92272e9e571b199ec86e09734d9a3e51183f8515940ff8f8fb18e
     array_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.BatchArrayPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     container_overrides: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.BatchContainerOverridesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     depends_on: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.BatchJobDependencyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     retry_strategy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.BatchRetryStrategyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -8180,9 +8180,9 @@ def _typecheckingstub__e4ff5c800b247e08d889440f1b30d658847593d507da887052e6a07cd
 
 def _typecheckingstub__7188f5bfc90d5dba8acd880f5c8ab24cadd75972f9cc901fb933192887a73e08(
     *,
-    header_parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    header_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     path_parameter_values: typing.Optional[typing.Sequence[builtins.str]] = None,
-    query_string_parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    query_string_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

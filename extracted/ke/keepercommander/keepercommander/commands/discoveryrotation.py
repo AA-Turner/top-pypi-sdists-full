@@ -17,7 +17,6 @@ import os.path
 import re
 import time
 from datetime import datetime
-from typing import Dict, Optional, Any, Set, List
 from urllib.parse import urlparse, urlunparse
 
 import requests
@@ -73,6 +72,7 @@ from .pam_debug.dump import PAMDebugDumpCommand
 from .pam_debug.gateway import PAMDebugGatewayCommand
 from .pam_debug.graph import PAMDebugGraphCommand
 from .pam_debug.info import PAMDebugInfoCommand
+from .pam_debug.krouter import PAMDebugKRouterCommand
 from .pam_debug.link import PAMDebugLinkCommand
 from .pam_debug.rotation_setting import PAMDebugRotationSettingsCommand
 from .pam_debug.vertex import PAMDebugVertexCommand
@@ -89,6 +89,10 @@ from .pam_saas.remove import PAMActionSaasRemoveCommand
 from .pam_saas.config import PAMActionSaasConfigCommand
 from .pam_saas.update import PAMActionSaasUpdateCommand
 from .tunnel_and_connections import PAMTunnelCommand, PAMConnectionCommand, PAMRbiCommand, PAMSplitCommand
+from .universalsecretsync import (
+    PAMUniversalSyncConfigCommand,
+    PAMUniversalSyncRunCommand
+)
 
 # These characters are based on the Vault
 PAM_DEFAULT_SPECIAL_CHAR = '''!@#$%^?();',.=+[]<>{}-_/\\*&:"`~|'''
@@ -196,6 +200,8 @@ class PAMControllerCommand(GroupCommand):
         self.register_command('workflow', PAMWorkflowCommand(), 'Manage PAM Workflows', 'w')
         self.register_command('access', PAMPrivilegedAccessCommand(),
                               'Manage privileged cloud access operations', 'ac')
+        self.register_command('universal-sync-config', PAMUniversalSyncConfigCommand(), 'Manage Universal Sync Configurations', 'usc')
+        self.register_command('universal-sync-run', PAMUniversalSyncRunCommand(), 'Run Universal Sync', 'usr')
 
 
 class PAMGatewayCommand(GroupCommand):
@@ -314,6 +320,7 @@ class PAMDebugCommand(GroupCommand):
         super(PAMDebugCommand, self).__init__()
         self.register_command('info', PAMDebugInfoCommand(), 'Debug a record', 'i')
         self.register_command('gateway', PAMDebugGatewayCommand(), 'Debug a gateway', 'g')
+        self.register_command('krouter', PAMDebugKRouterCommand(), 'Show connected krouter version', 'k')
         self.register_command('graph', PAMDebugGraphCommand(), 'Render graphs', 'r')
 
         # Disable for now. Needs more work.
@@ -1408,7 +1415,7 @@ class PAMGatewayListCommand(Command):
         try:
             enterprise_controllers_connected = router_get_connected_gateways(params)
 
-        except requests.exceptions.ConnectionError as errc:
+        except requests.exceptions.ConnectionError:
             is_router_down = True
             if not is_force:
                 logging.warning(f"Looks like router is down. Use '{bcolors.OKGREEN}-f{bcolors.ENDC}' flag to "
@@ -1419,7 +1426,7 @@ class PAMGatewayListCommand(Command):
                 logging.info(f"{bcolors.WARNING}Looks like router is down. Router URL [{krouter_url}]{bcolors.ENDC}")
 
         except Exception as e:
-            logging.warning(f"Unhandled error during retrieval of the connected gateways.")
+            logging.warning("Unhandled error during retrieval of the connected gateways.")
             raise e
 
         enterprise_controllers_all = gateway_helper.get_all_gateways(params)
@@ -1970,10 +1977,10 @@ class PAMConfigurationListCommand(Command):
 
                         table.append(row)
                 else:
-                    logging.warning(f'Following configuration is not in the shared folder: UID: %s, Title: %s',
+                    logging.warning('Following configuration is not in the shared folder: UID: %s, Title: %s',
                                     c.record_uid, c.title)
             else:
-                logging.warning(f'Following configuration has unsupported type: UID: %s, Title: %s', c.record_uid,
+                logging.warning('Following configuration has unsupported type: UID: %s, Title: %s', c.record_uid,
                                 c.title)
 
         if format_type == 'json':
@@ -3146,7 +3153,6 @@ class PAMGatewayActionRotateCommand(Command):
         record_uid = kwargs.get('record_uid', '')
         folder = kwargs.get('folder', '')
         recursive = kwargs.get('recursive', False)
-        pattern = kwargs.get('pattern', '')  # additional record title match pattern
         dry_run = kwargs.get('dry_run', False)
 
         # Store email/share arguments as instance variables
@@ -3215,7 +3221,7 @@ class PAMGatewayActionRotateCommand(Command):
         folders = list(set(folders))  # Remove duplicate UIDs
         # 2. pattern could match both parent and child - drop all children (w/ a matching parent)
         if recursive and len(folders) > 1:
-            roots: Dict[str, list] = {}  # group by shared_folder_uid
+            roots: dict[str, list] = {}  # group by shared_folder_uid
             for fuid in folders:  # no shf inside shf yet
                 roots.setdefault(params.folder_cache.get(fuid).shared_folder_uid, []).append(fuid)
             uniq = []
@@ -3366,7 +3372,7 @@ class PAMGatewayActionRotateCommand(Command):
                 # Check the graph for the noop setting.
                 record_link = RecordLink(record=pam_config,
                                          params=params,
-                                         fail_on_corrupt=False)
+                                         fail_on_corrupt=False, use_per_graph_endpoints=True)
                 acl = record_link.get_acl(record_uid, pam_config.record_uid)
                 if acl is not None and acl.rotation_settings is not None:
                     is_noop = acl.rotation_settings.noop

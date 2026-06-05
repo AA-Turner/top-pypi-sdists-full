@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mplhep_data
-Version: 0.0.5
+Version: 0.1.0
 Summary: Font (Data) sub-package for mplhep
 Home-page: https://github.com/Scikit-HEP/mplhep_data
 Author: Andrzej Novak
@@ -16,15 +16,13 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Provides-Extra: dev

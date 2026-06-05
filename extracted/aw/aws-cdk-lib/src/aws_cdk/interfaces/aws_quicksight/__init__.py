@@ -1511,7 +1511,7 @@ class VPCConnectionReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_quicksight as interfaces_quicksight
             
-            v_pCConnection_reference = interfaces_quicksight.VPCConnectionReference(
+            v_pc_connection_reference = interfaces_quicksight.VPCConnectionReference(
                 aws_account_id="awsAccountId",
                 vpc_connection_arn="vpcConnectionArn",
                 vpc_connection_id="vpcConnectionId"

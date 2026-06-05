@@ -44,11 +44,10 @@ ALGORITHM_FORMULAS = {
         "required_params": ["alpha"],
         "constraints": {
             "alpha": "> 0 or 'auto'",
-            "eta": "in (1.0, 2.0)",
             "numIterations": "> 0",
             "numIterations_stepCalculation": "> 0",
         },
-        "notes": "Gaussian noise solver. Alpha='auto' uses power method for Lipschitz estimation.",
+        "notes": "Gaussian noise solver. Alpha='auto' uses power method for Lipschitz estimation. Hardly recommanded to set eta to 1",
         "potentialFunction": [PotentialType.NONE]
     },
     OptimizerType.MAPEM: {
@@ -87,7 +86,6 @@ ALGORITHM_FORMULAS = {
             "beta": ">= 0",
             "delta": ">= 0",
             "gamma": ">= 0",
-            "eta": "in (1.0, 2.0)",
             "numIterations": "> 0",
             "numIterations_stepCalculation": "> 0",
         },
@@ -103,7 +101,6 @@ ALGORITHM_FORMULAS = {
             "alpha": "> 0 or 'auto'",
             "beta": ">= 0",
             "delta": ">= 0",
-            "eta": "in (1.0, 2.0)",
             "numIterations": "> 0",
             "numIterations_stepCalculation": "> 0",
         },
@@ -150,7 +147,6 @@ ALGORITHM_FORMULAS = {
             "alpha": "> 0 or 'auto'",
             "beta": ">= 0",
             "delta": "> 0",
-            "eta": "in (1.0, 2.0)",
             "numIterations": "> 0",
             "numIterations_stepCalculation": "> 0",
         },
@@ -454,10 +450,6 @@ class AlgebraicRecon(Recon):
                 if not (param_value == 'auto' or (isinstance(param_value, (int, float)) and param_value > 0)):
                     errors.append(f"'{display_name}' must be > 0 or 'auto', got '{param_value}'")
 
-            elif constraint == "in (1.0, 2.0)":
-                if not (isinstance(param_value, (int, float)) and 1.0 < param_value < 2.0):
-                    errors.append(f"'{display_name}' must be strictly inside interval (1.0, 2.0), got '{param_value}'")
-
             elif constraint == "> 0":
                 if not (isinstance(param_value, (int, float)) and param_value > 0):
                     errors.append(f"'{display_name}' must be strictly > 0, got '{param_value}'")
@@ -527,7 +519,7 @@ class AlgebraicRecon(Recon):
     def apply_apodization(self, window_vector: np.ndarray):
         self.SMatrix.apply_apodization(window_vector)
     
-    def run(self, processType: ProcessType = ProcessType.PYTHON, withTumor: bool = True, stop_criterion=StopCriterionType.MAX_ITERATIONS, stop_threshold=None, show_criterion=True, show_logs: bool = True):
+    def run(self, processType: ProcessType = ProcessType.PYTHON, withTumor: bool = True, stop_criterion=StopCriterionType.MAX_ITERATIONS, stop_threshold=None, stop_window_size=1, show_criterion=True, show_logs: bool = True):
         """
         Run the algebraic reconstruction process.
         
@@ -550,11 +542,11 @@ class AlgebraicRecon(Recon):
         if processType == ProcessType.CASToR:
             self._algebraic_recon_CASToR(withTumor=withTumor, show_logs=show_logs)
         elif processType == ProcessType.PYTHON:
-            self._algebraic_recon_Python(withTumor=withTumor, stop_criterion=stop_criterion, stop_threshold=stop_threshold, show_criterion=show_criterion, show_logs=show_logs)
+            self._algebraic_recon_Python(withTumor=withTumor, stop_criterion=stop_criterion, stop_threshold=stop_threshold, stop_window_size=stop_window_size, show_criterion=show_criterion, show_logs=show_logs)
         else:
             raise ValueError(f"Unknown Algebraic reconstruction type: {processType}")
 
-    def _algebraic_recon_Python(self, withTumor: bool = True, stop_criterion=StopCriterionType.MAX_ITERATIONS, stop_threshold=None, show_criterion=True, show_logs: bool = True):
+    def _algebraic_recon_Python(self, withTumor: bool = True, stop_criterion=StopCriterionType.MAX_ITERATIONS, stop_threshold=None, stop_window_size=1, show_criterion=True, show_logs: bool = True):
         """
         Run algebraic reconstruction using Python implementation.
         
@@ -564,6 +556,7 @@ class AlgebraicRecon(Recon):
             withTumor: If True, reconstruct with tumor data; otherwise without
             stop_criterion: Criterion for stopping the reconstruction
             stop_threshold: Threshold for the stopping criterion
+            stop_window_size: Window size (used to avoid early stop due to oscillations)
             show_criterion: If True, display the stopping criterion
             show_logs: If True, display progress logs
             
@@ -584,23 +577,23 @@ class AlgebraicRecon(Recon):
 
         # Dispatch to optimizer-specific method
         if self.optimizer == OptimizerType.MLEM:
-            self._run_MLEM(y=y, withTumor=withTumor, stop_criterion=stop_criterion, stop_threshold=stop_threshold, show_criterion=show_criterion, show_logs=show_logs)
+            self._run_MLEM(y=y, withTumor=withTumor, stop_criterion=stop_criterion, stop_threshold=stop_threshold, stop_window_size=stop_window_size, show_criterion=show_criterion, show_logs=show_logs)
         elif self.optimizer == OptimizerType.LS:
-            self._run_LS(y=y, withTumor=withTumor, stop_criterion=stop_criterion, stop_threshold=stop_threshold, show_criterion=show_criterion, show_logs=show_logs)
+            self._run_LS(y=y, withTumor=withTumor, stop_criterion=stop_criterion, stop_threshold=stop_threshold, stop_window_size=stop_window_size, show_criterion=show_criterion, show_logs=show_logs)
         elif self.optimizer == OptimizerType.MAPEM:
-            self._run_MAPEM(y=y, withTumor=withTumor, stop_criterion=stop_criterion, stop_threshold=stop_threshold, show_criterion=show_criterion, show_logs=show_logs)
+            self._run_MAPEM(y=y, withTumor=withTumor, stop_criterion=stop_criterion, stop_threshold=stop_threshold, stop_window_size=stop_window_size, show_criterion=show_criterion, show_logs=show_logs)
         elif self.optimizer == OptimizerType.DEPIERRO:
-            self._run_DEPIERRO(y=y, withTumor=withTumor, stop_criterion=stop_criterion, stop_threshold=stop_threshold, show_criterion=show_criterion, show_logs=show_logs)
+            self._run_DEPIERRO(y=y, withTumor=withTumor, stop_criterion=stop_criterion, stop_threshold=stop_threshold, stop_window_size=stop_window_size, show_criterion=show_criterion, show_logs=show_logs)
         elif self.optimizer == OptimizerType.PPGMLEM:
-            self._run_PPGMLEM(y=y, withTumor=withTumor, stop_criterion=stop_criterion, stop_threshold=stop_threshold, show_criterion=show_criterion, show_logs=show_logs)
+            self._run_PPGMLEM(y=y, withTumor=withTumor, stop_criterion=stop_criterion, stop_threshold=stop_threshold, stop_window_size=stop_window_size, show_criterion=show_criterion, show_logs=show_logs)
         elif self.optimizer == OptimizerType.PIGD:
-            self._run_PIGD(y=y, withTumor=withTumor, stop_criterion=stop_criterion, stop_threshold=stop_threshold, show_criterion=show_criterion, show_logs=show_logs)
+            self._run_PIGD(y=y, withTumor=withTumor, stop_criterion=stop_criterion, stop_threshold=stop_threshold, stop_window_size=stop_window_size, show_criterion=show_criterion, show_logs=show_logs)
         elif self.optimizer == OptimizerType.PGC:
-            self._run_PGC(y=y, withTumor=withTumor, stop_criterion=stop_criterion, stop_threshold=stop_threshold, show_criterion=show_criterion, show_logs=show_logs)
+            self._run_PGC(y=y, withTumor=withTumor, stop_criterion=stop_criterion, stop_threshold=stop_threshold, stop_window_size=stop_window_size, show_criterion=show_criterion, show_logs=show_logs)
         elif self.optimizer == OptimizerType.PDHG:
-            self._run_PDHG(y=y, withTumor=withTumor, stop_criterion=stop_criterion, stop_threshold=stop_threshold, show_criterion=show_criterion, show_logs=show_logs)
+            self._run_PDHG(y=y, withTumor=withTumor, stop_criterion=stop_criterion, stop_threshold=stop_threshold, stop_window_size=stop_window_size, show_criterion=show_criterion, show_logs=show_logs)
         elif self.optimizer == OptimizerType.LBFGS:
-            self._run_LBFGS(y=y, withTumor=withTumor, stop_criterion=stop_criterion, stop_threshold=stop_threshold, show_criterion=show_criterion, show_logs=show_logs)
+            self._run_LBFGS(y=y, withTumor=withTumor, stop_criterion=stop_criterion, stop_threshold=stop_threshold, stop_window_size=stop_window_size, show_criterion=show_criterion, show_logs=show_logs)
         else:
             raise ValueError(f"Unsupported optimizer type: {self.optimizer}")
 
@@ -744,7 +737,7 @@ class AlgebraicRecon(Recon):
             print("Reconstruction completed successfully.")
         self.load_reconCASToR(withTumor=withTumor)
 
-    def _run_MLEM(self, y, withTumor=True, stop_criterion=StopCriterionType.MAX_ITERATIONS, stop_threshold=None, show_criterion=True, show_logs=True):
+    def _run_MLEM(self, y, withTumor=True, stop_criterion=StopCriterionType.MAX_ITERATIONS, stop_threshold=None, stop_window_size=1, show_criterion=True, show_logs=True):
         """Run MLEM reconstruction."""
         if withTumor:
             self.reconPhantom, self.indices, self.cost_historyPhantom = MLEM(
@@ -754,6 +747,7 @@ class AlgebraicRecon(Recon):
                 denominator_threshold=self.denominatorThreshold,
                 stop_criterion=stop_criterion,
                 stop_threshold=stop_threshold,
+                stop_window_size=stop_window_size,
                 isSavingEachIteration=self.isSavingEachIteration,
                 isCostFunction = self.isCostFunction,
                 withTumor=withTumor,
@@ -769,6 +763,7 @@ class AlgebraicRecon(Recon):
                 denominator_threshold=self.denominatorThreshold,
                 stop_criterion=stop_criterion,
                 stop_threshold=stop_threshold,
+                stop_window_size=stop_window_size,
                 isSavingEachIteration=self.isSavingEachIteration,
                 isCostFunction = self.isCostFunction,
                 withTumor=withTumor,
@@ -777,7 +772,7 @@ class AlgebraicRecon(Recon):
                 show_criterion=show_criterion
             )
 
-    def _run_LS(self, y, withTumor=True, stop_criterion=StopCriterionType.MAX_ITERATIONS, stop_threshold=None, show_criterion=True, show_logs=True):
+    def _run_LS(self, y, withTumor=True, stop_criterion=StopCriterionType.MAX_ITERATIONS, stop_threshold=None, stop_window_size=1, show_criterion=True, show_logs=True):
         """Run Least Squares reconstruction."""
         if withTumor:
             self.reconPhantom, self.indices, self.cost_historyPhantom = LS(
@@ -790,6 +785,7 @@ class AlgebraicRecon(Recon):
                 preconditioner_type=self.preconditionerType,
                 stop_criterion=stop_criterion,
                 stop_threshold=stop_threshold,
+                stop_window_size=stop_window_size,
                 isSavingEachIteration=self.isSavingEachIteration,
                 isCostFunction = self.isCostFunction,
                 withTumor=withTumor,
@@ -808,6 +804,7 @@ class AlgebraicRecon(Recon):
                 preconditioner_type=self.preconditionerType,
                 stop_criterion=stop_criterion,
                 stop_threshold=stop_threshold,
+                stop_window_size=stop_window_size,
                 isSavingEachIteration=self.isSavingEachIteration,
                 isCostFunction = self.isCostFunction,
                 withTumor=withTumor,
@@ -816,7 +813,7 @@ class AlgebraicRecon(Recon):
                 show_criterion=show_criterion
             )
 
-    def _run_LBFGS(self, y, withTumor=True, stop_criterion=StopCriterionType.MAX_ITERATIONS, stop_threshold=None, show_criterion=True, show_logs=True):
+    def _run_LBFGS(self, y, withTumor=True, stop_criterion=StopCriterionType.MAX_ITERATIONS, stop_threshold=None, stop_window_size=1, show_criterion=True, show_logs=True):
         """Run LBFGS reconstruction."""
         if withTumor:
             self.reconPhantom, self.indices, self.cost_historyPhantom = LBFGS(
@@ -830,6 +827,7 @@ class AlgebraicRecon(Recon):
                 potential_radius=self.PotentialRadius,
                 stop_criterion=stop_criterion,
                 stop_threshold=stop_threshold,
+                stop_window_size=stop_window_size,
                 isSavingEachIteration=self.isSavingEachIteration,
                 isCostFunction = self.isCostFunction,
                 withTumor=withTumor,
@@ -849,6 +847,7 @@ class AlgebraicRecon(Recon):
                 potential_radius=self.PotentialRadius,
                 stop_criterion=stop_criterion,
                 stop_threshold=stop_threshold,
+                stop_window_size=stop_window_size,
                 isSavingEachIteration=self.isSavingEachIteration,
                 isCostFunction = self.isCostFunction,
                 withTumor=withTumor,
@@ -857,7 +856,7 @@ class AlgebraicRecon(Recon):
                 show_criterion=show_criterion
             )
 
-    def _run_MAPEM(self, y, withTumor=True, stop_criterion=StopCriterionType.MAX_ITERATIONS, stop_threshold=None, show_criterion=True, show_logs=True):
+    def _run_MAPEM(self, y, withTumor=True, stop_criterion=StopCriterionType.MAX_ITERATIONS, stop_threshold=None, stop_window_size=1, show_criterion=True, show_logs=True):
         """Run MAPEM reconstruction."""
         if withTumor:
             self.reconPhantom, self.indices, self.cost_historyPhantom = MAPEM(
@@ -871,6 +870,7 @@ class AlgebraicRecon(Recon):
                 potential_radius=self.PotentialRadius,
                 stop_criterion=stop_criterion,
                 stop_threshold=stop_threshold,
+                stop_window_size=stop_window_size,
                 isSavingEachIteration=self.isSavingEachIteration,
                 isCostFunction = self.isCostFunction,
                 withTumor=withTumor,
@@ -890,6 +890,7 @@ class AlgebraicRecon(Recon):
                 potential_radius=self.PotentialRadius,
                 stop_criterion=stop_criterion,
                 stop_threshold=stop_threshold,
+                stop_window_size=stop_window_size,
                 isSavingEachIteration=self.isSavingEachIteration,
                 isCostFunction = self.isCostFunction,
                 withTumor=withTumor,
@@ -898,7 +899,7 @@ class AlgebraicRecon(Recon):
                 show_criterion=show_criterion
             )
 
-    def _run_DEPIERRO(self, y, withTumor=True, stop_criterion=StopCriterionType.MAX_ITERATIONS, stop_threshold=None, show_criterion=True, show_logs=True):
+    def _run_DEPIERRO(self, y, withTumor=True, stop_criterion=StopCriterionType.MAX_ITERATIONS, stop_threshold=None, stop_window_size=1, show_criterion=True, show_logs=True):
         """Run DEPIERRO reconstruction."""
         if withTumor:
             self.reconPhantom, self.indices, self.cost_historyPhantom = DEPIERRO(
@@ -912,6 +913,7 @@ class AlgebraicRecon(Recon):
                 potential_radius=self.PotentialRadius,
                 stop_criterion=stop_criterion,
                 stop_threshold=stop_threshold,
+                stop_window_size=stop_window_size,
                 isSavingEachIteration=self.isSavingEachIteration,
                 isCostFunction = self.isCostFunction,
                 withTumor=withTumor,
@@ -931,6 +933,7 @@ class AlgebraicRecon(Recon):
                 potential_radius=self.PotentialRadius,
                 stop_criterion=stop_criterion,
                 stop_threshold=stop_threshold,
+                stop_window_size=stop_window_size,
                 isSavingEachIteration=self.isSavingEachIteration,
                 isCostFunction = self.isCostFunction,
                 withTumor=withTumor,
@@ -939,7 +942,7 @@ class AlgebraicRecon(Recon):
                 show_criterion=show_criterion
             )
 
-    def _run_PPGMLEM(self, y, withTumor=True, stop_criterion=StopCriterionType.MAX_ITERATIONS, stop_threshold=None, show_criterion=True, show_logs=True):
+    def _run_PPGMLEM(self, y, withTumor=True, stop_criterion=StopCriterionType.MAX_ITERATIONS, stop_threshold=None, stop_window_size=1, show_criterion=True, show_logs=True):
         """Run PPGMLEM reconstruction."""
         if withTumor:
             self.reconPhantom, self.indices, self.cost_historyPhantom = PPGMLEM(
@@ -957,6 +960,7 @@ class AlgebraicRecon(Recon):
                 potential_radius=self.PotentialRadius,
                 stop_criterion=stop_criterion,
                 stop_threshold=stop_threshold,
+                stop_window_size=stop_window_size,
                 isSavingEachIteration=self.isSavingEachIteration,
                 isCostFunction=self.isCostFunction,
                 withTumor=withTumor,
@@ -980,6 +984,7 @@ class AlgebraicRecon(Recon):
                 potential_radius=self.PotentialRadius,
                 stop_criterion=stop_criterion,
                 stop_threshold=stop_threshold,
+                stop_window_size=stop_window_size,
                 isSavingEachIteration=self.isSavingEachIteration,
                 isCostFunction=self.isCostFunction,
                 withTumor=withTumor,
@@ -988,7 +993,7 @@ class AlgebraicRecon(Recon):
                 show_criterion=show_criterion
             )
 
-    def _run_PIGD(self, y, withTumor=True, stop_criterion=StopCriterionType.MAX_ITERATIONS, stop_threshold=None, show_criterion=True, show_logs=True):
+    def _run_PIGD(self, y, withTumor=True, stop_criterion=StopCriterionType.MAX_ITERATIONS, stop_threshold=None, stop_window_size=1, show_criterion=True, show_logs=True):
         """Run PIGD reconstruction."""
         if withTumor:
             self.reconPhantom, self.indices, self.cost_historyPhantom = PIGD(
@@ -1005,6 +1010,7 @@ class AlgebraicRecon(Recon):
                 potential_radius=self.PotentialRadius,
                 stop_criterion=stop_criterion,
                 stop_threshold=stop_threshold,
+                stop_window_size=stop_window_size,
                 isSavingEachIteration=self.isSavingEachIteration,
                 isCostFunction=self.isCostFunction,
                 withTumor=withTumor,
@@ -1027,6 +1033,7 @@ class AlgebraicRecon(Recon):
                 potential_radius=self.PotentialRadius,
                 stop_criterion=stop_criterion,
                 stop_threshold=stop_threshold,
+                stop_window_size=stop_window_size,
                 isSavingEachIteration=self.isSavingEachIteration,
                 isCostFunction=self.isCostFunction,
                 withTumor=withTumor,
@@ -1035,7 +1042,7 @@ class AlgebraicRecon(Recon):
                 show_criterion=show_criterion
             )
 
-    def _run_PGC(self, y, withTumor=True, stop_criterion=StopCriterionType.MAX_ITERATIONS, stop_threshold=None, show_criterion=True, show_logs=True):
+    def _run_PGC(self, y, withTumor=True, stop_criterion=StopCriterionType.MAX_ITERATIONS, stop_threshold=None, stop_window_size=1, show_criterion=True, show_logs=True):
         """Run PGC reconstruction."""
         if withTumor:
             self.reconPhantom, self.indices, self.cost_historyPhantom = PGC(
@@ -1052,6 +1059,7 @@ class AlgebraicRecon(Recon):
                 potential_radius=self.PotentialRadius,
                 stop_criterion=stop_criterion,
                 stop_threshold=stop_threshold,
+                stop_window_size=stop_window_size,
                 isSavingEachIteration=self.isSavingEachIteration,
                 isCostFunction=self.isCostFunction,
                 withTumor=withTumor,
@@ -1074,6 +1082,7 @@ class AlgebraicRecon(Recon):
                 potential_radius=self.PotentialRadius,
                 stop_criterion=stop_criterion,
                 stop_threshold=stop_threshold,
+                stop_window_size=stop_window_size,
                 isSavingEachIteration=self.isSavingEachIteration,
                 isCostFunction=self.isCostFunction,
                 withTumor=withTumor,
@@ -1082,7 +1091,7 @@ class AlgebraicRecon(Recon):
                 show_criterion=show_criterion
             )
 
-    def _run_PDHG(self, y, withTumor=True, stop_criterion=StopCriterionType.MAX_ITERATIONS, stop_threshold=None, show_criterion=True, show_logs=True):
+    def _run_PDHG(self, y, withTumor=True, stop_criterion=StopCriterionType.MAX_ITERATIONS, stop_threshold=None, stop_window_size=1, show_criterion=True, show_logs=True):
         """Run PDHG reconstruction."""
         if withTumor:
             self.reconPhantom, self.indices, self.cost_historyPhantom = PDHG(
@@ -1094,7 +1103,6 @@ class AlgebraicRecon(Recon):
                 theta=self.theta,
                 tau=self.tau,
                 sigma=self.sigma,
-                eta=self.eta,
                 numIterations_stepCalculation=self.numIterations_stepCalculation,
                 num_subsets=self.numSubsets,
                 reshuffle_period=self.reshufflePeriod,
@@ -1102,6 +1110,7 @@ class AlgebraicRecon(Recon):
                 preconditioner_type=self.preconditionerType,
                 stop_criterion=stop_criterion,
                 stop_threshold=stop_threshold,
+                stop_window_size=stop_window_size,
                 isSavingEachIteration=self.isSavingEachIteration,
                 isCostFunction=self.isCostFunction,
                 withTumor=withTumor,
@@ -1119,7 +1128,6 @@ class AlgebraicRecon(Recon):
                 theta=self.theta,
                 tau=self.tau,
                 sigma=self.sigma,
-                eta=self.eta,
                 numIterations_stepCalculation=self.numIterations_stepCalculation,
                 num_subsets=self.numSubsets,
                 reshuffle_period=self.reshufflePeriod,
@@ -1127,6 +1135,7 @@ class AlgebraicRecon(Recon):
                 preconditioner_type=self.preconditionerType,
                 stop_criterion=stop_criterion,
                 stop_threshold=stop_threshold,
+                stop_window_size=stop_window_size,
                 isSavingEachIteration=self.isSavingEachIteration,
                 isCostFunction=self.isCostFunction,
                 withTumor=withTumor,

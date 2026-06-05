@@ -233,7 +233,7 @@ def _handle_match(km: KnowledgeManager, args: list[str]) -> dict:
     text = " ".join(args) if args else ""
     if not text:
         return {"error": "match requires text argument"}
-    results = km._search_fts(text, limit=20)
+    results = km.search(text, limit=20)
     return {
         "query": text,
         "matched_domains": km.match_domain(text),
@@ -248,6 +248,7 @@ def _handle_list(km: KnowledgeManager, args: list[str]) -> dict:
     category = None
     status = "active"
     biz = None
+    query = None
     i = 0
     while i < len(args):
         if args[i] == "--domain" and i + 1 < len(args):
@@ -258,9 +259,14 @@ def _handle_list(km: KnowledgeManager, args: list[str]) -> dict:
             status = args[i + 1]; i += 2
         elif args[i] == "--biz" and i + 1 < len(args):
             biz = args[i + 1]; i += 2
+        elif args[i] == "--query" and i + 1 < len(args):
+            query = args[i + 1]; i += 2
         else:
             i += 1
-    results = km.list_entries(domain=domain, category=category, status=status, biz_context=biz)
+    if query:
+        results = km.search(query, domain=domain, biz_context=biz, limit=100)
+    else:
+        results = km.list_entries(domain=domain, category=category, status=status, biz_context=biz)
     return {
         "domain": domain, "category": category, "status": status, "biz": biz,
         "results": _strip_heavy_fields(results) if summary_only else results,
@@ -481,7 +487,7 @@ def _handle_conflicts(km: KnowledgeManager, args: list[str]) -> dict:
         else:
             i += 1
     if not task_id:
-        return {"error": "--task-id required"}
+        return {"error": "--task-id required. Usage: kanban knowledge conflicts --task-id TASK-XXX"}
     conflicts = km.find_conflicting_solutions(task_id)
     return {"task_id": task_id, "conflicts": conflicts, "count": len(conflicts)}
 

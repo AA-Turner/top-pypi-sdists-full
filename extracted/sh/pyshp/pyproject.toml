@@ -42,8 +42,9 @@ lint = [
     "ruff",
 ]
 test = [
-    "pytest",
+    "pytest", "hypothesis"
 ]
+
 
 [project.urls]
 Repository = "https://github.com/GeospatialPython/pyshp"
@@ -54,13 +55,14 @@ mypy_path = "src"
 explicit_package_bases = true
 exclude_gitignore = true
 exclude=[  # Mypy requires regexes, not globs:
-    'test_shapefile\.py',
-    'run_benchmarks\.py',
+    'tests/test_shapefile\.py',
+    'tests/run_benchmarks\.py',
+    'tests/run_doctests\.py',
 ]
 
 
 [tool.hatch.build.targets.sdist]
-only-include = ["src", "shapefiles", "test_shapefile.py"]
+only-include = ["src", "tests"]
 
 [tool.hatch.build.targets.wheel]
 only-include = ["src"]
@@ -73,7 +75,9 @@ path = "src/shapefile.py"
 markers = [
     "network: marks tests requiring network access",
     "slow: marks other tests that cause bottlenecks",
+    "hypothesis: tests that require hypothesis",
 ]
+python_files = "test_*.py *_test.py *_tests.py"
 
 [tool.ruff]
 # Exclude a variety of commonly ignored directories.

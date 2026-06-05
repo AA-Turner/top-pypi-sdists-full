@@ -115,7 +115,7 @@ def _config_value(config: dict, key: str, default):
 
 
 def _opencode_enabled(config: dict) -> bool:
-    value = config.get("OPENCODE_ENABLED", False)
+    value = config.get("OPENCODE_ENABLED", True)
     if isinstance(value, bool):
         return value
     return str(value).strip().lower() in {"1", "true", "yes", "on"}
@@ -229,7 +229,7 @@ def _resolve_binary(binary: str, config: dict) -> tuple[str, dict[str, str]]:
 
     provider = loaded.loaded_binprovider
     binary_env = (
-        BinProvider.build_exec_env(providers=[provider], base_env={})
+        BinProvider.build_exec_env(providers=[provider], base_env=os.environ.copy())
         if provider is not None
         else {}
     )

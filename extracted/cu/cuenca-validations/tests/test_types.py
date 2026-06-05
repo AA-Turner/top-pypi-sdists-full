@@ -12,6 +12,7 @@ from pydantic.fields import FieldInfo
 
 from cuenca_validations.types import (
     CardQuery,
+    FraudFundsTransferRequest,
     JSONEncoder,
     QueryParams,
     SantizedDict,
@@ -245,6 +246,44 @@ def test_user_query_name_normalizes(raw, normalized):
 def test_user_query_rejects_invalid(field, value):
     with pytest.raises(ValidationError):
         UserQuery(**{field: value})
+
+
+def test_user_query_accepts_ids_and_is_blocked():
+    query = UserQuery(ids='US1,US2', is_blocked=True)
+    assert query.ids == 'US1,US2'
+    assert query.is_blocked is True
+    dumped = query.model_dump(exclude_none=True)
+    assert dumped['ids'] == 'US1,US2'
+    assert dumped['is_blocked'] is True
+    assert isinstance(dumped['ids'], str)
+
+
+def test_query_params_accepts_ids():
+    query = QueryParams(ids='US1,US2')
+    assert query.ids == 'US1,US2'
+
+
+def test_query_params_ids_none():
+    query = QueryParams(ids=None)
+    assert query.ids is None
+
+
+def test_user_query_rejects_ids_over_limit():
+    with pytest.raises(ValidationError):
+        UserQuery(ids=','.join(f'US{i}' for i in range(101)))
+
+
+def test_user_query_ids_empty_string_ok():
+    query = UserQuery(ids='')
+    assert query.ids == ''
+    assert 'ids' in query.model_dump(exclude_none=True)
+
+
+def test_user_query_ids_none_excluded_from_dump():
+    query = UserQuery()
+    dumped = query.model_dump(exclude_none=True)
+    assert 'ids' not in dumped
+    assert 'is_blocked' not in dumped
 
 
 def test_exclude_none_in_dict():
@@ -634,6 +673,33 @@ def test_get_monthly_movements_type_name() -> None:
 
 def test_bank_account_validation_clabe_request():
     assert BankAccountValidationRequest(account_number='646180157098510917')
+
+
+def test_fraud_funds_transfer_request():
+    request = FraudFundsTransferRequest(
+        user_id='US123',
+        clabe='646180157098510917',
+        amount=10000,
+        concepto='  Devolución fraude  ',
+    )
+
+    assert request.concepto == 'Devolución fraude'
+    assert request.model_dump() == {
+        'user_id': 'US123',
+        'clabe': '646180157098510917',
+        'amount': 10000,
+        'concepto': 'Devolución fraude',
+    }
+
+    request_full_balance = FraudFundsTransferRequest(
+        user_id='US123',
+        clabe='646180157098510917',
+    )
+
+    assert request_full_balance.model_dump() == {
+        'user_id': 'US123',
+        'clabe': '646180157098510917',
+    }
 
 
 @pytest.mark.parametrize(

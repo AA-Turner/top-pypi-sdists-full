@@ -130,7 +130,7 @@ class CfnADMChannel(
         # The values are placeholders you should change.
         from aws_cdk import aws_pinpoint as pinpoint
         
-        cfn_aDMChannel = pinpoint.CfnADMChannel(self, "MyCfnADMChannel",
+        cfn_adm_channel = pinpoint.CfnADMChannel(self, "MyCfnADMChannel",
             application_id="applicationId",
             client_id="clientId",
             client_secret="clientSecret",
@@ -334,7 +334,7 @@ class CfnADMChannelProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_pinpoint as pinpoint
             
-            cfn_aDMChannel_props = pinpoint.CfnADMChannelProps(
+            cfn_adm_channel_props = pinpoint.CfnADMChannelProps(
                 application_id="applicationId",
                 client_id="clientId",
                 client_secret="clientSecret",
@@ -432,7 +432,7 @@ class CfnAPNSChannel(
         # The values are placeholders you should change.
         from aws_cdk import aws_pinpoint as pinpoint
         
-        cfn_aPNSChannel = pinpoint.CfnAPNSChannel(self, "MyCfnAPNSChannel",
+        cfn_apns_channel = pinpoint.CfnAPNSChannel(self, "MyCfnAPNSChannel",
             application_id="applicationId",
         
             # the properties below are optional
@@ -739,7 +739,7 @@ class CfnAPNSChannelProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_pinpoint as pinpoint
             
-            cfn_aPNSChannel_props = pinpoint.CfnAPNSChannelProps(
+            cfn_apns_channel_props = pinpoint.CfnAPNSChannelProps(
                 application_id="applicationId",
             
                 # the properties below are optional
@@ -912,7 +912,7 @@ class CfnAPNSSandboxChannel(
         # The values are placeholders you should change.
         from aws_cdk import aws_pinpoint as pinpoint
         
-        cfn_aPNSSandbox_channel = pinpoint.CfnAPNSSandboxChannel(self, "MyCfnAPNSSandboxChannel",
+        cfn_apns_sandbox_channel = pinpoint.CfnAPNSSandboxChannel(self, "MyCfnAPNSSandboxChannel",
             application_id="applicationId",
         
             # the properties below are optional
@@ -1219,7 +1219,7 @@ class CfnAPNSSandboxChannelProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_pinpoint as pinpoint
             
-            cfn_aPNSSandbox_channel_props = pinpoint.CfnAPNSSandboxChannelProps(
+            cfn_apns_sandbox_channel_props = pinpoint.CfnAPNSSandboxChannelProps(
                 application_id="applicationId",
             
                 # the properties below are optional
@@ -1392,7 +1392,7 @@ class CfnAPNSVoipChannel(
         # The values are placeholders you should change.
         from aws_cdk import aws_pinpoint as pinpoint
         
-        cfn_aPNSVoip_channel = pinpoint.CfnAPNSVoipChannel(self, "MyCfnAPNSVoipChannel",
+        cfn_apns_voip_channel = pinpoint.CfnAPNSVoipChannel(self, "MyCfnAPNSVoipChannel",
             application_id="applicationId",
         
             # the properties below are optional
@@ -1699,7 +1699,7 @@ class CfnAPNSVoipChannelProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_pinpoint as pinpoint
             
-            cfn_aPNSVoip_channel_props = pinpoint.CfnAPNSVoipChannelProps(
+            cfn_apns_voip_channel_props = pinpoint.CfnAPNSVoipChannelProps(
                 application_id="applicationId",
             
                 # the properties below are optional
@@ -1872,7 +1872,7 @@ class CfnAPNSVoipSandboxChannel(
         # The values are placeholders you should change.
         from aws_cdk import aws_pinpoint as pinpoint
         
-        cfn_aPNSVoip_sandbox_channel = pinpoint.CfnAPNSVoipSandboxChannel(self, "MyCfnAPNSVoipSandboxChannel",
+        cfn_apns_voip_sandbox_channel = pinpoint.CfnAPNSVoipSandboxChannel(self, "MyCfnAPNSVoipSandboxChannel",
             application_id="applicationId",
         
             # the properties below are optional
@@ -2181,7 +2181,7 @@ class CfnAPNSVoipSandboxChannelProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_pinpoint as pinpoint
             
-            cfn_aPNSVoip_sandbox_channel_props = pinpoint.CfnAPNSVoipSandboxChannelProps(
+            cfn_apns_voip_sandbox_channel_props = pinpoint.CfnAPNSVoipSandboxChannelProps(
                 application_id="applicationId",
             
                 # the properties below are optional
@@ -9674,7 +9674,7 @@ class CfnGCMChannel(
         # The values are placeholders you should change.
         from aws_cdk import aws_pinpoint as pinpoint
         
-        cfn_gCMChannel = pinpoint.CfnGCMChannel(self, "MyCfnGCMChannel",
+        cfn_gcm_channel = pinpoint.CfnGCMChannel(self, "MyCfnGCMChannel",
             application_id="applicationId",
         
             # the properties below are optional
@@ -9901,7 +9901,7 @@ class CfnGCMChannelProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_pinpoint as pinpoint
             
-            cfn_gCMChannel_props = pinpoint.CfnGCMChannelProps(
+            cfn_gcm_channel_props = pinpoint.CfnGCMChannelProps(
                 application_id="applicationId",
             
                 # the properties below are optional
@@ -11689,7 +11689,7 @@ class CfnPushTemplate(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_pinpoint as pinpoint
                 
-                a_pNSPush_notification_template_property = pinpoint.CfnPushTemplate.APNSPushNotificationTemplateProperty(
+                a_pns_push_notification_template_property = pinpoint.CfnPushTemplate.APNSPushNotificationTemplateProperty(
                     action="action",
                     body="body",
                     media_url="mediaUrl",
@@ -12385,7 +12385,7 @@ class CfnSMSChannel(
         # The values are placeholders you should change.
         from aws_cdk import aws_pinpoint as pinpoint
         
-        cfn_sMSChannel = pinpoint.CfnSMSChannel(self, "MyCfnSMSChannel",
+        cfn_sms_channel = pinpoint.CfnSMSChannel(self, "MyCfnSMSChannel",
             application_id="applicationId",
         
             # the properties below are optional
@@ -12589,7 +12589,7 @@ class CfnSMSChannelProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_pinpoint as pinpoint
             
-            cfn_sMSChannel_props = pinpoint.CfnSMSChannelProps(
+            cfn_sms_channel_props = pinpoint.CfnSMSChannelProps(
                 application_id="applicationId",
             
                 # the properties below are optional
@@ -13410,7 +13410,7 @@ class CfnSegment(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_pinpoint as pinpoint
                 
-                g_pSPoint_property = pinpoint.CfnSegment.GPSPointProperty(
+                g_ps_point_property = pinpoint.CfnSegment.GPSPointProperty(
                     coordinates=pinpoint.CfnSegment.CoordinatesProperty(
                         latitude=123,
                         longitude=123

@@ -142,7 +142,7 @@ def note_create(ctx, content, content_flag, notebook_id, title, json_output, cli
     # distinguish "user passed empty" from "user passed nothing"; the explicit
     # ``content_flag is not None`` check means ``--content ""`` still wins.
     if content and content_flag is not None:
-        raise click.UsageError(
+        raise click.UsageError(  # cli-input-validation: positional CONTENT and --content are mutually exclusive
             "Cannot use both the positional CONTENT argument and --content. Choose one."
         )
     if content_flag is not None:
@@ -215,7 +215,7 @@ def note_get(ctx, note_id, notebook_id, json_output, client_auth):
             resolved_id = await resolve_note_id(
                 client, nb_id_resolved, note_id, json_output=json_output
             )
-            n = await client.notes.get(nb_id_resolved, resolved_id)
+            n = await client.notes.get_or_none(nb_id_resolved, resolved_id)
 
             # BREAKING: not-found exits 1 with a typed error instead of
             # the previous exit-0 ``found: false`` placeholder. The backend
@@ -352,7 +352,7 @@ def note_rename(ctx, note_id, new_title, notebook_id, json_output, client_auth):
             # typed-error path as ``note get``'s Path B (resolve→missing)
             # rather than the previous exit-0 ``{renamed: false, error: ...}``
             # placeholder so ``set -e`` / ``check_call`` callers can branch on
-            # the exit code without parsing prose (audit P1.T5). See
+            # the exit code without parsing prose. See
             # ``docs/cli-exit-codes.md`` and the BREAKING entry in
             # ``CHANGELOG.md`` (Unreleased → Changed).
             #
@@ -362,7 +362,7 @@ def note_rename(ctx, note_id, new_title, notebook_id, json_output, client_auth):
             # mypy without forcing a ``NoReturn`` annotation onto
             # ``error_handler._output_error`` (which would change the shared
             # helper's typing contract — same trick used by ``note get``).
-            n = await client.notes.get(nb_id_resolved, resolved_id)
+            n = await client.notes.get_or_none(nb_id_resolved, resolved_id)
             if not isinstance(n, Note):
                 _output_error(
                     "Note not found",
@@ -417,7 +417,7 @@ def note_delete(ctx, note_id, notebook_id, yes, json_output, client_auth):
 
                 # In JSON mode, refuse to prompt: ``click.confirm`` writes to
                 # stdout, which would corrupt the parseable JSON contract callers
-                # rely on. Preserve the P1.T5 typed error + exit-1 contract.
+                # rely on. Preserve the typed error + exit-1 contract.
                 if json_output and not yes:
                     _output_error(
                         "Pass --yes to confirm deletion in --json mode",

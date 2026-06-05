@@ -127,6 +127,15 @@ GENERIC_VSCODE_FAMILY: tuple[IdeCommand, ...] = (
         notes="Focus candidates need editor-snapshot or chat-event verification before reuse.",
     ),
     *_rows(
+        "focus_open_avoid",
+        (
+            "workbench.action.chat.openChatEmptyStateSettings",
+        ),
+        confidence="runtime_introspected",
+        risk="high",
+        notes="Opens Settings instead of the chat surface; never use as an autopilot opener.",
+    ),
+    *_rows(
         "paste_text",
         (
             "workbench.action.chat.insertText",
@@ -230,8 +239,6 @@ CURSOR_SPECIFIC: tuple[IdeCommand, ...] = (
         (
             "composer.sendToAgent",
             "composer.acceptComposerStep",
-            "composer.startComposerPrompt",
-            "composer.startComposerPrompt2",
             "composer.submit",
             "aichat.submit",
         ),
@@ -256,10 +263,13 @@ CURSOR_SPECIFIC: tuple[IdeCommand, ...] = (
         (
             "aichat.newchataction",
             "composer.openAsPane",
+            "workbench.panel.chat",
+            "workbench.action.toggleAuxiliaryBar",
+            "workbench.view.chat.toggle",
         ),
         confidence="private_or_vendor_specific",
         risk="high",
-        notes="Can create a new chat or toggle an existing pane; do not cache as default.",
+        notes="Can create a new chat or toggle/hide an existing pane; do not cache as default.",
     ),
 )
 
@@ -349,9 +359,17 @@ ANTIGRAVITY_SPECIFIC: tuple[IdeCommand, ...] = (
         ),
     ),
     *_rows(
-        "focus_open",
+        "focus_open_avoid",
         (
             "antigravity.openAgent",
+        ),
+        confidence="private_or_vendor_specific",
+        risk="high",
+        notes="Opens a new agent window instead of side panel.",
+    ),
+    *_rows(
+        "focus_open",
+        (
             "antigravity.agentSidePanel.open",
             "antigravity.agentSidePanel.focus",
         ),

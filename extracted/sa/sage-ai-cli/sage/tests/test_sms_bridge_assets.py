@@ -63,7 +63,7 @@ def sms_bridge_setup(tmp_path, monkeypatch):
     return bridge, tmp_path, sent_messages
 
 
-def _run_test_case(bridge, workspace, sent_messages, sender, task, file_to_create, file_content=""):
+def _run_test_case(bridge, workspace, sent_messages, sender, task, file_to_create, file_content="", expect_attached: bool = True):
     """Helper to mock execution and run the bridge handler."""
     import subprocess
     
@@ -106,7 +106,10 @@ def _run_test_case(bridge, workspace, sent_messages, sender, task, file_to_creat
     
     # Verify that the generated file was correctly attached
     expected_attachment = str(Path(workspace) / file_to_create)
-    assert expected_attachment in reply["attachments"]
+    if expect_attached:
+        assert expected_attachment in reply["attachments"]
+    else:
+        assert expected_attachment not in reply["attachments"]
 
 
 def test_sms_bridge_image(sms_bridge_setup):
@@ -165,7 +168,8 @@ def test_sms_bridge_website(sms_bridge_setup):
         sender="+14085073140",
         task="Build a clean landing page website using HTML and CSS",
         file_to_create="index.html",
-        file_content="<!DOCTYPE html><html><body><h1>Welcome</h1></body></html>"
+        file_content="<!DOCTYPE html><html><body><h1>Welcome</h1></body></html>",
+        expect_attached=False
     )
 
 
@@ -177,7 +181,8 @@ def test_sms_bridge_backend_system(sms_bridge_setup):
         sender="+16696498725",
         task="Create a python backend server app with FastAPI",
         file_to_create="server.py",
-        file_content="from fastapi import FastAPI\napp = FastAPI()"
+        file_content="from fastapi import FastAPI\napp = FastAPI()",
+        expect_attached=False
     )
 
 
@@ -189,7 +194,8 @@ def test_sms_bridge_mobile_app(sms_bridge_setup):
         sender="+14085073140",
         task="Build a React Native mobile app task component",
         file_to_create="TaskComponent.tsx",
-        file_content="export default function TaskComponent() {}"
+        file_content="export default function TaskComponent() {}",
+        expect_attached=False
     )
 
 
@@ -201,7 +207,21 @@ def test_sms_bridge_video_game(sms_bridge_setup):
         sender="+16696498725",
         task="Write a simple snake game in python using pygame",
         file_to_create="snake_game.py",
-        file_content="import pygame\n# Game loop here"
+        file_content="import pygame\n# Game loop here",
+        expect_attached=False
+    )
+
+
+def test_sms_bridge_python_specifically_requested(sms_bridge_setup):
+    """Test python file creation when specifically requested via SMS."""
+    bridge, workspace, sent_messages = sms_bridge_setup
+    _run_test_case(
+        bridge, workspace, sent_messages,
+        sender="+16696498725",
+        task="Create a python backend server app with FastAPI and send the python code to my phone",
+        file_to_create="server.py",
+        file_content="from fastapi import FastAPI\napp = FastAPI()",
+        expect_attached=True
     )
 
 

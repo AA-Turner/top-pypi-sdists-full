@@ -725,7 +725,7 @@ class CfnIPSet(
         # The values are placeholders you should change.
         from aws_cdk import aws_waf as waf
         
-        cfn_iPSet = waf.CfnIPSet(self, "MyCfnIPSet",
+        cfn_ip_set = waf.CfnIPSet(self, "MyCfnIPSet",
             name="name",
         
             # the properties below are optional
@@ -898,7 +898,7 @@ class CfnIPSet(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_waf as waf
                 
-                i_pSet_descriptor_property = {
+                i_p_set_descriptor_property = {
                     "type": "type",
                     "value": "value"
                 }
@@ -980,7 +980,7 @@ class CfnIPSetProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_waf as waf
             
-            cfn_iPSet_props = waf.CfnIPSetProps(
+            cfn_ip_set_props = waf.CfnIPSetProps(
                 name="name",
             
                 # the properties below are optional
@@ -2496,7 +2496,7 @@ class CfnWebACL(
         # The values are placeholders you should change.
         from aws_cdk import aws_waf as waf
         
-        cfn_web_aCL = waf.CfnWebACL(self, "MyCfnWebACL",
+        cfn_web_acl = waf.CfnWebACL(self, "MyCfnWebACL",
             default_action=waf.CfnWebACL.WafActionProperty(
                 type="type"
             ),
@@ -2899,7 +2899,7 @@ class CfnWebACLProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_waf as waf
             
-            cfn_web_aCLProps = waf.CfnWebACLProps(
+            cfn_web_acl_props = waf.CfnWebACLProps(
                 default_action=waf.CfnWebACL.WafActionProperty(
                     type="type"
                 ),

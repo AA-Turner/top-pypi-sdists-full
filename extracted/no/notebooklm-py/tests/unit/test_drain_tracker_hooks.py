@@ -1,4 +1,4 @@
-"""Close-ordering contract for ``TransportDrainTracker`` drain hooks (ADR-014 Rule 1).
+"""Close-ordering contract for ``TransportDrainTracker`` drain hooks (ADR-0014 Rule 1).
 
 Wave 2 of the session-decoupling plan moved the drain-hook storage and firing
 from ``Session._drain_hooks`` to ``TransportDrainTracker.register_drain_hook``
@@ -11,7 +11,7 @@ post-Wave-0.5 code MUST preserve:
 * No hooks ever registered → ``run_drain_hooks`` is a clean no-op.
 
 The lifecycle-level "drain hooks run before transport teardown" assertion
-lives in ``test_session_lifecycle.py::test_close_runs_drain_hooks_before_transport_teardown``
+lives in ``test_runtime_lifecycle.py::test_close_runs_drain_hooks_before_transport_teardown``
 — this file is the unit-level contract on the tracker itself.
 """
 

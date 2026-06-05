@@ -105,6 +105,139 @@ def test_pick_command_order_returns_capabilities(monkeypatch, tmp_path) -> None:
     assert order["submit"]
 
 
+def test_cursor_submit_sanitizer_rejects_non_chat_commands(tmp_path) -> None:
+    order = pick_command_order(
+        ide="cursor",
+        plugin_version="0.2.1",
+        catalog={
+            "submit": [
+                "scm.acceptInput",
+                "repl.action.acceptInput",
+                "composer.sendToAgent",
+                "workbench.action.chat.submit",
+            ],
+        },
+        telemetry=CommandTelemetry(tmp_path),
+    )
+    assert "scm.acceptInput" not in order["submit"]
+    assert "repl.action.acceptInput" not in order["submit"]
+    assert order["submit"] == [
+        "workbench.action.chat.submit",
+        "composer.sendToAgent",
+    ]
+
+
+def test_cursor_paste_sanitizer_rejects_clipboard_paste(tmp_path) -> None:
+    order = pick_command_order(
+        ide="cursor",
+        plugin_version="0.2.2",
+        catalog={
+            "paste": [
+                "editor.action.clipboardPasteAction",
+                "workbench.action.chat.typeText",
+                "composer.typeText",
+            ],
+        },
+        telemetry=CommandTelemetry(tmp_path),
+    )
+    assert "editor.action.clipboardPasteAction" not in order["paste"]
+    assert order["paste"][0] == "workbench.action.chat.typeText"
+
+
+def test_cursor_paste_sanitizer_rejects_terminal_paste(tmp_path) -> None:
+    order = pick_command_order(
+        ide="cursor",
+        plugin_version="0.2.4",
+        catalog={
+            "paste": [
+                "workbench.action.terminal.paste",
+                "workbench.action.chat.typeText",
+            ],
+        },
+        telemetry=CommandTelemetry(tmp_path),
+    )
+    assert "workbench.action.terminal.paste" not in order["paste"]
+    assert order["paste"][0] == "workbench.action.chat.typeText"
+
+
+def test_cursor_submit_default_prefers_workbench_over_composer(tmp_path) -> None:
+    order = pick_command_order(
+        ide="cursor",
+        plugin_version="0.2.2",
+        catalog={
+            "submit": [
+                "composer.sendToAgent",
+                "composer.acceptComposerStep",
+                "workbench.action.chat.submit",
+                "workbench.action.chat.stopListeningAndSubmit",
+            ],
+        },
+        telemetry=CommandTelemetry(tmp_path),
+    )
+    assert order["submit"] == [
+        "workbench.action.chat.stopListeningAndSubmit",
+        "workbench.action.chat.submit",
+        "composer.sendToAgent",
+        "composer.acceptComposerStep",
+    ]
+
+
+def test_cursor_picker_rejects_start_composer_prompt_from_paste_and_submit(tmp_path) -> None:
+    order = pick_command_order(
+        ide="cursor",
+        plugin_version="0.2.1",
+        catalog={
+            "paste": [
+                "composer.startComposerPrompt2",
+                "composer.startComposerPrompt",
+                "composer.typeText",
+            ],
+            "submit": [
+                "composer.startComposerPrompt2",
+                "composer.sendToAgent",
+            ],
+        },
+        telemetry=CommandTelemetry(tmp_path),
+    )
+
+    assert order["paste"] == ["composer.typeText"]
+    assert "composer.startComposerPrompt2" not in order["submit"]
+    assert order["submit"] == ["composer.sendToAgent"]
+
+
+def test_cursor_focus_open_rejects_panel_chat_toggle(tmp_path) -> None:
+    order = pick_command_order(
+        ide="cursor",
+        plugin_version="0.2.12",
+        catalog={
+            "focus_open": [
+                "workbench.panel.chat",
+                "composer.openAsPane",
+                "workbench.action.chat.open",
+            ],
+        },
+        telemetry=CommandTelemetry(tmp_path),
+    )
+
+    assert order["focus_open"] == ["workbench.action.chat.open"]
+
+
+def test_antigravity_focus_open_rejects_new_chat_action(tmp_path) -> None:
+    order = pick_command_order(
+        ide="antigravity",
+        plugin_version="0.2.10",
+        catalog={
+            "focus_open": [
+                "aichat.newchataction",
+                "workbench.action.chat.focusInput",
+            ],
+        },
+        telemetry=CommandTelemetry(tmp_path),
+    )
+
+    assert order["focus_open"] == ["workbench.action.chat.focusInput"]
+
+
 def test_vscodium_focus_open_avoids_quick_chat(tmp_path) -> None:
     order = pick_command_order(
         ide="vscodium",
@@ -129,6 +262,7 @@ def test_vscodium_focus_open_override_can_be_enabled(monkeypatch, tmp_path) -> N
         plugin_version="0.2.7",
         catalog={
             "focus_open": [
+                "chatgpt.sidebarView.open",
                 "workbench.action.openQuickChat",
                 "workbench.action.quickchat.openInChatView",
                 "workbench.action.chat.focusInput",
@@ -136,4 +270,20 @@ def test_vscodium_focus_open_override_can_be_enabled(monkeypatch, tmp_path) -> N
         },
         telemetry=CommandTelemetry(tmp_path),
     )
-    assert order["focus_open"] == ["workbench.action.chat.focusInput"]
+    assert order["focus_open"] == ["chatgpt.sidebarView.open"]
+
+
+def test_vscodium_focus_open_override_rejects_settings(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("KORU_VSCODIUM_COMMAND_ORDER_FOCUS_OPEN", "1")
+    order = pick_command_order(
+        ide="vscodium",
+        plugin_version="0.2.8",
+        catalog={
+            "focus_open": [
+                "workbench.action.chat.openChatEmptyStateSettings",
+                "workbench.action.chat.focusInput",
+            ],
+        },
+        telemetry=CommandTelemetry(tmp_path),
+    )
+    assert order.get("focus_open", []) == []

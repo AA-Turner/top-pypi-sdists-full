@@ -12,9 +12,6 @@ class Model(ABC):
         self._name = name
         self._model_api = model_api
 
-    # TODO estimate mode, predict modes on here?
-    # implement Cypher and Arrow info_provider and stuff
-
     def name(self) -> str:
         """
         Get the name of the model.
@@ -52,7 +49,7 @@ class Model(ABC):
         return self._model_api.drop(self._name, failIfMissing)
 
     def __str__(self) -> str:
-        return f"{self.__class__.__name__}(name={self.name()}, type={self.details().type})"
+        return f"{self.__class__.__name__}(name={self.name()}, type={self.details().model_type})"
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self.details().model_dump()})"

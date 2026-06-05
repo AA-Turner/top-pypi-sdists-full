@@ -2887,7 +2887,7 @@ class CfnFileSystem(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_fsx as fsx
                 
-                open_zFSConfiguration_property = fsx.CfnFileSystem.OpenZFSConfigurationProperty(
+                open_zfs_configuration_property = fsx.CfnFileSystem.OpenZFSConfigurationProperty(
                     deployment_type="deploymentType",
                 
                     # the properties below are optional
@@ -4768,7 +4768,7 @@ class CfnS3AccessPointAttachment(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_fsx as fsx
                 
-                file_system_gIDProperty = fsx.CfnS3AccessPointAttachment.FileSystemGIDProperty(
+                file_system_gid_property = fsx.CfnS3AccessPointAttachment.FileSystemGIDProperty(
                     gid=123
                 )
             '''
@@ -5038,7 +5038,7 @@ class CfnS3AccessPointAttachment(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_fsx as fsx
                 
-                open_zFSFile_system_identity_property = fsx.CfnS3AccessPointAttachment.OpenZFSFileSystemIdentityProperty(
+                open_zfs_file_system_identity_property = fsx.CfnS3AccessPointAttachment.OpenZFSFileSystemIdentityProperty(
                     posix_user=fsx.CfnS3AccessPointAttachment.OpenZFSPosixFileSystemUserProperty(
                         gid=123,
                         uid=123,
@@ -5121,7 +5121,7 @@ class CfnS3AccessPointAttachment(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_fsx as fsx
                 
-                open_zFSPosix_file_system_user_property = fsx.CfnS3AccessPointAttachment.OpenZFSPosixFileSystemUserProperty(
+                open_zfs_posix_file_system_user_property = fsx.CfnS3AccessPointAttachment.OpenZFSPosixFileSystemUserProperty(
                     gid=123,
                     uid=123,
                 
@@ -5300,7 +5300,7 @@ class CfnS3AccessPointAttachment(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_fsx as fsx
                 
-                s3_access_point_open_zFSConfiguration_property = fsx.CfnS3AccessPointAttachment.S3AccessPointOpenZFSConfigurationProperty(
+                s3_access_point_open_zfs_configuration_property = fsx.CfnS3AccessPointAttachment.S3AccessPointOpenZFSConfigurationProperty(
                     file_system_identity=fsx.CfnS3AccessPointAttachment.OpenZFSFileSystemIdentityProperty(
                         posix_user=fsx.CfnS3AccessPointAttachment.OpenZFSPosixFileSystemUserProperty(
                             gid=123,
@@ -7690,7 +7690,7 @@ class CfnVolume(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_fsx as fsx
                 
-                open_zFSConfiguration_property = fsx.CfnVolume.OpenZFSConfigurationProperty(
+                open_zfs_configuration_property = fsx.CfnVolume.OpenZFSConfigurationProperty(
                     parent_volume_id="parentVolumeId",
                 
                     # the properties below are optional

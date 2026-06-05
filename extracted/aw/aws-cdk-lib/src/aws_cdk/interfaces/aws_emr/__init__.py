@@ -799,7 +799,7 @@ class WALWorkspaceReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_emr as interfaces_emr
             
-            w_aLWorkspace_reference = interfaces_emr.WALWorkspaceReference(
+            w_al_workspace_reference = interfaces_emr.WALWorkspaceReference(
                 wal_workspace_name="walWorkspaceName"
             )
         '''

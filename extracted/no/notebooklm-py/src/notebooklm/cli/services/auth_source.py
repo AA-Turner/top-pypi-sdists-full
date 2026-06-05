@@ -1,6 +1,6 @@
 """Single source of truth for resolving the active CLI auth source.
 
-Before P3.T3, the question "where does authentication come from for this
+Historically, the question "where does authentication come from for this
 command?" was answered by three independent reimplementations that all had
 slightly different shapes:
 
@@ -164,7 +164,7 @@ class AuthSource:
         ``storage_override`` is already canonicalised by
         :meth:`from_click_context` and ``get_storage_path`` already returns
         an absolute resolved path, so no extra ``expanduser`` / ``resolve``
-        is needed here (rev-1 CodeRabbit nitpick fix on #962).
+        is needed here.
         """
         if self.storage_override is not None:
             return self.storage_override
@@ -179,14 +179,16 @@ def auth_source_from_ctx(ctx: click.Context | None) -> AuthSource:
     return AuthSource.from_click_context(ctx)
 
 
-def current_storage_override(ctx: click.Context | None = None) -> Path | None:
+def current_storage_override(ctx: click.Context | None) -> Path | None:
     """Return the active ``--storage`` override Path, or ``None``.
 
     Backward-compatibility surface for the legacy
     ``_current_storage_override()`` helpers in ``cli/helpers.py`` and
-    ``cli/context.py``. When ``ctx`` is ``None`` (the legacy signature),
-    the helper calls ``click.get_current_context(silent=True)`` itself,
-    matching the original behavior.
+    ``cli/context.py``. The caller (a command-layer module) is responsible
+    for resolving the live Click context via
+    ``click.get_current_context(silent=True)`` and passing it in — this
+    keeps the Click-context read out of ``cli/services`` per ADR-0008. A
+    ``None`` context resolves to "no override."
 
     Public consumers should prefer :meth:`AuthSource.from_click_context`
     so they get the full resolver (env-var awareness, profile, etc.) in
@@ -194,10 +196,6 @@ def current_storage_override(ctx: click.Context | None = None) -> Path | None:
     stable; it does NOT consult ``NOTEBOOKLM_AUTH_JSON`` because the
     legacy contract was "return the explicit ``--storage`` only."
     """
-    if ctx is None:
-        import click
-
-        ctx = click.get_current_context(silent=True)
     return AuthSource.from_click_context(ctx).storage_override
 
 

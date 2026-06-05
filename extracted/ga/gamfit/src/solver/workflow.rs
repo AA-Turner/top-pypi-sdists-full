@@ -42,9 +42,9 @@ use crate::families::transformation_normal::{
 use crate::inference::model::{ColumnKindTag, DataSchema, SchemaColumn};
 use crate::mixture_link::{state_from_beta_logisticspec, state_from_sasspec, state_fromspec};
 use crate::smooth::{
-    AdaptiveRegularizationDiagnostics, CoefficientGroupSpec, SpatialLengthScaleOptimizationOptions,
-    StandardLatentCoordConfig, TermCollectionDesign, TermCollectionSpec,
-    build_term_collection_design,
+    AdaptiveRegularizationDiagnostics, CoefficientGroupSpec, LinearTermSpec,
+    SpatialLengthScaleOptimizationOptions, StandardLatentCoordConfig, TermCollectionDesign,
+    TermCollectionSpec, build_term_collection_design,
     fit_term_collection_with_coefficient_groups_and_penalty_block_gamma_priors,
     fit_term_collectionwith_latent_coord_optimization,
     fit_term_collectionwith_spatial_length_scale_optimization,
@@ -1389,6 +1389,11 @@ impl LocationScaleWorkflowAdapter for GaussianLocationScaleWorkflow {
             wiggle_knots: None,
             wiggle_degree: None,
             beta_link_wiggle: None,
+            // The wiggle-pilot workflow fits in standardized response units; the
+            // Gaussian model wrapper (`fit_gaussian_location_scale_model`) maps
+            // the coefficients back to raw units and overwrites this with the
+            // applied factor. `1.0` here is the identity (no standardization).
+            response_scale: 1.0,
         }
     }
 
@@ -1403,6 +1408,9 @@ impl LocationScaleWorkflowAdapter for GaussianLocationScaleWorkflow {
             wiggle_knots: Some(wiggle_knots),
             wiggle_degree: Some(wiggle_degree),
             beta_link_wiggle,
+            // See `assemble_plain`: raw-unit remapping happens in the Gaussian
+            // model wrapper, which overwrites this with the applied factor.
+            response_scale: 1.0,
         }
     }
 }
@@ -1514,10 +1522,209 @@ impl LocationScaleWorkflowAdapter for BinomialLocationScaleWorkflow {
     }
 }
 
+/// Population standard deviation of a response column (divide by `n`, not
+/// `n-1`).
+///
+/// This is the single response-standardization factor for the Gaussian
+/// location-scale path, so the standardized fit is identical whether the
+/// request arrives from the library (`fit_from_formula` →
+/// `materialize_location_scale`), the FFI marshaller, or the CLI.
+fn gaussian_response_sample_std(v: ArrayView1<'_, f64>) -> f64 {
+    if v.is_empty() {
+        return 0.0;
+    }
+    let n = v.len() as f64;
+    let mean = v.iter().copied().sum::<f64>() / n;
+    let var = v
+        .iter()
+        .copied()
+        .map(|x| {
+            let d = x - mean;
+            d * d
+        })
+        .sum::<f64>()
+        / n.max(1.0);
+    var.max(0.0).sqrt()
+}
+
+/// Map a Gaussian location-scale fit fitted in *standardized* response units
+/// (`y / response_scale`) back to **raw** response units, in place.
+///
+/// The internal fit solves with `y_internal = y / s` where `s = response_scale`.
+/// Reconstructing raw outputs requires
+///
+///   μ_raw  = s · μ_internal           ⇒ scale every Location/Mean coefficient by `s`,
+///   σ_raw  = s · σ_internal           ⇒ since σ = 0.01 + exp(η_σ), shifting the
+///                                         log-σ **intercept** by `+ln(s)` turns
+///                                         `0.01 + exp(η)` into `0.01 + s·exp(η)`
+///                                         = s·σ_internal − 0.01·(s−1); the residual
+///                                         floor error `0.01·(s−1)` is negligible
+///                                         because σ ≫ floor in every realistic fit.
+///
+/// The link-wiggle lives on the mean (identity) channel, so its knots and
+/// coefficients scale by `s` exactly like the Location block. Doing the remap
+/// here — once, inside the single Gaussian model entry point — makes every
+/// caller (library `fit_from_formula`, the FFI marshaller, the CLI save path)
+/// observe raw-unit coefficients with **no** additional per-call rescaling,
+/// which is what keeps the σ-floor scale-relative (κ ≈ 1) without leaving the
+/// reconstruction half-applied in any one path.
+fn rescale_gaussian_location_scale_to_raw(
+    result: &mut GaussianLocationScaleFitResult,
+    response_scale: f64,
+) {
+    use crate::estimate::BlockRole;
+
+    let s = response_scale;
+    let ln_s = s.ln();
+    // Intercept columns of the log-σ (Scale) design, expressed as offsets into
+    // the Scale block's coefficient vector (the block β is laid out in noise
+    // design column order). These are the only constant directions in η_σ
+    // (smooths are sum-to-zero), so shifting them adds `ln(s)` to η_σ uniformly.
+    let scale_intercept_range = result.fit.noise_design.intercept_range.clone();
+
+    // Per-block coefficient surgery. `blocks` is authoritative for
+    // `block_by_role` (predict, the FFI payload, and the reference tests all
+    // read it), and the joint `beta` / `block_states` mirror it.
+    let mut joint_offset = 0usize;
+    for (block_idx, block) in result.fit.fit.blocks.iter_mut().enumerate() {
+        let block_len = block.beta.len();
+        match block.role {
+            BlockRole::Mean | BlockRole::Location | BlockRole::LinkWiggle => {
+                block.beta.mapv_inplace(|v| v * s);
+                if result.fit.fit.beta.len() >= joint_offset + block_len {
+                    for i in 0..block_len {
+                        result.fit.fit.beta[joint_offset + i] *= s;
+                    }
+                }
+                if let Some(state) = result.fit.fit.block_states.get_mut(block_idx) {
+                    state.beta.mapv_inplace(|v| v * s);
+                }
+            }
+            BlockRole::Scale => {
+                for col in scale_intercept_range.clone() {
+                    if col < block.beta.len() {
+                        block.beta[col] += ln_s;
+                    }
+                    let joint_col = joint_offset + col;
+                    if joint_col < result.fit.fit.beta.len() {
+                        result.fit.fit.beta[joint_col] += ln_s;
+                    }
+                    if let Some(state) = result.fit.fit.block_states.get_mut(block_idx)
+                        && col < state.beta.len()
+                    {
+                        state.beta[col] += ln_s;
+                    }
+                }
+            }
+            BlockRole::Time | BlockRole::Threshold => {
+                // Survival-only roles are never produced by the Gaussian
+                // location-scale path; leave them untouched if ever present.
+            }
+        }
+        joint_offset += block_len;
+    }
+
+    // The link-wiggle knots/coefficients live on the mean (identity) channel.
+    if let Some(knots) = result.wiggle_knots.as_mut() {
+        knots.mapv_inplace(|v| v * s);
+    }
+    if let Some(beta_w) = result.beta_link_wiggle.as_mut() {
+        for coef in beta_w.iter_mut() {
+            *coef *= s;
+        }
+    }
+
+    // Conditional/corrected covariances were computed in standardized units.
+    // Var(s·β_loc) = s²·Var(β_loc); the Scale block only had a constant added to
+    // its intercept, which does not change its (co)variance. Cross terms between
+    // a Location and the Scale block pick up one factor of `s`. This is exactly
+    // a per-coefficient diagonal scaling D·Σ·D with D = s on Location/Mean/Wiggle
+    // rows and D = 1 on Scale rows.
+    let mut row_factors: Vec<f64> = Vec::new();
+    for block in &result.fit.fit.blocks {
+        let f = match block.role {
+            BlockRole::Mean | BlockRole::Location | BlockRole::LinkWiggle => s,
+            BlockRole::Scale | BlockRole::Time | BlockRole::Threshold => 1.0,
+        };
+        row_factors.extend(std::iter::repeat_n(f, block.beta.len()));
+    }
+    let rescale_cov = |cov: &mut Array2<f64>| {
+        let m = cov.nrows().min(cov.ncols()).min(row_factors.len());
+        for i in 0..m {
+            for j in 0..m {
+                cov[[i, j]] *= row_factors[i] * row_factors[j];
+            }
+        }
+    };
+    if let Some(cov) = result.fit.fit.covariance_conditional.as_mut() {
+        rescale_cov(cov);
+    }
+    if let Some(cov) = result.fit.fit.covariance_corrected.as_mut() {
+        rescale_cov(cov);
+    }
+
+    // The residual-scale summary `standard_deviation` is a response-units
+    // quantity; the internal fit reports it in standardized units, so map it
+    // back. `max_abs_eta` is the mean-channel η magnitude (raw μ = s·μ_internal).
+    result.fit.fit.standard_deviation *= s;
+    result.fit.fit.max_abs_eta *= s;
+
+    // Change-of-variables correction for the likelihood-scale summaries. The
+    // internal fit maximizes the density of y_internal = y/s; the raw-response
+    // density is p_raw(y) = p_internal(y/s)/s, so per observation
+    // log p_raw = log p_internal − ln(s). The deviance (−2·loglik) and the
+    // REML/LAML objective (which carries the data log-likelihood) shift
+    // accordingly. This keeps reported log-likelihood / deviance / REML in raw
+    // response units, matching what an un-standardized fit would report.
+    // The number of observations is the fitted eta length for any parameter
+    // block. Use the first block state instead of optional geometry so the
+    // public objective fields stay in one unit system even when covariance or
+    // ALO geometry was not retained.
+    if let Some(n_obs) = result
+        .fit
+        .fit
+        .block_states
+        .first()
+        .map(|state| state.eta.len() as f64)
+        .filter(|&n| n > 0.0)
+    {
+        let ln_s = s.ln();
+        result.fit.fit.log_likelihood -= n_obs * ln_s;
+        result.fit.fit.deviance += 2.0 * n_obs * ln_s;
+        result.fit.fit.reml_score += n_obs * ln_s;
+        result.fit.fit.penalized_objective += n_obs * ln_s;
+    }
+
+    result.response_scale = s;
+}
+
 fn fit_gaussian_location_scale_model(
-    request: GaussianLocationScaleFitRequest<'_>,
+    mut request: GaussianLocationScaleFitRequest<'_>,
 ) -> Result<GaussianLocationScaleFitResult, String> {
-    fit_location_scale_with_optional_wiggle::<GaussianLocationScaleWorkflow>(request)
+    // Standardize the response so the fixed log-σ soft floor
+    // `LOGB_SIGMA_FLOOR = 0.01` is scale-relative (≈ 1 % of the response
+    // spread) rather than absolute. Without this the link σ = 0.01 + exp(η)
+    // gives κ = dlogσ/dη = exp(η)/(0.01+exp(η)) < 1 whenever the raw σ is small,
+    // and the scale-block Fisher information 2κ²a is strictly below gamlss's
+    // floorless 2a, systematically over-smoothing the log-σ envelope
+    // (#686 #688 #684 #685 #687). Fitting on y/s restores κ ≈ 1.
+    let response_scale = gaussian_response_sample_std(request.spec.y.view()).max(1e-6);
+    if response_scale != 1.0 {
+        request.spec.y.mapv_inplace(|v| v / response_scale);
+        // The mean (identity-link) offset rides in the same units as y; the
+        // log-σ offset is on the log-scale axis and is unaffected by the
+        // multiplicative response rescale.
+        request
+            .spec
+            .mean_offset
+            .mapv_inplace(|v| v / response_scale);
+    }
+
+    let mut result =
+        fit_location_scale_with_optional_wiggle::<GaussianLocationScaleWorkflow>(request)?;
+
+    rescale_gaussian_location_scale_to_raw(&mut result, response_scale);
+    Ok(result)
 }
 
 fn fit_binomial_location_scale_model(
@@ -2055,10 +2262,40 @@ fn fit_cause_specific_survival_transformation_custom(
         &spec.time_build,
         spec.time_anchor,
     );
+    // Recover the FITTED Weibull baseline from the converged linear-time
+    // coefficients, mirroring the single-cause path (issues #689/#690). The
+    // seed `baseline_cfg` carried only the pre-fit pooled scale/shape
+    // (`shape = 1`, `scale = time-seed`), so any caller reading
+    // `fit.baseline_cfg.scale/shape` to reconstruct `H = (t/scale)^shape`
+    // would build the CIF from the uninitialized baseline and collapse it to
+    // null. For Weibull-without-timewiggle the time basis is the 2-column
+    // `[1, log t]` linear basis whose per-cause coefficients carry the full
+    // log-cumulative-hazard, so the fitted scale/shape are recoverable from
+    // each cause's time-beta. The shared `SurvivalBaselineConfig` holds a
+    // single (scale, shape), so we report the first cause's fitted baseline as
+    // the representative shared value — the same pooled-baseline convention the
+    // seed used, but post-fit rather than uninitialized.
+    let fitted_baseline_cfg = if spec.likelihood_mode == SurvivalLikelihoodMode::Weibull
+        && spec.timewiggle.is_none()
+    {
+        let first_block = fit.blocks.first().ok_or_else(|| {
+            "cause-specific survival fit produced no coefficient blocks".to_string()
+        })?;
+        let time_beta = first_block
+            .beta
+            .slice(s![..spec.time_build.x_exit_time.ncols()])
+            .to_owned();
+        fitted_weibull_baseline_from_linear_time_beta(&time_beta).ok_or_else(|| {
+            "failed to recover fitted Weibull scale/shape from the cause-specific linear time coefficients"
+                .to_string()
+        })?
+    } else {
+        baseline_cfg
+    };
     Ok(SurvivalTransformationFitResult {
         fit,
         resolvedspec,
-        baseline_cfg,
+        baseline_cfg: fitted_baseline_cfg,
         likelihood_mode: spec.likelihood_mode,
         time_basis,
         time_base_ncols: spec.time_build.x_exit_time.ncols(),
@@ -3293,6 +3530,7 @@ fn crossfit_score_calibration(
             &recipe.config,
             min_complement,
             p_cov,
+            response_full.view(),
         );
 
     let mut z_oof = Array1::<f64>::zeros(n);
@@ -3514,8 +3752,9 @@ use crate::families::survival_construction::{
     optimize_survival_baseline_config_with_gradient,
     optimize_survival_baseline_config_with_gradient_only, parse_survival_distribution,
     parse_survival_likelihood_mode, parse_survival_time_basis_config, positive_survival_time_seed,
-    require_structural_survival_time_basis, resolve_survival_time_anchor_value,
-    resolved_survival_time_basis_config_from_build, survival_derivative_guard_for_likelihood,
+    require_structural_survival_time_basis, resolve_survival_marginal_slope_time_anchor_value,
+    resolve_survival_time_anchor_value, resolved_survival_time_basis_config_from_build,
+    survival_derivative_guard_for_likelihood,
 };
 use crate::families::survival_location_scale::{
     SURVIVAL_LOCATION_SCALE_EMPTY_BLOCK_STATES_MARKER, SurvivalCovariateTermBlockTemplate,
@@ -3533,6 +3772,45 @@ use crate::term_builder::{
     has_explicit_countwith_basis_alias, resolve_role_col, resolve_smooth_type_name,
     smooth_type_uses_spatial_center_heuristic,
 };
+
+/// User-facing policy for the universal under-identification robustness layer
+/// (link-general Jeffreys/Firth on the under-identified span + exact
+/// orthogonalization of structural confounds).
+///
+/// `Off` is the default and leaves every solver path byte-identical to the
+/// released behavior: no new branch reads a non-`Off` value yet. `Auto` enables
+/// the robustness only where a pathology is detected; `Force` requests it
+/// unconditionally on supported families.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum RobustIdentification {
+    /// Disabled: existing behavior, byte-unchanged.
+    #[default]
+    Off,
+    /// Enable robustness only where an under-identified direction is detected.
+    Auto,
+    /// Request robustness unconditionally on supported families.
+    Force,
+}
+
+impl RobustIdentification {
+    pub fn parse(raw: &str) -> Option<Self> {
+        match raw.trim().to_ascii_lowercase().as_str() {
+            "off" | "false" | "0" | "" => Some(Self::Off),
+            "auto" => Some(Self::Auto),
+            "force" | "on" | "true" | "1" => Some(Self::Force),
+            _ => None,
+        }
+    }
+
+    #[inline]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Off => "off",
+            Self::Auto => "auto",
+            Self::Force => "force",
+        }
+    }
+}
 
 /// Non-formula configuration for model fitting. All fields have sensible defaults.
 #[derive(Clone, Debug)]
@@ -3618,6 +3896,11 @@ pub struct FitConfig {
 
     /// Enable Firth bias reduction for standard single-parameter families.
     pub firth: bool,
+
+    /// Universal under-identification robustness policy. `Off` (default) leaves
+    /// every solver path byte-identical to released behavior; `Auto`/`Force`
+    /// enable the link-general Jeffreys/Firth + orthogonalization layer.
+    pub robust_identification: RobustIdentification,
 
     /// GPU backend selection policy. `Auto` uses supported device kernels for
     /// large workloads, `Off` pins execution to CPU kernels, and `Force` fails
@@ -3711,6 +3994,7 @@ impl Default for FitConfig {
             ridge_lambda: 1e-6,
             transformation_normal: false,
             firth: false,
+            robust_identification: RobustIdentification::Off,
             gpu_policy: crate::gpu::GpuPolicy::Auto,
             device: crate::solver::gpu::Device::Cpu,
             resource_policy: None,
@@ -3911,10 +4195,12 @@ pub fn is_binary_response(y: ArrayView1<'_, f64>) -> bool {
 /// `spec` need for their bases to be well-posed.
 ///
 /// Each [`SmoothBasisSpec`] owns its own `min_sample_rows` lower bound — the
-/// B-spline knot count, the tensor-product column product, the PCA matrix
-/// width — so this helper is a thin sum-and-compare: the workflow has no
-/// per-basis-kind knowledge. Adding a new smooth kind extends the basis
-/// `match` in `min_sample_rows`, not this gate.
+/// B-spline knot count, the *penalized* tensor-product floor (the sum of the
+/// per-marginal column counts, not their Kronecker product, because a `te()`
+/// is regularized and its effective dof is a small fraction of the column
+/// count), the PCA matrix width — so this helper is a thin sum-and-compare:
+/// the workflow has no per-basis-kind knowledge. Adding a new smooth kind
+/// extends the basis `match` in `min_sample_rows`, not this gate.
 ///
 /// Catches the README-quickstart failure mode (#309) where `n=4` against
 /// `y ~ s(x)` would otherwise surface as an opaque `cached inner beta has
@@ -4352,6 +4638,147 @@ pub(crate) fn build_termspec_with_geometry_and_overrides(
     Ok(spec)
 }
 
+fn linear_term_training_column(
+    data: &Dataset,
+    term: &LinearTermSpec,
+) -> Result<Array1<f64>, WorkflowError> {
+    let cols = term.effective_feature_cols();
+    if cols.is_empty() {
+        return Err(WorkflowError::InvalidConfig {
+            reason: format!(
+                "linear term '{}' has no feature columns; cannot build its training column",
+                term.name
+            ),
+        });
+    }
+    let n = data.values.nrows();
+    let mut out = Array1::<f64>::ones(n);
+    for &col in &cols {
+        if col >= data.values.ncols() {
+            return Err(WorkflowError::SchemaMismatch {
+                reason: format!(
+                    "linear term '{}' feature column {} out of bounds for {} columns",
+                    term.name,
+                    col,
+                    data.values.ncols()
+                ),
+            }
+            .into());
+        }
+        for row in 0..n {
+            out[row] *= data.values[[row, col]];
+        }
+    }
+    Ok(out)
+}
+
+fn residualize_against_orthonormal_basis(
+    column: &Array1<f64>,
+    basis: &[Array1<f64>],
+) -> Array1<f64> {
+    let mut residual = column.clone();
+    for q in basis {
+        let coeff = residual.dot(q);
+        residual.scaled_add(-coeff, q);
+    }
+    residual
+}
+
+fn l2_norm(column: &Array1<f64>) -> f64 {
+    column.iter().map(|v| v * v).sum::<f64>().sqrt()
+}
+
+fn prune_unidentified_linear_terms_for_bernoulli_marginal_slope(
+    spec: &mut TermCollectionSpec,
+    data: &Dataset,
+    label: &str,
+    inference_notes: &mut Vec<String>,
+) -> Result<(), WorkflowError> {
+    if spec.linear_terms.is_empty() {
+        return Ok(());
+    }
+
+    let n = data.values.nrows();
+    if n == 0 {
+        return Err(WorkflowError::InvalidConfig {
+            reason: format!("{label}: cannot rank-check scalar terms on zero rows"),
+        });
+    }
+
+    let mut basis = Vec::<Array1<f64>>::new();
+    let intercept = Array1::<f64>::ones(n);
+    let intercept_norm = l2_norm(&intercept);
+    if intercept_norm == 0.0 || !intercept_norm.is_finite() {
+        return Err(WorkflowError::InvalidConfig {
+            reason: format!("{label}: implicit intercept has invalid norm {intercept_norm}"),
+        });
+    }
+    basis.push(intercept.mapv(|v| v / intercept_norm));
+
+    let rank_alpha = crate::linalg::faer_ndarray::default_rrqr_rank_alpha();
+    let mut scale = intercept_norm.max(1.0);
+    let mut kept = Vec::<LinearTermSpec>::with_capacity(spec.linear_terms.len());
+    let mut dropped = Vec::<String>::new();
+
+    for term in &spec.linear_terms {
+        let column = linear_term_training_column(data, term)?;
+        let norm = l2_norm(&column);
+        if !norm.is_finite() {
+            return Err(WorkflowError::InvalidConfig {
+                reason: format!("{label}: linear term '{}' has non-finite norm", term.name),
+            });
+        }
+        scale = scale.max(norm.max(1.0));
+        let residual = residualize_against_orthonormal_basis(&column, &basis);
+        let residual_norm = l2_norm(&residual);
+        let tol = rank_alpha * f64::EPSILON * ((n + basis.len() + 1).max(1) as f64) * scale;
+        let is_data_redundant = residual_norm <= tol;
+        let has_constraints = term.coefficient_min.is_some() || term.coefficient_max.is_some();
+        if is_data_redundant {
+            if has_constraints {
+                return Err(WorkflowError::InvalidConfig {
+                    reason: format!(
+                        "{label}: constrained linear term '{}' is redundant with the implicit \
+                         intercept or earlier scalar terms; remove the constraint or the \
+                         redundant term",
+                        term.name
+                    ),
+                });
+            }
+            if term.double_penalty {
+                return Err(WorkflowError::InvalidConfig {
+                    reason: format!(
+                        "{label}: explicitly penalized linear term '{}' is redundant with the \
+                         implicit intercept or earlier scalar terms; remove the redundant term \
+                         instead of relying on a ridge to identify a duplicate data direction",
+                        term.name
+                    ),
+                });
+            }
+            dropped.push(format!(
+                "{} (residual_norm={:.3e}, tol={:.3e})",
+                term.name, residual_norm, tol
+            ));
+            continue;
+        }
+        if residual_norm > tol {
+            basis.push(residual.mapv(|v| v / residual_norm));
+        }
+        kept.push(term.clone());
+    }
+
+    if !dropped.is_empty() {
+        inference_notes.push(format!(
+            "{label}: removed {} scalar term(s) that add no identifiable \
+             direction beyond the implicit intercept and earlier scalar terms: {}",
+            dropped.len(),
+            dropped.join(", ")
+        ));
+        spec.linear_terms = kept;
+    }
+    Ok(())
+}
+
 fn standard_adaptive_regularization_options(
     config: &FitConfig,
 ) -> Option<AdaptiveRegularizationOptions> {
@@ -4575,6 +5002,69 @@ pub fn resolve_weight_column(
         }
     }
     Ok(values)
+}
+
+const MARGINAL_SLOPE_Z_WEIGHTED_SD_FLOOR: f64 = 1e-12;
+
+fn validate_bernoulli_marginal_slope_z_column_variance(
+    z_column: &str,
+    z: ArrayView1<'_, f64>,
+    weights: ArrayView1<'_, f64>,
+) -> Result<(), WorkflowError> {
+    if z.len() != weights.len() {
+        return Err(WorkflowError::SchemaMismatch {
+            reason: format!(
+                "z_column '{z_column}' length mismatch for bernoulli-marginal-slope: z={}, weights={}",
+                z.len(),
+                weights.len()
+            ),
+        });
+    }
+    let n = z.len();
+    let weight_sum = weights.iter().copied().sum::<f64>();
+    if !(weight_sum.is_finite() && weight_sum > 0.0) {
+        return Err(WorkflowError::InvalidConfig {
+            reason: format!(
+                "z_column '{z_column}' cannot be weighted for bernoulli-marginal-slope because the fit data have non-positive or non-finite total weight"
+            ),
+        });
+    }
+    let mean = z
+        .iter()
+        .zip(weights.iter())
+        .map(|(&zi, &wi)| wi * zi)
+        .sum::<f64>()
+        / weight_sum;
+    let var = z
+        .iter()
+        .zip(weights.iter())
+        .map(|(&zi, &wi)| wi * (zi - mean) * (zi - mean))
+        .sum::<f64>()
+        / weight_sum;
+    let weighted_sd = var.sqrt();
+    if weighted_sd.is_finite() && weighted_sd > MARGINAL_SLOPE_Z_WEIGHTED_SD_FLOOR {
+        return Ok(());
+    }
+
+    let mut sorted = z.to_vec();
+    sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    sorted.dedup_by(|a, b| (*a - *b).abs() <= MARGINAL_SLOPE_Z_WEIGHTED_SD_FLOOR);
+    let unique_count = sorted.len();
+    let value_summary = match sorted.as_slice() {
+        [] => "no observed finite values".to_string(),
+        [only] => format!("all {n} values ~= {only:.6}"),
+        [first, second] => {
+            format!("{unique_count} near-unique values, e.g. {first:.6}, {second:.6}")
+        }
+        [first, second, ..] => {
+            format!("{unique_count} near-unique values, e.g. {first:.6}, {second:.6}, ...")
+        }
+    };
+    Err(WorkflowError::InvalidConfig {
+        reason: format!(
+            "z_column '{z_column}' has zero weighted variance on the fit data ({value_summary}; weighted_sd={weighted_sd:.6e}, n={n}); bernoulli-marginal-slope cannot identify a covariate-varying slope from a constant score. Check the score column and fit population."
+        ),
+    })
 }
 
 #[derive(Clone)]
@@ -5541,6 +6031,7 @@ fn materialize_standard<'a>(
         nullspace_dims: vec![],
         linear_constraints: None,
         firth_bias_reduction: config.firth,
+        robust_identification: config.robust_identification,
         adaptive_regularization: standard_adaptive_regularization_options(config),
         penalty_shrinkage_floor: Some(1e-6),
         rho_prior: Default::default(),
@@ -5681,7 +6172,7 @@ fn materialize_bernoulli_marginal_slope<'a>(
         Some(z_column) => column_map_with_alias(col_map, "z", z_column),
         None => col_map.clone(),
     };
-    let marginalspec = build_termspec_with_geometry_and_overrides(
+    let mut marginalspec = build_termspec_with_geometry_and_overrides(
         &parsed.terms,
         data,
         &aliased_col_map,
@@ -5690,7 +6181,13 @@ fn materialize_bernoulli_marginal_slope<'a>(
         &policy,
         config.smooth_overrides.as_ref(),
     )?;
-    let logslopespec = build_termspec_with_geometry_and_overrides(
+    prune_unidentified_linear_terms_for_bernoulli_marginal_slope(
+        &mut marginalspec,
+        data,
+        "bernoulli marginal-slope marginal formula",
+        &mut inference_notes,
+    )?;
+    let mut logslopespec = build_termspec_with_geometry_and_overrides(
         &parsed_logslope.terms,
         data,
         &aliased_col_map,
@@ -5698,6 +6195,12 @@ fn materialize_bernoulli_marginal_slope<'a>(
         config.scale_dimensions,
         &policy,
         config.smooth_overrides.as_ref(),
+    )?;
+    prune_unidentified_linear_terms_for_bernoulli_marginal_slope(
+        &mut logslopespec,
+        data,
+        "bernoulli marginal-slope logslope_formula",
+        &mut inference_notes,
     )?;
     let weights = resolve_weight_column(data, col_map, config.weight_column.as_deref())?;
     let marginal_offset = resolve_offset_column(data, col_map, config.offset_column.as_deref())?;
@@ -5723,7 +6226,13 @@ fn materialize_bernoulli_marginal_slope<'a>(
                 // No recipe ⇒ a raw z_column is required (guarded above) and read here.
                 let z_column = z_column.expect("z_column presence checked when ctn_stage1 is None");
                 let z_idx = resolve_role_col(col_map, z_column, "z")?;
-                (data.values.column(z_idx).to_owned(), None)
+                let z = data.values.column(z_idx).to_owned();
+                validate_bernoulli_marginal_slope_z_column_variance(
+                    z_column,
+                    z.view(),
+                    weights.view(),
+                )?;
+                (z, None)
             }
         };
 
@@ -5749,6 +6258,7 @@ fn materialize_bernoulli_marginal_slope<'a>(
             spec,
             options: BlockwiseFitOptions {
                 compute_covariance: true,
+                robust_identification: config.robust_identification,
                 ..Default::default()
             },
             kappa_options: SpatialLengthScaleOptimizationOptions::default(),
@@ -5890,7 +6400,17 @@ fn materialize_survival<'a>(
             config.time_smooth_lambda,
         )?
     };
-    let time_anchor = resolve_survival_time_anchor_value(&age_entry, None)?;
+    // Marginal-slope centers the baseline-hazard I-spline at a robust interior
+    // exit-scale time (median exit) rather than the earliest entry age: under
+    // left truncation the earliest entry is a positive left-tail point and
+    // centering there inflates the unpenalized linear-trend column, blowing up
+    // the time-block seed score so REML rejects every seed (issue #751).
+    // Location-scale keeps the earliest-entry anchor.
+    let time_anchor = if survival_mode == SurvivalLikelihoodMode::MarginalSlope {
+        resolve_survival_marginal_slope_time_anchor_value(&age_entry, &age_exit, None)?
+    } else {
+        resolve_survival_time_anchor_value(&age_entry, None)?
+    };
     let exact_derivative_guard = survival_derivative_guard_for_likelihood(survival_mode);
 
     // Build time basis
@@ -7415,11 +7935,8 @@ mod tests {
             panic!("expected Duchon smooth");
         };
         assert_eq!(spec.length_scale, None);
-        assert!(matches!(
-            spec.nullspace_order,
-            DuchonNullspaceOrder::Degree(2)
-        ));
-        assert_eq!(spec.power, 0.0);
+        assert!(matches!(spec.nullspace_order, DuchonNullspaceOrder::Linear));
+        assert_eq!(spec.power, 0.5);
     }
 
     #[test]
@@ -7438,8 +7955,13 @@ mod tests {
             panic!("expected Duchon smooth");
         };
         assert_eq!(spec.length_scale, Some(1.0));
-        assert_eq!(spec.nullspace_order, DuchonNullspaceOrder::Zero);
-        assert_eq!(spec.power, 2.0);
+        assert_eq!(spec.nullspace_order, DuchonNullspaceOrder::Linear);
+        // The hybrid Matérn-blended kernel requires an INTEGER power. The cubic
+        // structural default's fractional s=(d-1)/2 = 0.5 (d=2) is resolved at the
+        // request layer to the smallest admissible integer (here s=0, the d=2
+        // thin-plate order) rather than carried in as 0.5 and silently truncated
+        // to 0 by the basis builder (#750). The pure path above still keeps 0.5.
+        assert_eq!(spec.power, 0.0);
     }
 
     #[test]
@@ -7506,6 +8028,448 @@ mod tests {
             materialized.request,
             FitRequest::BernoulliMarginalSlope(_)
         ));
+    }
+
+    #[test]
+    fn materialize_bernoulli_marginal_slope_prunes_redundant_scalar_term() {
+        let data = Dataset {
+            headers: vec![
+                "event".to_string(),
+                "x".to_string(),
+                "constant_spline_col".to_string(),
+                "prs_z".to_string(),
+                "PC1".to_string(),
+                "PC2".to_string(),
+                "PC3".to_string(),
+            ],
+            values: Array2::from_shape_vec(
+                (6, 7),
+                vec![
+                    0.0, -2.0, 1.0, -1.2, -1.0, 0.2, 0.7, 1.0, -1.0, 1.0, -0.4, -0.4, -0.3, 0.5,
+                    0.0, 0.0, 1.0, 0.1, 0.1, 0.4, -0.2, 1.0, 1.0, 1.0, 0.5, 0.7, -0.6, 0.3, 0.0,
+                    2.0, 1.0, 1.1, 1.2, 0.9, 0.0, 1.0, 3.0, 1.0, 1.7, 1.6, -0.8, -0.4,
+                ],
+            )
+            .expect("BMS redundant scalar test data shape"),
+            schema: DataSchema {
+                columns: vec![
+                    SchemaColumn {
+                        name: "event".to_string(),
+                        kind: ColumnKindTag::Binary,
+                        levels: vec![],
+                    },
+                    SchemaColumn {
+                        name: "x".to_string(),
+                        kind: ColumnKindTag::Continuous,
+                        levels: vec![],
+                    },
+                    SchemaColumn {
+                        name: "constant_spline_col".to_string(),
+                        kind: ColumnKindTag::Continuous,
+                        levels: vec![],
+                    },
+                    SchemaColumn {
+                        name: "prs_z".to_string(),
+                        kind: ColumnKindTag::Continuous,
+                        levels: vec![],
+                    },
+                    SchemaColumn {
+                        name: "PC1".to_string(),
+                        kind: ColumnKindTag::Continuous,
+                        levels: vec![],
+                    },
+                    SchemaColumn {
+                        name: "PC2".to_string(),
+                        kind: ColumnKindTag::Continuous,
+                        levels: vec![],
+                    },
+                    SchemaColumn {
+                        name: "PC3".to_string(),
+                        kind: ColumnKindTag::Continuous,
+                        levels: vec![],
+                    },
+                ],
+            },
+            column_kinds: vec![
+                ColumnKindTag::Binary,
+                ColumnKindTag::Continuous,
+                ColumnKindTag::Continuous,
+                ColumnKindTag::Continuous,
+                ColumnKindTag::Continuous,
+                ColumnKindTag::Continuous,
+                ColumnKindTag::Continuous,
+            ],
+        };
+        let config = FitConfig {
+            logslope_formula: Some("matern(PC1, PC2, PC3, centers=3)".to_string()),
+            z_column: Some("prs_z".to_string()),
+            ..FitConfig::default()
+        };
+        let materialized = materialize(
+            "event ~ matern(PC1, PC2, PC3, centers=3) + x + constant_spline_col",
+            &data,
+            &config,
+        )
+        .expect("BMS materialization should prune the redundant scalar term");
+        let MaterializedModel {
+            request,
+            inference_notes,
+        } = materialized;
+        let FitRequest::BernoulliMarginalSlope(request) = request else {
+            panic!("expected Bernoulli marginal-slope request");
+        };
+        let kept: Vec<&str> = request
+            .spec
+            .marginalspec
+            .linear_terms
+            .iter()
+            .map(|term| term.name.as_str())
+            .collect();
+        assert_eq!(kept, vec!["x"]);
+        assert_eq!(request.spec.marginalspec.smooth_terms.len(), 1);
+        assert_eq!(request.spec.logslopespec.smooth_terms.len(), 1);
+        assert!(
+            inference_notes
+                .iter()
+                .any(|note| note.contains("constant_spline_col")),
+            "materialization should report the removed redundant scalar term; notes={inference_notes:?}"
+        );
+    }
+
+    #[test]
+    fn materialize_bernoulli_marginal_slope_prunes_hypertension_style_scalar_alias() {
+        let data = Dataset {
+            headers: vec![
+                "event".to_string(),
+                "sex".to_string(),
+                "entry_age_z".to_string(),
+                "current_age_ns_1".to_string(),
+                "current_age_ns_2".to_string(),
+                "current_age_ns_3".to_string(),
+                "current_age_ns_4".to_string(),
+                "prs_z".to_string(),
+                "PC1".to_string(),
+                "PC2".to_string(),
+                "PC3".to_string(),
+            ],
+            values: Array2::from_shape_vec(
+                (8, 11),
+                vec![
+                    0.0, 0.0, -1.4, 1.0, -0.6, 0.36, -0.216, -1.3, -1.0, 0.2, 0.7, 1.0, 1.0, -0.9,
+                    1.0, -0.2, 0.04, -0.008, -0.8, -0.5, -0.3, 0.5, 0.0, 0.0, -0.5, 1.0, 0.1, 0.01,
+                    0.001, -0.2, 0.1, 0.4, -0.2, 1.0, 1.0, -0.1, 1.0, 0.4, 0.16, 0.064, 0.3, 0.7,
+                    -0.6, 0.3, 0.0, 0.0, 0.3, 1.0, 0.7, 0.49, 0.343, 0.8, 1.2, 0.9, 0.0, 1.0, 1.0,
+                    0.7, 1.0, 1.0, 1.0, 1.0, 1.2, 1.6, -0.8, -0.4, 0.0, 0.0, 1.1, 1.0, 1.3, 1.69,
+                    2.197, 1.6, -1.4, 0.8, -0.9, 1.0, 1.0, 1.5, 1.0, 1.6, 2.56, 4.096, 2.0, 0.3,
+                    -1.1, 0.6,
+                ],
+            )
+            .expect("hypertension-style BMS scalar-alias test data shape"),
+            schema: DataSchema {
+                columns: vec![
+                    SchemaColumn {
+                        name: "event".to_string(),
+                        kind: ColumnKindTag::Binary,
+                        levels: vec![],
+                    },
+                    SchemaColumn {
+                        name: "sex".to_string(),
+                        kind: ColumnKindTag::Binary,
+                        levels: vec![],
+                    },
+                    SchemaColumn {
+                        name: "entry_age_z".to_string(),
+                        kind: ColumnKindTag::Continuous,
+                        levels: vec![],
+                    },
+                    SchemaColumn {
+                        name: "current_age_ns_1".to_string(),
+                        kind: ColumnKindTag::Continuous,
+                        levels: vec![],
+                    },
+                    SchemaColumn {
+                        name: "current_age_ns_2".to_string(),
+                        kind: ColumnKindTag::Continuous,
+                        levels: vec![],
+                    },
+                    SchemaColumn {
+                        name: "current_age_ns_3".to_string(),
+                        kind: ColumnKindTag::Continuous,
+                        levels: vec![],
+                    },
+                    SchemaColumn {
+                        name: "current_age_ns_4".to_string(),
+                        kind: ColumnKindTag::Continuous,
+                        levels: vec![],
+                    },
+                    SchemaColumn {
+                        name: "prs_z".to_string(),
+                        kind: ColumnKindTag::Continuous,
+                        levels: vec![],
+                    },
+                    SchemaColumn {
+                        name: "PC1".to_string(),
+                        kind: ColumnKindTag::Continuous,
+                        levels: vec![],
+                    },
+                    SchemaColumn {
+                        name: "PC2".to_string(),
+                        kind: ColumnKindTag::Continuous,
+                        levels: vec![],
+                    },
+                    SchemaColumn {
+                        name: "PC3".to_string(),
+                        kind: ColumnKindTag::Continuous,
+                        levels: vec![],
+                    },
+                ],
+            },
+            column_kinds: vec![
+                ColumnKindTag::Binary,
+                ColumnKindTag::Binary,
+                ColumnKindTag::Continuous,
+                ColumnKindTag::Continuous,
+                ColumnKindTag::Continuous,
+                ColumnKindTag::Continuous,
+                ColumnKindTag::Continuous,
+                ColumnKindTag::Continuous,
+                ColumnKindTag::Continuous,
+                ColumnKindTag::Continuous,
+                ColumnKindTag::Continuous,
+            ],
+        };
+        let config = FitConfig {
+            logslope_formula: Some("matern(PC1, PC2, PC3, centers=3)".to_string()),
+            z_column: Some("prs_z".to_string()),
+            ..FitConfig::default()
+        };
+        let materialized = materialize(
+            "event ~ matern(PC1, PC2, PC3, centers=3) + sex + entry_age_z + current_age_ns_1 + current_age_ns_2 + current_age_ns_3 + current_age_ns_4",
+            &data,
+            &config,
+        )
+        .expect("BMS materialization should prune the local-column-3 scalar alias");
+        let FitRequest::BernoulliMarginalSlope(request) = materialized.request else {
+            panic!("expected Bernoulli marginal-slope request");
+        };
+        let kept: Vec<&str> = request
+            .spec
+            .marginalspec
+            .linear_terms
+            .iter()
+            .map(|term| term.name.as_str())
+            .collect();
+        assert_eq!(
+            kept,
+            vec![
+                "sex",
+                "entry_age_z",
+                "current_age_ns_2",
+                "current_age_ns_3",
+                "current_age_ns_4"
+            ]
+        );
+        assert_eq!(request.spec.marginalspec.smooth_terms.len(), 1);
+        assert_eq!(request.spec.logslopespec.smooth_terms.len(), 1);
+        assert!(
+            materialized
+                .inference_notes
+                .iter()
+                .any(|note| note.contains("current_age_ns_1")),
+            "materialization should report the removed hypertension-style scalar alias; notes={:?}",
+            materialized.inference_notes
+        );
+    }
+
+    #[test]
+    fn materialize_bernoulli_marginal_slope_rejects_constrained_redundant_scalar_term() {
+        let data = Dataset {
+            headers: vec![
+                "event".to_string(),
+                "x".to_string(),
+                "constant_spline_col".to_string(),
+                "prs_z".to_string(),
+            ],
+            values: Array2::from_shape_vec(
+                (6, 4),
+                vec![
+                    0.0, -2.0, 1.0, -1.2, 1.0, -1.0, 1.0, -0.4, 0.0, 0.0, 1.0, 0.1, 1.0, 1.0, 1.0,
+                    0.5, 0.0, 2.0, 1.0, 1.1, 1.0, 3.0, 1.0, 1.7,
+                ],
+            )
+            .expect("BMS constrained redundant scalar test data shape"),
+            schema: DataSchema {
+                columns: vec![
+                    SchemaColumn {
+                        name: "event".to_string(),
+                        kind: ColumnKindTag::Binary,
+                        levels: vec![],
+                    },
+                    SchemaColumn {
+                        name: "x".to_string(),
+                        kind: ColumnKindTag::Continuous,
+                        levels: vec![],
+                    },
+                    SchemaColumn {
+                        name: "constant_spline_col".to_string(),
+                        kind: ColumnKindTag::Continuous,
+                        levels: vec![],
+                    },
+                    SchemaColumn {
+                        name: "prs_z".to_string(),
+                        kind: ColumnKindTag::Continuous,
+                        levels: vec![],
+                    },
+                ],
+            },
+            column_kinds: vec![
+                ColumnKindTag::Binary,
+                ColumnKindTag::Continuous,
+                ColumnKindTag::Continuous,
+                ColumnKindTag::Continuous,
+            ],
+        };
+        let config = FitConfig {
+            logslope_formula: Some("1".to_string()),
+            z_column: Some("prs_z".to_string()),
+            ..FitConfig::default()
+        };
+        let err = match materialize(
+            "event ~ x + linear(constant_spline_col, min=0.0)",
+            &data,
+            &config,
+        ) {
+            Ok(_) => panic!("constrained duplicate scalar term must be rejected, not pruned"),
+            Err(err) => err,
+        };
+        let msg = err.to_string();
+        assert!(
+            msg.contains("constrained linear term 'constant_spline_col' is redundant"),
+            "error should explain that the constrained duplicate scalar cannot be pruned: {msg}"
+        );
+    }
+
+    #[test]
+    fn bernoulli_marginal_slope_prune_rejects_penalized_redundant_scalar_term() {
+        let data = Dataset {
+            headers: vec!["event".to_string(), "constant_spline_col".to_string()],
+            values: Array2::from_shape_vec((4, 2), vec![0.0, 1.0, 1.0, 1.0, 0.0, 1.0, 1.0, 1.0])
+                .expect("BMS penalized redundant scalar test data shape"),
+            schema: DataSchema {
+                columns: vec![
+                    SchemaColumn {
+                        name: "event".to_string(),
+                        kind: ColumnKindTag::Binary,
+                        levels: vec![],
+                    },
+                    SchemaColumn {
+                        name: "constant_spline_col".to_string(),
+                        kind: ColumnKindTag::Continuous,
+                        levels: vec![],
+                    },
+                ],
+            },
+            column_kinds: vec![ColumnKindTag::Binary, ColumnKindTag::Continuous],
+        };
+        let mut spec = TermCollectionSpec {
+            linear_terms: vec![LinearTermSpec {
+                name: "constant_spline_col".to_string(),
+                feature_col: 1,
+                feature_cols: vec![1],
+                double_penalty: true,
+                coefficient_geometry: crate::smooth::LinearCoefficientGeometry::Unconstrained,
+                coefficient_min: None,
+                coefficient_max: None,
+            }],
+            random_effect_terms: vec![],
+            smooth_terms: vec![],
+        };
+        let mut notes = Vec::new();
+        let err = prune_unidentified_linear_terms_for_bernoulli_marginal_slope(
+            &mut spec,
+            &data,
+            "test BMS formula",
+            &mut notes,
+        )
+        .expect_err("explicitly penalized duplicate scalar term must be rejected");
+        let msg = err.to_string();
+        assert!(
+            msg.contains("explicitly penalized linear term 'constant_spline_col' is redundant"),
+            "error should reject ridge-identification of duplicate scalar directions: {msg}"
+        );
+        assert_eq!(spec.linear_terms.len(), 1);
+        assert!(notes.is_empty());
+    }
+
+    #[test]
+    fn materialize_bernoulli_marginal_slope_names_constant_z_column() {
+        let data = Dataset {
+            headers: vec!["event".to_string(), "bmi".to_string(), "prs_z".to_string()],
+            values: Array2::from_shape_vec(
+                (4, 3),
+                vec![
+                    0.0, 22.0, -0.58, 1.0, 24.0, -0.58, 0.0, 27.0, -0.58, 1.0, 29.0, -0.58,
+                ],
+            )
+            .expect("constant z test data shape"),
+            schema: DataSchema {
+                columns: vec![
+                    SchemaColumn {
+                        name: "event".to_string(),
+                        kind: ColumnKindTag::Binary,
+                        levels: vec![],
+                    },
+                    SchemaColumn {
+                        name: "bmi".to_string(),
+                        kind: ColumnKindTag::Continuous,
+                        levels: vec![],
+                    },
+                    SchemaColumn {
+                        name: "prs_z".to_string(),
+                        kind: ColumnKindTag::Continuous,
+                        levels: vec![],
+                    },
+                ],
+            },
+            column_kinds: vec![
+                ColumnKindTag::Binary,
+                ColumnKindTag::Continuous,
+                ColumnKindTag::Continuous,
+            ],
+        };
+        let config = FitConfig {
+            logslope_formula: Some("1".to_string()),
+            z_column: Some("prs_z".to_string()),
+            ..FitConfig::default()
+        };
+
+        let err = match materialize("event ~ bmi", &data, &config) {
+            Ok(_) => panic!("constant z_column should be rejected before BMS integration"),
+            Err(err) => err,
+        };
+        let msg = err.to_string();
+        assert!(
+            msg.contains("z_column 'prs_z' has zero weighted variance"),
+            "error should name the constant z_column and diagnose weighted variance: {msg}"
+        );
+        assert!(
+            msg.contains("all 4 values ~= -0.580000"),
+            "error should summarize the observed constant value: {msg}"
+        );
+        assert!(
+            msg.contains("weighted_sd=0.000000e0") && msg.contains("n=4"),
+            "error should report weighted_sd and n: {msg}"
+        );
+        assert!(
+            msg.contains(
+                "bernoulli-marginal-slope cannot identify a covariate-varying slope from a constant score"
+            ),
+            "error should explain why the input is invalid: {msg}"
+        );
+        assert!(
+            !msg.contains("requires z with positive finite weighted standard deviation"),
+            "workflow should surface the input-style message instead of the generic BMS normalization error: {msg}"
+        );
     }
 
     #[test]

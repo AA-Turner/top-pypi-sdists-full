@@ -55,11 +55,7 @@ def rollback_step(fs: Filesystem, task_id: str, target_step_id: str) -> dict:
         task_data = json.loads(task_path.read_text(encoding="utf-8"))
     except (FileNotFoundError, json.JSONDecodeError):
         return {"error": f"task {task_id} not found or invalid", "rolled_back": []}
-    lightweight = task_data.get("lightweight", False)
-    quick = task_data.get("mode") == "quick"
-
-    dag = build_step_dag(lightweight=lightweight, quick=quick,
-                         mode=task_data.get("mode"), kanban_dir=fs.kanban_dir)
+    dag = build_step_dag(mode=task_data.get("mode"), kanban_dir=fs.kanban_dir)
     all_step_ids = [s["id"] for s in dag["steps"]]
 
     try:

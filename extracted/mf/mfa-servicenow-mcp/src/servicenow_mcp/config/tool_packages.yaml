@@ -53,7 +53,7 @@ standard:
       actions: [list, get_activities]
   # Flow Designer (Read) — unified tool, write actions blocked here
   - manage_flow_designer:
-      actions: [list, get_detail, get_executions]
+      actions: [list, get_detail, get_executions, get_action_source]
   # Portal (Read)
   - get_page
   - get_widget_bundle
@@ -63,7 +63,6 @@ standard:
   - search_portal_regex_matches
   - trace_portal_route_targets
   - analyze_widget_performance
-  - extract_widget_table_dependencies
   # Widget dependency/provider graph (read) — write actions exposed in
   # portal_developer/full. Absorbed get_provider_dependency_map +
   # resolve_widget_chain + resolve_page_dependencies (now internal resolvers).

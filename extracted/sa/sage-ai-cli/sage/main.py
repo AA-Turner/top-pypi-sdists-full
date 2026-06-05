@@ -1089,8 +1089,8 @@ def run(
 
         # Bypass the read-only / analysis guard. SMS users can't reply
         # "yes, implement it" — the texted task IS the approval.
-        global _force_implementation_mode
-        _force_implementation_mode = True
+        from sage.core.autonomous_helpers import set_force_implementation_mode
+        set_force_implementation_mode(True)
 
     last_used_model = _get_last_used_model(cwd)
     model_id = model or last_used_model or cfg.default_model

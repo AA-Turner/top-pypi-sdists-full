@@ -131,7 +131,7 @@ iot.AccountAuditConfiguration(self, "AuditConfiguration",
         device_certificate_key_quality_check=False,
         device_certificate_shared_check=False,
         intermediate_ca_revoked_for_active_device_certificates_check=False,
-        io_tPolicy_potential_mis_configuration_check=False,
+        io_t_policy_potential_mis_configuration_check=False,
         iot_policy_overly_permissive_check=False,
         iot_role_alias_allows_access_to_unused_services_check=False,
         iot_role_alias_overly_permissive_check=False,
@@ -415,7 +415,7 @@ class ActionConfig:
                         range_key_type="rangeKeyType",
                         range_key_value="rangeKeyValue"
                     ),
-                    dynamo_dBv2=DynamoDBv2ActionProperty(
+                    dynamo_d_bv2=DynamoDBv2ActionProperty(
                         put_item=PutItemInputProperty(
                             table_name="tableName"
                         ),
@@ -860,7 +860,7 @@ class CheckConfiguration:
                     device_certificate_key_quality_check=False,
                     device_certificate_shared_check=False,
                     intermediate_ca_revoked_for_active_device_certificates_check=False,
-                    io_tPolicy_potential_mis_configuration_check=False,
+                    io_t_policy_potential_mis_configuration_check=False,
                     iot_policy_overly_permissive_check=False,
                     iot_role_alias_allows_access_to_unused_services_check=False,
                     iot_role_alias_overly_permissive_check=False,

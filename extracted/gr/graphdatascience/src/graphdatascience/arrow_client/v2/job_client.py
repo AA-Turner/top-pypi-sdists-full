@@ -2,7 +2,7 @@ import json
 from typing import Any
 
 from pandas import ArrowDtype, DataFrame
-from pyarrow._flight import Ticket
+from pyarrow.flight import Ticket
 from tenacity import Retrying, retry_if_result
 
 from graphdatascience.arrow_client.authenticated_flight_client import AuthenticatedArrowClient
@@ -13,6 +13,7 @@ from graphdatascience.query_runner.termination_flag import TerminationFlag
 from graphdatascience.retry_utils.retry_utils import job_wait_strategy
 
 JOB_STATUS_ENDPOINT = "v2/jobs.status"
+JOBS_CANCEL_ENDPOINT = "v2/jobs.cancel"
 RESULTS_SUMMARY_ENDPOINT = "v2/results.summary"
 
 
@@ -74,6 +75,10 @@ class JobClient:
                         progress_bar.update(job_status.status, job_status.progress_percent(), job_status.sub_tasks())
 
     @staticmethod
+    def cancel_job(client: AuthenticatedArrowClient, job_id: str) -> None:
+        client.do_action_with_retry(JOBS_CANCEL_ENDPOINT, JobIdConfig(jobId=job_id).dump_camel())
+
+    @staticmethod
     def get_job_status(client: AuthenticatedArrowClient, job_id: str) -> JobStatus:
         arrow_res = client.do_action_with_retry(JOB_STATUS_ENDPOINT, JobIdConfig(jobId=job_id).dump_camel())
         job_status = JobStatus(**deserialize_single(arrow_res))
@@ -86,14 +91,22 @@ class JobClient:
 
     @staticmethod
     def stream_results(client: AuthenticatedArrowClient, graph_name: str, job_id: str) -> DataFrame:
+        export_job_id = JobClient.start_export_result(client, graph_name, job_id)
+
+        return JobClient.get_stream(client, export_job_id)
+
+    @staticmethod
+    def start_export_result(client: AuthenticatedArrowClient, graph_name: str, job_id: str) -> str:
         payload = {
             "graphName": graph_name,
             "jobId": job_id,
         }
 
         res = client.do_action_with_retry("v2/results.stream", payload)
-        export_job_id = JobIdConfig(**deserialize_single(res)).job_id
+        return JobIdConfig(**deserialize_single(res)).job_id
 
+    @staticmethod
+    def get_stream(client: AuthenticatedArrowClient, export_job_id: str) -> DataFrame:
         stream_payload = {"version": "v2", "name": export_job_id, "body": {}}
 
         ticket = Ticket(json.dumps(stream_payload).encode("utf-8"))

@@ -14,7 +14,7 @@ a dead loop.
 Post-fix: ``NotebookLMClient.open()`` captures
 ``asyncio.get_running_loop()`` on the lifecycle (read via
 ``core._collaborators.lifecycle.get_bound_loop()``) and
-``SessionTransport.perform_authed_post`` asserts the running loop matches
+``RuntimeTransport.perform_authed_post`` asserts the running loop matches
 via a cheap ``is`` comparison through ``assert_bound_loop``. On mismatch
 we raise an actionable ``RuntimeError`` at the call site instead of
 letting the failure escalate into the httpx pool or asyncio.Lock internals.
@@ -23,7 +23,7 @@ The test exercises the surgical contract:
 
 1. **Cross-loop use raises early** — open the core under one loop, then
    call ``rpc_call`` (which routes through
-   ``SessionTransport.perform_authed_post``) under a *different* loop
+   ``RuntimeTransport.perform_authed_post``) under a *different* loop
    and assert the loop-affinity ``RuntimeError`` surfaces with the
    documented message. The error must come from G2's guard, not from a
    downstream httpx symptom.
@@ -33,7 +33,7 @@ The test exercises the surgical contract:
 3. **No binding before open()** — a freshly-constructed ``NotebookLMClient``
    that has never been ``open()``ed has
    ``core._collaborators.lifecycle.get_bound_loop() is None``; the check inside
-   ``SessionTransport.perform_authed_post`` already asserts
+   ``RuntimeTransport.perform_authed_post`` already asserts
    ``self._kernel.http_client is not None``, so an "unopened client"
    caller sees the existing assertion error, not the loop guard.
 
@@ -277,6 +277,226 @@ def test_capped_client_reopen_on_new_loop_rebinds_semaphore(
         assert transport.get_peak_inflight() <= 2
 
     asyncio.run(_reopen_and_dispatch_under_loop_b())
+
+
+def test_upload_pipeline_reopen_on_new_loop_rebinds_semaphore(
+    mock_transport_concurrent: ConcurrentMockTransport,
+) -> None:
+    """Issue #1196 (upload variant): close on loop A, reopen on loop B → upload semaphore rebinds.
+
+    The Sources upload semaphore (``SourceUploadPipeline._upload_semaphore``)
+    is the second lazily-built loop-bound ``asyncio.Semaphore`` in the client,
+    with the exact close→reopen hazard #1196 fixed for the RPC semaphore: it is
+    bound to whichever loop it was first constructed under, but
+    ``ClientLifecycle.open`` did not reset it, so a client reopened on a
+    *different* loop reused a semaphore bound to the now-dead loop — which on
+    Python 3.10/3.11 raises "bound to a different event loop" or misparks
+    waiters on acquire.
+
+    Post-fix ``ClientLifecycle.open`` calls
+    ``SourceUploadPipeline.set_bound_loop`` + ``reset_after_open`` (mirroring
+    the RPC-semaphore reset above), so the upload semaphore is discarded on a
+    loop change and rebuilt fresh on the new loop.
+
+    Like the RPC-semaphore test above, this is intentionally NOT ``async def``:
+    we own two ``asyncio.run`` calls explicitly so the open and the reopen
+    happen on two genuinely distinct loop objects.
+
+    The semaphore is capped at 1 and each loop forces a *blocked* second
+    acquire: ``asyncio.Semaphore.acquire`` only consults ``_get_loop()`` (and
+    thus binds the primitive to a loop) on the contended waiter path — the
+    uncontended fast path returns before touching the loop. Mirroring the
+    cap-2 fan-out the RPC test above uses, the contention here makes the
+    cross-loop binding actually exercise the stale-loop hazard pre-fix.
+    """
+    transport = mock_transport_concurrent
+    transport.set_delay(0.0)
+
+    core = build_client_shell_for_tests(auth=_make_auth(), max_concurrent_uploads=1)
+    uploader = core._source_uploader
+
+    async def _force_contended_acquire(sem: asyncio.Semaphore) -> None:
+        """Drive the blocked-waiter path so ``sem`` binds to the running loop.
+
+        Hold the single slot, start a second ``acquire`` that must block
+        (creating a waiter future via ``_get_loop()`` — the loop-binding
+        step), then release so the waiter proceeds. On a stale cross-loop
+        semaphore this is where 3.10/3.11 raise "bound to a different event
+        loop".
+        """
+        await sem.acquire()
+        waiter = asyncio.ensure_future(sem.acquire())
+        # Yield so the waiter runs far enough to park on the locked semaphore.
+        await asyncio.sleep(0)
+        assert not waiter.done()
+        sem.release()
+        await waiter
+        sem.release()
+
+    async def _open_force_semaphore_and_close_under_loop_a() -> None:
+        await core.__aenter__()
+        prior_cookies = core._collaborators.kernel.get_http_client().cookies
+        await core._collaborators.kernel.get_http_client().aclose()
+        install_http_client_for_test(
+            core._collaborators.kernel,
+            httpx.AsyncClient(
+                cookies=prior_cookies,
+                transport=transport,
+                timeout=httpx.Timeout(connect=1.0, read=5.0, write=5.0, pool=1.0),
+            ),
+        )
+        # Force the upload semaphore to actually be constructed and bound to
+        # loop A — that is the stale primitive a naive reopen reuses. The
+        # contended acquire binds it to loop A via the waiter path.
+        await _force_contended_acquire(uploader.get_upload_semaphore())
+        await core.close()
+
+    asyncio.run(_open_force_semaphore_and_close_under_loop_a())
+    # The reset happens on open(), not close(): the stale semaphore is still
+    # cached here, bound to the now-dead loop A.
+    assert uploader._upload_semaphore is not None
+
+    async def _reopen_and_use_semaphore_under_loop_b() -> None:
+        await core.__aenter__()
+        # reset_after_open() must have discarded the loop-A semaphore so the
+        # next get_upload_semaphore() rebuilds it on loop B.
+        assert uploader._upload_semaphore is None
+        prior_cookies = core._collaborators.kernel.get_http_client().cookies
+        await core._collaborators.kernel.get_http_client().aclose()
+        install_http_client_for_test(
+            core._collaborators.kernel,
+            httpx.AsyncClient(
+                cookies=prior_cookies,
+                transport=transport,
+                timeout=httpx.Timeout(connect=1.0, read=5.0, write=5.0, pool=1.0),
+            ),
+        )
+        try:
+            # Drive a contended acquire on the rebuilt semaphore under loop B.
+            # Pre-fix this would reuse the stale loop-A semaphore and (on
+            # 3.10/3.11) raise the cross-loop RuntimeError on the waiter path;
+            # post-fix the semaphore is fresh and binds cleanly to loop B.
+            sem_b = uploader.get_upload_semaphore()
+            assert sem_b is not None
+            await _force_contended_acquire(sem_b)
+        finally:
+            await core.close()
+
+    asyncio.run(_reopen_and_use_semaphore_under_loop_b())
+
+
+def test_chat_locks_reopen_on_new_loop_rebind(
+    mock_transport_concurrent: ConcurrentMockTransport,
+) -> None:
+    """Issue #1225: close on loop A, reopen on loop B → ChatAPI conversation locks rebind.
+
+    The ``ChatAPI`` per-conversation / per-notebook locks
+    (``ChatAPI._conversation_locks`` / ``_new_conversation_locks``, two
+    ``WeakValueDictionary`` maps of lazily-built ``asyncio.Lock``) were the
+    last lazy loop-bound primitives in the client without the owner-level
+    ``set_bound_loop`` + ``reset_after_open`` protocol. Each lock binds to
+    whichever loop is running the first time it is awaited; a client closed on
+    loop A and reopened on loop B that reused a lock bound to the now-dead loop
+    A raises "bound to a different event loop" (Python 3.10/3.11) or misparks
+    waiters on the contended-acquire path.
+
+    Post-fix ``ClientLifecycle.open`` calls ``ChatAPI.set_bound_loop`` +
+    ``reset_after_open`` (mirroring the RPC- and upload-semaphore resets), so
+    the lock maps are cleared on a loop change and each per-key lock is rebuilt
+    fresh on the new loop.
+
+    Like the semaphore tests above, this is intentionally NOT ``async def``: we
+    own two ``asyncio.run`` calls explicitly so the open and the reopen happen
+    on two genuinely distinct loop objects.
+
+    A bare ``asyncio.Lock`` only consults ``_get_loop()`` (and thus binds to a
+    loop) on the contended waiter path — the uncontended fast path returns
+    before touching the loop. So we drive a *blocked* second acquire on each
+    loop to force the binding that exercises the stale-loop hazard pre-fix.
+    """
+    transport = mock_transport_concurrent
+    transport.set_delay(0.0)
+
+    core = build_client_shell_for_tests(auth=_make_auth())
+    chat = core.chat
+    conv_id = "conv-1225"
+
+    async def _force_contended_acquire(lock: asyncio.Lock) -> None:
+        """Drive the blocked-waiter path so ``lock`` binds to the running loop.
+
+        Hold the lock, start a second ``acquire`` that must block (creating a
+        waiter future via ``_get_loop()`` — the loop-binding step), then
+        release so the waiter proceeds. On a stale cross-loop lock this is
+        where 3.10/3.11 raise "bound to a different event loop".
+        """
+        await lock.acquire()
+        waiter = asyncio.ensure_future(lock.acquire())
+        # Yield so the waiter runs far enough to park on the held lock.
+        await asyncio.sleep(0)
+        assert not waiter.done()
+        lock.release()
+        await waiter
+        lock.release()
+
+    async def _open_force_lock_and_close_under_loop_a() -> asyncio.Lock:
+        await core.__aenter__()
+        prior_cookies = core._collaborators.kernel.get_http_client().cookies
+        await core._collaborators.kernel.get_http_client().aclose()
+        install_http_client_for_test(
+            core._collaborators.kernel,
+            httpx.AsyncClient(
+                cookies=prior_cookies,
+                transport=transport,
+                timeout=httpx.Timeout(connect=1.0, read=5.0, write=5.0, pool=1.0),
+            ),
+        )
+        # Force a conversation lock to actually be constructed and bound to
+        # loop A — that is the stale primitive a naive reopen reuses. The lock
+        # is RETURNED so the caller keeps a strong reference; without it the
+        # WeakValueDictionary entry would GC the moment this coroutine's locals
+        # are dropped, masking whether the reset (vs. plain GC) cleared the map.
+        lock = chat._get_conversation_lock(conv_id)
+        await _force_contended_acquire(lock)
+        assert conv_id in chat._conversation_locks
+        await core.close()
+        return lock
+
+    # Keep a strong reference across the loop boundary so the WeakValueDictionary
+    # entry bound to loop A is still present when we assert the reset cleared it.
+    pinned_lock = asyncio.run(_open_force_lock_and_close_under_loop_a())
+    # The reset happens on open(), not close(): the stale loop-A lock is still
+    # cached here (pinned by ``pinned_lock``), bound to the now-dead loop A.
+    assert pinned_lock is not None
+    assert chat._conversation_locks.get(conv_id) is pinned_lock
+
+    async def _reopen_and_use_lock_under_loop_b() -> None:
+        await core.__aenter__()
+        # reset_after_open() must have cleared the loop-A lock map so the next
+        # _get_conversation_lock() rebuilds a fresh lock on loop B (even though
+        # ``pinned_lock`` still holds a strong ref to the old one).
+        assert chat._conversation_locks.get(conv_id) is None
+        prior_cookies = core._collaborators.kernel.get_http_client().cookies
+        await core._collaborators.kernel.get_http_client().aclose()
+        install_http_client_for_test(
+            core._collaborators.kernel,
+            httpx.AsyncClient(
+                cookies=prior_cookies,
+                transport=transport,
+                timeout=httpx.Timeout(connect=1.0, read=5.0, write=5.0, pool=1.0),
+            ),
+        )
+        try:
+            # Drive a contended acquire on the rebuilt lock under loop B.
+            # Pre-fix this would reuse the stale loop-A lock and (on 3.10/3.11)
+            # raise the cross-loop RuntimeError on the waiter path; post-fix the
+            # lock is fresh and binds cleanly to loop B.
+            lock_b = chat._get_conversation_lock(conv_id)
+            assert lock_b is not pinned_lock
+            await _force_contended_acquire(lock_b)
+        finally:
+            await core.close()
+
+    asyncio.run(_reopen_and_use_lock_under_loop_b())
 
 
 async def test_bound_loop_captured_on_open(

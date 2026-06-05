@@ -55,7 +55,7 @@ class SMatrix_DENSE(SMatrix):
         field_host = np.empty((self.T * self.Z * self.X), dtype=np.float32)
 
         # Fill dense matrix using CUDA kernel
-        fill_kernel = self.sparse_mod.get_function("fill_dense_matrix_kernel")
+        fill_kernel = self.sparse_mod.get_function("fill_kernel__DENSE")
 
         for n in trange(self.N, desc="Filling DENSE (GPU)"):
             # Copy field data for this angle to host buffer (flattened)

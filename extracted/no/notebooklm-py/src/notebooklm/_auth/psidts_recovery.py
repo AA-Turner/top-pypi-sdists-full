@@ -10,7 +10,7 @@ Google does not always answer with ``Set-Cookie: __Secure-1PSIDTS``. When that
 happens, ``storage_state.json`` is saved without PSIDTS, the Tier-1 preflight
 in :mod:`notebooklm._auth.cookie_policy` rejects the next CLI invocation, and
 the keepalive recovery path (which would heal the state in one POST) is
-unreachable because it only runs inside an opened ``Session`` — a closed loop.
+unreachable because it only runs inside an opened ``NotebookLMClient`` — a closed loop.
 
 The header comment on ``MINIMUM_REQUIRED_COOKIES`` has always described PSIDTS
 as ``directly accepted by Google's homepage check, OR recoverable via the
@@ -35,6 +35,7 @@ import http.cookiejar
 import json
 import logging
 import os
+import time
 from pathlib import Path
 from typing import Any
 
@@ -59,6 +60,7 @@ from . import storage as _auth_storage
 # ----------------------------------------------------------------------------
 _has_valid_secondary_binding = _cookie_policy._has_valid_secondary_binding
 _is_allowed_auth_domain = _cookie_policy._is_allowed_auth_domain
+_auth_domain_priority = _cookie_policy._auth_domain_priority
 _rotation_lock_path = _keepalive._rotation_lock_path
 _file_lock_try_exclusive = _keepalive._file_lock_try_exclusive
 _try_claim_rotation = _keepalive._try_claim_rotation
@@ -71,6 +73,94 @@ _storage_entry_to_cookie = _auth_cookies._storage_entry_to_cookie
 logger = logging.getLogger("notebooklm.auth")
 
 _PSIDTS_COOKIE = "__Secure-1PSIDTS"
+
+
+def _psidts_needs_recovery(
+    cookie_names: set[str],
+    cookie_expiry: dict[str, Any],
+    *,
+    now: float | None = None,
+) -> bool:
+    """True when ``__Secure-1PSIDTS`` is absent OR present-but-EXPIRED.
+
+    The recovery precondition originally keyed purely on name presence
+    (``_PSIDTS_COOKIE in cookie_names``), so an idle Chrome session whose
+    PSIDTS row is still on disk but already past its ``expires`` epoch silently
+    skipped the one ``RotateCookies`` POST that would heal it — cold-start then
+    failed hard at the first authed GET.
+
+    Expiry semantics mirror the storage round-trip in
+    :func:`notebooklm._auth.cookies._storage_entry_to_cookie`:
+
+    - ``expires`` of ``None`` or ``-1`` is a *session* cookie (Playwright
+      convention) — never treated as expired, so recovery does NOT fire.
+    - a numeric ``expires`` strictly less than ``now`` (default ``time.time()``)
+      is past its lifetime → treat the cookie as ABSENT so recovery fires.
+    - a numeric ``expires`` at or in the future → cookie is fresh; recovery is
+      skipped (current behavior).
+
+    Args:
+        cookie_names: Set of cookie names present on the source state.
+        cookie_expiry: ``name -> expires`` view over the same entries.
+        now: Injectable wall-clock seconds for deterministic tests; defaults
+            to :func:`time.time` at call time.
+
+    Returns:
+        ``True`` if recovery should proceed (PSIDTS missing or expired),
+        ``False`` if a present, unexpired PSIDTS makes recovery a no-op.
+    """
+    if _PSIDTS_COOKIE not in cookie_names:
+        return True
+    expires = cookie_expiry.get(_PSIDTS_COOKIE)
+    if expires in (None, -1):
+        # Session cookie — no expiry to compare against; treat as present.
+        return False
+    if not isinstance(expires, (int, float)) or isinstance(expires, bool):
+        # Unparseable expiry: fall back to the legacy name-presence behavior
+        # (present → skip) rather than firing a possibly-needless POST.
+        return False
+    reference = time.time() if now is None else now
+    return expires < reference
+
+
+def _index_recovery_cookies(
+    entries: list[dict[str, Any]],
+) -> tuple[set[str], dict[str, Any]]:
+    """Build domain-filtered ``(cookie_names, cookie_expiry)`` views for the gate.
+
+    Only entries on an allowed auth domain (:func:`_is_allowed_auth_domain`)
+    are indexed — this matches the jar-building filter in
+    :func:`_attempt_rotation` / :func:`recover_psidts_in_memory`, so a stray
+    ``__Secure-1PSIDTS`` / ``SID`` on an unrelated domain can't falsely satisfy
+    the precondition and skip the heal.
+
+    When the same name appears on multiple allowed domains, the highest
+    :func:`_auth_domain_priority` tier wins (``.google.com`` > regional > …),
+    mirroring :func:`notebooklm._auth.cookies.flatten_cookie_map`. Tiers are
+    strictly distinct, so the resolved expiry is deterministic regardless of
+    storage_state ordering; within a single tier the first occurrence wins.
+
+    An entry must carry a non-empty ``name`` *and* ``value`` to be indexed: a
+    nameless/valueless cookie can't be meaningfully present on either the
+    file-based or in-memory recovery path.
+    """
+    cookie_names: set[str] = set()
+    cookie_expiry: dict[str, Any] = {}
+    name_priority: dict[str, int] = {}
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        name = entry.get("name")
+        if not isinstance(name, str) or not name or not entry.get("value"):
+            continue
+        if not _is_allowed_auth_domain(entry.get("domain", "") or ""):
+            continue
+        priority = _auth_domain_priority(entry.get("domain", "") or "")
+        if name not in cookie_names or priority > name_priority[name]:
+            cookie_names.add(name)
+            cookie_expiry[name] = entry.get("expires")
+            name_priority[name] = priority
+    return cookie_names, cookie_expiry
 
 
 def _resolve_recovery_path(path: Path | str | None) -> Path | None:
@@ -100,7 +190,9 @@ def _recover_psidts_inline(path: Path | str | None) -> bool:
     Pre-conditions (all must hold; otherwise return ``False`` without firing):
 
     1. ``SID`` present in ``storage_path``.
-    2. ``__Secure-1PSIDTS`` absent in ``storage_path``.
+    2. ``__Secure-1PSIDTS`` absent in ``storage_path``, OR present but past its
+       ``expires`` epoch (a ``-1``/``None`` session-cookie expiry counts as
+       present, not expired — see :func:`_psidts_needs_recovery`).
     3. Secondary binding intact (``OSID``, or ``APISID + SAPISID``). Google
        rejects ``RotateCookies`` requests that lack these — see
        :func:`notebooklm._auth.cookie_policy._has_valid_secondary_binding`.
@@ -115,9 +207,12 @@ def _recover_psidts_inline(path: Path | str | None) -> bool:
 
     On success the rotated cookies are merged into the file at ``storage_path``
     via :func:`notebooklm._auth.storage.save_cookies_to_storage` (snapshot/delta
-    semantics, atomic write, cross-process file lock). ``save_cookies_to_storage``
-    is contract-bound to return ``False`` (not raise) on a persistence failure;
-    we check the return value and surface the persist failure as ``False`` so
+    semantics, atomic write, cross-process file lock). The save's coarse bool is
+    an unreliable heal signal in both directions, so :func:`_attempt_rotation`
+    re-reads disk (:func:`_psidts_save_succeeded`) as the sole arbiter of whether
+    a fresh PSIDTS actually landed — a concurrent sibling-cookie CAS rejection
+    must not invert a healthy heal, and a no-op save over a stale row must not
+    fake one (issue #1273). A genuine persist failure surfaces as ``False`` so
     the caller's preflight retry sees the unhealed state and re-raises honestly.
     On any failure the function returns ``False`` and the caller's original
     ``ValueError`` stands.
@@ -142,12 +237,12 @@ def _recover_psidts_inline(path: Path | str | None) -> bool:
     state = _read_storage_for_recovery(storage_path)
     if state is None:
         return False
-    cookie_entries, cookie_names = state
+    cookie_entries, cookie_names, cookie_expiry = state
 
     if "SID" not in cookie_names:
         logger.debug("PSIDTS recovery skipped: SID missing — session is truly broken")
         return False
-    if _PSIDTS_COOKIE in cookie_names:
+    if not _psidts_needs_recovery(cookie_names, cookie_expiry):
         return False
     if not _has_valid_secondary_binding(cookie_names):
         logger.debug(
@@ -190,8 +285,8 @@ def _recover_psidts_inline(path: Path | str | None) -> bool:
         fresh = _read_storage_for_recovery(storage_path)
         if fresh is None:
             return False
-        fresh_entries, fresh_names = fresh
-        if _PSIDTS_COOKIE in fresh_names:
+        fresh_entries, fresh_names, fresh_expiry = fresh
+        if not _psidts_needs_recovery(fresh_names, fresh_expiry):
             logger.debug(
                 "PSIDTS recovery skipped: file healed by another process while waiting for flock"
             )
@@ -209,11 +304,17 @@ def _recover_psidts_inline(path: Path | str | None) -> bool:
 
 def _read_storage_for_recovery(
     storage_path: Path,
-) -> tuple[list[dict], set[str]] | None:
+) -> tuple[list[dict], set[str], dict[str, Any]] | None:
     """Load + filter + name-index storage_state for the recovery preconditions.
 
-    Returns ``(cookie_entries, cookie_names)`` on success, or ``None`` on any
-    load/parse failure (caller treats this as "decline recovery"). The narrow
+    Returns ``(cookie_entries, cookie_names, cookie_expiry)`` on success, or
+    ``None`` on any load/parse failure (caller treats this as "decline
+    recovery"). ``cookie_names`` / ``cookie_expiry`` are domain-filtered,
+    priority-resolved views over the same entries (see
+    :func:`_index_recovery_cookies`) so the precondition gate can treat a
+    present-but-expired PSIDTS as absent (see :func:`_psidts_needs_recovery`).
+    ``cookie_entries`` is the unfiltered list — the jar builder in
+    :func:`_attempt_rotation` applies its own domain filter. The narrow
     exception scope catches the documented raise sites of ``_load_storage_state``
     (``OSError`` for missing file, ``json.JSONDecodeError`` for malformed JSON)
     and lets unexpected ``ValueError`` propagate as an implementation bug.
@@ -227,24 +328,60 @@ def _read_storage_for_recovery(
     if not isinstance(raw_entries, list):
         return None
     cookie_entries: list[dict] = [entry for entry in raw_entries if isinstance(entry, dict)]
-    cookie_names: set[str] = {
-        name for entry in cookie_entries if isinstance(name := entry.get("name"), str) and name
-    }
-    return cookie_entries, cookie_names
+    cookie_names, cookie_expiry = _index_recovery_cookies(cookie_entries)
+    return cookie_entries, cookie_names, cookie_expiry
 
 
 def _is_psidts_persisted(storage_path: Path) -> bool:
-    """Quick re-read: is ``__Secure-1PSIDTS`` currently in the on-disk file?
+    """Quick re-read: is a fresh ``__Secure-1PSIDTS`` currently on disk?
 
     Used after a held-flock skip to detect when another process has just healed
     the file. Treats any load/parse failure as "not persisted" rather than
-    raising — the caller will retry.
+    raising — the caller will retry. A present-but-expired PSIDTS counts as
+    *not* persisted (mirrors :func:`_psidts_needs_recovery`) so a stale on-disk
+    row doesn't masquerade as a heal.
     """
     state = _read_storage_for_recovery(storage_path)
     if state is None:
         return False
-    _, names = state
-    return _PSIDTS_COOKIE in names
+    _, names, expiry = state
+    return not _psidts_needs_recovery(names, expiry)
+
+
+def _psidts_save_succeeded(
+    result: _auth_storage.CookieSaveResult | bool, storage_path: Path
+) -> bool:
+    """Did a fresh ``__Secure-1PSIDTS`` actually land on disk after the save?
+
+    The coarse ``CookieSaveResult.ok`` bool from
+    :func:`~notebooklm._auth.storage.save_cookies_to_storage` is *not* a reliable
+    proxy for "PSIDTS healed", in either direction:
+
+    - ``ok`` is ``False`` whenever *any* key is CAS-rejected, even when a fresh
+      PSIDTS is on disk — both the benign "an unrelated sibling cookie lost the
+      race, our PSIDTS wrote through" case (issue #1273) and the "our PSIDTS
+      delta was rejected because a sibling already persisted a fresh PSIDTS
+      first" case leave disk healthy.
+    - ``ok`` is ``True`` even when the save was a no-op that left a *stale*
+      PSIDTS untouched: if ``RotateCookies`` 200s without minting a new cookie,
+      the expired on-disk row lingers in the request jar, the delta is empty,
+      and the save reports success while disk is still unhealed.
+
+    So disk — not the save bool — is the sole arbiter. Re-read it and accept the
+    heal iff a present, unexpired PSIDTS is stored. :func:`_is_psidts_persisted`
+    mirrors the precondition gate, so a stale or expired row (ours or a
+    sibling's) doesn't masquerade as a heal. On a decline, the coarse ``result``
+    is folded into a diagnostic warning here (the only thing it is used for) so
+    callers stay a single boolean branch.
+    """
+    if _is_psidts_persisted(storage_path):
+        return True
+    logger.warning(
+        "Inline PSIDTS recovery: %s did not persist (save ok=%s); on-disk state still lacks it",
+        _PSIDTS_COOKIE,
+        getattr(result, "ok", result),
+    )
+    return False
 
 
 def _attempt_rotation(storage_path: Path, cookie_entries: list[dict]) -> bool:
@@ -275,7 +412,7 @@ def _attempt_rotation(storage_path: Path, cookie_entries: list[dict]) -> bool:
     # ``httpx.Client(cookies=jar)`` copies the source jar into a private client
     # jar; Set-Cookie responses land in ``client.cookies``, not in ``jar``. So
     # we snapshot and check the *client's* jar, mirroring how the async
-    # keepalive in ``_session_lifecycle.save_cookies`` reads ``client.cookies``.
+    # keepalive in ``_runtime.lifecycle.save_cookies`` reads ``client.cookies``.
     try:
         with httpx.Client(
             cookies=jar,
@@ -303,26 +440,27 @@ def _attempt_rotation(storage_path: Path, cookie_entries: list[dict]) -> bool:
         )
         return False
 
-    # ``save_cookies_to_storage`` returns False (not raises) on every
+    # ``save_cookies_to_storage`` returns a falsy result (not raises) on every
     # persist-failure path: missing file, invalid payload, CAS conflict,
     # atomic-write failure (see ``_auth/storage.py:380-429``). The bare
     # ``except`` below catches the *unexpected* raises only (future refactor
-    # could change the contract); the explicit return-value check is what
-    # surfaces the documented failure modes.
+    # could change the contract).
+    #
+    # We ask for the detailed ``CookieSaveResult`` (``return_result=True``) for
+    # the diagnostic log only — the coarse bool is an unreliable heal signal in
+    # both directions (a sibling-cookie CAS rejection falsely reads ``ok=False``
+    # while PSIDTS healed; a no-op save over a stale PSIDTS falsely reads
+    # ``ok=True``). Whether PSIDTS actually healed is decided by re-reading disk
+    # in :func:`_psidts_save_succeeded` (issue #1273).
     try:
-        persisted = _auth_storage.save_cookies_to_storage(
-            rotated_jar, storage_path, original_snapshot=snapshot
+        result = _auth_storage.save_cookies_to_storage(
+            rotated_jar, storage_path, original_snapshot=snapshot, return_result=True
         )
     except Exception as exc:  # noqa: BLE001 - persistence failure is non-fatal here
         logger.warning("Inline PSIDTS recovery: persist to %s raised %s", storage_path, exc)
         return False
 
-    if not persisted:
-        logger.warning(
-            "Inline PSIDTS recovery: save_cookies_to_storage returned False; "
-            "on-disk state still lacks %s",
-            _PSIDTS_COOKIE,
-        )
+    if not _psidts_save_succeeded(result, storage_path):
         return False
 
     logger.info(
@@ -381,7 +519,9 @@ def recover_psidts_in_memory(rookiepy_cookies: list[dict[str, Any]]) -> bool:
     :func:`_recover_psidts_inline`):
 
     1. ``SID`` present.
-    2. ``__Secure-1PSIDTS`` absent.
+    2. ``__Secure-1PSIDTS`` absent, OR present but past its ``expires`` epoch
+       (a ``-1``/``None`` session-cookie expiry counts as present, not
+       expired — see :func:`_psidts_needs_recovery`).
     3. Secondary binding intact (``OSID``, or ``APISID + SAPISID``).
 
     On success, mutates ``rookiepy_cookies`` to append the rotated
@@ -399,19 +539,12 @@ def recover_psidts_in_memory(rookiepy_cookies: list[dict[str, Any]]) -> bool:
     Returns ``True`` if the rotation succeeded and the in-memory list now
     contains ``__Secure-1PSIDTS``; ``False`` otherwise.
     """
-    cookie_names: set[str] = {
-        name
-        for entry in rookiepy_cookies
-        if isinstance(entry, dict)
-        and isinstance(name := entry.get("name"), str)
-        and name
-        and entry.get("value")
-    }
+    cookie_names, cookie_expiry = _index_recovery_cookies(rookiepy_cookies)
 
     if "SID" not in cookie_names:
         logger.debug("In-memory PSIDTS recovery skipped: SID missing")
         return False
-    if _PSIDTS_COOKIE in cookie_names:
+    if not _psidts_needs_recovery(cookie_names, cookie_expiry):
         return False
     if not _has_valid_secondary_binding(cookie_names):
         logger.debug(
@@ -492,9 +625,10 @@ def validate_with_recovery(
     Wraps :func:`notebooklm._auth.cookies.convert_rookiepy_cookies_to_storage_state`
     plus :func:`notebooklm._auth.cookies.extract_cookies_from_storage` with one
     retry through :func:`recover_psidts_in_memory` (issue #990). When the
-    recovery preconditions hold (SID present, PSIDTS absent, secondary
-    binding intact), the rotated cookies are appended to ``rookiepy_cookies``
-    in place so downstream persistence picks them up.
+    recovery preconditions hold (SID present, PSIDTS absent or expired,
+    secondary binding intact — see :func:`_psidts_needs_recovery`), the
+    rotated cookies are appended to ``rookiepy_cookies`` in place so
+    downstream persistence picks them up.
 
     Lives in the auth subpackage rather than the CLI login package so both
     CLI call sites can route through ``notebooklm.auth`` without adding a

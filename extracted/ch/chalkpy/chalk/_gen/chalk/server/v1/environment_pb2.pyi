@@ -34,6 +34,7 @@ class VectorDBKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     VECTOR_DB_KIND_PGVECTOR: _ClassVar[VectorDBKind]
     VECTOR_DB_KIND_MILVUS: _ClassVar[VectorDBKind]
     VECTOR_DB_KIND_VALKEY: _ClassVar[VectorDBKind]
+    VECTOR_DB_KIND_TURBOPUFFER: _ClassVar[VectorDBKind]
 
 class DeploymentBuildProfile(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -87,6 +88,7 @@ VECTOR_DB_KIND_OPENSEARCH: VectorDBKind
 VECTOR_DB_KIND_PGVECTOR: VectorDBKind
 VECTOR_DB_KIND_MILVUS: VectorDBKind
 VECTOR_DB_KIND_VALKEY: VectorDBKind
+VECTOR_DB_KIND_TURBOPUFFER: VectorDBKind
 DEPLOYMENT_BUILD_PROFILE_UNSPECIFIED: DeploymentBuildProfile
 DEPLOYMENT_BUILD_PROFILE_O3_NO_PROFILING: DeploymentBuildProfile
 DEPLOYMENT_BUILD_PROFILE_O3_PROFILING: DeploymentBuildProfile

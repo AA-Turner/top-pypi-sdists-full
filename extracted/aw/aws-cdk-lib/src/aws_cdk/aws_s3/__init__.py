@@ -255,7 +255,7 @@ To require all requests use Secure Socket Layer (SSL):
 
 ```python
 bucket = s3.Bucket(self, "Bucket",
-    enforce_sSL=True
+    enforce_ssl=True
 )
 ```
 
@@ -263,8 +263,8 @@ To require a minimum TLS version for all requests:
 
 ```python
 bucket = s3.Bucket(self, "Bucket",
-    enforce_sSL=True,
-    minimum_tLSVersion=1.2
+    enforce_ssl=True,
+    minimum_tls_version=1.2
 )
 ```
 
@@ -1177,6 +1177,7 @@ import abc
 import builtins
 import datetime
 import enum
+import importlib as _importlib
 import typing
 
 import jsii
@@ -1274,7 +1275,7 @@ class BlockPublicAccess(
         s3.Bucket(scope, "Bucket",
             block_public_access=s3.BlockPublicAccess.BLOCK_ALL,
             encryption=s3.BucketEncryption.S3_MANAGED,
-            enforce_sSL=True,
+            enforce_ssl=True,
             versioned=True,
             removal_policy=RemovalPolicy.RETAIN
         )
@@ -15982,7 +15983,7 @@ class CfnStorageLens(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_s3 as s3
                 
-                s_sEKMSProperty = s3.CfnStorageLens.SSEKMSProperty(
+                s_sekms_property = s3.CfnStorageLens.SSEKMSProperty(
                     key_id="keyId"
                 )
             '''
@@ -23561,7 +23562,7 @@ class Bucket(
         s3.Bucket(scope, "Bucket",
             block_public_access=s3.BlockPublicAccess.BLOCK_ALL,
             encryption=s3.BucketEncryption.S3_MANAGED,
-            enforce_sSL=True,
+            enforce_ssl=True,
             versioned=True,
             removal_policy=RemovalPolicy.RETAIN
         )
@@ -24163,10 +24164,30 @@ __all__ = [
     "mixins",
 ]
 
+# Type-checking-only imports for static analyzers (pyright/mypy).
+# At runtime TYPE_CHECKING is False, preserving lazy loading.
+if typing.TYPE_CHECKING:
+    from . import mixins as mixins
+
 publication.publish()
 
-# Loading modules to ensure their types are registered with the jsii runtime library
-from . import mixins
+_SUBMODULES = {
+    "mixins",
+}
+
+def __getattr__(name: str) -> object:
+    if name in _SUBMODULES:
+        mod = _importlib.import_module(f".{name}", __name__)
+        globals()[name] = mod
+        return mod
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+def __dir__() -> "list[str]":
+    return [*__all__, *_SUBMODULES]
+
+import sys as _sys
+setattr(_sys.modules[__name__], "__getattr__", __getattr__)
+setattr(_sys.modules[__name__], "__dir__", __dir__)
 
 def _typecheckingstub__7c7460d0788a3581f53118e0e633044dbbacdb3bb39e06a86a9c4e5c3d7e5a9f(
     value: typing.Optional[builtins.bool],

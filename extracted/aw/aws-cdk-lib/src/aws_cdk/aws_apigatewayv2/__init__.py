@@ -434,9 +434,9 @@ To retrieve a websocket URL and a callback URL:
 # web_socket_stage: apigwv2.WebSocketStage
 
 
-web_socket_uRL = web_socket_stage.url
+web_socket_url = web_socket_stage.url
 # wss://${this.api.apiId}.execute-api.${s.region}.${s.urlSuffix}/${urlPath}
-callback_uRL = web_socket_stage.callback_url
+callback_url = web_socket_stage.callback_url
 ```
 
 To add any other route:
@@ -4275,7 +4275,7 @@ class CfnAuthorizer(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_apigatewayv2 as apigatewayv2
                 
-                j_wTConfiguration_property = apigatewayv2.CfnAuthorizer.JWTConfigurationProperty(
+                j_wt_configuration_property = apigatewayv2.CfnAuthorizer.JWTConfigurationProperty(
                     audience=["audience"],
                     issuer="issuer"
                 )

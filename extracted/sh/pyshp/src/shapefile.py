@@ -8,17 +8,15 @@ Compatible with Python versions >=3.9
 
 from __future__ import annotations
 
-__version__ = "3.0.9"
+__version__ = "3.0.10"
 
 import abc
 import array
-import doctest
 import functools
 import io
 import itertools
 import logging
 import os
-import re
 import sys
 import tempfile
 import time
@@ -58,13 +56,9 @@ StructError = error
 # Create named logger
 logger = logging.getLogger(__name__)
 
+
 # Module settings
 VERBOSE = True
-
-# Test config (for the Doctest runner and test_shapefile.py)
-REPLACE_REMOTE_URLS_WITH_LOCALHOST = (
-    os.getenv("REPLACE_REMOTE_URLS_WITH_LOCALHOST", "").lower() == "true"
-)
 
 IS_WINDOWS = sys.platform == "win32"
 
@@ -286,6 +280,7 @@ RecordValueNotDate = Union[bool, int, float, str]
 RecordValue = Union[RecordValueNotDate, date]
 
 
+@runtime_checkable
 class HasGeoInterface(Protocol):
     @property
     def __geo_interface__(self) -> GeoJSONHomogeneousGeometryObject: ...
@@ -383,7 +378,9 @@ class GeoJSONFeatureCollectionWithBBox(GeoJSONFeatureCollection):
 # Helpers
 
 MISSING = (None, "")  # Don't make a set, as user input may not be Hashable
-ISDATA_LOWER_BOUND = -1e38  # as per the ESRI shapefile spec, only used for m-values.
+ISDATA_LOWER_BOUND = (
+    -1e38
+)  # Inclusive.  As per the ESRI shapefile spec, only used for m-values.
 NODATA = (
     10 * ISDATA_LOWER_BOUND
 )  # value to encode m=None as.  Must be < ISDATA_LOWER_BOUND
@@ -394,6 +391,8 @@ NODATA = (
 ARR_TYPE = TypeVar("ARR_TYPE", int, float)
 
 
+# Needed for backwards compatibility, and to keep a
+# simpler list like repr, e.g. in docstrings
 class _Array(array.array, Generic[ARR_TYPE]):  # type: ignore[type-arg]
     """Converts python tuples to lists of the appropriate type.
     Used to unpack different shapefile header parts."""
@@ -696,35 +695,29 @@ class GeoJSON_Error(Exception):
 
 
 class _NoShapeTypeSentinel:
-    """For use as a default value for Shape.__init__ to
-    preserve old behaviour for anyone who explictly
+    """An instance is the default value for Shape.__init__,
+    to preserve old behaviour for anyone who explictly
     called Shape(shapeType=None).
     """
 
 
-_NO_SHAPE_TYPE_SENTINEL: Final = _NoShapeTypeSentinel()
-
-
-def _m_from_point(point: PointMT | PointZT, mpos: int) -> float | None:
-    if len(point) > mpos and point[mpos] is not None:
-        return cast(float, point[mpos])
+def _ensure_within_bounds(m: float | None) -> float | None:
+    if m is not None and m >= ISDATA_LOWER_BOUND:
+        return m
     return None
 
 
-def _ms_from_points(
-    points: list[PointMT] | list[PointZT], mpos: int
-) -> Iterator[float | None]:
-    return (_m_from_point(p, mpos) for p in points)
+def _m_from_point(point: PointT, i_m: int) -> float | None:
+    if 2 <= i_m < len(point):
+        m = point[i_m]
+        return _ensure_within_bounds(m)
+    return None
 
 
-def _z_from_point(point: PointZT) -> float:
+def _z_from_point(point: PointT) -> float:
     if len(point) >= 3 and point[2] is not None:
         return point[2]
     return 0.0
-
-
-def _zs_from_points(points: Iterable[PointZT]) -> Iterator[float]:
-    return (_z_from_point(p) for p in points)
 
 
 class CanHaveBboxNoLinesKwargs(TypedDict, total=False):
@@ -742,7 +735,7 @@ class CanHaveBboxNoLinesKwargs(TypedDict, total=False):
 class Shape:
     def __init__(
         self,
-        shapeType: int | _NoShapeTypeSentinel = _NO_SHAPE_TYPE_SENTINEL,
+        shapeType: int | _NoShapeTypeSentinel = _NoShapeTypeSentinel(),
         points: PointsT | None = None,
         parts: Sequence[int] | None = None,  # index of start point of each part
         lines: list[PointsT] | None = None,
@@ -773,11 +766,11 @@ class Shape:
         """
 
         # Preserve previous behaviour for anyone who set self.shapeType = None
-        if shapeType is not _NO_SHAPE_TYPE_SENTINEL:
-            self.shapeType = cast(int, shapeType)
-        else:
+        if isinstance(shapeType, _NoShapeTypeSentinel):
             class_name = self.__class__.__name__
             self.shapeType = SHAPETYPENUM_LOOKUP.get(class_name.upper(), NULL)
+        else:
+            self.shapeType = shapeType
 
         if partTypes is not None:
             self.partTypes = partTypes
@@ -824,15 +817,13 @@ class Shape:
 
         ms_found = True
         if m:
-            self.m: Sequence[float | None] = m
+            self.m: Sequence[float | None] = [_ensure_within_bounds(x) for x in m]
         elif self.shapeType in _HasM_shapeTypes:
-            mpos = 3 if self.shapeType in _HasZ_shapeTypes | PointZ_shapeTypes else 2
-            points_m_z = cast(Union[list[PointMT], list[PointZT]], self.points)
-            self.m = list(_ms_from_points(points_m_z, mpos))
+            i_m = 3 if self.shapeType in _HasZ_shapeTypes | PointZ_shapeTypes else 2
+            self.m = [_m_from_point(p, i_m) for p in self.points]
         elif self.shapeType in PointM_shapeTypes:
-            mpos = 3 if self.shapeType == POINTZ else 2
-            point_m_z = cast(Union[PointMT, PointZT], self.points[0])
-            self.m = (_m_from_point(point_m_z, mpos),)
+            i_m = 3 if self.shapeType == POINTZ else 2
+            self.m = (_m_from_point(self.points[0], i_m),)
         else:
             ms_found = False
 
@@ -840,11 +831,9 @@ class Shape:
         if z:
             self.z: Sequence[float] = z
         elif self.shapeType in _HasZ_shapeTypes:
-            points_z = cast(list[PointZT], self.points)
-            self.z = list(_zs_from_points(points_z))
+            self.z = [_z_from_point(p) for p in self.points]
         elif self.shapeType == POINTZ:
-            point_z = cast(PointZT, self.points[0])
-            self.z = (_z_from_point(point_z),)
+            self.z = (_z_from_point(self.points[0]),)
         else:
             zs_found = False
 
@@ -1027,34 +1016,30 @@ still included but were encoded as GeoJSON exterior rings instead of holes."
 
     @staticmethod
     def _from_geojson(geoj: GeoJSONHomogeneousGeometryObject) -> Shape:
-        # create empty shape
-        # set shapeType
-        geojType = geoj["type"] if geoj else "Null"
-        if geojType in GEOJSON_TO_SHAPETYPE:
-            shapeType = GEOJSON_TO_SHAPETYPE[geojType]
-        else:
-            raise GeoJSON_Error(f"Cannot create Shape from GeoJSON type '{geojType}'")
 
-        coordinates = geoj["coordinates"]
-
-        if coordinates == ():
-            raise GeoJSON_Error(f"Cannot create non-Null Shape from: {coordinates=}")
+        shapeType = GEOJSON_TO_SHAPETYPE.get(geoj["type"], None)
+        if shapeType is None:
+            raise GeoJSON_Error(
+                f"Cannot create Shape from GeoJSON type '{geoj['type']}'"
+            )
+        if shapeType == NULL or (geoj["type"] == "Point" and geoj["coordinates"] == ()):
+            return NullShape()
 
         points: PointsT
         parts: list[int]
 
         # set points and parts
-        if geojType == "Point":
-            points = [cast(PointT, coordinates)]
+        if geoj["type"] == "Point" and isinstance(geoj["coordinates"], list):
+            points = [geoj["coordinates"]]
             parts = [0]
-        elif geojType in ("MultiPoint", "LineString"):
-            points = cast(PointsT, coordinates)
+        elif geoj["type"] == "MultiPoint" or geoj["type"] == "LineString":
+            points = geoj["coordinates"]
             parts = [0]
-        elif geojType == "Polygon":
+        elif geoj["type"] == "Polygon":
             points = []
             parts = []
             index = 0
-            for i, ext_or_hole in enumerate(cast(list[PointsT], coordinates)):
+            for i, ext_or_hole in enumerate(geoj["coordinates"]):
                 # although the latest GeoJSON spec states that exterior rings should have
                 # counter-clockwise orientation, we explicitly check orientation since older
                 # GeoJSONs might not enforce this.
@@ -1067,19 +1052,19 @@ still included but were encoded as GeoJSON exterior rings instead of holes."
                 points.extend(ext_or_hole)
                 parts.append(index)
                 index += len(ext_or_hole)
-        elif geojType == "MultiLineString":
+        elif geoj["type"] == "MultiLineString":
             points = []
             parts = []
             index = 0
-            for linestring in cast(list[PointsT], coordinates):
+            for linestring in geoj["coordinates"]:
                 points.extend(linestring)
                 parts.append(index)
                 index += len(linestring)
-        elif geojType == "MultiPolygon":
+        elif geoj["type"] == "MultiPolygon":
             points = []
             parts = []
             index = 0
-            for polygon in cast(list[list[PointsT]], coordinates):
+            for polygon in geoj["coordinates"]:
                 for i, ext_or_hole in enumerate(polygon):
                     # although the latest GeoJSON spec states that exterior rings should have
                     # counter-clockwise orientation, we explicitly check orientation since older
@@ -1185,6 +1170,8 @@ class _CanHaveBBox(Shape):
     @staticmethod
     def _read_npoints_from_byte_stream(b_io: ReadableBinStream) -> int:
         (nPoints,) = unpack("<i", b_io.read(4))
+        # cast(int, ...) needed until mypy interprets struct fmt strings
+        # https://github.com/python/mypy/issues/20869
         return cast(int, nPoints)
 
     @staticmethod
@@ -1420,11 +1407,11 @@ class Point(Shape):
 
         # Write a single Z value
         if s.shapeType in PointZ_shapeTypes:
-            n += PointZ._write_single_point_z_to_byte_stream(b_io, s, i)
+            n += PointZ._write_single_point_z_to_byte_stream(b_io, cast(PointZ, s), i)
 
         # Write a single M value
         if s.shapeType in PointM_shapeTypes:
-            n += PointM._write_single_point_m_to_byte_stream(b_io, s, i)
+            n += PointM._write_single_point_m_to_byte_stream(b_io, cast(PointM, s), i)
 
         return n
 
@@ -1556,7 +1543,7 @@ class _HasM(_CanHaveBBox):
 
     @staticmethod
     def _write_ms_to_byte_stream(
-        b_io: WriteableBinStream, s: Shape, i: int, mbox: MBox | None
+        b_io: WriteableBinStream, s: _HasM, i: int, mbox: MBox | None
     ) -> int:
         if not mbox or len(mbox) != 2:
             raise ShapefileException(f"Two numbers required for mbox. Got: {mbox}")
@@ -1569,12 +1556,10 @@ class _HasM(_CanHaveBBox):
             raise ShapefileException(
                 f"Failed to write measure extremes for record {i}. Expected floats"
             )
+
+        ms_to_encode = replace_None_with_NODATA(s.m)
         try:
-            ms = cast(_HasM, s).m
-
-            ms_to_encode = replace_None_with_NODATA(ms)
-
-            num_bytes_written += b_io.write(pack(f"<{len(ms)}d", *ms_to_encode))
+            num_bytes_written += b_io.write(pack(f"<{len(s.m)}d", *ms_to_encode))
         except StructError:
             raise ShapefileException(
                 f"Failed to write measure values for record {i}. Expected floats"
@@ -1606,7 +1591,7 @@ class _HasZ(_CanHaveBBox):
 
     @staticmethod
     def _write_zs_to_byte_stream(
-        b_io: WriteableBinStream, s: Shape, i: int, zbox: ZBox | None
+        b_io: WriteableBinStream, s: _HasZ, i: int, zbox: ZBox | None
     ) -> int:
         if not zbox or len(zbox) != 2:
             raise ShapefileException(f"Two numbers required for zbox. Got: {zbox}")
@@ -1620,8 +1605,7 @@ class _HasZ(_CanHaveBBox):
                 f"Failed to write elevation extremes for record {i}. Expected floats."
             )
         try:
-            zs = cast(_HasZ, s).z
-            num_bytes_written += b_io.write(pack(f"<{len(zs)}d", *zs))
+            num_bytes_written += b_io.write(pack(f"<{len(s.z)}d", *s.z))
         except StructError:
             raise ShapefileException(
                 f"Failed to write elevation values for record {i}. Expected floats."
@@ -1713,20 +1697,19 @@ class PointM(Point):
 
     @staticmethod
     def _write_single_point_m_to_byte_stream(
-        b_io: WriteableBinStream, s: Shape, i: int
+        b_io: WriteableBinStream, s: PointM, i: int
     ) -> int:
+
+        m = s.m[0] if s.m else None
+        # Set missing m values to NODATA.
+        m_to_encode = m if m is not None else NODATA
+
         try:
-            s = cast(_HasM, s)
-            m = s.m[0] if s.m else None
+            return b_io.write(pack("<1d", m_to_encode))
         except StructError:
             raise ShapefileException(
                 f"Failed to write measure value for record {i}. Expected floats."
             )
-
-        # Note: missing m values are autoset to NODATA.
-        m_to_encode = m if m is not None else NODATA
-
-        return b_io.write(pack("<1d", m_to_encode))
 
 
 PolylineM_shapeTypes = frozenset([POLYLINEM, POLYLINEZ])
@@ -1857,21 +1840,16 @@ class PointZ(PointM):
 
     @staticmethod
     def _write_single_point_z_to_byte_stream(
-        b_io: WriteableBinStream, s: Shape, i: int
+        b_io: WriteableBinStream, s: PointZ, i: int
     ) -> int:
         # Note: missing z values are autoset to 0, but not sure if this is ideal.
-        z: float = 0.0
-        # then write value
-
+        z: float = s.z[0] if s.z else 0.0
         try:
-            if s.z:
-                z = s.z[0]
+            return b_io.write(pack("<d", z))
         except StructError:
             raise ShapefileException(
                 f"Failed to write elevation value for record {i}. Expected floats."
             )
-
-        return b_io.write(pack("<d", z))
 
 
 PolylineZ_shapeTypes = frozenset([POLYLINEZ])
@@ -2102,10 +2080,12 @@ class _Record(list[RecordValue]):
         :return: the value of the field
         """
         try:
-            return list.__getitem__(self, item)  # type: ignore[index]
+            # Using | on types in Python 3.9 also raises TypeError, so
+            # Union is needed, as we subsequently catch TypeError.
+            return list.__getitem__(self, cast(Union[SupportsIndex, slice], item))
         except TypeError:
             try:
-                index = self.__field_positions[item]  # type: ignore[index]
+                index = self.__field_positions[cast(str, item)]
             except KeyError:
                 index = None
         if index is not None:
@@ -2132,12 +2112,17 @@ class _Record(list[RecordValue]):
         :param key: Either the position of the value or the name of a field
         :param value: the new value of the field
         """
+        ValidKVTuple = Union[
+            tuple[SupportsIndex, RecordValue], tuple[slice, Iterable[RecordValue]]
+        ]
         try:
-            return list.__setitem__(self, key, value)  # type: ignore[misc,assignment]
+            list.__setitem__(self, *cast(ValidKVTuple, (key, value)))
+            return
         except TypeError:
-            index = self.__field_positions.get(key)  # type: ignore[arg-type]
+            index = self.__field_positions.get(cast(str, key))
             if index is not None:
-                return list.__setitem__(self, index, value)  # type: ignore[misc]
+                list.__setitem__(self, index, cast(RecordValue, value))
+                return
 
             raise IndexError(f"{key} is not a field name and not an int")
 
@@ -2866,7 +2851,7 @@ class ShxReader(_HasCheckedReadableFile):
         super().__init__(file=shx)
         self.numShapes: int
         self._shxHeader()
-        self._shxRecords_16bw: _Array[int] | None = None
+        self._shxRecords_16bw: array.array[int] | None = None
 
     def _shxHeader(self) -> None:
         """Reads the header information from a .shx file."""
@@ -2881,7 +2866,7 @@ class ShxReader(_HasCheckedReadableFile):
         # Jump to the first record.
         self.file.seek(100)
         # Each index record consists of two nums.  We only want the first one
-        self._shxRecords_16bw = _Array[int]("i", self.file.read(2 * self.numShapes * 4))
+        self._shxRecords_16bw = array.array("i", self.file.read(2 * self.numShapes * 4))
         if sys.byteorder != "big":
             self._shxRecords_16bw.byteswap()
 
@@ -2890,14 +2875,14 @@ class ShxReader(_HasCheckedReadableFile):
     def offsets(self) -> list[int]:
         self._read_shxRecords()
         # Convert from offsets in 16b Words to Bytes (8b).
-        offsets_ = [2 * el for el in cast(_Array[int], self._shxRecords_16bw)[::2]]
+        offsets_ = [2 * el for el in cast(Sequence[int], self._shxRecords_16bw)[::2]]
         assert len(offsets_) == self.numShapes, f"{self.numShapes=}, {len(offsets_)=}"
         return offsets_
 
     @functools.cached_property
     def shape_lengths_B(self) -> list[int]:
         self._read_shxRecords()
-        return [2 * x for x in cast(_Array[int], self._shxRecords_16bw)[1::2]]
+        return [2 * x for x in cast(Sequence[int], self._shxRecords_16bw)[1::2]]
 
 
 ShapeHeaderInfoT = tuple[int, int, int]
@@ -2936,15 +2921,9 @@ class ShpReader(_HasCheckedReadableFile):
         self.file.seek(32)
         self.shapeType = unpack("<i", self.file.read(4))[0]
         # The shapefile's bounding box (lower left, upper right)
-        # self.bbox: BBox = tuple(_Array("d", unpack("<4d", shp.read(32))))
         self.bbox = BBox(*unpack("<4d", self.file.read(32)))
-        # xmin, ymin, xmax, ymax = unpack("<4d", shp.read(32))
-        # self.bbox = BBox(xmin=xmin, ymin=ymin, xmax=xmax, ymax=ymax)
         # Elevation
-        # self.zbox: ZBox = tuple(_Array("d", unpack("<2d", shp.read(16))))
         self.zbox = ZBox(*unpack("<2d", self.file.read(16)))
-        # zmin, zmax = unpack("<2d", shp.read(16))
-        # self.zbox = ZBox(zmin=zmin, zmax=zmax)
         # Measure
         # Measure values less than -1e38 are nodata values according to the spec
         self.mbox = MBox(
@@ -3048,7 +3027,11 @@ class ShpReader(_HasCheckedReadableFile):
 
         ShapeClass = SHAPE_CLASS_FROM_SHAPETYPE[shapeType]
         shape = ShapeClass.from_byte_stream(
-            shapeType, b_io, shape_len_B, oid=oid, bbox=bbox
+            shapeType=shapeType,
+            b_io=b_io,
+            next_shape_pos=shape_len_B,
+            oid=oid,
+            bbox=bbox,
         )
 
         # Seek to the end of this record as defined by the record header because
@@ -3123,14 +3106,11 @@ class ShpReader(_HasCheckedReadableFile):
 
 
 class _NoShpSentinel:
-    """For use as a default value for shp to preserve the
-    behaviour (from when all keyword args were gathered
+    """An instance is the default value for shp to preserve the
+    old behaviour (from when all keyword args were gathered
     in the **kwargs dict) in case someone explictly
     called Reader(shp=None) to load self.shx.
     """
-
-
-_NO_SHP_SENTINEL = _NoShpSentinel()
 
 
 class Reader(_HasExitStack):
@@ -3167,7 +3147,7 @@ class Reader(_HasExitStack):
         *,
         encoding: str = "utf-8",
         encodingErrors: str = "strict",
-        shp: _NoShpSentinel | BinaryFileT | None = _NO_SHP_SENTINEL,
+        shp: _NoShpSentinel | BinaryFileT | None = _NoShpSentinel(),
         shx: BinaryFileT | None = None,
         dbf: BinaryFileT | None = None,
         # Keep kwargs even though unused, to preserve PyShp 2.4 API
@@ -3192,7 +3172,7 @@ class Reader(_HasExitStack):
                     " (or satisfy os.PathLike). "
                 )
             discarded_kwargs = {}
-            if shp not in (None, _NO_SHP_SENTINEL):
+            if shp is not None and not isinstance(shp, _NoShpSentinel):
                 discarded_kwargs["shp"] = shp
             if shx is not None:
                 discarded_kwargs["shx"] = shx
@@ -3265,8 +3245,7 @@ class Reader(_HasExitStack):
             #
             return
 
-        if shp is not _NO_SHP_SENTINEL:
-            shp = cast(Union[BinaryFileT, None], shp)
+        if not isinstance(shp, _NoShpSentinel):
             self._shp = self._seek_0_on_file_obj_wrap_or_open_from_name(".shp", shp)
             self._shx = self._seek_0_on_file_obj_wrap_or_open_from_name(".shx", shx)
 
@@ -3733,7 +3712,7 @@ class Reader(_HasExitStack):
             ):
                 yield ShapeRecord(shape=shape, record=record)
         else:
-            # only iterate where shape.bbox overlaps with the given bbox
+            # Only yield ShapeRecords whose shape.bbox overlaps with bbox.
             # TODO: internal _record method should be faster but would have to
             # make sure to seek to correct file location...
 
@@ -4168,10 +4147,8 @@ class ShpWriter(_ShpWriterInfo):
         self,
         s: Shape | HasGeoInterface | GeoJSONHomogeneousGeometryObject,
     ) -> tuple[int, int]:
-        # Check is shape or import from geojson
         if not isinstance(s, Shape):
-            if hasattr(s, "__geo_interface__"):
-                s = cast(HasGeoInterface, s)
+            if isinstance(s, HasGeoInterface):
                 shape_dict = s.__geo_interface__
             elif isinstance(s, dict):  # TypedDict is a dict at runtime
                 shape_dict = s
@@ -4646,165 +4623,3 @@ class Writer(_HasExitStack):
         If the m (measure) value is not included, it defaults to None (NoData)."""
         shape = MultiPatch(lines=parts, partTypes=partTypes)
         self.shape(shape)
-
-
-# Begin Testing
-def _get_doctests() -> doctest.DocTest:
-    # run tests
-    with open("README.md", "rb") as fobj:
-        tests = doctest.DocTestParser().get_doctest(
-            string=fobj.read().decode("utf8").replace("\r\n", "\n"),
-            globs={},
-            name="README",
-            filename="README.md",
-            lineno=0,
-        )
-
-    return tests
-
-
-def _filter_network_doctests(
-    examples: Iterable[doctest.Example],
-    include_network: bool = False,
-    include_non_network: bool = True,
-) -> Iterator[doctest.Example]:
-    globals_from_network_doctests = set()
-
-    if not (include_network or include_non_network):
-        return
-
-    examples_it = iter(examples)
-
-    yield next(examples_it)
-
-    for example in examples_it:
-        # Track variables in doctest shell sessions defined from commands
-        # that poll remote URLs, to skip subsequent commands until all
-        # such dependent variables are reassigned.
-
-        if 'sf = shapefile.Reader("https://' in example.source:
-            globals_from_network_doctests.add("sf")
-            if include_network:
-                yield example
-            continue
-
-        lhs = example.source.partition("=")[0]
-
-        for target in lhs.split(","):
-            target = target.strip()
-            if target in globals_from_network_doctests:
-                globals_from_network_doctests.remove(target)
-
-        # Non-network tests dependent on the network tests.
-        if globals_from_network_doctests:
-            if include_network:
-                yield example
-            continue
-
-        if not include_non_network:
-            continue
-
-        yield example
-
-
-def _replace_remote_url_with_localhost(old_url: str) -> str:
-
-    old_split = urlsplit(old_url)
-
-    # Strip subpaths, so an artefacts
-    # repo or file tree can be simpler and flat
-    path = old_split.path.rpartition("/")[2]
-
-    new_split = old_split._replace(
-        scheme="http",
-        netloc="localhost:8000",  # Default port of Python http.server
-        path=path,
-        query="",
-        fragment="",
-    )
-
-    return str(urlunsplit(new_split))
-
-
-_URL_STR_LITERAL_PATTERN = r'"(https?://.*)"'
-
-
-def _change_remote_url_match_to_localhost(
-    match: re.Match[Any],  # A Match from _URL_STR_LITERAL_PATTERN above
-) -> str:
-
-    old_url = match.group(1)
-    new_url = _replace_remote_url_with_localhost(old_url)
-    return f'"{new_url}"'
-
-
-def _test(
-    temp_dir: str | None = None,
-    args: list[str] = sys.argv[1:],
-    verbosity: bool = False,
-) -> int:
-
-    if verbosity == 0:
-        print("Getting doctests...")
-
-    tests = _get_doctests()
-
-    if len(args) >= 2 and args[0] == "-m":
-        if verbosity == 0:
-            print("Filtering doctests...")
-        tests.examples = list(
-            _filter_network_doctests(
-                tests.examples,
-                include_network=args[1] == "network",
-                include_non_network=args[1] == "not network",
-            )
-        )
-
-    if REPLACE_REMOTE_URLS_WITH_LOCALHOST:
-        if verbosity == 0:
-            print("Replacing remote urls with http://localhost in doctests...")
-
-        for example in tests.examples:
-            example.source = re.sub(
-                pattern=_URL_STR_LITERAL_PATTERN,
-                repl=_change_remote_url_match_to_localhost,
-                string=example.source,
-            )
-
-    if temp_dir is not None:
-        for example in tests.examples:
-            example.source = example.source.replace("shapefiles/test/", f"{temp_dir}/")
-
-    runner = doctest.DocTestRunner(verbose=verbosity, optionflags=doctest.FAIL_FAST)
-
-    if verbosity == 0:
-        print(f"Running {len(tests.examples)} doctests...")
-    # Deleting a temp dir will error if it contains shapefiles to which
-    # unclosed Readers still file objects open,
-    # regardless of using clear_globs=True or calling gc.collect afterwards.
-    failure_count, __test_count = runner.run(tests)
-
-    # print results
-    if verbosity:
-        runner.summarize(True)
-    else:
-        if failure_count == 0:
-            print("All test passed successfully")
-        elif failure_count > 0:
-            runner.summarize(verbosity)
-
-    return failure_count
-
-
-def main() -> None:
-    """
-    Doctests are contained in the file 'README.md', and are tested using the built-in
-    testing libraries.
-    """
-    with tempfile.TemporaryDirectory() as td:
-        failure_count = _test(Path(td).as_posix())
-    sys.exit(failure_count)
-
-
-if __name__ == "__main__":
-    main()

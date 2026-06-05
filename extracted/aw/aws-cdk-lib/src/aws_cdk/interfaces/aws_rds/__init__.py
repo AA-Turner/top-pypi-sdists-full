@@ -54,7 +54,7 @@ class CustomDBEngineVersionReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_rds as interfaces_rds
             
-            custom_dBEngine_version_reference = interfaces_rds.CustomDBEngineVersionReference(
+            custom_db_engine_version_reference = interfaces_rds.CustomDBEngineVersionReference(
                 engine="engine",
                 engine_version="engineVersion"
             )
@@ -113,7 +113,7 @@ class DBClusterParameterGroupReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_rds as interfaces_rds
             
-            d_bCluster_parameter_group_reference = interfaces_rds.DBClusterParameterGroupReference(
+            d_b_cluster_parameter_group_reference = interfaces_rds.DBClusterParameterGroupReference(
                 db_cluster_parameter_group_name="dbClusterParameterGroupName"
             )
         '''
@@ -171,7 +171,7 @@ class DBClusterReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_rds as interfaces_rds
             
-            d_bCluster_reference = interfaces_rds.DBClusterReference(
+            d_b_cluster_reference = interfaces_rds.DBClusterReference(
                 db_cluster_arn="dbClusterArn",
                 db_cluster_identifier="dbClusterIdentifier"
             )
@@ -239,7 +239,7 @@ class DBInstanceReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_rds as interfaces_rds
             
-            d_bInstance_reference = interfaces_rds.DBInstanceReference(
+            d_b_instance_reference = interfaces_rds.DBInstanceReference(
                 db_instance_arn="dbInstanceArn",
                 db_instance_identifier="dbInstanceIdentifier"
             )
@@ -298,7 +298,7 @@ class DBParameterGroupReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_rds as interfaces_rds
             
-            d_bParameter_group_reference = interfaces_rds.DBParameterGroupReference(
+            d_b_parameter_group_reference = interfaces_rds.DBParameterGroupReference(
                 db_parameter_group_name="dbParameterGroupName"
             )
         '''
@@ -356,7 +356,7 @@ class DBProxyEndpointReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_rds as interfaces_rds
             
-            d_bProxy_endpoint_reference = interfaces_rds.DBProxyEndpointReference(
+            d_b_proxy_endpoint_reference = interfaces_rds.DBProxyEndpointReference(
                 db_proxy_endpoint_arn="dbProxyEndpointArn",
                 db_proxy_endpoint_name="dbProxyEndpointName"
             )
@@ -421,7 +421,7 @@ class DBProxyReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_rds as interfaces_rds
             
-            d_bProxy_reference = interfaces_rds.DBProxyReference(
+            d_b_proxy_reference = interfaces_rds.DBProxyReference(
                 db_proxy_arn="dbProxyArn",
                 db_proxy_name="dbProxyName"
             )
@@ -480,7 +480,7 @@ class DBProxyTargetGroupReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_rds as interfaces_rds
             
-            d_bProxy_target_group_reference = interfaces_rds.DBProxyTargetGroupReference(
+            d_b_proxy_target_group_reference = interfaces_rds.DBProxyTargetGroupReference(
                 target_group_arn="targetGroupArn"
             )
         '''
@@ -529,7 +529,7 @@ class DBSecurityGroupIngressReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_rds as interfaces_rds
             
-            d_bSecurity_group_ingress_reference = interfaces_rds.DBSecurityGroupIngressReference(
+            d_b_security_group_ingress_reference = interfaces_rds.DBSecurityGroupIngressReference(
                 db_security_group_ingress_id="dbSecurityGroupIngressId"
             )
         '''
@@ -578,7 +578,7 @@ class DBSecurityGroupReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_rds as interfaces_rds
             
-            d_bSecurity_group_reference = interfaces_rds.DBSecurityGroupReference(
+            d_b_security_group_reference = interfaces_rds.DBSecurityGroupReference(
                 db_security_group_id="dbSecurityGroupId"
             )
         '''
@@ -627,7 +627,7 @@ class DBShardGroupReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_rds as interfaces_rds
             
-            d_bShard_group_reference = interfaces_rds.DBShardGroupReference(
+            d_b_shard_group_reference = interfaces_rds.DBShardGroupReference(
                 db_shard_group_identifier="dbShardGroupIdentifier"
             )
         '''
@@ -676,7 +676,7 @@ class DBSubnetGroupReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_rds as interfaces_rds
             
-            d_bSubnet_group_reference = interfaces_rds.DBSubnetGroupReference(
+            d_b_subnet_group_reference = interfaces_rds.DBSubnetGroupReference(
                 db_subnet_group_name="dbSubnetGroupName"
             )
         '''

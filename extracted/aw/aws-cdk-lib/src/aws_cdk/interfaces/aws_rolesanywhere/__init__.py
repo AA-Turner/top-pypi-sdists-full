@@ -53,7 +53,7 @@ class CRLReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_rolesanywhere as interfaces_rolesanywhere
             
-            c_rLReference = interfaces_rolesanywhere.CRLReference(
+            c_rl_reference = interfaces_rolesanywhere.CRLReference(
                 crl_id="crlId"
             )
         '''

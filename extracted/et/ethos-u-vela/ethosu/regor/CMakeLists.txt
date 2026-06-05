@@ -260,7 +260,6 @@ regor_lib(
         "architecture/mlw_encode.cpp"
         "architecture/ethosu55/ethos_u55.cpp"
         "architecture/ethosu55/ethos_u55_constraints.cpp"
-        "architecture/ethosu55/ethos_u55_scaling.cpp"
         "architecture/ethosu55/ethos_u55_weight_encoder.cpp"
         "architecture/ethosu55/ethos_u55_performance.cpp"
         "architecture/ethosu55/ethos_u55_register_cs_generator.cpp"
@@ -269,7 +268,6 @@ regor_lib(
         "architecture/ethosu85/ethos_u85.cpp"
         "architecture/ethosu85/ethos_u85_constraints.cpp"
         "architecture/ethosu85/ethos_u85_register_cs_generator.cpp"
-        "architecture/ethosu85/ethos_u85_scaling.cpp"
         "architecture/ethosu85/ethos_u85_weight_encoder.cpp"
         "architecture/ethosu85/ethos_u85_performance.cpp"
         "architecture/address.cpp"
@@ -308,7 +306,7 @@ regor_lib(
         "tosa/tosa_error_checks.cpp"
         "tosa/tosa_level_checks.cpp"
         "tosa/tosa_require_checks.cpp"
-        "tosa/tosa_validator_version_1_0_0_draft_profile_pro_int.cpp"
+        "tosa/tosa_validator_version_1_0_0_profile_pro_int.cpp"
         "tosa/tosa_reader.cpp"
         "tosa/tosa_mapping.cpp"
         "tflite/tflite_reader.cpp"
@@ -318,6 +316,7 @@ regor_lib(
         "tflite/tflite_supported_operators.cpp"
         "tflite/tflite_supported_operators_u85.cpp"
         "tflite/tflite_supported_operators_u55.cpp"
+        "tflite/tflite_scaling.cpp"
 )
 
 regor_lib(

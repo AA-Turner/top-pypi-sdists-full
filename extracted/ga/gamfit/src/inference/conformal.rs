@@ -40,12 +40,29 @@
 //! # Where the calibration lives, and how it is wired
 //!
 //! Conformal calibration is a *post-fit* operation: a single scalar `q̂` is
-//! derived once from the fitted model and its training data (via the
-//! approximate-leave-one-out diagnostics in [`crate::inference::alo`], whose
-//! `eta_tilde` gives genuine held-out linear predictors and whose `se_bayes`
-//! gives the per-point posterior SE used as the scale `s_i`), then applied per
-//! prediction. [`ConformalCalibrator::from_fit`] computes `q̂`; the predict
-//! path consumes it through the opt-in `conformal_level` field on
+//! derived once and then applied per prediction. There are two ways to build
+//! it, matching the two exchangeability regimes:
+//!
+//! * **Held-out fold (the predict-path default).** When the calibration data
+//!   were NOT used to fit the model — a genuinely held-out, labeled fold — the
+//!   fitted predictor is already independent of every calibration point, so no
+//!   leave-one-out correction is needed. The score is the plain held-out
+//!   residual `r_i = y_cal_i − μ̂(x_cal_i)` normalized by the model's
+//!   predict-time response-scale SE `s(x_cal_i)`. This is
+//!   [`ConformalCalibrator::from_held_out_fold`], driven by
+//!   [`crate::inference::predict::predict_full_uncertainty_conformal`] over a
+//!   [`crate::inference::predict::ConformalCalibrationFold`]. The fold carries
+//!   its own design and may be of ANY size, fully decoupled from the training
+//!   rows.
+//! * **In-sample (no held-out fold available).** When the only data are the
+//!   training set, [`ConformalCalibrator::from_fit`] uses the
+//!   approximate-leave-one-out diagnostics in [`crate::inference::alo`] (whose
+//!   `eta_tilde` gives genuine held-out linear predictors and whose `se_bayes`
+//!   gives the per-point posterior SE) to manufacture leave-one-out residuals
+//!   from the training rows.
+//!
+//! Either way the predict path consumes `q̂` through the opt-in
+//! `conformal_level` field on
 //! [`crate::inference::predict::PredictUncertaintyOptions`], which calls
 //! [`ConformalCalibrator::apply_to_uncertainty_result`] to overwrite the
 //! model-based response-scale bounds with the conformal ones.
@@ -209,6 +226,59 @@ impl ConformalCalibrator {
             alpha,
             n_calibration: scores.len(),
         })
+    }
+
+    /// Build a calibrator from a genuinely held-out calibration fold.
+    ///
+    /// This is the correct split-conformal path when the calibration data were
+    /// NOT used to fit the model: a held-out fold needs no leave-one-out
+    /// correction, because the fitted predictor is already independent of every
+    /// calibration point. The honest nonconformity score is the *plain*
+    /// held-out residual on the response scale,
+    ///
+    ///   r_i = y_cal_i − μ̂(x_cal_i),
+    ///
+    /// normalized (for conformalized scale regression) by the model's own
+    /// predict-time response-scale standard error `s_i = s(x_cal_i)` — the
+    /// SAME scale source applied at test time by
+    /// [`Self::apply_to_uncertainty_result`]. With those scores the exact
+    /// order-statistic multiplier `q̂` gives finite-sample marginal coverage
+    /// `P(Y ∈ μ̂(x) ± q̂·s(x)) ≥ 1 − α` (Vovk et al.; Romano, Patterson &
+    /// Candès 2019), provided the calibration and test points are exchangeable
+    /// — which they are for an i.i.d. held-out fold.
+    ///
+    /// `mu_cal` and `scale_cal` are the model's predict-time response mean and
+    /// response-scale SE at the calibration design points (produced by exactly
+    /// the same predict engine used for the test points), and `y_cal` is the
+    /// held-out response. No fit geometry, no ALO, and no binding of the fold
+    /// to the training rows is involved — so a calibration fold of any size is
+    /// accepted.
+    pub fn from_held_out_fold(
+        y_cal: ArrayView1<'_, f64>,
+        mu_cal: ArrayView1<'_, f64>,
+        scale_cal: ArrayView1<'_, f64>,
+        alpha: f64,
+    ) -> Result<Self, EstimationError> {
+        if y_cal.len() != mu_cal.len() || y_cal.len() != scale_cal.len() {
+            return Err(EstimationError::InvalidInput(format!(
+                "conformal held-out calibration requires y, mean, and scale of equal length, \
+                 got {} responses, {} means, {} scales",
+                y_cal.len(),
+                mu_cal.len(),
+                scale_cal.len()
+            )));
+        }
+        let n = y_cal.len();
+        let mut residuals = Array1::<f64>::zeros(n);
+        let mut scales = Array1::<f64>::zeros(n);
+        for i in 0..n {
+            residuals[i] = y_cal[i] - mu_cal[i];
+            // Floor the per-point response-scale SE to a tiny positive value so
+            // a degenerate (zero-SE) calibration point does not void the |r|/s
+            // score; `from_residuals_and_scales` re-validates strict positivity.
+            scales[i] = scale_cal[i].max(f64::MIN_POSITIVE);
+        }
+        Self::from_residuals_and_scales(residuals.view(), scales.view(), alpha)
     }
 
     /// Build a calibrator from a fitted model and its training data.

@@ -21,8 +21,15 @@ def _make_cfg(**overrides):
     return cfg
 
 
-def _make_output(text="", finished=False, channel=None, finish_reason=None):
-    """Create a mock GenerationOutput."""
+def _make_output(
+    text="", finished=False, channel=None, finish_reason=None, tool_calls=None
+):
+    """Create a mock GenerationOutput.
+
+    ``tool_calls`` defaults to None so the postprocessor's structured
+    fast-path (PR #515) stays inert in tests that don't opt in. Tests
+    exercising HarmonyStreamingRouter passthrough must set this explicitly.
+    """
     out = MagicMock()
     out.new_text = text
     out.finished = finished
@@ -32,6 +39,7 @@ def _make_output(text="", finished=False, channel=None, finish_reason=None):
     out.completion_tokens = 5
     out.tokens = []
     out.logprobs = None
+    out.tool_calls = tool_calls
     return out
 
 
@@ -268,6 +276,10 @@ class TestStreamingPostProcessorToolCalls:
         parser = MagicMock()
         parser.extract_tool_calls_streaming.return_value = None  # default: suppressed
         parser.has_pending_tool_call.return_value = False
+        # Default to empty string so finalize()'s held-content release path
+        # (postprocessor.py — codex round-3 CRITICAL fix) is a no-op unless
+        # a test explicitly opts into a non-empty held suffix.
+        parser.flush_held_content.return_value = ""
         return parser
 
     def test_tool_markup_suppresses_content(self):
@@ -497,6 +509,77 @@ class TestStreamingPostProcessorToolCalls:
         assert events == []
         assert pp.tool_calls_detected is False
 
+    def test_finalize_releases_held_content_when_no_tool_calls(self):
+        """Codex round-3 CRITICAL: streaming parsers that prefix-hold
+        partial tool-call sentinels can end the stream still holding
+        bytes. If no tool call ever fires, those bytes are ordinary
+        content and finalize() must release them so the user doesn't
+        see a truncated reply (e.g. ``abc<`` shown as ``abc``)."""
+        tool_parser = self._make_tool_parser()
+        tool_parser.extract_tool_calls.return_value = MagicMock(
+            tools_called=False, tool_calls=[]
+        )
+        tool_parser.flush_held_content.return_value = "<"
+
+        cfg = _make_cfg(
+            enable_auto_tool_choice=True,
+            tool_parser_instance=tool_parser,
+        )
+        pp = StreamingPostProcessor(cfg)
+        pp.reset()
+        pp.tool_accumulated_text = "abc<"
+
+        events = pp.finalize()
+        content_events = [e for e in events if e.type == "content"]
+        assert len(content_events) == 1
+        assert content_events[0].content == "<"
+
+    def test_finalize_does_not_release_held_content_when_tool_call_fires(self):
+        """If a tool call DID fire mid-stream, the held bytes are part
+        of the tool-call body — not ordinary content. The release path
+        must stay silent so the held tail doesn't leak alongside the
+        structured tool_call event."""
+        tool_parser = self._make_tool_parser()
+        tool_parser.extract_tool_calls.return_value = MagicMock(
+            tools_called=False, tool_calls=[]
+        )
+        tool_parser.flush_held_content.return_value = "<"
+
+        cfg = _make_cfg(
+            enable_auto_tool_choice=True,
+            tool_parser_instance=tool_parser,
+        )
+        pp = StreamingPostProcessor(cfg)
+        pp.reset()
+        pp.tool_accumulated_text = "abc<"
+        pp.tool_calls_detected = True  # simulate a mid-stream tool call
+
+        events = pp.finalize()
+        content_events = [e for e in events if e.type == "content"]
+        assert content_events == []
+
+    def test_finalize_rejects_non_string_held_content(self):
+        """Defensive: a buggy ``flush_held_content`` override returning
+        non-string (or None) must not propagate as a malformed
+        StreamEvent. The strict-string gate in finalize() skips it
+        instead."""
+        tool_parser = self._make_tool_parser()
+        tool_parser.extract_tool_calls.return_value = MagicMock(
+            tools_called=False, tool_calls=[]
+        )
+        tool_parser.flush_held_content.return_value = None  # buggy override
+
+        cfg = _make_cfg(
+            enable_auto_tool_choice=True,
+            tool_parser_instance=tool_parser,
+        )
+        pp = StreamingPostProcessor(cfg)
+        pp.reset()
+        pp.tool_accumulated_text = "abc<"
+
+        events = pp.finalize()
+        assert [e for e in events if e.type == "content"] == []
+
 
 class TestStreamingPostProcessorNemotron:
     """Tests for Nemotron thinking prefix."""
@@ -650,6 +733,217 @@ class TestStreamingPostProcessorToolCallChannel:
         assert len(events) == 1
         assert events[0].type == "finish"
         assert events[0].reasoning == "final thought"
+
+
+class TestStructuredToolCallStreaming:
+    """Tests for the engine-surfaced structured tool-call fast-path
+    introduced by PR #515 (HarmonyStreamingRouter bypass).
+
+    Two invariants the legacy text-parser path enforced must be
+    preserved on the structured path — codex round-15 BLOCKINGs:
+
+    1. ``tool_calls[*].index`` is monotonically increasing across
+       distinct router chunks (clients merge deltas on ``index``;
+       colliding indices silently overwrite).
+    2. ``parallel_tool_calls=false`` caps the response at one call
+       (matching the post-parse trim in ``routes/chat.py``).
+    """
+
+    def test_index_monotonic_across_chunks(self):
+        cfg = _make_cfg()
+        pp = StreamingPostProcessor(cfg)
+        pp.reset()
+
+        first = pp.process_chunk(
+            _make_output(
+                "search(...)",
+                channel="tool_call",
+                tool_calls=[{"name": "search", "arguments": '{"q":"a"}'}],
+            )
+        )
+        second = pp.process_chunk(
+            _make_output(
+                "lookup(...)",
+                channel="tool_call",
+                tool_calls=[{"name": "lookup", "arguments": '{"q":"b"}'}],
+            )
+        )
+
+        assert len(first) == 1 and first[0].type == "tool_call"
+        assert len(second) == 1 and second[0].type == "tool_call"
+        assert first[0].tool_calls[0]["index"] == 0
+        assert second[0].tool_calls[0]["index"] == 1
+
+    def test_index_monotonic_within_single_chunk(self):
+        """Multiple calls in one router event still receive distinct indices."""
+        cfg = _make_cfg()
+        pp = StreamingPostProcessor(cfg)
+        pp.reset()
+
+        events = pp.process_chunk(
+            _make_output(
+                "two(...)",
+                channel="tool_call",
+                tool_calls=[
+                    {"name": "a", "arguments": "{}"},
+                    {"name": "b", "arguments": "{}"},
+                ],
+            )
+        )
+        assert len(events) == 1
+        indices = [tc["index"] for tc in events[0].tool_calls]
+        assert indices == [0, 1]
+
+    def test_parallel_tool_calls_false_caps_across_chunks(self):
+        cfg = _make_cfg()
+        pp = StreamingPostProcessor(cfg, request={"parallel_tool_calls": False})
+        pp.reset()
+
+        first = pp.process_chunk(
+            _make_output(
+                "search(...)",
+                channel="tool_call",
+                tool_calls=[{"name": "search", "arguments": '{"q":"a"}'}],
+            )
+        )
+        second = pp.process_chunk(
+            _make_output(
+                "lookup(...)",
+                channel="tool_call",
+                tool_calls=[{"name": "lookup", "arguments": '{"q":"b"}'}],
+            )
+        )
+
+        assert len(first) == 1
+        assert first[0].type == "tool_call"
+        assert first[0].tool_calls[0]["function"]["name"] == "search"
+        # Second chunk is suppressed entirely (no finish marker since
+        # the engine output isn't ``finished``).
+        assert second == []
+        assert pp.tool_calls_detected is True
+
+    def test_parallel_tool_calls_false_caps_within_single_chunk(self):
+        cfg = _make_cfg()
+        pp = StreamingPostProcessor(cfg, request={"parallel_tool_calls": False})
+        pp.reset()
+
+        events = pp.process_chunk(
+            _make_output(
+                "two(...)",
+                channel="tool_call",
+                tool_calls=[
+                    {"name": "a", "arguments": "{}"},
+                    {"name": "b", "arguments": "{}"},
+                ],
+            )
+        )
+        assert len(events) == 1
+        assert len(events[0].tool_calls) == 1
+        assert events[0].tool_calls[0]["function"]["name"] == "a"
+
+    def test_parallel_tool_calls_true_does_not_cap(self):
+        """Explicit ``True`` must behave like unset (no cap)."""
+        cfg = _make_cfg()
+        pp = StreamingPostProcessor(cfg, request={"parallel_tool_calls": True})
+        pp.reset()
+
+        first = pp.process_chunk(
+            _make_output(
+                "search(...)",
+                channel="tool_call",
+                tool_calls=[{"name": "search", "arguments": "{}"}],
+            )
+        )
+        second = pp.process_chunk(
+            _make_output(
+                "lookup(...)",
+                channel="tool_call",
+                tool_calls=[{"name": "lookup", "arguments": "{}"}],
+            )
+        )
+        assert len(first) == 1 and len(second) == 1
+        assert second[0].tool_calls[0]["index"] == 1
+
+    def test_cap_suppression_preserves_finish_semantics(self):
+        """When the suppressed chunk is also the finished chunk we must
+        still emit a finish event so the route's buffered_finish gate
+        fires.
+        """
+        cfg = _make_cfg()
+        pp = StreamingPostProcessor(cfg, request={"parallel_tool_calls": False})
+        pp.reset()
+
+        pp.process_chunk(
+            _make_output(
+                "first(...)",
+                channel="tool_call",
+                tool_calls=[{"name": "first", "arguments": "{}"}],
+            )
+        )
+        events = pp.process_chunk(
+            _make_output(
+                "second(...)",
+                channel="tool_call",
+                finished=True,
+                finish_reason="stop",
+                tool_calls=[{"name": "second", "arguments": "{}"}],
+            )
+        )
+        assert len(events) == 1
+        assert events[0].type == "finish"
+        assert events[0].finish_reason == "tool_calls"
+
+    def test_structured_event_assigns_id_when_missing(self):
+        cfg = _make_cfg()
+        pp = StreamingPostProcessor(cfg)
+        pp.reset()
+
+        events = pp.process_chunk(
+            _make_output(
+                "search(...)",
+                channel="tool_call",
+                tool_calls=[{"name": "search", "arguments": "{}"}],
+            )
+        )
+        assert events[0].tool_calls[0]["id"].startswith("call_")
+        assert events[0].tool_calls[0]["type"] == "function"
+
+    def test_structured_event_preserves_caller_id(self):
+        cfg = _make_cfg()
+        pp = StreamingPostProcessor(cfg)
+        pp.reset()
+
+        events = pp.process_chunk(
+            _make_output(
+                "search(...)",
+                channel="tool_call",
+                tool_calls=[{"id": "call_abc", "name": "search", "arguments": "{}"}],
+            )
+        )
+        assert events[0].tool_calls[0]["id"] == "call_abc"
+
+    def test_reset_clears_structured_counter(self):
+        cfg = _make_cfg()
+        pp = StreamingPostProcessor(cfg)
+        pp.reset()
+
+        pp.process_chunk(
+            _make_output(
+                "first(...)",
+                channel="tool_call",
+                tool_calls=[{"name": "a", "arguments": "{}"}],
+            )
+        )
+        pp.reset()
+        events = pp.process_chunk(
+            _make_output(
+                "second(...)",
+                channel="tool_call",
+                tool_calls=[{"name": "b", "arguments": "{}"}],
+            )
+        )
+        # New stream → index restarts at 0.
+        assert events[0].tool_calls[0]["index"] == 0
 
 
 # ======================================================================

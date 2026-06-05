@@ -5525,6 +5525,7 @@ class CfnWebApp(
             access_endpoint="accessEndpoint",
             endpoint_details=transfer.CfnWebApp.EndpointDetailsProperty(
                 vpc=transfer.CfnWebApp.VpcProperty(
+                    ip_address_type="ipAddressType",
                     security_group_ids=["securityGroupIds"],
                     subnet_ids=["subnetIds"],
                     vpc_id="vpcId"
@@ -5835,6 +5836,7 @@ class CfnWebApp(
                 
                 endpoint_details_property = transfer.CfnWebApp.EndpointDetailsProperty(
                     vpc=transfer.CfnWebApp.VpcProperty(
+                        ip_address_type="ipAddressType",
                         security_group_ids=["securityGroupIds"],
                         subnet_ids=["subnetIds"],
                         vpc_id="vpcId"
@@ -5963,6 +5965,7 @@ class CfnWebApp(
         jsii_type="aws-cdk-lib.aws_transfer.CfnWebApp.VpcProperty",
         jsii_struct_bases=[],
         name_mapping={
+            "ip_address_type": "ipAddressType",
             "security_group_ids": "securityGroupIds",
             "subnet_ids": "subnetIds",
             "vpc_id": "vpcId",
@@ -5972,12 +5975,14 @@ class CfnWebApp(
         def __init__(
             self,
             *,
+            ip_address_type: typing.Optional[builtins.str] = None,
             security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
             subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
             vpc_id: typing.Optional[builtins.str] = None,
         ) -> None:
             '''You can provide a structure that contains the details for the VPC endpoint to use with your web app.
 
+            :param ip_address_type: The IP address type for the VPC endpoint used by the web app.
             :param security_group_ids: 
             :param subnet_ids: 
             :param vpc_id: 
@@ -5992,6 +5997,7 @@ class CfnWebApp(
                 from aws_cdk import aws_transfer as transfer
                 
                 vpc_property = transfer.CfnWebApp.VpcProperty(
+                    ip_address_type="ipAddressType",
                     security_group_ids=["securityGroupIds"],
                     subnet_ids=["subnetIds"],
                     vpc_id="vpcId"
@@ -5999,16 +6005,28 @@ class CfnWebApp(
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__10e679ca50b2fbdd3de1dfd25dca7199be14ca1a6d880cb2bc8349d670c8e598)
+                check_type(argname="argument ip_address_type", value=ip_address_type, expected_type=type_hints["ip_address_type"])
                 check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
                 check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
                 check_type(argname="argument vpc_id", value=vpc_id, expected_type=type_hints["vpc_id"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if ip_address_type is not None:
+                self._values["ip_address_type"] = ip_address_type
             if security_group_ids is not None:
                 self._values["security_group_ids"] = security_group_ids
             if subnet_ids is not None:
                 self._values["subnet_ids"] = subnet_ids
             if vpc_id is not None:
                 self._values["vpc_id"] = vpc_id
+
+        @builtins.property
+        def ip_address_type(self) -> typing.Optional[builtins.str]:
+            '''The IP address type for the VPC endpoint used by the web app.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-transfer-webapp-vpc.html#cfn-transfer-webapp-vpc-ipaddresstype
+            '''
+            result = self._values.get("ip_address_type")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
         def security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -6247,6 +6265,7 @@ class CfnWebAppProps:
                 access_endpoint="accessEndpoint",
                 endpoint_details=transfer.CfnWebApp.EndpointDetailsProperty(
                     vpc=transfer.CfnWebApp.VpcProperty(
+                        ip_address_type="ipAddressType",
                         security_group_ids=["securityGroupIds"],
                         subnet_ids=["subnetIds"],
                         vpc_id="vpcId"
@@ -9000,6 +9019,7 @@ def _typecheckingstub__b302a4e89f0273c2f4ecb9d1e9d455f99c8de91db6c0a9f929e41a9c0
 
 def _typecheckingstub__10e679ca50b2fbdd3de1dfd25dca7199be14ca1a6d880cb2bc8349d670c8e598(
     *,
+    ip_address_type: typing.Optional[builtins.str] = None,
     security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     vpc_id: typing.Optional[builtins.str] = None,

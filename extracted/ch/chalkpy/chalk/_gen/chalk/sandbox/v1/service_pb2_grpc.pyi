@@ -14,12 +14,22 @@ from chalk._gen.chalk.sandbox.v1.service_pb2 import (
     CreateSandboxResponse,
     ExecRequest,
     ExecResponse,
+    GetCustomImageBuildLogsRequest,
+    GetCustomImageBuildLogsResponse,
+    GetCustomImageBuildRequest,
+    GetCustomImageBuildResponse,
+    GetCustomImageBuildUsageRequest,
+    GetCustomImageBuildUsageResponse,
+    GetCustomImageBuildWorkflowRequest,
+    GetCustomImageBuildWorkflowResponse,
     GetCustomImageRequest,
     GetCustomImageResponse,
     GetOrBuildCustomImageRequest,
     GetOrBuildCustomImageResponse,
     GetSandboxRequest,
     GetSandboxResponse,
+    ListCustomImageBuildsRequest,
+    ListCustomImageBuildsResponse,
     ListSandboxesRequest,
     ListSandboxesResponse,
     StreamCustomImageBuildUpdatesRequest,
@@ -142,6 +152,46 @@ class CustomImageServiceStub:
     """StreamCustomImageBuildUpdates streams build status updates for a given build ID
     by polling the underlying Argo workflow until it reaches a terminal state.
     """
+    ListCustomImageBuilds: UnaryUnaryMultiCallable[
+        ListCustomImageBuildsRequest,
+        ListCustomImageBuildsResponse,
+    ]
+    """ListCustomImageBuilds lists the custom images the calling environment
+    references (from the per-environment custom_image_refs index), newest first.
+    """
+    GetCustomImageBuild: UnaryUnaryMultiCallable[
+        GetCustomImageBuildRequest,
+        GetCustomImageBuildResponse,
+    ]
+    """GetCustomImageBuild returns a single referenced build, addressed by content
+    hash or build ID and authorized against the calling environment.
+    """
+    GetCustomImageBuildLogs: UnaryUnaryMultiCallable[
+        GetCustomImageBuildLogsRequest,
+        GetCustomImageBuildLogsResponse,
+    ]
+    """GetCustomImageBuildLogs returns a page of build logs for a referenced build,
+    authorized against the calling environment. Returns an Unimplemented error
+    for builders whose backend cannot serve logs.
+    """
+    GetCustomImageBuildWorkflow: UnaryUnaryMultiCallable[
+        GetCustomImageBuildWorkflowRequest,
+        GetCustomImageBuildWorkflowResponse,
+    ]
+    """GetCustomImageBuildWorkflow returns the underlying build workflow (the source
+    for the plan/DAG and step timeline) for a referenced build, authorized
+    against the calling environment. The workflow is unset for non-Argo backends,
+    pure registry cache hits, or builds whose workflow has been garbage-collected.
+    """
+    GetCustomImageBuildUsage: UnaryUnaryMultiCallable[
+        GetCustomImageBuildUsageRequest,
+        GetCustomImageBuildUsageResponse,
+    ]
+    """GetCustomImageBuildUsage returns the compute resources (containers, scaling
+    groups, and currently-live sandboxes) that reference a referenced build,
+    addressed by content hash or build ID and authorized against the calling
+    environment. The sandbox set reflects only currently-live sandboxes.
+    """
 
 class CustomImageServiceServicer(metaclass=ABCMeta):
     """CustomImageService manages custom container image builds independently of sandboxes."""
@@ -177,6 +227,56 @@ class CustomImageServiceServicer(metaclass=ABCMeta):
     ) -> Iterator[StreamCustomImageBuildUpdatesResponse]:
         """StreamCustomImageBuildUpdates streams build status updates for a given build ID
         by polling the underlying Argo workflow until it reaches a terminal state.
+        """
+    @abstractmethod
+    def ListCustomImageBuilds(
+        self,
+        request: ListCustomImageBuildsRequest,
+        context: ServicerContext,
+    ) -> ListCustomImageBuildsResponse:
+        """ListCustomImageBuilds lists the custom images the calling environment
+        references (from the per-environment custom_image_refs index), newest first.
+        """
+    @abstractmethod
+    def GetCustomImageBuild(
+        self,
+        request: GetCustomImageBuildRequest,
+        context: ServicerContext,
+    ) -> GetCustomImageBuildResponse:
+        """GetCustomImageBuild returns a single referenced build, addressed by content
+        hash or build ID and authorized against the calling environment.
+        """
+    @abstractmethod
+    def GetCustomImageBuildLogs(
+        self,
+        request: GetCustomImageBuildLogsRequest,
+        context: ServicerContext,
+    ) -> GetCustomImageBuildLogsResponse:
+        """GetCustomImageBuildLogs returns a page of build logs for a referenced build,
+        authorized against the calling environment. Returns an Unimplemented error
+        for builders whose backend cannot serve logs.
+        """
+    @abstractmethod
+    def GetCustomImageBuildWorkflow(
+        self,
+        request: GetCustomImageBuildWorkflowRequest,
+        context: ServicerContext,
+    ) -> GetCustomImageBuildWorkflowResponse:
+        """GetCustomImageBuildWorkflow returns the underlying build workflow (the source
+        for the plan/DAG and step timeline) for a referenced build, authorized
+        against the calling environment. The workflow is unset for non-Argo backends,
+        pure registry cache hits, or builds whose workflow has been garbage-collected.
+        """
+    @abstractmethod
+    def GetCustomImageBuildUsage(
+        self,
+        request: GetCustomImageBuildUsageRequest,
+        context: ServicerContext,
+    ) -> GetCustomImageBuildUsageResponse:
+        """GetCustomImageBuildUsage returns the compute resources (containers, scaling
+        groups, and currently-live sandboxes) that reference a referenced build,
+        addressed by content hash or build ID and authorized against the calling
+        environment. The sandbox set reflects only currently-live sandboxes.
         """
 
 def add_CustomImageServiceServicer_to_server(servicer: CustomImageServiceServicer, server: Server) -> None: ...

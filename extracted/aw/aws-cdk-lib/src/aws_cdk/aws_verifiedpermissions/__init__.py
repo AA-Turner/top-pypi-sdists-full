@@ -80,10 +80,12 @@ from .. import (
 from ..interfaces.aws_verifiedpermissions import (
     IIdentitySourceRef as _IIdentitySourceRef_350a2caf,
     IPolicyRef as _IPolicyRef_c6dc8a32,
+    IPolicyStoreAliasRef as _IPolicyStoreAliasRef_07f4310b,
     IPolicyStoreRef as _IPolicyStoreRef_ac45e491,
     IPolicyTemplateRef as _IPolicyTemplateRef_899f99c9,
     IdentitySourceReference as _IdentitySourceReference_a313a3c3,
     PolicyReference as _PolicyReference_c40df487,
+    PolicyStoreAliasReference as _PolicyStoreAliasReference_380069a1,
     PolicyStoreReference as _PolicyStoreReference_a5975c12,
     PolicyTemplateReference as _PolicyTemplateReference_dcad6159,
 )
@@ -2521,7 +2523,7 @@ class CfnPolicyStore(
             self,
             *,
             key: builtins.str,
-            encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            encryption_context: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         ) -> None:
             '''
             :param key: 
@@ -2567,12 +2569,12 @@ class CfnPolicyStore(
         @builtins.property
         def encryption_context(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-verifiedpermissions-policystore-kmsencryptionsettings.html#cfn-verifiedpermissions-policystore-kmsencryptionsettings-encryptioncontext
             '''
             result = self._values.get("encryption_context")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2594,7 +2596,7 @@ class CfnPolicyStore(
         def __init__(
             self,
             *,
-            encryption_context: typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"],
+            encryption_context: typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]],
             key: builtins.str,
         ) -> None:
             '''
@@ -2629,13 +2631,13 @@ class CfnPolicyStore(
         @builtins.property
         def encryption_context(
             self,
-        ) -> typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-verifiedpermissions-policystore-kmsencryptionstate.html#cfn-verifiedpermissions-policystore-kmsencryptionstate-encryptioncontext
             '''
             result = self._values.get("encryption_context")
             assert result is not None, "Required property 'encryption_context' is missing"
-            return typing.cast(typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]], result)
 
         @builtins.property
         def key(self) -> builtins.str:
@@ -2774,6 +2776,208 @@ class CfnPolicyStore(
             return "ValidationSettingsProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
+
+
+@jsii.implements(_IInspectable_c2943556, _IPolicyStoreAliasRef_07f4310b)
+class CfnPolicyStoreAlias(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_verifiedpermissions.CfnPolicyStoreAlias",
+):
+    '''Definition of AWS::VerifiedPermissions::PolicyStoreAlias Resource Type.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-verifiedpermissions-policystorealias.html
+    :cloudformationResource: AWS::VerifiedPermissions::PolicyStoreAlias
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_verifiedpermissions as verifiedpermissions
+        
+        cfn_policy_store_alias = verifiedpermissions.CfnPolicyStoreAlias(self, "MyCfnPolicyStoreAlias",
+            alias_name="aliasName",
+            policy_store_id="policyStoreId"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        alias_name: builtins.str,
+        policy_store_id: builtins.str,
+    ) -> None:
+        '''Create a new ``AWS::VerifiedPermissions::PolicyStoreAlias``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param alias_name: 
+        :param policy_store_id: 
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e0f75882a045f98a615d8786e90ba7101f2e4bf7506b1fda7011638afb6c5be1)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnPolicyStoreAliasProps(
+            alias_name=alias_name, policy_store_id=policy_store_id
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnPolicyStoreAlias")
+    @builtins.classmethod
+    def is_cfn_policy_store_alias(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnPolicyStoreAlias.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a1ca42a0502fd719fdf70dbea65a8668ae656e67da16a92d02578ab46c840b2a)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnPolicyStoreAlias", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2903777e02d5c9c93fc342558f028f15dbd6c5255a0b37d22adfa99be86542d3)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7cda5511dd8bf395f28376aae83a77ab1d13aac058dc44627565e09a9f32e56f)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="policyStoreAliasRef")
+    def policy_store_alias_ref(self) -> "_PolicyStoreAliasReference_380069a1":
+        '''A reference to a PolicyStoreAlias resource.'''
+        return typing.cast("_PolicyStoreAliasReference_380069a1", jsii.get(self, "policyStoreAliasRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="aliasName")
+    def alias_name(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "aliasName"))
+
+    @alias_name.setter
+    def alias_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cd17ce4495084d2ca110ccdda445a3e8bebe843283cd0a57d721e26c798488f8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "aliasName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="policyStoreId")
+    def policy_store_id(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "policyStoreId"))
+
+    @policy_store_id.setter
+    def policy_store_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c056ea1e9ee22065509264b43970abd68cad4eb206944a1cbfae7543b11f8e0a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "policyStoreId", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_verifiedpermissions.CfnPolicyStoreAliasProps",
+    jsii_struct_bases=[],
+    name_mapping={"alias_name": "aliasName", "policy_store_id": "policyStoreId"},
+)
+class CfnPolicyStoreAliasProps:
+    def __init__(
+        self,
+        *,
+        alias_name: builtins.str,
+        policy_store_id: builtins.str,
+    ) -> None:
+        '''Properties for defining a ``CfnPolicyStoreAlias``.
+
+        :param alias_name: 
+        :param policy_store_id: 
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-verifiedpermissions-policystorealias.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_verifiedpermissions as verifiedpermissions
+            
+            cfn_policy_store_alias_props = verifiedpermissions.CfnPolicyStoreAliasProps(
+                alias_name="aliasName",
+                policy_store_id="policyStoreId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b47134ef7b639658516e390bb0d8094b59022df28d9637e61b5c708945a93437)
+            check_type(argname="argument alias_name", value=alias_name, expected_type=type_hints["alias_name"])
+            check_type(argname="argument policy_store_id", value=policy_store_id, expected_type=type_hints["policy_store_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "alias_name": alias_name,
+            "policy_store_id": policy_store_id,
+        }
+
+    @builtins.property
+    def alias_name(self) -> builtins.str:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-verifiedpermissions-policystorealias.html#cfn-verifiedpermissions-policystorealias-aliasname
+        '''
+        result = self._values.get("alias_name")
+        assert result is not None, "Required property 'alias_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def policy_store_id(self) -> builtins.str:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-verifiedpermissions-policystorealias.html#cfn-verifiedpermissions-policystorealias-policystoreid
+        '''
+        result = self._values.get("policy_store_id")
+        assert result is not None, "Required property 'policy_store_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnPolicyStoreAliasProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.data_type(
@@ -3219,6 +3423,8 @@ __all__ = [
     "CfnPolicy",
     "CfnPolicyProps",
     "CfnPolicyStore",
+    "CfnPolicyStoreAlias",
+    "CfnPolicyStoreAliasProps",
     "CfnPolicyStoreProps",
     "CfnPolicyTemplate",
     "CfnPolicyTemplateProps",
@@ -3555,14 +3761,14 @@ def _typecheckingstub__280302b4907364f2e7a0001df27f52536ef047d00faee9cb4031ea626
 def _typecheckingstub__d5c11fd42f6583c22c32641a1329cc6e2eaaf8d9702d99dd3fcc9b3a40dc599c(
     *,
     key: builtins.str,
-    encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    encryption_context: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__4d782802c433a4ade2b2a08513266dd43e6b703217016be692e0d51bbf2caf4a(
     *,
-    encryption_context: typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b],
+    encryption_context: typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]],
     key: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -3578,6 +3784,54 @@ def _typecheckingstub__40c95b318ee977eff43d9078495fc0215bd302506cf821187fe6998b1
 def _typecheckingstub__441c781d6c8944f199761ac7a1433da41be4b40fc2d3cbb5df9ccf86001008fa(
     *,
     mode: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e0f75882a045f98a615d8786e90ba7101f2e4bf7506b1fda7011638afb6c5be1(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    alias_name: builtins.str,
+    policy_store_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a1ca42a0502fd719fdf70dbea65a8668ae656e67da16a92d02578ab46c840b2a(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2903777e02d5c9c93fc342558f028f15dbd6c5255a0b37d22adfa99be86542d3(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7cda5511dd8bf395f28376aae83a77ab1d13aac058dc44627565e09a9f32e56f(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cd17ce4495084d2ca110ccdda445a3e8bebe843283cd0a57d721e26c798488f8(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c056ea1e9ee22065509264b43970abd68cad4eb206944a1cbfae7543b11f8e0a(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b47134ef7b639658516e390bb0d8094b59022df28d9637e61b5c708945a93437(
+    *,
+    alias_name: builtins.str,
+    policy_store_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

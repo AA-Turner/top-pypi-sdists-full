@@ -2,7 +2,7 @@
 
 When ``NOTEBOOKLM_VCR_RECORD_ERRORS`` is set to ``429`` / ``5xx`` /
 ``expired_csrf`` AND
-:class:`notebooklm._middleware_error_injection.ErrorInjectionMiddleware`
+:class:`notebooklm._middleware.error_injection.ErrorInjectionMiddleware`
 has been constructed with an injected ``builder`` callable (canonical:
 ``tests/cassette_patterns.py:build_synthetic_error_response``), the
 middleware short-circuits each chain invocation with the synthetic
@@ -11,7 +11,7 @@ response so the client's exception-mapping branches (429 →
 end-to-end.
 
 **The env var is a no-op without an injected builder.** Production code
-(``MiddlewareChainBuilder`` in ``_middleware_chain.py``) instantiates
+(``MiddlewareChainBuilder`` in ``_middleware/chain.py``) instantiates
 ``ErrorInjectionMiddleware()`` with no builder argument, so a leaked
 ``NOTEBOOKLM_VCR_RECORD_ERRORS`` env var on a user install cannot trigger
 any synthetic substitution — the middleware passes through. Tests that
@@ -22,24 +22,19 @@ explicit ``builder=`` argument (issue #1005).
 middleware delegates straight to ``next_call``; the ``Kernel.post`` chain
 terminal runs exactly as it would without the middleware in the chain.
 
-Pre-Tier-12 history (deleted in PR 12.9): this module previously
-defined a ``_SyntheticErrorTransport`` httpx transport that wrapped the
-``AsyncClient`` BELOW VCR so the substituted response was recorded into
-the cassette. Tier-12 PR 12.6 lifted the substitution into
-``ErrorInjectionMiddleware`` (chain-level, ABOVE VCR), which closed the
-"record synthetic errors into cassettes" workflow — replay-only is the
-documented contract going forward; the synthetic-error cassettes in
+``ErrorInjectionMiddleware`` substitutes responses at the chain level
+(ABOVE VCR), so recording synthetic errors into cassettes is not supported
+— replay-only is the documented contract: the synthetic-error cassettes in
 ``tests/cassettes/`` are hand-written from the canonical shapes in
-``tests/cassette_patterns.py``. PR 12.9 deleted the legacy transport
-class and its direct-instantiation tests.
+``tests/cassette_patterns.py``.
 
 Public surface kept:
 
 - :func:`_get_error_injection_mode` — env-var → mode normalization.
-- :func:`_refuse_synthetic_error_outside_test_context` —
-  ``Session.__init__`` calls this so a leaked deploy env raises
-  ``RuntimeError`` instead of silently activating the chain
-  middleware. The guard fires only when ``PYTEST_CURRENT_TEST`` is
+- :func:`_refuse_synthetic_error_outside_test_context` — client
+  construction (``NotebookLMClient.__init__``) calls this so a leaked
+  deploy env raises ``RuntimeError`` instead of silently activating the
+  chain middleware. The guard fires only when ``PYTEST_CURRENT_TEST`` is
   unset (pytest sets it for every test).
 - :data:`ERROR_INJECT_ENV_VAR` — env-var name (canonical string).
 """
@@ -55,11 +50,11 @@ __all__ = [
 import logging
 import os
 
-from ._session_config import CORE_LOGGER_NAME
+from ._runtime.config import CORE_LOGGER_NAME
 
 # Logger name pinned via :data:`CORE_LOGGER_NAME` so log filters in
 # tests — e.g. ``caplog.at_level(..., logger=CORE_LOGGER_NAME)`` — keep
-# matching. Session collaborators and middleware seams share the same name.
+# matching. Client collaborators and middleware seams share the same name.
 logger = logging.getLogger(CORE_LOGGER_NAME)
 
 
@@ -77,7 +72,7 @@ def _get_error_injection_mode() -> str | None:
     Returning a non-``None`` mode does NOT by itself activate any synthetic
     substitution: the production ``ErrorInjectionMiddleware`` is
     constructed without a builder (see
-    :class:`notebooklm._middleware_error_injection.ErrorInjectionMiddleware`),
+    :class:`notebooklm._middleware.error_injection.ErrorInjectionMiddleware`),
     which makes the middleware a pass-through regardless of this mode.
     Tests that exercise the substitution wire a builder explicitly. Issue
     #1005 closes the prior dynamic-load attack surface where a leaked env
@@ -95,8 +90,10 @@ def _get_error_injection_mode() -> str | None:
     raw = os.environ.get(ERROR_INJECT_ENV_VAR, "").strip()
     if not raw:
         return None
-    # Lowercase-normalize so callers can use ``"5XX"`` / ``"429"`` / etc.
-    normalized = raw.lower()
+    # Case-fold-normalize so callers can use ``"5XX"`` / ``"429"`` / etc.
+    # (``casefold`` over ``lower`` for the project's Unicode-aware
+    # case-insensitive comparison rule; ASCII-identical here — #1268).
+    normalized = raw.casefold()
     valid = {"429", "5xx", "expired_csrf"}
     if normalized not in valid:
         return None
@@ -104,14 +101,11 @@ def _get_error_injection_mode() -> str | None:
 
 
 def _refuse_synthetic_error_outside_test_context() -> None:
-    """Refuse :class:`Session` instantiation when the test-only env var leaks.
+    """Refuse client instantiation when the test-only env var leaks.
 
-    P1-12: ``NOTEBOOKLM_VCR_RECORD_ERRORS`` is documented as test-only.
-    Pre-Tier-12, leaving it set in a deploy env would silently wrap the
-    production transport in the legacy ``_SyntheticErrorTransport``. After
-    Tier-12 the activation moved into ``ErrorInjectionMiddleware``, but
-    the operator-visible blast radius is the same (every chain call
-    returns a fake response). The guard remains load-bearing.
+    ``NOTEBOOKLM_VCR_RECORD_ERRORS`` is documented as test-only. Leaving it
+    set in a deploy env would activate ``ErrorInjectionMiddleware`` so every
+    chain call returns a fake response. The guard remains load-bearing.
 
     The guard fires only when:
 

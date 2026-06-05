@@ -2907,6 +2907,68 @@ class ChalkClient:
         """
         ...
 
+    def delete_model_namespace(
+        self,
+        name: str,
+    ) -> GetRegisteredModelResponse:
+        """Delete a model namespace from the Chalk model registry.
+
+        This archives the model and all of its versions. **The underlying model
+        artifact data for those versions is permanently deleted from storage**
+        (any artifact not still referenced by another version). A model cannot
+        be deleted while it is referenced by the active deployment or a scaling
+        group.
+
+        Parameters
+        ----------
+        name
+            Name of the model namespace to delete.
+
+        Returns
+        -------
+        GetRegisteredModelResponse
+            The archived model.
+
+        Examples
+        --------
+        >>> from chalk.client import ChalkClient
+        >>> client = ChalkClient()
+        >>> client.delete_model_namespace(name="RiskModel")
+        """
+        ...
+
+    def delete_model_version(
+        self,
+        name: str,
+        version: int,
+    ) -> GetRegisteredModelVersionResponse:
+        """Delete a single model version from the Chalk model registry.
+
+        This archives the given version. **The underlying model artifact data is
+        permanently deleted from storage** (unless the artifact is still
+        referenced by another version). A version cannot be deleted while it is
+        referenced by the active deployment or a scaling group.
+
+        Parameters
+        ----------
+        name
+            Name of the model the version belongs to.
+        version
+            Version number to delete.
+
+        Returns
+        -------
+        GetRegisteredModelVersionResponse
+            The archived model version.
+
+        Examples
+        --------
+        >>> from chalk.client import ChalkClient
+        >>> client = ChalkClient()
+        >>> client.delete_model_version(name="RiskModel", version=1)
+        """
+        ...
+
     def deploy_model_version_to_scaling_group(
         self,
         name: str,

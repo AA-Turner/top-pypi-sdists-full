@@ -519,7 +519,7 @@ class DHCPOptionsReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_ec2 as interfaces_ec2
             
-            d_hCPOptions_reference = interfaces_ec2.DHCPOptionsReference(
+            d_hcp_options_reference = interfaces_ec2.DHCPOptionsReference(
                 dhcp_options_id="dhcpOptionsId"
             )
         '''
@@ -617,7 +617,7 @@ class EIPAssociationReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_ec2 as interfaces_ec2
             
-            e_iPAssociation_reference = interfaces_ec2.EIPAssociationReference(
+            e_ip_association_reference = interfaces_ec2.EIPAssociationReference(
                 eip_association_id="eipAssociationId"
             )
         '''
@@ -667,7 +667,7 @@ class EIPReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_ec2 as interfaces_ec2
             
-            e_iPReference = interfaces_ec2.EIPReference(
+            e_ip_reference = interfaces_ec2.EIPReference(
                 allocation_id="allocationId",
                 public_ip="publicIp"
             )
@@ -3343,7 +3343,7 @@ class IPAMAllocationReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_ec2 as interfaces_ec2
             
-            i_pAMAllocation_reference = {
+            i_pam_allocation_reference = {
                 "cidr": "cidr",
                 "ipam_pool_allocation_id": "ipamPoolAllocationId",
                 "ipam_pool_id": "ipamPoolId"
@@ -3418,7 +3418,7 @@ class IPAMPoolCidrReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_ec2 as interfaces_ec2
             
-            i_pAMPool_cidr_reference = {
+            i_pam_pool_cidr_reference = {
                 "ipam_pool_cidr_id": "ipamPoolCidrId",
                 "ipam_pool_id": "ipamPoolId"
             }
@@ -3483,7 +3483,7 @@ class IPAMPoolReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_ec2 as interfaces_ec2
             
-            i_pAMPool_reference = {
+            i_pam_pool_reference = {
                 "ipam_pool_arn": "ipamPoolArn",
                 "ipam_pool_id": "ipamPoolId"
             }
@@ -3551,7 +3551,7 @@ class IPAMPrefixListResolverReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_ec2 as interfaces_ec2
             
-            i_pAMPrefix_list_resolver_reference = {
+            i_pam_prefix_list_resolver_reference = {
                 "ipam_prefix_list_resolver_arn": "ipamPrefixListResolverArn",
                 "ipam_prefix_list_resolver_id": "ipamPrefixListResolverId"
             }
@@ -3619,7 +3619,7 @@ class IPAMPrefixListResolverTargetReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_ec2 as interfaces_ec2
             
-            i_pAMPrefix_list_resolver_target_reference = {
+            i_pam_prefix_list_resolver_target_reference = {
                 "ipam_prefix_list_resolver_target_arn": "ipamPrefixListResolverTargetArn",
                 "ipam_prefix_list_resolver_target_id": "ipamPrefixListResolverTargetId"
             }
@@ -3679,7 +3679,7 @@ class IPAMReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_ec2 as interfaces_ec2
             
-            i_pAMReference = {
+            i_pam_reference = {
                 "ipam_arn": "ipamArn",
                 "ipam_id": "ipamId"
             }
@@ -3747,7 +3747,7 @@ class IPAMResourceDiscoveryAssociationReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_ec2 as interfaces_ec2
             
-            i_pAMResource_discovery_association_reference = {
+            i_pam_resource_discovery_association_reference = {
                 "ipam_resource_discovery_association_arn": "ipamResourceDiscoveryAssociationArn",
                 "ipam_resource_discovery_association_id": "ipamResourceDiscoveryAssociationId"
             }
@@ -3815,7 +3815,7 @@ class IPAMResourceDiscoveryReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_ec2 as interfaces_ec2
             
-            i_pAMResource_discovery_reference = {
+            i_pam_resource_discovery_reference = {
                 "ipam_resource_discovery_arn": "ipamResourceDiscoveryArn",
                 "ipam_resource_discovery_id": "ipamResourceDiscoveryId"
             }
@@ -3880,7 +3880,7 @@ class IPAMScopeReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_ec2 as interfaces_ec2
             
-            i_pAMScope_reference = {
+            i_pam_scope_reference = {
                 "ipam_scope_arn": "ipamScopeArn",
                 "ipam_scope_id": "ipamScopeId"
             }
@@ -7359,7 +7359,7 @@ class LocalGatewayRouteTableVPCAssociationReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_ec2 as interfaces_ec2
             
-            local_gateway_route_table_vPCAssociation_reference = interfaces_ec2.LocalGatewayRouteTableVPCAssociationReference(
+            local_gateway_route_table_vpc_association_reference = interfaces_ec2.LocalGatewayRouteTableVPCAssociationReference(
                 local_gateway_route_table_vpc_association_id="localGatewayRouteTableVpcAssociationId"
             )
         '''
@@ -10553,7 +10553,7 @@ class VPCBlockPublicAccessExclusionReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_ec2 as interfaces_ec2
             
-            v_pCBlock_public_access_exclusion_reference = interfaces_ec2.VPCBlockPublicAccessExclusionReference(
+            v_pc_block_public_access_exclusion_reference = interfaces_ec2.VPCBlockPublicAccessExclusionReference(
                 exclusion_id="exclusionId"
             )
         '''
@@ -10602,7 +10602,7 @@ class VPCBlockPublicAccessOptionsReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_ec2 as interfaces_ec2
             
-            v_pCBlock_public_access_options_reference = interfaces_ec2.VPCBlockPublicAccessOptionsReference(
+            v_pc_block_public_access_options_reference = interfaces_ec2.VPCBlockPublicAccessOptionsReference(
                 account_id="accountId"
             )
         '''
@@ -10657,7 +10657,7 @@ class VPCCidrBlockReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_ec2 as interfaces_ec2
             
-            v_pCCidr_block_reference = interfaces_ec2.VPCCidrBlockReference(
+            v_pc_cidr_block_reference = interfaces_ec2.VPCCidrBlockReference(
                 vpc_cidr_block_id="vpcCidrBlockId",
                 vpc_id="vpcId"
             )
@@ -10717,7 +10717,7 @@ class VPCDHCPOptionsAssociationReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_ec2 as interfaces_ec2
             
-            v_pCDHCPOptions_association_reference = interfaces_ec2.VPCDHCPOptionsAssociationReference(
+            v_pcdhcp_options_association_reference = interfaces_ec2.VPCDHCPOptionsAssociationReference(
                 dhcp_options_id="dhcpOptionsId",
                 vpc_id="vpcId"
             )
@@ -10776,7 +10776,7 @@ class VPCEncryptionControlReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_ec2 as interfaces_ec2
             
-            v_pCEncryption_control_reference = interfaces_ec2.VPCEncryptionControlReference(
+            v_pc_encryption_control_reference = interfaces_ec2.VPCEncryptionControlReference(
                 vpc_encryption_control_id="vpcEncryptionControlId"
             )
         '''
@@ -10831,7 +10831,7 @@ class VPCEndpointConnectionNotificationReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_ec2 as interfaces_ec2
             
-            v_pCEndpoint_connection_notification_reference = interfaces_ec2.VPCEndpointConnectionNotificationReference(
+            v_pc_endpoint_connection_notification_reference = interfaces_ec2.VPCEndpointConnectionNotificationReference(
                 vpc_endpoint_connection_notification_id="vpcEndpointConnectionNotificationId"
             )
         '''
@@ -10880,7 +10880,7 @@ class VPCEndpointReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_ec2 as interfaces_ec2
             
-            v_pCEndpoint_reference = interfaces_ec2.VPCEndpointReference(
+            v_pc_endpoint_reference = interfaces_ec2.VPCEndpointReference(
                 vpc_endpoint_id="vpcEndpointId"
             )
         '''
@@ -10929,7 +10929,7 @@ class VPCEndpointServicePermissionsReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_ec2 as interfaces_ec2
             
-            v_pCEndpoint_service_permissions_reference = interfaces_ec2.VPCEndpointServicePermissionsReference(
+            v_pc_endpoint_service_permissions_reference = interfaces_ec2.VPCEndpointServicePermissionsReference(
                 service_id="serviceId"
             )
         '''
@@ -10978,7 +10978,7 @@ class VPCEndpointServiceReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_ec2 as interfaces_ec2
             
-            v_pCEndpoint_service_reference = interfaces_ec2.VPCEndpointServiceReference(
+            v_pc_endpoint_service_reference = interfaces_ec2.VPCEndpointServiceReference(
                 service_id="serviceId"
             )
         '''
@@ -11028,7 +11028,7 @@ class VPCGatewayAttachmentReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_ec2 as interfaces_ec2
             
-            v_pCGateway_attachment_reference = interfaces_ec2.VPCGatewayAttachmentReference(
+            v_pc_gateway_attachment_reference = interfaces_ec2.VPCGatewayAttachmentReference(
                 attachment_type="attachmentType",
                 vpc_id="vpcId"
             )
@@ -11087,7 +11087,7 @@ class VPCPeeringConnectionReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_ec2 as interfaces_ec2
             
-            v_pCPeering_connection_reference = interfaces_ec2.VPCPeeringConnectionReference(
+            v_pc_peering_connection_reference = interfaces_ec2.VPCPeeringConnectionReference(
                 vpc_peering_connection_id="vpcPeeringConnectionId"
             )
         '''
@@ -11136,7 +11136,7 @@ class VPCReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_ec2 as interfaces_ec2
             
-            v_pCReference = interfaces_ec2.VPCReference(
+            v_pc_reference = interfaces_ec2.VPCReference(
                 vpc_id="vpcId"
             )
         '''
@@ -11185,7 +11185,7 @@ class VPNConcentratorReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_ec2 as interfaces_ec2
             
-            v_pNConcentrator_reference = interfaces_ec2.VPNConcentratorReference(
+            v_pn_concentrator_reference = interfaces_ec2.VPNConcentratorReference(
                 vpn_concentrator_id="vpnConcentratorId"
             )
         '''
@@ -11234,7 +11234,7 @@ class VPNConnectionReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_ec2 as interfaces_ec2
             
-            v_pNConnection_reference = interfaces_ec2.VPNConnectionReference(
+            v_pn_connection_reference = interfaces_ec2.VPNConnectionReference(
                 vpn_connection_id="vpnConnectionId"
             )
         '''
@@ -11292,7 +11292,7 @@ class VPNConnectionRouteReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_ec2 as interfaces_ec2
             
-            v_pNConnection_route_reference = interfaces_ec2.VPNConnectionRouteReference(
+            v_pn_connection_route_reference = interfaces_ec2.VPNConnectionRouteReference(
                 destination_cidr_block="destinationCidrBlock",
                 vpn_connection_id="vpnConnectionId"
             )
@@ -11351,7 +11351,7 @@ class VPNGatewayReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_ec2 as interfaces_ec2
             
-            v_pNGateway_reference = interfaces_ec2.VPNGatewayReference(
+            v_pn_gateway_reference = interfaces_ec2.VPNGatewayReference(
                 vpn_gateway_id="vpnGatewayId"
             )
         '''
@@ -11400,7 +11400,7 @@ class VPNGatewayRoutePropagationReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_ec2 as interfaces_ec2
             
-            v_pNGateway_route_propagation_reference = interfaces_ec2.VPNGatewayRoutePropagationReference(
+            v_pn_gateway_route_propagation_reference = interfaces_ec2.VPNGatewayRoutePropagationReference(
                 vpn_gateway_route_propagation_id="vpnGatewayRoutePropagationId"
             )
         '''

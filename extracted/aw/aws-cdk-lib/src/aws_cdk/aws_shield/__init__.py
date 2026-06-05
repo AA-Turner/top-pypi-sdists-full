@@ -119,7 +119,7 @@ class CfnDRTAccess(
         # The values are placeholders you should change.
         from aws_cdk import aws_shield as shield
         
-        cfn_dRTAccess = shield.CfnDRTAccess(self, "MyCfnDRTAccess",
+        cfn_drt_access = shield.CfnDRTAccess(self, "MyCfnDRTAccess",
             role_arn="roleArn",
         
             # the properties below are optional
@@ -273,7 +273,7 @@ class CfnDRTAccessProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_shield as shield
             
-            cfn_dRTAccess_props = shield.CfnDRTAccessProps(
+            cfn_drt_access_props = shield.CfnDRTAccessProps(
                 role_arn="roleArn",
             
                 # the properties below are optional

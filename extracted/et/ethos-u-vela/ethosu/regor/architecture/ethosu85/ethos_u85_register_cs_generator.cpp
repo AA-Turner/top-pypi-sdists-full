@@ -30,7 +30,6 @@
 #define NPU_DISASSEMBLE
 #define NPU_NAMESPACE ethosu85
 #include "ethos_u85_interface.hpp"
-#include "ethos_u85_scaling.hpp"
 
 #include <deque>
 #include <unordered_map>
@@ -351,6 +350,10 @@ pooling_mode GetPoolingMode(const HLCOperation *op)
         // SUM when kernel size > 8x8
         mode = (kernelSize.x <= 8 && kernelSize.y <= 8) ? pooling_mode::AVERAGE : pooling_mode::SUM;
     }
+    else if ( opType == OpType::SumPool )
+    {
+        mode = pooling_mode::SUM;
+    }
     else if ( opType == OpType::MaxPool || opType == OpType::ReduceMax || opType == OpType::ReduceAll )
     {
         mode = pooling_mode::MAX;
@@ -413,22 +416,22 @@ void EthosU85RCSGenerator::Emit(uint64_t instr)
     _emit.Emit(instr);
 }
 
-
-int EthosU85RCSGenerator::GetDoubleBufferOffset(HLCWeights *weights, int rangeIndex)
+namespace
 {
-    int doubleBufferOffset = 0;
+
+unsigned GetDoubleBufferIndex(HLCWeights *weights, int rangeIndex)
+{
     if ( weights->buffering == Buffering::Double )
     {
         assert(weights->subStreams > 0);
-        int depthIndex = rangeIndex / weights->subStreams;
-        if ( depthIndex % 2 == 1 )
-        {
-            doubleBufferOffset = weights->doubleBufferOffset;
-        }
+        assert(rangeIndex >= 0);
+        unsigned depthIndex = unsigned(rangeIndex / weights->subStreams);
+        return depthIndex % 2;
     }
-    return doubleBufferOffset;
+    return 0;
 }
 
+}  // namespace
 
 void EthosU85RCSGenerator::CheckAddressRange(ArchitectureMemory *memory, Address address, int size)
 {
@@ -699,32 +702,39 @@ int EthosU85RCSGenerator::Disassemble(const uint32_t *in, std::string &op, std::
 void EthosU85RCSGenerator::GenerateOFMScalingForPooling(HLCOperation *poolOp, bool useGlobalScale)
 {
     QuantizedScale ofmScale(1, 0);
-    pooling_mode mode = (poolOp->type == OpType::AvgPool && (poolOp->kernel.Size().x > 8 || poolOp->kernel.Size().y > 8)) ? pooling_mode::SUM : pooling_mode::NONE;
+    bool isNoOp = _arch->UseAvgPoolNop(poolOp->type);
 
-    if ( mode == pooling_mode::SUM && useGlobalScale && !poolOp->ofm.quantization.scales.empty() )
+    if ( useGlobalScale && !poolOp->ofm.quantization.scales.empty() )
     {
-        uint32_t scale = 1;
-        int shift = 0;
-        QuantizePoolingScale(poolOp->kernel.ElementsWH(), GetScaleFactor(poolOp), 0, scale, shift, 31);
-        ofmScale = QuantizedScale(int32_t(scale), shift);
+        ofmScale = poolOp->ofm.quantization.scales[0];
+        assert(unsigned(ofmScale.shift) < 64);
     }
-    else if ( poolOp->type == OpType::ArgMax && useGlobalScale )
+    if ( poolOp->type == OpType::AvgPool && GetPoolingMode(poolOp) == pooling_mode::SUM )
     {
+        // AvgPool with pooling_mode::SUM needs special ofm-scaling
+        // to compensate for the sum of the kernel elements.
+        assert(useGlobalScale && "AvgPool without global scaling");
+        uint32_t multiplier = 1;
+        int shift = 0;
+        if ( QuantizedScale::ReduceScale(ofmScale) != QuantizedScale::Unit() )
+        {
+            // average-pooling with fused scale
+            // compute OFM-scaling both based on ofmScale and kernel-sum
+            QuantizePoolingScaleMaxPrecision(poolOp->kernel.ElementsWH(), ofmScale.Dequantize(), multiplier, shift, 31);
+        }
+        else
+        {
+            QuantizePoolingScale(poolOp->kernel.ElementsWH(), 1.0, 0, multiplier, shift, 31);
+        }
+        ofmScale = QuantizedScale(int32_t(multiplier), shift);
+    }
+    else if ( poolOp->type == OpType::ArgMax )
+    {
+        assert(useGlobalScale && "argmax without global scaling");
         // Argmax requires custom scaling to separate values and indices
-        // We don't use RescalePooling as this is true regardless of QuantizationType
         const auto &unitQuant = Quantization::Unit();
         assert((poolOp->ofm.quantization.scales.empty() || poolOp->ofm.quantization.EqualScales(unitQuant)) && "Argmax without unit scale");
         ofmScale = QuantizedScale(1, 16);
-    }
-    else
-    {
-        bool isNoOp = _arch->UseAvgPoolNop(poolOp->type);
-        ethosU85Scaling::RescalePooling(poolOp, isNoOp);
-        if ( useGlobalScale && !poolOp->ofm.quantization.scales.empty() )
-        {
-            ofmScale = poolOp->ofm.quantization.scales[0];
-            assert(unsigned(ofmScale.shift) < 64);
-        }
     }
     Emit(isa::npu_set_ofm_scale_t(uint32_t(ofmScale.shift), 0, GetOfmRoundingMode(poolOp), ofmScale.scale));
 }
@@ -734,12 +744,10 @@ void EthosU85RCSGenerator::GenerateScalingForElementwise(HLCOperation *op)
 {
     auto opType = op->type;
     int ifmCnt = int(op->ifm.size());
-    bool setIfmDoubleRound = op->ifm[0].quantization.type == QuantizationType::TFLITE;
 
     QuantizedScale input1Scale(QuantizedScale::Unit());
     QuantizedScale input2Scale(QuantizedScale::Unit());
     QuantizedScale outScale(QuantizedScale::Unit());
-    ethosU85Scaling::RescaleElementwise(op);
 
     auto ifmRoundMode = GetIfmRoundingMode(op, 0);
     uint32_t ifmDoubleRound = 0;
@@ -755,14 +763,18 @@ void EthosU85RCSGenerator::GenerateScalingForElementwise(HLCOperation *op)
 
     if ( opType == OpType::LeakyRelu )
     {
-        // input2Scale is used for alpha
-        input2Scale = op->ifm[0].quantization.scales.back();
+        // input1Scale is used for rescaling and input2Scale is used for alpha.
+        double ofmScale = op->ofm.quantization.Scale().Dequantize();
+        double ifmScale = op->ifm[0].quantization.Scale().Dequantize();
+        input1Scale = QuantizedScale(float(ifmScale) / float(ofmScale));
+        input2Scale = QuantizedScale(float(op->parameters.leaky_relu.alpha) * float(ifmScale) / float(ofmScale));
+        outScale = QuantizedScale::Unit();
         ifmCnt = 2;
     }
     else if ( opType == OpType::Add || opType == OpType::Sub )
     {
         // Double round is used to compensate for the left shift that happens in AdvancedElementwiseAddSubScale
-        if ( setIfmDoubleRound ) ifmDoubleRound = op->ifm[0].dataType == DataType::Int8 ? 20 : 15;
+        ifmDoubleRound = op->parameters.double_round.shift;
     }
 
     // Check that scaling is valid
@@ -1362,8 +1374,6 @@ void EthosU85RCSGenerator::GenerateWeights(const HLCStripe *stripe, MemoryAccess
         return;
     }
 
-    EthosU85OpConfig *config = static_cast<EthosU85OpConfig *>(stripe->operation->config);
-
     auto wgtFormat = (weights->format % WeightFormat::Fast) ? weight_format::FWD : weight_format::SWD;
     auto wgtSparsity = (weights->format % WeightFormat::Sparse2_4) ? weight_sparsity::SPARSE_2_4 : weight_sparsity::NONE;
     Emit(isa::npu_set_weight_format_t(wgtFormat, wgtSparsity));
@@ -1379,14 +1389,14 @@ void EthosU85RCSGenerator::GenerateWeights(const HLCStripe *stripe, MemoryAccess
         if ( item != weights->encodedRanges.end() )
         {
             const auto &range = item->second;
-            int doubleBufferOffset = GetDoubleBufferOffset(weights, range.index);
-            address = weights->address + offset + range.weightOffset + doubleBufferOffset;
+            unsigned int doubleBufferIndex = GetDoubleBufferIndex(weights, range.index);
+            address = weights->address[doubleBufferIndex] + offset + range.weightOffset;
             length = RoundAway(range.weightBytes, 16);
             CheckAddressRange(weights->memArea.memory, address, length);
             memoryAccesses.emplace_back(AccessDirection::Read, weights->memArea, address, address + length);
             offset += RoundAway(range.TotalBytes(), 16);
         }
-
+        assert(address % 16 == 0);
         switch ( i )
         {
             case 0:
@@ -1425,17 +1435,18 @@ void EthosU85RCSGenerator::GenerateScales(const HLCStripe *stripe, MemoryAccesse
     auto item0 = scales->encodedRanges.find(WeightKey(0, depth));
     assert(item0 != scales->encodedRanges.end());
     auto &range0 = item0->second;
-    Address address = scales->address;
+    Address address;
     if ( scales->buffering == Buffering::None )
     {
         // For unbuffered scales, address points to the buffer that contains the encoded weights for all slices
-        address += range0.offset;
+        address = scales->address[0] + range0.offset;
     }
     else
     {
         // For buffered scales, address points to the buffer in fast storage that contains the encoded weights of one
         // (if single buffered) or two (if double buffered) slices
-        address += GetDoubleBufferOffset(scales, range0.index);
+        unsigned int doubleBufferIndex = GetDoubleBufferIndex(scales, range0.index);
+        address = scales->address[doubleBufferIndex];
     }
     int length = RoundAway(range0.scaleBytes, 16);
 
@@ -1652,84 +1663,6 @@ EthosU85RCSGenerator::InsertLUTDMACommands(std::vector<std::unique_ptr<HighLevel
     return result;
 }
 
-// Converts TILE operations into 3D (or 2D) DMA operations
-std::vector<std::unique_ptr<HighLevelCommand>>
-EthosU85RCSGenerator::InsertTileDMACommands(std::vector<std::unique_ptr<HighLevelCommand>> &cmds)
-{
-    // reshape to 3D-tensor where the width-axis is being tiled
-    static auto reshapeFunc = [](Shape &shape, int tiledAxis)
-    {
-        int height = 1;
-        int channel = 1;
-        // all axes before tiledAxis are reshaped to height
-        for ( int i = 0; i < tiledAxis; i++ )
-        {
-            height *= shape[i];
-        }
-        // all axes after tiledAxis are reshaped to channel
-        for ( int i = tiledAxis + 1; i < shape.Size(); i++ )
-        {
-            channel *= shape[i];
-        }
-        shape = {1, height, shape[tiledAxis], channel};
-    };
-
-    std::vector<std::unique_ptr<HighLevelCommand>> result;
-    for ( auto &hlc : cmds )
-    {
-        if ( hlc->CommandType() == HighLevelCommandType::STRIPE )
-        {
-            auto stripe = static_cast<HLCStripe *>(hlc.get());
-            auto op = stripe->operation;
-            if ( op->type == OpType::Tile )
-            {
-                // convert tile-operation to multiple DMA operations
-                auto &ifm = op->ifm[0];
-                auto &ofm = op->ofm;
-                // max-height for 2D/3D DMA operations
-                constexpr int maxHeight = (1 << 16) - 1;
-                int elemSize = DataTypeSizeBits(ifm.dataType) / 8;
-                assert(ifm.format == TensorFormat::NHWC);
-                assert(ofm.format == TensorFormat::NHWC);
-                const auto &tileParams = op->parameters.tile;
-                reshapeFunc(ifm.shape, tileParams.axis);
-                reshapeFunc(ofm.shape, tileParams.axis);
-                auto srcStrides = Shape::GetStridesForShape(ifm.shape, {1, 1, 1, elemSize});
-                auto dstStrides = Shape::GetStridesForShape(ofm.shape, {1, 1, 1, elemSize});
-                int srcheightOffset = 0;
-                int dstheightOffset = 0;
-                int height = ifm.shape.Height();
-                // Decompose height in slices if needed
-                while ( height > 0 )
-                {
-                    int heightSlice = std::min(height, maxHeight);
-                    for ( int i = 0; i < tileParams.multiplier; i++ )
-                    {
-                        // create 2D/3D DMA that copies ifm to ofm
-                        int dstWidthOffset = i * ifm.shape.Width() * srcStrides.Width();
-                        auto dma = std::make_unique<HLCDMA>();
-                        dma->srcMemArea = ifm.memArea;
-                        dma->srcAddress = ifm.address + srcheightOffset;
-                        dma->srcStrides = srcStrides;
-                        dma->length = ifm.shape.Depth() * elemSize;
-                        dma->sizes = Shape(heightSlice, ifm.shape.Width());
-                        dma->destMemArea = ofm.memArea;
-                        dma->destAddress = ofm.address + dstheightOffset + dstWidthOffset;
-                        dma->destStrides = dstStrides;
-                        result.push_back(std::move(dma));
-                    }
-                    height -= heightSlice;
-                    srcheightOffset += heightSlice * srcStrides.Height();
-                    dstheightOffset += heightSlice * dstStrides.Height();
-                }
-                continue;
-            }
-        }
-        result.push_back(std::move(hlc));
-    }
-    return result;
-}
-
 //----------------------------------------------------------------------
 // Operations
 //----------------------------------------------------------------------
@@ -1808,7 +1741,7 @@ void EthosU85RCSGenerator::GenerateCommon(const HLCStripe *stripe, bool useGloba
         dataType = _arch->UseNullPool(op->type, DataTypeSizeBits(op->ifm[0].dataType)) ? DataType::Int8 : op->ifm[0].dataType;
     GenerateIFMPrecision(op->ifm[0], ifmChained, isScalar, dataType);
     assert(!stripe->stripeAreas.empty());
-    auto &ifmArea = stripe->stripeAreas[0].ifmAreas.at(0);
+    const auto &ifmArea = stripe->stripeAreas[0].ifmAreas.at(0);
     GenerateIFM(op->type, op->ifm[0], ifmArea, isScalar, scalarValue, ifmCb, ifm2Chained);
     if ( !isScalar && !ifmChained )
     {
@@ -1844,11 +1777,6 @@ void EthosU85RCSGenerator::GenerateConvolutionOp(const HLCStripe *stripe, Memory
     QuantizedScale ofmScale(1, 0);
     bool useGlobalScale = false;
 
-    // Fuse IFM/IFM2/Weights/OFM scales into one global OFM scale. This function only does something if we still have
-    // not converted the op to EXPLICIT quantization, meaning it must be a conv-like TFLite op with dynamic weights (for
-    // example CONV2D with dynamic weights) or IFM2 (for example MATMUL).
-    ethosU85Scaling::RescaleConvolution(op);
-
     if ( op->ifm.size() == 2 )
     {
         GenerateIFM2Precision(op->ifm[1], false, false);
@@ -1882,8 +1810,8 @@ void EthosU85RCSGenerator::GeneratePoolingOp(HLCStripe *stripe, MemoryAccesses &
     bool useGlobalScale = !op->scales;
     DataType ifmType = op->ifm[0].dataType;
     EthosU85OpConfig *config = static_cast<EthosU85OpConfig *>(stripe->operation->config);
-    // 32-bit reduce-sum cannot use 48-bit accumulation
-    assert(!(op->type == OpType::ReduceSum && ifmType == DataType::Int32 && config->_accumulatorType == EthosU85Accumulator::Acc48));
+    // Reduce-sum cannot use 48-bit accumulation
+    assert(!(op->type == OpType::ReduceSum && config->_accumulatorType == EthosU85Accumulator::Acc48));
     if ( _arch->UseNullPool(opType, DataTypeSizeBits(ifmType)) )
     {
         assert(!stripe->stripeAreas.empty());
@@ -2070,6 +1998,10 @@ std::shared_ptr<HLCStripe> EthosU85RCSGenerator::MakeStripeForSubOp(HLCStripe *s
     {
         op->parameters.leaky_relu = subOp.parameters.leaky_relu;
     }
+    else if ( subOp.type == OpType::Add || subOp.type == OpType::Sub )
+    {
+        op->parameters.double_round = subOp.parameters.double_round;
+    }
     op->config = stripe->operation->config;
     std::shared_ptr<HLCStripe> newStripe = std::make_shared<HLCStripe>(op);
 
@@ -2185,10 +2117,12 @@ void EthosU85RCSGenerator::GenerateDMA(const HLCDMA *dma, MemoryAccesses &memory
     Emit(isa::npu_set_dma0_dst_t(dma->destAddress));
     assert(dma->length > 0);
     Emit(isa::npu_set_dma0_len_t(dma->length));
-
-    if ( srcStrideMode != dma_stride_mode::D1 )
+    if ( srcStrideMode == dma_stride_mode::D1 )
     {
-        // Registers for 2D and 3D mode
+        Emit(isa::npu_set_dma0_size0_t(1));
+    }
+    else
+    {
         assert(size0 > 0);
         Emit(isa::npu_set_dma0_size0_t(size0));
     }
@@ -2280,7 +2214,6 @@ std::vector<uint32_t> EthosU85RCSGenerator::GenerateCommandStream(
     _opToLutSlot.clear();
     GenerateInitialRegisterSetup();
     auto cmds = InsertLUTDMACommands(highLevelCommandStream);
-    cmds = InsertTileDMACommands(cmds);
     std::deque<MemoryAccesses> outstandingDmaAccesses;
     std::deque<MemoryAccesses> outstandingNpuAccesses;
     int maxOutstandingDMAOps = _arch->MaxOutstandingDMAOps();

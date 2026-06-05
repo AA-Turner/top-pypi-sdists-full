@@ -5947,7 +5947,7 @@ class CfnStack(
         id: builtins.str,
         *,
         notification_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-        parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         template_url: typing.Optional[builtins.str] = None,
         timeout_in_minutes: typing.Optional[jsii.Number] = None,
@@ -6136,14 +6136,14 @@ class CfnStack(
     @jsii.member(jsii_name="parameters")
     def parameters(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''The set value pairs that represent the parameters passed to CloudFormation when this nested stack is created.'''
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], jsii.get(self, "parameters"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "parameters"))
 
     @parameters.setter
     def parameters(
         self,
-        value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__26855905eda83610dba6ef5eae36ae6d595846a274f432b31c16b01c431139bd)
@@ -6311,7 +6311,7 @@ class CfnStackProps:
         self,
         *,
         notification_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-        parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         template_url: typing.Optional[builtins.str] = None,
         timeout_in_minutes: typing.Optional[jsii.Number] = None,
@@ -6380,7 +6380,7 @@ class CfnStackProps:
     @builtins.property
     def parameters(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''The set value pairs that represent the parameters passed to CloudFormation when this nested stack is created.
 
         Each parameter has a name corresponding to a parameter defined in the embedded template and a value representing the value that you want to set for the parameter.
@@ -6395,7 +6395,7 @@ class CfnStackProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-stack.html#cfn-cloudformation-stack-parameters
         '''
         result = self._values.get("parameters")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
@@ -10007,7 +10007,7 @@ def _typecheckingstub__b03b296829d4f2eb356ceeb892ed7d61908e69c4949bd797def9d9980
     id: builtins.str,
     *,
     notification_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-    parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     template_url: typing.Optional[builtins.str] = None,
     timeout_in_minutes: typing.Optional[jsii.Number] = None,
@@ -10040,7 +10040,7 @@ def _typecheckingstub__d66d5e1fe390793c13ae8f3762505ddcb7c4e44a03b219a7d65987bc8
     pass
 
 def _typecheckingstub__26855905eda83610dba6ef5eae36ae6d595846a274f432b31c16b01c431139bd(
-    value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10076,7 +10076,7 @@ def _typecheckingstub__a4b95d92bea1984ce15e37fa304b047ed771a4f764d414ffac3281574
 def _typecheckingstub__4da59ffe076e92fe1011ac29ca869d93a69d1442f3b7a0d1c765cca951d09b20(
     *,
     notification_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-    parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     template_url: typing.Optional[builtins.str] = None,
     timeout_in_minutes: typing.Optional[jsii.Number] = None,

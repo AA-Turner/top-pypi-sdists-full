@@ -1873,7 +1873,7 @@ class MLTransformReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_glue as interfaces_glue
             
-            m_lTransform_reference = interfaces_glue.MLTransformReference(
+            m_l_transform_reference = interfaces_glue.MLTransformReference(
                 ml_transform_id="mlTransformId"
             )
         '''

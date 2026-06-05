@@ -184,7 +184,7 @@ class SandboxStoreHandlerMixin:
         if fileHelper:
             hdHash = fileHelper.getHash()
         else:
-            oMD5 = hashlib.md5()
+            oMD5 = hashlib.md5(usedforsecurity=False)
             with open(hdPath, "rb") as fd:
                 bData = fd.read(10240)
                 while bData:
@@ -374,7 +374,7 @@ class SandboxStoreHandlerMixin:
         if filePath.startswith("/S3"):
             with TheImpersonator(credDict, source="SandboxStore") as client:
                 res = client.jobs.get_sandbox_file(pfn=filePath)
-                r = requests.get(res.url)
+                r = requests.get(res.url, timeout=30)
                 r.raise_for_status()
                 sbData = r.content
                 if fileHelper:

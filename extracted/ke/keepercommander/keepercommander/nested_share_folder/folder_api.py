@@ -21,6 +21,7 @@ from .common import (
     resolve_uid_email, encrypt_for_recipient, load_user_public_key,
     parse_folder_access_result,
     resolve_team_identifier, get_team_keys, encrypt_for_team,
+    handle_share_invite,
 )
 from .permissions import (
     FolderUsageType, SetBooleanValue, resolve_role_name, ROLE_NAME_MAP,
@@ -93,7 +94,7 @@ def _prepare_folder_for_creation(params, folder_uid, folder_name, parent_uid,
                              else SetBooleanValue.BOOLEAN_FALSE),
         color=color)
     fd.folderKey = encrypted_fk
-    return fd
+    return fd, folder_key
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -173,13 +174,14 @@ def resolve_folder_identifier(params, folder_identifier):
 def create_folder_v3(params, folder_name, parent_uid=None, color=None,
                      inherit_permissions=True):
     uid = utils.generate_uid()
-    fd = _prepare_folder_for_creation(params, uid, folder_name, parent_uid,
-                                       color, inherit_permissions)
+    fd, folder_key = _prepare_folder_for_creation(
+        params, uid, folder_name, parent_uid, color, inherit_permissions)
     response = folder_add_v3(params, [fd])
     if response.folderAddResults:
         r = response.folderAddResults[0]
         return {
             'folder_uid': uid,
+            'folder_key_unencrypted': folder_key,
             'status': folder_pb2.FolderModifyStatus.Name(r.status),
             'message': r.message,
             'success': r.status == folder_pb2.SUCCESS,
@@ -190,20 +192,22 @@ def create_folder_v3(params, folder_name, parent_uid=None, color=None,
 def create_folders_batch_v3(params, folder_specs):
     if len(folder_specs) > 100:
         raise ValueError("Maximum 100 folders at a time")
-    fd_list, uid_map = [], {}
+    fd_list, uid_map, key_map = [], {}, {}
     for idx, spec in enumerate(folder_specs):
         uid = utils.generate_uid()
         uid_map[idx] = uid
         name = spec.get('name')
         if not name:
             raise ValueError(f"Spec at index {idx} missing 'name'")
-        fd = _prepare_folder_for_creation(
+        fd, folder_key = _prepare_folder_for_creation(
             params, uid, name, spec.get('parent_uid'),
             spec.get('color'), spec.get('inherit_permissions', True))
         fd_list.append(fd)
+        key_map[idx] = folder_key
     response = folder_add_v3(params, fd_list)
     return [{
         'folder_uid': uid_map.get(i, utils.base64_url_encode(r.folderUid)),
+        'folder_key_unencrypted': key_map.get(i),
         'name': folder_specs[i].get('name'),
         'status': folder_pb2.FolderModifyStatus.Name(r.status),
         'message': r.message,
@@ -336,9 +340,15 @@ def grant_folder_access_v3(params, folder_uid, user_uid, role='viewer',
         user_email = user_uid if is_email else None
         if is_email:
             try:
-                user_public_key, use_ecc, actual_uid_bytes, _inv = get_user_public_key(params, user_email)
+                user_public_key, use_ecc, actual_uid_bytes, needs_invite = \
+                    get_user_public_key(params, user_email)
             except Exception as e:
                 raise ValueError(f"User '{user_email}' not found or has no public key. {e}")
+            if not user_public_key:
+                handle_share_invite(params, user_email, needs_invite)
+                raise ValueError(f"User '{user_email}' has no public key")
+            if not actual_uid_bytes:
+                raise ValueError(f"User '{user_email}' not found")
         else:
             actual_uid_bytes, user_email = resolve_uid_email(params, user_uid)
             if not actual_uid_bytes:

@@ -27,6 +27,7 @@ from .linker_impl import (
     validate_module_access,
     validate_references,
 )
+from .tenancy_inject import inject_partition_key
 
 
 class RenderValidationError(ValueError):
@@ -209,6 +210,12 @@ def build_appspec(
     # read these columns. Project-declared fields with the same name
     # take precedence — explicit always wins.
     entities = _inject_signable_fields(entities)
+
+    # 9f. Inject the framework-owned tenant discriminator (RLS tenancy Phase A).
+    # Runs here — after merge (tenancy is available) and after all other entity
+    # injection, but before the FK graph — so the injected `tenant_id` is seen by
+    # the FK graph, scope-predicate compilation, converters, and schema gen.
+    entities = inject_partition_key(list(entities), merged_fragment.tenancy)
 
     # 10. Build FK graph and compile scope predicates
     from .ir.fk_graph import FKGraph
@@ -581,6 +588,13 @@ _SIGNABLE_AUTO_FIELDS: tuple[tuple[str, FieldType, tuple[FieldModifier, ...]], .
     ("signed_at", FieldType(kind=FieldTypeKind.DATETIME), (FieldModifier.OPTIONAL,)),
     ("expires_at", FieldType(kind=FieldTypeKind.DATETIME), (FieldModifier.OPTIONAL,)),
 )
+
+# Public, ordered tuple of the column names auto-injected on `signable: true`
+# entities. Each is a plain single-column scalar/datetime/enum/file field, so the
+# column name equals the field name — used by the schema-drift detector
+# (`dazzle db verify`, #1340) to flag a signable table frozen at a stale shape
+# before a create 500s on a missing signing column.
+SIGNABLE_AUTO_FIELD_NAMES: tuple[str, ...] = tuple(name for name, _t, _m in _SIGNABLE_AUTO_FIELDS)
 
 
 def _inject_signable_fields(entities: list[ir.EntitySpec]) -> list[ir.EntitySpec]:

@@ -69,6 +69,14 @@ int TensorAllocationBytes(const Shape &shape, TensorFormat format, DataType dtyp
     return RoundAway(DataTypeStorageSizeBytes(dtype, storageShape.Elements()), AllocationQuantum);
 }
 
+const LRMemory &Schedule::MemoryAt(int timeIndex) const
+{
+    static LRMemory s_empty;
+    return (timeIndex >= 0 && timeIndex < int(memorySnapshot.size())) ? memorySnapshot[timeIndex] : s_empty;
+}
+
+
+
 Scheduler::Scheduler(Architecture *arch, const SchedulerOptions &options, const std::string &name,
     std::vector<std::unique_ptr<SchedulerOperation>> &ops, const SchedulerOpConfigMap &opConfigCompatablility) :
         _ops(ops),
@@ -167,7 +175,8 @@ std::shared_ptr<Schedule> Scheduler::Process()
 
     if ( !AllocateAddresses(chosenSchedule.get()) )
     {
-        throw std::runtime_error("Failed to allocate tensors\n");
+        int used = chosenSchedule->memoryUsage[_arch->StagingMemory()];
+        throw std::runtime_error(fmt::format("Failed to allocate tensors. Memory used {}, limit {})\n", used, _options.optimizationStagingLimit));
     }
 
     return chosenSchedule;
@@ -214,6 +223,21 @@ static bool CheckLinearFormatForConcatSplit(SchedulerTensor *tensor)
     return false;
 }
 
+// Align stripes so that height is a multiple of the upscaling-factor
+Shape Scheduler::AlignStripe(const SchedulerOperation *schedOp, const Shape &stripe)
+{
+    auto ifm = schedOp->TryIFM(0);
+    auto ofm = schedOp->TryOFM();
+    if ( !ofm || !ifm ) return stripe;
+    if ( stripe != ofm->SliceShape() )
+    {
+        // striped operation, align stripe-height with upscaling factor
+        int rounding = 0;
+        int upscale = _arch->UpscaleAndRounding(ifm->resamplingMode, rounding);
+        return stripe.WithHeight(RoundAway(stripe.Height(), upscale));
+    }
+    return stripe;
+}
 
 int Scheduler::UpdateSchedulerTensor(TensorUsage usage, SchedulerConnection *conn, std::unordered_set<UniqueId> &visited)
 {
@@ -257,12 +281,6 @@ int Scheduler::UpdateSchedulerTensor(TensorUsage usage, SchedulerConnection *con
                 tensor->needsLinearFormat = true;
                 continue;
             }
-            // TODO: Tile doesn't support brick format yet (MLBEDSW-9485)
-            else if ( producer->Type() == OpType::Tile )
-            {
-                tensor->needsLinearFormat = true;
-                continue;
-            }
             else if ( IsControlFlow(producer->Type()) )
             {
                 tensor->needsLinearFormat = true;
@@ -272,6 +290,9 @@ int Scheduler::UpdateSchedulerTensor(TensorUsage usage, SchedulerConnection *con
             {
                 ArchRequirements req;
                 ArchOperatorQuery query;
+                Set(query.ifm[0], producer->TryIFM(0));
+                Set(query.ifm[1], producer->TryIFM(1));
+                Set(query.ofm, producer->OFM());
                 query.transposeMask = producer->OFM()->transpose;
                 if ( _arch->Constraints()->OperatorQuery(producer->Type(), &query, &req).Any(QueryResult::Native) )
                 {
@@ -317,12 +338,6 @@ int Scheduler::UpdateSchedulerTensor(TensorUsage usage, SchedulerConnection *con
                 tensor->needsLinearFormat = true;
                 continue;
             }
-            // TODO: Tile doesn't support brick format yet (MLBEDSW-9485)
-            else if ( consumer->Type() == OpType::Tile )
-            {
-                tensor->needsLinearFormat = true;
-                continue;
-            }
             else if ( IsControlFlow(consumer->Type()) )
             {
                 tensor->needsLinearFormat = true;
@@ -360,6 +375,7 @@ int Scheduler::UpdateSchedulerTensor(TensorUsage usage, SchedulerConnection *con
             ArchOperatorQuery query;
             Set(query.ifm[0], consumer->TryIFM(0));
             Set(query.ifm[1], consumer->TryIFM(1));
+            Set(query.ofm, consumer->OFM());
             query.transposeMask = consumer->OFM()->transpose;
             for ( const auto [consumerUsage, connection] : consumer->inputs.pairs() )
             {
@@ -649,9 +665,8 @@ WeightScaleEncoding Scheduler::EncodeBestWeightFormat(
     auto scales = op->Input(TensorUsage::Scales);
     auto ifm = op->IFM(op->PrimaryIfmIndex());
     auto ifmType = ifm->Type();
-    // The operation might have been decomposed in depth dimension and have an offset
-    const int depthBase = op->OFM()->slice.offset ? op->OFM()->slice.offset.Depth() : 0;
-    std::vector<int> depthOffsets{depthBase, depthBase + ofmShape.Unpermute(uint32_t(op->OFM()->transpose)).Depth()};
+
+    std::vector<int> ofmDepthOffsets{0, ofmShape.Unpermute(uint32_t(op->OFM()->transpose)).Depth()};
 
     const std::array<WF, 4> formatList = {WF(WeightFormat::Default, WeightFormat::Sparse2_4), WF(WeightFormat::Default),
         WF(WeightFormat::Fast, WeightFormat::Sparse2_4), WF(WeightFormat::Fast)};
@@ -671,8 +686,8 @@ WeightScaleEncoding Scheduler::EncodeBestWeightFormat(
         try
         {
             WeightScaleEncoding encoding;
-            encoding.weightScales = EncodeWeightAndScaleTensor(op->Type(), std::move(encodingParams), depthOffsets,
-                weights->tensor.get(), scales->tensor.get(), weights->quantization, op->OFM()->quantization);
+            encoding.weightScales = EncodeWeightAndScaleTensor(op->Type(), std::move(encodingParams), op->weightDepthOffset,
+                ofmDepthOffsets, weights->tensor.get(), scales->tensor.get(), weights->quantization, op->OFM()->quantization);
 
             if ( checkFastDecoder &&
                  !UseFastDecoder(op, _options.optimizationStrategy, encoding.weightScales.npuWeightsTensor.get()) )
@@ -769,14 +784,7 @@ std::unique_ptr<SchedulerOpInfo> Scheduler::CreateSchedulerOpInfo(
     std::unique_ptr<ArchitectureOpConfig> blockConfig;
     if ( weights )
     {
-        if ( op->OFM()->quantization.type != QuantizationType::EXPLICIT )
-        {
-            auto scales = op->Input(TensorUsage::Scales);
-            auto temp = _arch->WeightEncoder()->MakeExplicit(ifm->quantization, weights->quantization,
-                op->OFM()->quantization, scales->Type(), ifm->Type(), op->Type());
-            op->OFM()->quantization = std::move(temp);
-            assert(op->OFM()->quantization.type == QuantizationType::EXPLICIT);
-        }
+        assert(op->OFM()->quantization.type == QuantizationType::EXPLICIT);
         auto weightEncoding = EncodeBestWeightFormat(op, ifmShape, ifm2Shape, ofmShape, weightFormat);
         blockConfig = std::move(weightEncoding.blockConfig);
         weightScales = weightEncoding.weightScales;
@@ -785,17 +793,18 @@ std::unique_ptr<SchedulerOpInfo> Scheduler::CreateSchedulerOpInfo(
     {
         blockConfig = parentInfo ? parentInfo->Config()->Clone() : GetOpConfig(op, ifmShape, ifm2Shape, ofmShape, weightFormat);
     }
+    assert((ofmShape == op->OFM()->SliceShape() || ofmShape.Height() % blockConfig->MinimalStripeGranule().y == 0) && "Stripe is not divisible with minimalStripeGranule");
     auto scales = op->TryInput(TensorUsage::Scales);
     if ( !weights && (op->OFM()->quantization.scales.size() > 1 || scales) )
     {
-        const int depthBase = op->OFM()->slice.offset ? op->OFM()->slice.offset.Depth() : 0;
-        std::vector<int> depthOffsets{depthBase, depthBase + ofmShape.Unpermute(uint32_t(op->OFM()->transpose)).Depth()};
+        std::vector<int> untransposedDepthOffsets{0, ofmShape.Unpermute(uint32_t(op->OFM()->transpose)).Depth()};
 
         // The operation might have been decomposed in depth dimension and have an offset
         auto encodingParams = _arch->WeightEncoder()->GetEncodingConfig(blockConfig.get(), op->Kernel(), ifm->Type(), weightFormat);
 
         const SchedulerTensor *scaleTensor = scales ? scales->tensor.get() : nullptr;
-        weightScales = EncodeQuantizationScaleTensor(op->Type(), std::move(encodingParams), depthOffsets, op->OFM()->quantization, scaleTensor);
+        weightScales = EncodeQuantizationScaleTensor(op->Type(), std::move(encodingParams), op->weightDepthOffset,
+            untransposedDepthOffsets, op->OFM()->quantization, scaleTensor);
     }
     // Finally construct and populate operator information (cost)
     auto opInfo = std::make_unique<SchedulerOpInfo>(std::move(blockConfig), ifmShape, ifm2Shape, ofmShape);
@@ -806,7 +815,7 @@ std::unique_ptr<SchedulerOpInfo> Scheduler::CreateSchedulerOpInfo(
 
 std::unique_ptr<Schedule> Scheduler::CreateInitialSchedule()
 {
-    auto schedule = std::make_unique<Schedule>(_name + "_MAX");
+    auto schedule = std::make_unique<Schedule>(_name + "_MAX", 0, _ops.size());
     for ( auto &op : _ops )
     {
         const auto ofm = op->OFM();
@@ -822,15 +831,11 @@ std::unique_ptr<Schedule> Scheduler::CreateInitialSchedule()
 
         if ( ofmShape && op->IsNpuOp() )
         {
-
             auto query = InitPerfQuery(
                 op.get(), cost->Config(), ofmShape.Depth(), WeightFormat::Default, cost.get(), schedule.get());
             cost->cycles = _arch->Performance()->MeasureCycleCost(query);
             cost->elementAccess = _arch->Performance()->MeasureElementAccess(query);
-        }
-        else
-        {
-            LOG_WARN("CPU performance estimation for \"{}\" not implemented\n", OpTypeToString(op->Type()));
+            cost->perf = EstimateSlicedOpPerformance(op.get(), cost.get(), cost->stripe.WH(), 0, Buffering::None);
         }
 
         schedule->SetCost(*op, std::move(cost));
@@ -894,14 +899,16 @@ bool Scheduler::AllocateAddresses(Schedule *schedule)
 {
     const auto verbose = _options.verboseAllocation;
     const auto reuseIfms = !_options.disabled.All(SchedulerFeature::ReuseIFM);
+    schedule->featureMapLRGraph = std::make_unique<LiveRangeGraph>(reuseIfms);
     // If graph input/outputs tensors are in FeatureMap memory, allocate with user-specified tensor alignment
-    AllocateTensors(_ops, schedule, _arch->FeatureMapMemory(), _options.tensorAllocator,
-        _options.separateIORegions ? NPUTensorAlignment : _options.cpuTensorAlignment, verbose, reuseIfms);
+    AllocateTensors(_ops, schedule, *schedule->featureMapLRGraph, _arch->FeatureMapMemory(), _options.tensorAllocator,
+        _options.separateIORegions ? NPUTensorAlignment : _options.cpuTensorAlignment, verbose);
     if ( _spilling )
     {
         const auto limit = _options.optimizationStagingLimit;
-        AllocateTensors(_ops, schedule, _arch->StagingMemory(), _options.tensorAllocator, NPUTensorAlignment, verbose, reuseIfms, limit);
-
+        schedule->stagingLRGraph = std::make_unique<LiveRangeGraph>(reuseIfms);
+        AllocateTensors(_ops, schedule, *schedule->stagingLRGraph, _arch->StagingMemory(), _options.tensorAllocator,
+            NPUTensorAlignment, verbose, limit);
         return schedule->memoryUsage[_arch->StagingMemory()] <= limit;
     }
     return true;
@@ -926,8 +933,11 @@ void Scheduler::AllocateIOAddresses(Schedule *schedule, const std::vector<std::u
     {
         assert(_arch->InputFeatureMapMemory() != _arch->OutputFeatureMapMemory());
 
-        AllocateTensors(ops, schedule, _arch->InputFeatureMapMemory(), TensorAllocator::LinearAlloc, NPUTensorAlignment, verbose, reuseIfms);
-        AllocateTensors(ops, schedule, _arch->OutputFeatureMapMemory(), TensorAllocator::LinearAlloc, NPUTensorAlignment, verbose, reuseIfms);
+        LiveRangeGraph inputLRGraph(false);
+        AllocateTensors(ops, schedule, inputLRGraph, _arch->InputFeatureMapMemory(), TensorAllocator::LinearAlloc, NPUTensorAlignment, verbose);
+        LiveRangeGraph outputLRGraph{false};
+        AllocateTensors(ops, schedule, outputLRGraph, _arch->OutputFeatureMapMemory(), TensorAllocator::LinearAlloc,
+            NPUTensorAlignment, verbose);
     }
 }
 
@@ -987,17 +997,16 @@ int Scheduler::ComputeLocalMemUsage(const SchedulerOperation &schedOp, const Sch
         opMemUsage += ifmConn->tensor->AllocationSizeBytes();
     }
 
-    const bool reuseOfmFlag = lrGraph.AreInSameRange(ifmConn->tensor.get(), ofmConn->tensor.get());
+    // This local-op memory is later reused when comparing a cascade proposal against running the same op on its own.
+    // For ops that are already in a cascade, still count a full OFM even if the live-range graph has fused the rolling
+    // buffer IFM and OFM, so that standalone-op cost is not understated.
+    const bool reuseOfmFlag = (cost.cascade == 0) && lrGraph.AreInSameRange(ifmConn->tensor.get(), ofmConn->tensor.get());
     if ( ofmConn->tensor->memArea == stagingMemory && !reuseOfmFlag )
     {
         opMemUsage += ofmConn->tensor->AllocationSizeBytes();
     }
 
-    if ( cost.bufferedWeightTensor.tensor && cost.bufferedWeightTensor.tensor->memArea == stagingMemory )
-    {
-        opMemUsage += cost.bufferedWeightTensor.tensor->AllocationSizeBytes();
-    }
-
+    opMemUsage += cost.bufferedWeightTensor.AllocatedSize();
     return opMemUsage;
 }
 
@@ -1037,27 +1046,25 @@ std::unordered_map<UniqueId, int> Scheduler::ComputeNonLocalUsage(Schedule *sche
 
 std::shared_ptr<Schedule> Scheduler::ProposeScheduleBuffering(Schedule *refSchedule, Address stagingLimitBytes)
 {
-    auto bufferedSchedule = std::make_shared<Schedule>(refSchedule->Name() + "_BUFFERED");
+    auto bufferedSchedule = std::make_shared<Schedule>(
+        refSchedule->Name() + "_BUFFERED", refSchedule->Start(), refSchedule->End());
     int stagingLimitClamped = int(std::min(INT64_C(1) << 30, stagingLimitBytes));
 
-    SchedulerOperation *prevOp = nullptr;
-    for ( auto const &schedOp : _ops )
-    {
-        SchedulerOpInfo *cost = refSchedule->Cost(schedOp.get());
-        // schedOp is not part of this sub-schedule - skip
-        if ( cost == nullptr )
-        {
-            continue;
-        }
+    bufferedSchedule->memorySnapshot = refSchedule->memorySnapshot;
 
-        ProposeOperatorBuffering(schedOp.get(), prevOp, bufferedSchedule.get(), refSchedule, stagingLimitClamped);
+    SchedulerOperation *prevOp = refSchedule->Start() > 0 ? _ops.at(refSchedule->Start() - 1).get() : nullptr;
+    for ( int pos = refSchedule->Start(); pos < refSchedule->End(); pos++ )
+    {
+        auto *schedOp = _ops.at(pos).get();
+
+        ProposeOperatorBuffering(schedOp, prevOp, bufferedSchedule.get(), refSchedule, stagingLimitClamped);
 
         // chained sub-operations
         for ( auto const &subOp : schedOp->SubOps() )
         {
             ProposeOperatorBuffering(subOp.get(), prevOp, bufferedSchedule.get(), refSchedule, stagingLimitClamped);
         }
-        prevOp = schedOp.get();
+        prevOp = schedOp;
     }
 
     return bufferedSchedule;
@@ -1073,23 +1080,33 @@ void Scheduler::ProposeOperatorBuffering(SchedulerOperation *schedOp, SchedulerO
         return;
     }
 
-    // Take the reference schedule as default costings for this schedule
+    // Take the reference schedule as default costings for this op
     auto refCost = refSchedule->Cost(schedOp);
     assert(refCost != nullptr);
     auto costCopy = std::make_unique<SchedulerOpInfo>(*refCost);
     auto cost = costCopy.get();
     bufferedSchedule->SetCost(*schedOp, std::move(costCopy));
 
+    // SubOps don't currently have slack or buffering (only the parent)
+    if ( schedOp->Parent() )
+    {
+        cost->slackBufferingMemory = 0;
+        cost->slackBufferingCycles = 0;
+        return;
+    }
+
     // Don't buffer non NPU operations
     if ( !schedOp->IsNpuOp() )
     {
         return;
     }
-    // Snapshot may already contain buffering, which the weight buffering function does not expect
-    int unwantedExistingBuffering = refCost->bufferedWeightTensor.tensor ? refCost->bufferedWeightTensor.tensor->AllocationSizeBytes() : 0;
-    int slackBufferingMemory = stagingLimitBytes - (refSchedule->MemoryUsageAt(refCost->timeIndex) - unwantedExistingBuffering);
 
-    cost->slackBufferingMemory = slackBufferingMemory;
+    // Snapshot may already contain this op's buffering, which the weight buffering function does not want
+    const auto &lrmem = bufferedSchedule->MemoryAt(refCost->timeIndex);
+    int used = std::max(lrmem.buffering - int(refCost->bufferedWeightTensor.AllocatedSize()), 0) + lrmem.Unbuffered();
+    // TODO: This is an unstable removal because you don't know which buffers are currently contributing.
+    // Instead the underlying memory tracking needs changing to use the liverange mechanism directly.
+    cost->slackBufferingMemory = std::max(stagingLimitBytes - used, 0);
     cost->slackBufferingCycles = refCost->cycles.opCycles;
 
     // Attempt weight buffering on anything with a weights tensor
@@ -1097,18 +1114,38 @@ void Scheduler::ProposeOperatorBuffering(SchedulerOperation *schedOp, SchedulerO
     if ( weights != nullptr )
     {
         auto scales = schedOp->Input(TensorUsage::Scales);
-        ProposeWeightBuffering(weights, scales, schedOp, prevOp, bufferedSchedule, refSchedule, slackBufferingMemory);
+        Buffering method = ProposeWeightBuffering(weights, scales, schedOp, prevOp, bufferedSchedule, refSchedule, cost->slackBufferingMemory);
+
+        // The cost of buffering needs propagating across the memory snapshot if we're
+        // sub schedule buffering.
+        if ( method != Buffering::None )
+        {
+            int partSize0 = cost->bufferedWeightTensor.tensor[0] ? cost->bufferedWeightTensor.tensor[0]->AllocationSizeBytes() : 0;
+            int partSize1 = cost->bufferedWeightTensor.tensor[1] ? cost->bufferedWeightTensor.tensor[1]->AllocationSizeBytes() : 0;
+            int peakBuffering = partSize0 + partSize1;
+
+            bufferedSchedule->memorySnapshot[cost->timeIndex].buffering += peakBuffering;
+            if ( cost->bufferedWeightTensor.preBuffer && cost->timeIndex > 0 )
+            {
+                bufferedSchedule->memorySnapshot[cost->timeIndex - 1].nonlocal += partSize0;
+            }
+        }
     }
 }
 
-static bool FulldepthWeightBuffering(const std::vector<std::unique_ptr<SchedulerOperation>> &ops, SchedulerTensor *weights,
+namespace
+{
+
+unsigned AdjacentWeightConsumers(const std::vector<std::unique_ptr<SchedulerOperation>> &ops, SchedulerTensor *weights,
     SchedulerOperation *schedOp, SchedulerOpInfo *cost, SchedulerOperation *prevOp, SchedulerOpInfo *prevCost, Schedule *refSchedule)
 {
-    bool forceFullDepthSlice = false;
+    unsigned adjacentConsumers = 1;
+    // TODO: Replace this mechanism with a weight tensor memory copy to a tensor
+    // located in staging.
     if ( weights->consumers.size() > 1u )
     {
         // Check for special case where several consecutive ops have the same weight tensor.
-        // If the weigths can fit entire in bufferLimit and the ops all have the same ofm depth slice
+        // If the weights can fit entire in bufferLimit and the ops all have the same ofm depth slice
         // only one dma transfer will be needed for the ops, see CoalesceWeightBufferTensors.
         // If this is the case ignore prebuffering and instead force a full depth slice
         auto cmpOp = prevOp;
@@ -1127,187 +1164,477 @@ static bool FulldepthWeightBuffering(const std::vector<std::unique_ptr<Scheduler
             cmpWeights = cmpOp->TryInput(TensorUsage::Weights);
         }
 
-        if ( cmpWeights != nullptr )
+        if ( cmpWeights != nullptr && cmpCost != nullptr )
         {
-            UniqueId weightsTensorId = weights->equivalenceId;
-            UniqueId cmpWeightsTensorId = cmpWeights->tensor->equivalenceId;
-
-            if ( cmpWeightsTensorId == weightsTensorId && cmpCost->ofmDepthSlices == cost->ofmDepthSlices )
+            if ( cmpWeights->tensor->equivalenceId == weights->equivalenceId &&
+                 cmpCost->ofmDepthSlices == cost->ofmDepthSlices && cmpOp->weightDepthOffset == schedOp->weightDepthOffset )
             {
-                forceFullDepthSlice = true;
+                adjacentConsumers = weights->consumers.size();
             }
         }
     }
 
-    return forceFullDepthSlice;
+    return adjacentConsumers;
 }
 
-void Scheduler::ProposeWeightBuffering(SchedulerConnection *weights, SchedulerConnection *scales, SchedulerOperation *schedOp,
-    SchedulerOperation *prevOp, Schedule *bufferedSchedule, Schedule *refSchedule, int bufferLimitBytes)
+Buffering TryWeightBuffering(NpuWeightTensor *npuWeightsTensor, int bufferLimitBytes, int partSizes[2])
 {
-    constexpr int OFMSplitDepth = 16;
+    const int encodedWeightsSize = npuWeightsTensor->AllocationSizeBytes();
+
+    // Determine whether to double buffer or single buffer
+    int doubleBufferSize = npuWeightsTensor->doubleBufferSizes[0] + npuWeightsTensor->doubleBufferSizes[1];
+    if ( (doubleBufferSize <= bufferLimitBytes) && (npuWeightsTensor->maxRangeBytes < encodedWeightsSize) )
+    {
+        if ( partSizes )
+        {
+            partSizes[0] = npuWeightsTensor->doubleBufferSizes[0];
+            partSizes[1] = npuWeightsTensor->doubleBufferSizes[1];
+        }
+        return Buffering::Double;
+    }
+
+    // Only buffer weights if there's still space left for the buffer
+    int weightBufferSize = std::min(encodedWeightsSize, npuWeightsTensor->maxRangeBytes);
+    if ( weightBufferSize <= bufferLimitBytes )
+    {
+        if ( partSizes )
+        {
+            partSizes[0] = weightBufferSize;
+            partSizes[1] = 0;
+        }
+        return Buffering::Single;
+    }
+
+    // No buffering
+    partSizes[0] = partSizes[1] = 0;
+    return Buffering::None;
+}
+
+bool PreferFutureOpPerformance(SchedulerOperation *schedOp, Schedule *refSchedule, const EstimatedPerf &perf,
+    SchedulerOpInfo *curCost, SchedulerOpInfo *prevCost, int bufferingSize)
+{
+    auto ofm = schedOp->FinalSubOFM();
+
+    // Future op is not op dominated, it has weights, and its IFM is a problem
+    SchedulerOperation *consumerOp = ofm->tensor->consumers.empty() ? nullptr : ofm->tensor->consumers.front();
+
+    SchedulerOpInfo *consumerCost = consumerOp ? refSchedule->Cost(consumerOp) : nullptr;
+    if ( consumerCost && !consumerCost->perf.OpDominated() && consumerCost->perf.IfmRatio() > 2.0f &&
+         (consumerCost->perf.weightReadCycles > 0) && (consumerCost->perf.ifmSizeBytes < curCost->slackBufferingMemory) )
+    {
+        // This op's OFM is the future op's IFM and it doesn't all fit
+        if ( (consumerCost->perf.ifmSizeBytes + perf.ifmSizeBytes + bufferingSize) > prevCost->slackBufferingMemory )
+        {
+            // Future IFM reads are worse than my IFM reads, abort buffering
+            // TODO: Test and choose to keep the correct combination of IFM/WGT/OFM
+            if ( curCost->perf.OpDominated() || (consumerCost->perf.ifmReadCycles > perf.ifmReadCycles) )
+            {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+
+}  // namespace
+
+
+EstimatedPerf Scheduler::EstimateSlicedOpPerformance(
+    SchedulerOperation *schedOp, SchedulerOpInfo *cost, const Point2i stripe, int slackCycles, Buffering buffering)
+{
+    auto *ofm = schedOp->OFM();
+
+    const int untransposedFullDepth = ofm->shape.Unpermute(uint32_t(ofm->transpose)).Depth();
+    const std::vector<int> &untransposedDepthSlices =
+        (ofm->transpose & TransposeType::MaskC) != TransposeType::C ? std::vector<int>{0, untransposedFullDepth} : cost->ofmDepthSlices;
+
+    return EstimateSlicedOpPerformance(schedOp, untransposedDepthSlices, cost->Config(), cost->npuWeightsTensor.get(),
+        cost->stagingPreference, stripe, slackCycles, buffering);
+}
+
+EstimatedPerf Scheduler::EstimateSlicedOpPerformance(SchedulerOperation *schedOp, const std::vector<int> &depthSlices, ArchitectureOpConfig *opConfig,
+    NpuWeightTensor *weights, Flags<StagingPref> stageFlags, const Point2i stripe, int slackCycles, Buffering buffering)
+{
+    EstimatedPerf result{};
+
+    auto *ifm = schedOp->IFM(0);
+    auto *ofm = schedOp->OFM();
+
+    // There must be either no transpose, or single-slice transpose
+    const int untransposedFullDepth = ofm->shape.Unpermute(uint32_t(ofm->transpose)).Depth();
+    assert((ofm->transpose & TransposeType::MaskC) == TransposeType::C || (untransposedFullDepth == depthSlices[1]));
+
+    double stripeRepeats = std::max(1.0, double(ofm->SliceShape().Height()) / stripe.y);
+    Flags<WeightFormat> weightFormat;
+    ArchitectureMemory *wgtMemory = nullptr;
+    if ( weights )
+    {
+        weightFormat = weights->config->Format();
+        wgtMemory = (stageFlags % StagingPref::Weights) ? _arch->StagingMemory().memory : weights->memArea.memory;
+    }
+
+    auto query = InitPerfQuery(schedOp, opConfig, 1, weightFormat, nullptr, nullptr);
+    query.weightStagingMemory = wgtMemory;  // TODO: Design out - stop passing weights via const[]
+
+    if ( stageFlags % StagingPref::IFM ) query.ifmMemory[0] = _arch->StagingMemory().memory;
+
+    // Striped OFM dimensions
+    query.ofmShape = Shape(1, stripe.y, stripe.x, 0);
+    auto inputArea = GetStripeInputRequirement(query.ofmShape, schedOp->Kernel(), ifm->stepXY, ifm->resamplingMode);
+    inputArea = Point2i::Min(inputArea, ifm->SliceShape().WH());
+    query.ifmShape[0] = Shape(1, inputArea.y, inputArea.x, ifm->SliceShape().Depth());
+
+    assert(depthSlices.size() > 1);
+    const unsigned slices = depthSlices.size() - 1;
+    assert(slices);
+
+    int totalWeightFetches = 0;
+    // Calculate total IFM and Weight reads
+    {
+        int64_t ifmRd = 0;
+        ElementAccess elementAccess;
+
+        for ( unsigned i = 0; i < slices; i++ )
+        {
+            int depth = depthSlices[i + 1] - depthSlices[i];
+            // Cache results for same-depth slices
+            if ( query.ofmShape[-1] != depth )
+            {
+                query.ofmShape[-1] = depth;
+                elementAccess = _arch->Performance()->MeasureElementAccess(query);
+                ifmRd = DataTypeStorageSizeBytes(ifm->Type(), elementAccess.ifmRead[0]);
+            }
+            result.ifmReadBytes += ifmRd;
+            if ( weights )
+            {
+                result.weightReadBytes += weights->rangeSizes[i] * elementAccess.weightsRefetch;
+                totalWeightFetches += elementAccess.weightsRefetch;
+            }
+        }
+
+        result.ifmSizeBytes = DataTypeStorageSizeBytes(ifm->Type(), query.ifmShape[0].Elements());
+    }
+
+    // Calculate the full, sliced, operator runtime taking into account
+    // any visible delay time spent buffering each slice.
+    int64_t visibleBufferCycles = 0;
+    int64_t runCycles = 0;
+    int64_t transferCycles = 0;
+    int64_t sliceCycles = 0;
+    OpScheduling sched = (slices == 1) ? OpScheduling::Single : OpScheduling::First;
+    bool transferRequired = weights && (weights->memArea.memory != query.weightStagingMemory);
+    for ( unsigned i = 0; i < slices; i++ )
+    {
+        int depth = depthSlices[i + 1] - depthSlices[i];
+        if ( i == slices - 1 && i != 0 ) sched = OpScheduling::Last;
+
+        query.ofmShape[-1] = depth;
+        query.scheduling = sched;
+
+        sliceCycles = _arch->Performance()->MeasureCycleCost(query).opCycles;
+
+        if ( transferRequired )
+        {
+            transferCycles = _arch->Performance()->MemToMemCycles(wgtMemory, weights->memArea.memory, weights->rangeSizes[i]);
+            // Track non-hidden transfer cycles under the previous slice
+            if ( transferCycles > slackCycles ) visibleBufferCycles += transferCycles - slackCycles;
+        }
+
+        runCycles += sliceCycles;
+        slackCycles = (buffering == Buffering::Double) ? sliceCycles : 0;
+        sched = OpScheduling::BackToBack;
+    }
+
+    result.lastSliceCycles = sliceCycles;
+    result.opRunCycles = int64_t(stripeRepeats * runCycles);
+    result.fullRunCycles = result.opRunCycles + visibleBufferCycles;
+    result.visibleBufferCycles = int(visibleBufferCycles);
+    if ( wgtMemory )
+    {
+        assert(totalWeightFetches > 0);
+        result.weightReadCycles =
+            _arch->Performance()->MinReadCycles(wgtMemory, result.weightReadBytes / totalWeightFetches,
+                TensorUsage::Weights, schedOp->Type(), weightFormat % WeightFormat::Fast) *
+            totalWeightFetches;
+    }
+
+    result.ifmReadCycles = _arch->Performance()->MinReadCycles(
+        query.ifmMemory[0], result.ifmReadBytes, TensorUsage::IFM, schedOp->Type(), false);
+
+    result.weightReadCycles = int64_t(stripeRepeats * result.weightReadCycles);
+    result.weightReadBytes = int64_t(stripeRepeats * result.weightReadBytes);
+    result.ifmReadCycles = int64_t(stripeRepeats * result.ifmReadCycles);
+
+    return result;
+}
+
+Buffering Scheduler::ProposeWeightBuffering(SchedulerConnection *weights, SchedulerConnection *scales,
+    SchedulerOperation *schedOp, SchedulerOperation *prevOp, Schedule *bufferedSchedule, Schedule *refSchedule, int bufferLimitBytes)
+{
     auto cost = bufferedSchedule->Cost(schedOp);
-    auto prevCost = bufferedSchedule->Cost(prevOp);
     auto refCost = refSchedule->Cost(schedOp);
+    auto ofm = schedOp->OFM();
+
+    assert(cost && refCost);
+    assert(cost->npuWeightsTensor);
+
+    // Only unstriped operators can be transposed in depth.
+    assert((ofm->transpose & TransposeType::MaskC) == TransposeType::C || refCost->stripe == ofm->shape);
+    const int fullDepthBeforeTransposition =
+        (refCost->stripe == ofm->shape) ? refCost->stripe.Unpermute(uint32_t(ofm->transpose)).Depth() : refCost->stripe.Depth();
+
+    // Default full-weight encoding
+    auto encodingParams = _arch->WeightEncoder()->GetEncodingConfig(
+        cost->Config(), schedOp->Kernel(), schedOp->IFM(0)->tensor->dataType, cost->npuWeightsTensor->config->Format());
+
+    std::vector<int> ofmFullDepthSlicesBeforeTransposition{0, fullDepthBeforeTransposition};
+
+    auto fullWeightScales = EncodeWeightAndScaleTensor(schedOp->Type(), std::move(encodingParams), schedOp->weightDepthOffset,
+        ofmFullDepthSlicesBeforeTransposition, weights->tensor.get(), scales->tensor.get(), weights->quantization, ofm->quantization);
+
+    cost->ofmDepthSlices = {0, refCost->stripe.Depth()};
+    cost->SetWeightScaleTensors(fullWeightScales.npuWeightsTensor, fullWeightScales.npuScalesTensor);
+
+    // Attempt different buffering strategies
+    if ( !_options.disabled.Any(SchedulerFeature::WeightBuffering) &&
+         !ProposeSlicedWeightBuffering(weights, scales, schedOp, prevOp, bufferedSchedule, refSchedule, bufferLimitBytes, fullDepthBeforeTransposition) )
+    {
+        // Don't slice or buffer - use the whole depth from persistent storage
+        cost->bufferedWeightTensor.buffering = Buffering::None;
+        cost->bufferedWeightTensor.parts = 0;
+        cost->bufferedWeightTensor.tensor[0] = nullptr;
+        cost->bufferedWeightTensor.tensor[1] = nullptr;
+        cost->bufferedWeightTensor.preBuffer = false;
+    }
+
+    return cost->bufferedWeightTensor.buffering;
+}
+
+bool Scheduler::ProposeSlicedWeightBuffering(SchedulerConnection *weights, SchedulerConnection *scales, SchedulerOperation *schedOp,
+    SchedulerOperation *prevOp, Schedule *bufferedSchedule, Schedule *refSchedule, int bufferLimitBytes, int untransposedFullDepth)
+{
+    constexpr int OFM_SPLIT_DEPTH = 16;
+    auto cost = bufferedSchedule->Cost(schedOp);
+    auto refCost = refSchedule->Cost(schedOp);
+    auto prevCost = bufferedSchedule->Cost(prevOp);
+    if ( !prevCost ) prevCost = refSchedule->Cost(prevOp);
     auto ifm = schedOp->IFM(0);
     auto ofm = schedOp->OFM();
 
     assert(cost && refCost);
 
-    // Weights are in permanent storage. When permanent storage differs from feature map storage,
-    // there is a point moving the data
+    LOG_TRACE1("#{}: Op '{}' OFM={}  kernel={}  config={}\n", schedOp->Index(), OpTypeToString(schedOp->Type()),
+        schedOp->OFM()->SliceShape().ToString(), schedOp->Kernel()->ToString(), cost->Config()->ToString(true));
+
+    enum class BufferingChoice
+    {
+        None,
+        ForceFullDepth,
+        Sliced,
+        SingleSlice,
+    } method = BufferingChoice::None;
+
+    // Weights start in permanent storage. When permanent storage differs from feature map storage,
+    // there is a point in moving the data
     auto weightTens = weights->tensor.get();
     auto scaleTens = scales->tensor.get();
+
     // No need to move the weights if they are already in the same memory as the staging area
-    bool needsDMA = weightTens->memArea.memory != _arch->StagingMemory().memory;
-
-    const auto &subOps = schedOp->SubOps();
-
-    assert(ofm->transpose == TransposeType::None || (ofm->transpose & TransposeType::MaskC) == TransposeType::C || refCost->stripe == ofm->shape);
-    const int fullDepthBeforeTransposition =
-        (refCost->stripe == ofm->shape) ? refCost->stripe.Unpermute(uint32_t(ofm->transpose)).Depth() : refCost->stripe.Depth();
-    const int fullDepthAfterTransposition = refCost->stripe.Depth();
-    // The operation might have been decomposed in depth dimension and have an offset
-    const int depthBase = ofm->slice.offset ? schedOp->OFM()->slice.offset.Depth() : 0;
-    std::vector<int> ofmFullDepthSlicesBeforeTransposition = {depthBase, depthBase + fullDepthBeforeTransposition};
-    std::vector<int> ofmFullDepthSlicesAfterTransposition = {0, fullDepthAfterTransposition};
-
-    assert(cost->npuWeightsTensor);
-    auto weightFormat = cost->npuWeightsTensor->config->Format();
-
-    auto encodingParams = _arch->WeightEncoder()->GetEncodingConfig(cost->Config(), schedOp->Kernel(), ifm->tensor->dataType, weightFormat);
-
-    auto fullWeightScales = EncodeWeightAndScaleTensor(schedOp->Type(), std::move(encodingParams),
-        ofmFullDepthSlicesBeforeTransposition, weightTens, scaleTens, weights->quantization, ofm->quantization);
-
-    int fullWeightsBytes = fullWeightScales.npuWeightsTensor->AllocationSizeBytes();
-
-    bool forceFullDepthSlice = false;
-    if ( fullWeightsBytes <= bufferLimitBytes )
-    {
-        forceFullDepthSlice = FulldepthWeightBuffering(_ops, weightTens, schedOp, cost, prevOp, prevCost, refSchedule);
-    }
+    // or weight buffering is disabled.
+    auto *stagingMemory = _arch->StagingMemory().memory;
+    const int fullWeightsBytes = cost->npuWeightsTensor->AllocationSizeBytes();
 
     // Estimate the buffering cycle time for the full set of weights
-    int64_t fullTransferCycles = _arch->Performance()->MemToMemCycles(_arch->StagingMemory().memory, weightTens->memArea.memory, fullWeightsBytes);
+    int64_t fullTransferCycles = _arch->Performance()->MemToMemCycles(stagingMemory, weightTens->memArea.memory, fullWeightsBytes);
+    cost->fullWeightTransferCycles = fullTransferCycles;
 
-
-    if ( _spilling && !forceFullDepthSlice )
+    // Buffering needs DMA if staging is different to storage
+    if ( weightTens->memArea.memory != stagingMemory )
     {
-        // To be refined and architecture specific depending on mem2mem characteristics and prebuffering
-        float bwRatio = std::round(
-            double(fullTransferCycles) /
+        // Cascade stripe count increases the weight refetch
+        const int stripeRepeats =
+            cost->cascade != 0 && cost->stripe.Height() ? DivRoundUp(ofm->SliceShape().Height(), cost->stripe.Height()) : 1;
+
+        const auto weightFormat = cost->npuWeightsTensor->config->Format();
+        const int refetches = refCost->elementAccess.weightsRefetch * stripeRepeats;
+
+        // Cycles taken to 'see' all the weights when left unbuffered
+        int64_t cyclesUnmoved =
             _arch->Performance()->MinReadCycles(weightTens->memArea.memory, fullWeightsBytes, TensorUsage::Weights,
-                schedOp->Type(), weightFormat % WeightFormat::Fast));
-        needsDMA = (cost->elementAccess.weightsRefetch > 2) || (cost->elementAccess.weightsRefetch == 2 && bwRatio < 2);
-    }
+                schedOp->Type(), weightFormat % WeightFormat::Fast) *
+            refetches;
 
-    // No buffering required - take all the weights from permanent storage
-    if ( (schedOp->Type() == OpType::FullyConnected && cost->elementAccess.weightsRefetch == 1) || !needsDMA ||
-         _arch->CanSubdivide(schedOp->Type(), ofm->transpose, ofm->reverse) == AxisMask::None || ofm->reverse == ReverseType::C ||
-         (ofm->transpose != TransposeType::None && (ofm->transpose & TransposeType::MaskC) != TransposeType::C) ||
-         _options.disabled.All(SchedulerFeature::WeightBuffering) )
-    {
-        cost->ofmDepthSlices = std::move(ofmFullDepthSlicesAfterTransposition);
-        // Make sure any former buffering cost is cleared
-        cost->bufferedWeightTensor.buffering = Buffering::None;
-        cost->bufferedWeightTensor.tensor = nullptr;
-        cost->bufferedWeightTensor.preBuffer = false;
-        cost->SetWeightScaleTensors(fullWeightScales.npuWeightsTensor, fullWeightScales.npuScalesTensor);
-        return;
-    }
+        // Cycles taken to 'see' all the weights when buffered
+        int64_t cyclesFromBuffer =
+            _arch->Performance()->MinReadCycles(stagingMemory, fullWeightsBytes, TensorUsage::Weights, schedOp->Type(), weightFormat % WeightFormat::Fast) * refetches;
 
-    auto encodedWeightScales = fullWeightScales;
-
-    // How many NPU cycles are available under the previously executing
-    // operator for performing buffered DMA transfers
-    int64_t slackCycles = (prevCost != nullptr) ? prevCost->slackBufferingCycles : 0;
-    int slackMemory = (prevCost != nullptr) ? prevCost->slackBufferingMemory : 0;
-
-    int weightBufferSize = 0;
-
-    // Force full depth for cascaded ops
-    if ( cost->cascade != 0 || forceFullDepthSlice )
-    {
-        weightBufferSize = fullWeightsBytes;
-        // Update the memory snapshot to reflect the added size of the weights
-        refSchedule->memorySnapshot[cost->timeIndex].buffering += weightBufferSize;  // TODO: Update via liverange
-    }
-    else
-    {
-        cost->fullWeightTransferCycles = fullTransferCycles;
-
-        // Calculate the amount of pre-buffering necessary (or what is possible with limited
-        // double buffer buffer size)
-        double prebufferRatio = 0;
-        const int halfBufferLimit = bufferLimitBytes / 2;
-        int prebufferBytes = std::min(fullWeightsBytes, halfBufferLimit);
-        if ( fullTransferCycles > slackCycles )
+        // We don't expect reads from staging to be slower
+        if ( cyclesFromBuffer >= cyclesUnmoved )
         {
-            prebufferRatio = double(slackCycles) / double(fullTransferCycles);
-            prebufferBytes = std::min(int(prebufferRatio * fullWeightsBytes), halfBufferLimit);
+            return false;  // No buffering
         }
 
-        prebufferRatio = double(prebufferBytes) / fullWeightsBytes;
+        // See if we can buffer in depth-slices
+        const bool transposedInDepth = (ofm->transpose & TransposeType::MaskC) != TransposeType::C;
+        bool canSlice =
+            (_arch->CanSubdivide(schedOp->Type(), ofm->transpose, ofm->reverse) != AxisMask::None) &&
+            (ofm->reverse != ReverseType::C) && !transposedInDepth;
+
+        // Cascades shouldn't be depth sliced at this time
+        canSlice = canSlice && (cost->cascade == 0);
+
+        const int fullConvDepth =
+            (transposedInDepth && (refCost->stripe == ofm->shape)) ? untransposedFullDepth : refCost->stripe.Depth();
+
+        // How many NPU cycles are available under the previously executing
+        // operator for performing buffered DMA transfers
+        int64_t slackCycles = (prevCost != nullptr) ? prevCost->slackBufferingCycles : 0;
+        const int slackMemory = (prevCost != nullptr) ? prevCost->slackBufferingMemory : bufferLimitBytes;
+        const int64_t smallestTransferTime = int64_t(fullTransferCycles * double(std::min(fullConvDepth, OFM_SPLIT_DEPTH)) / fullConvDepth);
+
+        // Partial check for prebuffering (clarified later) - we cannot prebuffer during cascades or at start of network
+        const bool allowPreBuffer = (schedOp->Index() != 0) && (cost->cascade == 0 || cost->firstInCascade);
+
+        // Allow initial buffering to occur at the start of a schedule only if it looks promising (tweakable)
+        const int STARTUP_DELAY_CYCLES = 1000;  // TODO: Affects small networks, model better in performance estimator
+        // If no preceding op, a transfer cost of 10% of the unmoved weight read time is enough to try buffering
+        const bool forceInitialBuffer =
+            (!prevOp || !prevOp->IsNpuOp()) && (refetches > 1) &&
+            ((smallestTransferTime < cyclesUnmoved / 10) || (smallestTransferTime <= STARTUP_DELAY_CYCLES));
+
+        // Does it take longer to run the op than it does to see all the unbuffered weights
+        const bool opcycleDominated = refCost->perf.opRunCycles > cyclesUnmoved;
+
+        // Pre-select a buffering method to shortcut wasteful weight encoding attempts.
+        {
+            const bool canFullDepthBuffer = (fullWeightsBytes <= bufferLimitBytes);
+            const unsigned weightConsumers = AdjacentWeightConsumers(_ops, weightTens, schedOp, cost, prevOp, prevCost, refSchedule);
+            const int64_t visibleFullTransferCycles = std::max<int64_t>(fullTransferCycles - slackCycles, 0);
+            const int64_t cyclesFullBuffered = cyclesFromBuffer + visibleFullTransferCycles;
+
+            if ( canSlice )
+            {
+                int expectedSlices = fullConvDepth / cost->Config()->OptimalDepthGranule();
+                // Try slicing if buffering is better than the op runtime, or if there's enough time to
+                // hide some buffering either before or inbetween slices.
+                if ( forceInitialBuffer || (cyclesFullBuffered < cyclesUnmoved) || (expectedSlices > 2) ||
+                     (allowPreBuffer && (smallestTransferTime < slackCycles && (refetches > 1))) )
+                {
+                    method = BufferingChoice::Sliced;
+                }
+            }
+
+            // Full depth buffer if we have to or if full buffering is sufficiently hidden (~95% covered,
+            // or leaves less than 1/20th of the transfer cycles visible)
+            int64_t staticTestCycles = DivRoundUp<int64_t>(visibleFullTransferCycles, stripeRepeats);
+            bool fullBufferingHidden = (visibleFullTransferCycles < (fullTransferCycles / 20)) || (staticTestCycles < STARTUP_DELAY_CYCLES);
+            if ( canFullDepthBuffer && (weightConsumers > 1 || (!canSlice && (fullBufferingHidden || forceInitialBuffer))) )
+            {
+                if ( (cyclesFullBuffered < cyclesUnmoved) || !opcycleDominated )
+                {
+                    // Must attempt full depth for the weight coalescing
+                    method = (weightConsumers > 1) ? BufferingChoice::ForceFullDepth : BufferingChoice::SingleSlice;
+                }
+            }
+        }
+
+        LOG_TRACE1("\t\tTry Method={}\n",
+            method == BufferingChoice::None ?
+                "None" :
+            (method == BufferingChoice::Sliced) ?
+                "sliced" :
+                "full");
+
+        if ( method == BufferingChoice::None )
+        {
+            return false;  // No buffering
+        }
+
+        // Calculate the amount of pre-buffering necessary (or what is possible with a limited
+        // double-buffer buffer size)
+        const int halfBufferLimit = bufferLimitBytes / 2;
+        double prebufferRatio = 1.0;  // start at full depth
+
+        if ( method == BufferingChoice::Sliced )
+        {
+            const double minSplitRatio = std::min(double(OFM_SPLIT_DEPTH) / fullConvDepth, 1.0);
+            const double halfSplitRatio = std::min(double(halfBufferLimit) / fullWeightsBytes, 1.0);
+            const double transferRatio = std::min(double(slackCycles) / fullTransferCycles, 1.0);
+
+            // Align and discard a prebuffer that leaves a singular small tail piece
+            double aligned = std::floor(transferRatio / minSplitRatio) * minSplitRatio;
+            prebufferRatio = (1.0 - aligned) < (minSplitRatio / 2) ? 1.0 : transferRatio;
+
+            if ( opcycleDominated && (prebufferRatio > 0.5) && (prebufferRatio < 1.0) )
+            {
+                // Round 50% up to nearest split depth
+                prebufferRatio = RoundAway(std::floor(fullConvDepth * 0.5), OFM_SPLIT_DEPTH) / fullConvDepth;
+                prebufferRatio = std::clamp(prebufferRatio, 0.5, 1.0);
+            }
+
+            prebufferRatio = std::min(std::max(prebufferRatio, minSplitRatio), halfSplitRatio);
+        }
+
+        std::vector<int> untransposedDepthSlices{0, fullConvDepth};
+        WeightScaleTensors encodedWeightScales{cost->npuWeightsTensor, 0, cost->npuScalesTensor};
+
+        const int configBlockDepth = cost->Config()->OptimalDepthGranule();
+        const int configMinDepth = cost->Config()->MinimumDepthGranule();
 
         // Have to split the weights if the initial buffering can't store
         // all of the compressed weights
-        if ( prebufferBytes < fullWeightsBytes )
+        if ( prebufferRatio < 1.0 )
         {
-            int blockDepth = cost->Config()->OptimalDepthGranule();
+            int bufferingDepth = 0;
 
             // Choose initial pre-buffering depth (already buffer clamped)
-            int prebufferDepth = int(refCost->stripe.Depth() * prebufferRatio);
-            prebufferDepth = int(std::max(16, RoundZero(prebufferDepth, OFMSplitDepth)));
-
-            // Calculate cycles executed during the pre-buffer
-            auto preOpCycles = EstimateOpPerformance(schedOp, cost->Config(), prebufferDepth);
-            int bufferingDepth = int((refCost->stripe.Depth() * preOpCycles.opCycles) / fullTransferCycles);
-
-            // Choose initial buffering depth and clamp to the double buffering limit
-            bufferingDepth = RoundAway(bufferingDepth, blockDepth);
-            int bufferingBytes = (bufferingDepth / refCost->stripe.Depth()) * fullWeightsBytes;
-            if ( bufferingBytes > halfBufferLimit )
+            int prebufferDepth = int(fullConvDepth * prebufferRatio);
+            prebufferDepth = std::max(RoundZero(prebufferDepth, configMinDepth), OFM_SPLIT_DEPTH);
+            if ( prebufferDepth < fullConvDepth )
             {
-                bufferingDepth = (halfBufferLimit * refCost->stripe.Depth()) / fullWeightsBytes;
+                // Calculate cycles executed during the pre-buffer
+                assert(prebufferDepth > 0);
+                auto preOpCycles = EstimateOpPerformance(
+                    schedOp, cost->Config(), prebufferDepth, weightFormat, stagingMemory, OpScheduling::First);
+
+                bufferingDepth = int((fullConvDepth * preOpCycles.opCycles) / fullTransferCycles);
+                bufferingDepth = RoundAway(std::max(bufferingDepth, OFM_SPLIT_DEPTH), configBlockDepth);
+
+                // Choose initial buffering depth and clamp to the double buffering limit
+                int bufferingBytes = int(double(bufferingDepth) / fullConvDepth * fullWeightsBytes);
+                if ( bufferingBytes > halfBufferLimit )
+                {
+                    bufferingDepth = int(double(halfBufferLimit) / fullWeightsBytes * fullConvDepth);
+                }
             }
 
-            while ( true )
+            while ( bufferingDepth != 0 )
             {
                 // Attempt to buffer whole blocks
-                if ( bufferingDepth > blockDepth )
-                {
-                    bufferingDepth = RoundZero(bufferingDepth, blockDepth);
-                }
-                else
-                {
-                    bufferingDepth = RoundZero(bufferingDepth, OFMSplitDepth);
-                }
-
-                bufferingDepth = int(std::max(bufferingDepth, OFMSplitDepth));
+                bufferingDepth = RoundZero(bufferingDepth, (bufferingDepth > configBlockDepth) ? configBlockDepth : configMinDepth);
+                bufferingDepth = std::max(bufferingDepth, configMinDepth);
 
                 // Create list of depth slices
-                std::vector<int> depthSlices = {depthBase};
-
-                for ( int depth = prebufferDepth; depth < refCost->stripe.Depth(); depth += bufferingDepth )
+                untransposedDepthSlices.clear();
+                untransposedDepthSlices.push_back(0);
+                for ( int depth = prebufferDepth; depth < fullConvDepth; depth += bufferingDepth )
                 {
-                    depthSlices.push_back(depthBase + depth);
+                    assert(prebufferDepth != 0);
+                    untransposedDepthSlices.push_back(depth);
                 }
-                depthSlices.push_back(depthBase + refCost->stripe.Depth());
+                untransposedDepthSlices.push_back(fullConvDepth);
 
-                // Encode weights based depth slices
-                cost->ofmDepthSlices = std::move(depthSlices);
-
-                encodingParams = _arch->WeightEncoder()->GetEncodingConfig(
+                auto encodingParams = _arch->WeightEncoder()->GetEncodingConfig(
                     cost->Config(), schedOp->Kernel(), ifm->tensor->dataType, weightFormat);
 
-                encodedWeightScales = EncodeWeightAndScaleTensor(schedOp->Type(), std::move(encodingParams),
-                    cost->ofmDepthSlices, weightTens, scaleTens, weights->quantization, ofm->quantization);
+                encodedWeightScales = EncodeWeightAndScaleTensor(schedOp->Type(), std::move(encodingParams), schedOp->weightDepthOffset,
+                    untransposedDepthSlices, weightTens, scaleTens, weights->quantization, ofm->quantization);
 
                 // Chosen buffering might not fit at all, iterate until it does
                 // or until the minimum usable slice size is reached
-                if ( encodedWeightScales.npuWeightsTensor->maxRangeBytes <= halfBufferLimit ||
-                     (prebufferDepth == OFMSplitDepth && bufferingDepth == OFMSplitDepth) )
+                if ( (encodedWeightScales.npuWeightsTensor->maxRangeBytes <= halfBufferLimit) ||
+                     (prebufferDepth == OFM_SPLIT_DEPTH && bufferingDepth == configMinDepth) )
                 {
                     break;
                 }
@@ -1315,65 +1642,164 @@ void Scheduler::ProposeWeightBuffering(SchedulerConnection *weights, SchedulerCo
                 // Failed to choose buffer sizes above, reduce them and try again
                 if ( bufferingDepth > prebufferDepth )
                 {
-                    bufferingDepth = RoundAway(bufferingDepth / 2, OFMSplitDepth);
+                    bufferingDepth = RoundAway(bufferingDepth / 2, configMinDepth);
                 }
                 else
                 {
-                    prebufferDepth = RoundAway(prebufferDepth / 2, OFMSplitDepth);
+                    prebufferDepth = RoundAway(prebufferDepth / 2, OFM_SPLIT_DEPTH);
                 }
             }
 
-            // Calculate cycles required to run the last op for use as future slack
-            assert(cost->ofmDepthSlices.size() >= 2);
-            int lastDepth = cost->ofmDepthSlices.back();
-            lastDepth -= *(cost->ofmDepthSlices.rbegin() + 1);
-            auto tailCycles = EstimateOpPerformance(schedOp, cost->Config(), lastDepth);
-            cost->slackBufferingCycles = tailCycles.opCycles;
+            // Utilisation is only checked for intermediate slices (not
+            // prebuffer and tail slices as they are allowed to be smaller)
+            if ( untransposedDepthSlices.size() > 3 )
+            {
+                assert(bufferingDepth);
+                float blockUtilisation = float(bufferingDepth) / RoundAway(bufferingDepth, configBlockDepth);
+                // Less than 30% of the block config depth is considered underutilised
+                if ( blockUtilisation < 0.3f && opcycleDominated )
+                {
+                    return false;  // No buffering
+                }
+            }
         }
-    }
 
-    // Determine whether the weights need to be double buffered
-    int encodedWeightsSize = encodedWeightScales.npuWeightsTensor->AllocationSizeBytes();
-    weightBufferSize = std::min(encodedWeightsSize, encodedWeightScales.npuWeightsTensor->maxRangeBytes);
-    int doubleBufferSize = encodedWeightScales.npuWeightsTensor->doubleBufferSize;
+        assert(untransposedDepthSlices.size() >= 2);
 
-    // Only buffer weights if there's still space left for the buffer
-    if ( weightBufferSize <= bufferLimitBytes )
-    {
-        assert(weightBufferSize % 16 == 0);  // NOTE: vague check, leave validation until later?
-
-        // Determine whether to double buffer or single buffer
-        Buffering buffering = Buffering::Single;
-        if ( (doubleBufferSize <= bufferLimitBytes) && (weightBufferSize < encodedWeightsSize) )
+        // Weight buffering can be either single or multi-slice as a result of above choices
+        int partSizes[2] = {};
+        auto buffering = TryWeightBuffering(encodedWeightScales.npuWeightsTensor.get(), bufferLimitBytes, partSizes);
+        if ( buffering == Buffering::None )
         {
-            weightBufferSize = doubleBufferSize;
-            buffering = Buffering::Double;
+            return false;  // No buffering
         }
+
+        int usableSlack = (allowPreBuffer && partSizes[0] < slackMemory) ? slackCycles : (forceInitialBuffer ? STARTUP_DELAY_CYCLES : 0);
+        cost->stagingPreference = StagingPref::None;
+
+        Flags<StagingPref> expected(StagingPref::Weights, cost->SourcesCascadeBuffer() ? StagingPref::IFM : StagingPref::None);
+        EstimatedPerf perf = EstimateSlicedOpPerformance(schedOp, untransposedDepthSlices, cost->Config(),
+            encodedWeightScales.npuWeightsTensor.get(), expected, cost->stripe.WH(), usableSlack, buffering);
+
+        // Evaluate sliced buffering performance
+        if ( method == BufferingChoice::Sliced || method == BufferingChoice::SingleSlice )
+        {
+            int64_t ifmReadCycles = perf.ifmReadCycles;
+
+            // Compare to IFM only if IFM can be moved.
+            if ( !ifm->tensor->producers.empty() && !cost->SourcesCascadeBuffer() &&
+                 !IsDataLayout(ifm->tensor->producers[0]->Type()) )
+            {
+                bool bothFit = (perf.ifmSizeBytes + partSizes[0] + partSizes[1]) <= bufferLimitBytes;
+
+                // Contrast just staging the old IFM against staging the weight slices
+                int64_t ifmOldStagedReadCycles = _arch->Performance()->MinReadCycles(_arch->StagingMemory().memory,
+                    refCost->perf.ifmReadBytes, TensorUsage::IFM, schedOp->Type(), false);
+                int64_t newPerfIfm = std::max({refCost->perf.opRunCycles, refCost->perf.weightReadCycles, ifmOldStagedReadCycles});
+                int64_t newPerfWgt = std::max({perf.fullRunCycles, perf.weightReadCycles, perf.ifmReadCycles});
+
+                if ( !bothFit && (perf.ifmSizeBytes < prevCost->slackBufferingMemory) && (newPerfIfm < newPerfWgt) &&
+                     (newPerfIfm < perf.ifmReadCycles) )
+                {
+                    cost->stagingPreference |= StagingPref::IFM;
+                    return false;  // No buffering
+                }
+
+                // Check future op
+                if ( PreferFutureOpPerformance(schedOp, refSchedule, perf, cost, prevCost, partSizes[0] + partSizes[1]) )
+                {
+                    return false;  // No buffering
+                }
+
+                if ( bothFit )
+                {
+                    cost->stagingPreference |= StagingPref::IFM;
+                    ifmReadCycles = _arch->Performance()->MinReadCycles(
+                        _arch->StagingMemory().memory, perf.ifmReadBytes, TensorUsage::IFM, schedOp->Type(), false);
+                }
+            }
+
+            // Check that performance is improved and the choices don't underutilise the system (technically
+            // multiplied by stripeRepeats, but not needed for relative comparison). This guesses where the IFM
+            // will be staged (same for both choices).
+            int64_t originalPerf = std::max({refCost->perf.opRunCycles, refCost->perf.weightReadCycles, ifmReadCycles});
+            int64_t newPerf = std::max({perf.fullRunCycles, perf.weightReadCycles, ifmReadCycles});
+
+            // POOR PERFORMANCE ESTIMATION COMPENSATION: Remove scheduling noise from
+            // op-dominated estimates. Because the estimator always measures true op-
+            // dominated ops as being the same, regardless of slicing, it's hard to
+            // tell if the startup delay is relevant or not.
+            unsigned slices = untransposedDepthSlices.size() - 1;
+            if ( opcycleDominated )
+            {
+                int visiblePerSlice = perf.visibleBufferCycles / slices;
+                if ( visiblePerSlice < STARTUP_DELAY_CYCLES )
+                {
+                    newPerf -= perf.visibleBufferCycles;
+                }
+                // If we were op dominated and we are now sliced and still op dominated then remove
+                // scheduling 'noise' from the slicing. This observes that cutting an OFM into pieces
+                // allows some scheduling overlap that the estimator isn't measuring.
+                if ( (slices > 1) && (perf.fullRunCycles == newPerf) && forceInitialBuffer )
+                {
+                    newPerf -= slices * (STARTUP_DELAY_CYCLES / 2);
+                }
+            }
+
+            // Take the buffering option if it looks the SAME or BETTER
+            if ( (originalPerf < newPerf) || (refetches == 1 && (fullTransferCycles + perf.weightReadCycles > originalPerf)) )
+            {
+                return false;  // No buffering
+            }
+        }
+
+        // Commit to the encoded weights based on these depth slices
+        if ( !transposedInDepth )
+        {
+            cost->ofmDepthSlices = std::move(untransposedDepthSlices);
+        }
+        else
+        {
+            assert(untransposedDepthSlices.size() == 2);
+            cost->ofmDepthSlices = {0, refCost->stripe.Depth()};
+        }
+        cost->perf = perf;
 
         // Create a new tensor in fast storage to use as weights buffer
-        cost->bufferedWeightTensor.tensor = std::make_shared<SchedulerTensor>();
-        cost->bufferedWeightTensor.tensor->SetAllocatedSize(weightBufferSize);
-        cost->bufferedWeightTensor.tensor->memArea = _arch->StagingMemory();
-        cost->bufferedWeightTensor.buffering = buffering;
+        cost->bufferedWeightTensor.tensor[0] = std::make_shared<SchedulerTensor>(DataType::UInt8, Shape(partSizes[0]));
+        cost->bufferedWeightTensor.tensor[0]->SetInternalName(fmt::format(
+            "WB_{}_{}_op{}", buffering == Buffering::Double ? "double" : "single", partSizes[0], schedOp->Index()));
+        cost->bufferedWeightTensor.tensor[0]->SetAllocatedSize(partSizes[0]);
+        cost->bufferedWeightTensor.tensor[0]->memArea = _arch->StagingMemory();
+        cost->bufferedWeightTensor.parts = 1;
 
-        if ( cost->cascade == 0 )
+        if ( buffering == Buffering::Double )
         {
-            // Determine if the lifetime can be extended and pre-buffer weights under the previous operation
-            cost->bufferedWeightTensor.preBuffer = (weightBufferSize < slackMemory);
+            cost->bufferedWeightTensor.tensor[1] = std::make_shared<SchedulerTensor>(DataType::UInt8, Shape(partSizes[1]));
+            cost->bufferedWeightTensor.tensor[1]->SetInternalName(
+                fmt::format("WB_double2_{}_op{}", partSizes[1], schedOp->Index()));
+            cost->bufferedWeightTensor.tensor[1]->SetAllocatedSize(partSizes[1]);
+            cost->bufferedWeightTensor.tensor[1]->memArea = _arch->StagingMemory();
+            cost->bufferedWeightTensor.parts = 2;
         }
 
-        cost->slackBufferingMemory -= weightBufferSize;
+        cost->bufferedWeightTensor.buffering = buffering;
+        cost->bufferedWeightTensor.preBuffer = allowPreBuffer && (partSizes[0] < slackMemory);
+        cost->slackBufferingCycles = perf.lastSliceCycles;
+        cost->stagingPreference |= StagingPref::Weights;
+        const unsigned lastSlicePart = (cost->ofmDepthSlices.size() - 2) % cost->bufferedWeightTensor.parts;
+        cost->slackBufferingMemory -= partSizes[lastSlicePart];
+        cost->SetWeightScaleTensors(encodedWeightScales.npuWeightsTensor, encodedWeightScales.npuScalesTensor);
     }
-    else
-    {
-        // Don't slice or buffer - use the whole depth from persistent storage
-        cost->ofmDepthSlices = std::move(ofmFullDepthSlicesAfterTransposition);
-        cost->bufferedWeightTensor.buffering = Buffering::None;
-        cost->bufferedWeightTensor.tensor = nullptr;
-        cost->bufferedWeightTensor.preBuffer = false;
-        encodedWeightScales = std::move(fullWeightScales);
-    }
-    cost->SetWeightScaleTensors(encodedWeightScales.npuWeightsTensor, encodedWeightScales.npuScalesTensor);
+
+    LOG_TRACE1("\t\tChose Method={}\n",
+        method == BufferingChoice::None ?
+            "None" :
+        (method == BufferingChoice::Sliced && cost->ofmDepthSlices.size() > 2) ?
+            "sliced" :
+            "full");
+
+    return (method != BufferingChoice::None);
 }
 
 
@@ -1381,7 +1807,7 @@ std::shared_ptr<Schedule> Scheduler::ProposeMinimalSchedule()
 {
     // Proposes scheduling parameters where every operator is subdivided into the smallest stripe that
     // satisfies the next operators stride
-    auto minSchedule = std::make_shared<Schedule>(_name + "_MIN");
+    auto minSchedule = std::make_shared<Schedule>(_name + "_MIN", 0, _ops.size());
 
     // Keep track of the previous Op - which consumes the current Op's OFM
     SchedulerOperation *prevOp = nullptr;
@@ -1401,6 +1827,8 @@ std::shared_ptr<Schedule> Scheduler::ProposeMinimalSchedule()
             minStripeHeight = isNextAccKeep || isAccKeep ? ofmShape.Height() : prevOp->Kernel()->Stride().y;
         }
         Shape minStripe = Shape::PadAxes(ofmShape, 3, 1).WithHeight(minStripeHeight);
+        // Align stripe based on resamplingMode
+        minStripe = AlignStripe(schedOp.get(), minStripe);
         auto cost = CreateSchedulerOpInfo(schedOp.get(), minStripe);
         for ( auto &subOp : schedOp->SubOps() )
         {
@@ -1410,17 +1838,13 @@ std::shared_ptr<Schedule> Scheduler::ProposeMinimalSchedule()
             minSchedule->SetCost(*subOp, std::move(subCost));
         }
 
-        if ( !schedOp->IsNpuOp() )
+        if ( ofmShape && schedOp->IsNpuOp() )
         {
-            LOG_WARN("CPU performance estimation for \"{}\" not implemented\n", OpTypeToString(schedOp->Type()));
-        }
-        else if ( ofmShape )
-        {
-
             auto query = InitPerfQuery(
                 schedOp.get(), cost->Config(), ofmShape.Depth(), WeightFormat::Default, cost.get(), minSchedule.get());
             cost->cycles = _arch->Performance()->MeasureCycleCost(query);
             cost->elementAccess = _arch->Performance()->MeasureElementAccess(query);
+            cost->perf = EstimateSlicedOpPerformance(schedOp.get(), cost.get(), cost->stripe.WH(), 0, Buffering::None);
         }
 
         minSchedule->SetCost(*schedOp, std::move(cost));
@@ -1473,19 +1897,20 @@ std::shared_ptr<Schedule> Scheduler::OptimizeSchedule(Schedule *schedule, const 
 std::shared_ptr<Schedule> Scheduler::ProposeScheduleStriping(const Shape &finalStripe, const std::string &label, Schedule *refSchedule)
 {
     // Proposes new striping for a schedule. The stripe is derived from the ifm requirements of the next Op down
-    auto stripedSchedule = std::make_shared<Schedule>(label);
+    auto stripedSchedule = std::make_shared<Schedule>(label, refSchedule->Start(), refSchedule->End());
 
     Shape stripe = finalStripe;
-    for ( auto pos = _ops.rbegin(); pos != _ops.rend(); pos++ )
+    for ( int pos = refSchedule->End() - 1; pos >= refSchedule->Start(); pos-- )
     {
-        auto schedOp = pos->get();
+        auto *schedOp = _ops.at(pos).get();
         auto refCost = refSchedule->Cost(schedOp);
         if ( !schedOp->IsNpuOp() || refCost == nullptr )
         {
             // sched_op is not part of the sub-schedule - skip
             continue;
         }
-
+        // align stripe based on resampling mode
+        stripe = AlignStripe(schedOp, stripe);
         // Create a cost entry with the new stripe
         auto cost = CreateSchedulerOpInfo(schedOp, stripe);
         cost->timeIndex = refCost->timeIndex;
@@ -1502,17 +1927,19 @@ std::shared_ptr<Schedule> Scheduler::ProposeScheduleStriping(const Shape &finalS
             stripedSchedule->SetCost(*subOp, std::move(subCost));
         }
 
-        // Take buffering choice from the reference schedule for this striping proposal.
+        // Cascades cannot currently use sliced buffering so take only single buffering choices from the reference
+        // schedule.
         // TODO: Replace with in-loop buffering
-        if ( refCost->bufferedWeightTensor.tensor )
+        if ( (refCost->bufferedWeightTensor.buffering == Buffering::Single) && refCost->bufferedWeightTensor.tensor[0] )
         {
             assert(cost->npuWeightsTensor);
-            auto bufferingTensor = std::make_shared<SchedulerTensor>();
+            auto bufferingTensor = std::make_shared<SchedulerTensor>(DataType::UInt8, Shape(cost->npuWeightsTensor->AllocationSizeBytes()));
             bufferingTensor->SetAllocatedSize(cost->npuWeightsTensor->AllocationSizeBytes());
-            bufferingTensor->memArea = refCost->bufferedWeightTensor.tensor->memArea;
+            bufferingTensor->memArea = refCost->bufferedWeightTensor.tensor[0]->memArea;
             cost->bufferedWeightTensor.buffering = Buffering::Single;  // Stripes are currently single-buffered
             cost->bufferedWeightTensor.preBuffer = false;
-            cost->bufferedWeightTensor.tensor = std::move(bufferingTensor);
+            cost->bufferedWeightTensor.tensor[0] = std::move(bufferingTensor);
+            cost->bufferedWeightTensor.parts = 1;
         }
 
         // Estimate performance
@@ -1520,11 +1947,20 @@ std::shared_ptr<Schedule> Scheduler::ProposeScheduleStriping(const Shape &finalS
             cost.get(), stripedSchedule.get());
         cost->cycles = _arch->Performance()->MeasureCycleCost(query);
         cost->elementAccess = _arch->Performance()->MeasureElementAccess(query);
+        cost->perf = EstimateSlicedOpPerformance(schedOp, cost.get(), cost->stripe.WH(), 0, cost->bufferedWeightTensor.buffering);
 
         stripedSchedule->SetCost(*schedOp, std::move(cost));
 
         // Calculate the preceeding Op's stripe
-        stripe = schedOp->IFM(schedOp->PrimaryIfmIndex())->shape.With(-3, stripe.Height() * schedOp->Kernel()->Stride().y);
+        int upscaling = 1;
+        if ( auto ifm = schedOp->TryIFM(0) )
+        {
+            int rounding;
+            upscaling = _arch->UpscaleAndRounding(ifm->resamplingMode, rounding);
+        }
+        assert((stripe.Height() % upscaling == 0) && "stripe height is not aligned with the upscaling-factor");
+        stripe = schedOp->IFM(schedOp->PrimaryIfmIndex())
+                     ->shape.With(-3, (stripe.Height() / upscaling) * schedOp->Kernel()->Stride().y);
     }
     return stripedSchedule;
 }
@@ -1532,15 +1968,15 @@ std::shared_ptr<Schedule> Scheduler::ProposeScheduleStriping(const Shape &finalS
 
 Address Scheduler::EstimateScheduleMemoryUsage(Schedule *schedule, const std::unordered_map<UniqueId, int> &nonLocalMem)
 {
-    // Estimates the memory usage of a schedule
-    // cascades = schedule.cascades;
+    // Estimates the memory usage of a schedule AS IF it was all placed
+    // in fastest staging storage.
     int peakMemUsage = 0;
-    for ( auto const &schedOp : _ops )
+    for ( int i = schedule->Start(); i < schedule->End(); i++ )
     {
-        auto cost = schedule->Cost(schedOp.get());
+        const auto *schedOp = _ops.at(i).get();
+        auto cost = schedule->Cost(schedOp);
         if ( cost == nullptr )
         {
-            // sched_op is not part of the sub-schedule - skip
             continue;
         }
 
@@ -1554,13 +1990,11 @@ Address Scheduler::EstimateScheduleMemoryUsage(Schedule *schedule, const std::un
         else
         {
             // This Op is not part of a cascade - calculate the memory usage
-            int opWeightBuffer = 0;
-            if ( cost->bufferedWeightTensor.tensor )
-            {
-                opWeightBuffer = cost->bufferedWeightTensor.tensor->AllocationSizeBytes();
-            }
+            // (TODO: lacks detail about IFM reuse improve or replace)
+            int opMemUsage = cost->bufferedWeightTensor.AllocatedSize();
 
-            int opMemUsage = schedOp->IFM(0)->PartialAllocationSizeBytes() + schedOp->OFM()->PartialAllocationSizeBytes() + opWeightBuffer;
+            opMemUsage += schedOp->IFM(0)->PartialAllocationSizeBytes() + schedOp->OFM()->PartialAllocationSizeBytes();
+
             if ( nonLocalMem.find(*schedOp) != nonLocalMem.end() )
             {
                 opMemUsage += nonLocalMem.at(*schedOp);
@@ -1584,24 +2018,32 @@ std::shared_ptr<Schedule> Scheduler::OptimizeSubSchedule(const CascadeInfo &casc
     // Extracts the Ops covered by the given cascade and creates a sub-schedule. The sub-schedule is optimized by
     // proposing weight buffering and then continuously proposing new stripe sizes
 
-    // Extract the ops that are part of this sub-schedule
-    vector_span<std::unique_ptr<SchedulerOperation>> subOps(_ops, cascadeInfo.start, cascadeInfo.end + 1);
+    // Extract the costs for the ops that are part of this sub-schedule and one preceding op (to pass the cost to the
+    // subschedule)
+    auto subSchedule = std::make_shared<Schedule>(
+        _name + fmt::format("SUB_{}_{}", cascadeInfo.start, cascadeInfo.end), cascadeInfo.start, cascadeInfo.end + 1);
 
-    // Create a sub-schedule that contains only the costs for the Ops that are part of the sub-schedule
-    auto subSchedule = std::make_shared<Schedule>(_name + fmt::format("SUB_{}_{}", cascadeInfo.start, cascadeInfo.end));
-    for ( auto &op : subOps )
+    for ( int i = std::max(subSchedule->Start() - 1, 0); i < subSchedule->End(); i++ )
     {
+        const auto &op = _ops.at(i);
         // NOTE: Copies the cost objects, consider optimising this
         auto costCopy = std::make_unique<SchedulerOpInfo>(*refSchedule->Cost(op.get()));
+        int cascadeFreeMemory = stagingLimitBytes - refSchedule->MemoryAt(costCopy->timeIndex).Used();
+        costCopy->slackBufferingMemory = cascadeFreeMemory;
+        costCopy->slackBufferingCycles = costCopy->cycles.opCycles;  // Potentially: costCopy->perf.lastSliceCycles
         subSchedule->SetCost(*op, std::move(costCopy));
 
         // chained sub-operations
         for ( auto &subOp : op->SubOps() )
         {
             costCopy = std::make_unique<SchedulerOpInfo>(*refSchedule->Cost(subOp.get()));
+            costCopy->slackBufferingMemory = cascadeFreeMemory;
             subSchedule->SetCost(*subOp, std::move(costCopy));
         }
     }
+
+    // Set correct processing range
+    vector_span<std::unique_ptr<SchedulerOperation>> subOps(_ops, cascadeInfo.start, cascadeInfo.end + 1);
 
     // Update subschedule cascade list
     subSchedule->cascades[cascadeInfo.end] = cascadeInfo;
@@ -1646,7 +2088,7 @@ std::shared_ptr<Schedule> Scheduler::OptimizeSubSchedule(const CascadeInfo &casc
     bufferedSubSchedule->cascades = subSchedule->cascades;
 
     // Generate the possible stripings for the final Op in the sub-schedule
-    Shape finalOFMShape = subOps.back()->OFM()->shape;
+    Shape finalOFMShape = subOps.back()->OFM()->SliceShape();
     const int maxStripeHeight = (finalOFMShape.Height() + 1) / 2;
 
     // Skip testing the min stripe used in the MIN schedule since that will be used
@@ -1665,7 +2107,7 @@ std::shared_ptr<Schedule> Scheduler::OptimizeSubSchedule(const CascadeInfo &casc
     // Propose different striping - the possible stripes are proposed similarly to a binary search
     std::shared_ptr<Schedule> bestSchedule;
 
-#if LOG_TRACE1_ON
+#if LOG_PRINT_ON
     LOG_INDENT(Logging::Out);
 #endif
 
@@ -1746,6 +2188,7 @@ void Scheduler::ApplySchedule(Schedule *schedule)
 void Scheduler::CoalesceWeightBufferTensors(Schedule *schedule)
 {
     SchedulerOpInfo *prevCost = nullptr;
+    SchedulerOperation *prevOp = nullptr;
 
     for ( auto &schedOp : _ops )
     {
@@ -1755,44 +2198,48 @@ void Scheduler::CoalesceWeightBufferTensors(Schedule *schedule)
         }
 
         auto cost = schedule->Cost(schedOp.get());
-        if ( prevCost && cost )
+        if ( prevCost && cost && prevOp )
         {
             auto &prevBufTensor = prevCost->bufferedWeightTensor.tensor;
             auto &bufTensor = cost->bufferedWeightTensor.tensor;
-            if ( prevBufTensor && bufTensor )
+            if ( prevCost->bufferedWeightTensor.parts == cost->bufferedWeightTensor.parts )
             {
                 UniqueId prevWeightsTensorId = prevCost->npuWeightsTensor ? prevCost->npuWeightsTensor->equivalenceId : -1;
                 UniqueId weightsTensorId = cost->npuWeightsTensor ? cost->npuWeightsTensor->equivalenceId : -2;
-                if ( prevWeightsTensorId == weightsTensorId && prevBufTensor->AllocationSizeBytes() == bufTensor->AllocationSizeBytes() &&
-                     prevCost->ofmDepthSlices.size() == 2 && cost->ofmDepthSlices.size() == 2 && prevCost->ofmDepthSlices == cost->ofmDepthSlices )
+                if ( prevWeightsTensorId == weightsTensorId &&
+                     prevCost->bufferedWeightTensor.AllocatedSize() == cost->bufferedWeightTensor.AllocatedSize() &&
+                     prevCost->ofmDepthSlices.size() == 2 && prevCost->ofmDepthSlices == cost->ofmDepthSlices &&
+                     schedOp->weightDepthOffset == prevOp->weightDepthOffset )
                 {
                     // Reuse previous weight buffer tensor if both current and previous op use 1 depth slice
                     // This will extend the life range weight buffer tensor
-                    bufTensor = prevBufTensor;
+                    bufTensor[0] = prevBufTensor[0];
+                    bufTensor[1] = prevBufTensor[1];
                 }
             }
         }
 
         prevCost = cost;
+        prevOp = schedOp.get();
     }
 }
 
 
-PerformanceQuery Scheduler::InitPerfQuery(SchedulerOperation *op, ArchitectureOpConfig *config, int ofmDepth,
-    WeightFormat wgtFormat, SchedulerOpInfo *cost, Schedule *schedule)
+PerformanceQuery Scheduler::InitPerfQuery(const SchedulerOperation *op, ArchitectureOpConfig *config, int ofmDepth,
+    WeightFormat wgtFormat, const SchedulerOpInfo *cost, Schedule *schedule)
 {
     PerformanceQuery query = {};
     query.type = op->Type();
     query.kernel = op->Kernel();
     query.config = config;
 
-    SchedulerConnection *ifm0 = op->IFM(0);
+    const SchedulerConnection *ifm0 = op->IFM(0);
     query.ifmShape[0] = ifm0->SliceShape();
     query.ifmMemory[0] = ifm0->tensor->memArea.memory;
     query.ifmType[0] = ifm0->Type();
     query.ifmFormat[0] = ifm0->tensor->format;
 
-    SchedulerConnection *ifm1 = op->TryIFM(1);
+    const SchedulerConnection *ifm1 = op->TryIFM(1);
     if ( ifm1 )
     {
         query.ifmShape[1] = ifm1->SliceShape();
@@ -1801,20 +2248,20 @@ PerformanceQuery Scheduler::InitPerfQuery(SchedulerOperation *op, ArchitectureOp
         query.ifmFormat[1] = ifm1->tensor->format;
     }
 
-    SchedulerConnection *ofm = op->OFM();
+    const SchedulerConnection *ofm = op->OFM();
     ofmDepth = (ofmDepth >= 0) ? ofmDepth : ofm->SliceShape().Depth();
     query.ofmShape = ofm->SliceShape().WithDepth(ofmDepth);
     query.ofmMemory = ofm->tensor->memArea.memory;
     query.ofmType = ofm->Type();
     query.ofmFormat = ofm->tensor->format;
 
-    SchedulerConnection *scratch = op->TryInput(TensorUsage::Scratch);
+    const SchedulerConnection *scratch = op->TryInput(TensorUsage::Scratch);
     if ( scratch )
     {
         query.tmpMemory = scratch->tensor->memArea.memory;
     }
 
-    SchedulerConnection *scales = op->TryInput(TensorUsage::Scales);
+    const SchedulerConnection *scales = op->TryInput(TensorUsage::Scales);
     if ( scales )
     {
         query.constShape = Shape(1, 1, 1, query.ofmShape.Depth());
@@ -1832,13 +2279,12 @@ PerformanceQuery Scheduler::InitPerfQuery(SchedulerOperation *op, ArchitectureOp
         query.encodedWeightSize = unsigned(weightBytes * ratio);
         query.encodedScaleSize = unsigned(scaleBytes * ratio);
         query.constMemory = cost->npuWeightsTensor->memArea.memory;
-        if ( cost->bufferedWeightTensor.tensor )
+        if ( cost->bufferedWeightTensor.tensor[0] )
         {
-            query.weightStagingMemory = cost->bufferedWeightTensor.tensor->memArea.memory;
+            query.weightStagingMemory = cost->bufferedWeightTensor.tensor[0]->memArea.memory;
             if ( cost->bufferedWeightTensor.preBuffer )
             {
-                auto preBufferRatio = float(cost->ofmDepthSlices[1]) / cost->ofmDepthSlices.back();
-                query.firstWeightDMASize = query.encodedWeightSize * preBufferRatio;
+                query.firstWeightDMASize = cost->npuWeightsTensor->rangeSizes.front();
             }
         }
     }
@@ -1911,7 +2357,8 @@ PerformanceQuery Scheduler::InitPerfQuery(SchedulerOperation *op, ArchitectureOp
 }
 
 
-CycleCost Scheduler::EstimateOpPerformance(SchedulerOperation *op, ArchitectureOpConfig *config, int ofm_depth, WeightFormat wgtFormat)
+CycleCost Scheduler::EstimateOpPerformance(SchedulerOperation *op, ArchitectureOpConfig *config, int ofm_depth,
+    WeightFormat wgtFormat, ArchitectureMemory *wgtStaging, OpScheduling scheduling)
 {
     CycleCost cycleCost;
     if ( !op->IsNpuOp() )
@@ -1921,6 +2368,11 @@ CycleCost Scheduler::EstimateOpPerformance(SchedulerOperation *op, ArchitectureO
     }
 
     PerformanceQuery query = InitPerfQuery(op, config, ofm_depth, wgtFormat);
+    query.scheduling = scheduling;
+    if ( !query.weightStagingMemory && wgtStaging )
+    {
+        query.weightStagingMemory = wgtStaging;
+    }
     cycleCost = _arch->Performance()->MeasureCycleCost(query);
     return cycleCost;
 }
@@ -1936,9 +2388,9 @@ void Scheduler::PrintSchedule(Schedule *schedule)
         {
             continue;
         }
-
-        LOG_PRINT("\t{0}: Operation {1}  - OFM {2}\n", schedOp->Index(), OpTypeToString(schedOp->Type()),
-            schedOp->OFM()->shape.ToString());
+        const SchedulerConnection *ofmConn = schedOp->OFM();
+        LOG_PRINT("\t{0}: Operation {1}  - OFM {2} (in {3})\n", schedOp->Index(), OpTypeToString(schedOp->Type()),
+            ofmConn->shape.ToString(), ofmConn->tensor->memArea.memory->Name());
         LOG_PRINT("\t\tKernel: {0}\n", schedOp->Kernel()->ToString());
 
         if ( !schedOp->IsNpuOp() )
@@ -1989,7 +2441,13 @@ void Scheduler::PrintSchedule(Schedule *schedule)
     for ( auto key : keys )
     {
         auto const &cascade = cascades.at(key & 0xFFFF);
-        LOG_PRINT("\t\t{0}: {1} -> {2}, size: {3}\n", key & 0xFFFF, cascade.start, cascade.end, cascade.memUsage);
+        int cascadeMemUsage = 0;
+        if ( cascade.start >= 0 && cascade.start < int(_ops.size()) )
+        {
+            auto *cost = schedule->Cost(_ops[cascade.start].get());
+            cascadeMemUsage = cost ? schedule->MemoryUsageAt(cost->timeIndex) : 0;
+        }
+        LOG_PRINT("\t\t{0}: {1} -> {2}, size: {3}\n", key & 0xFFFF, cascade.start, cascade.end, cascadeMemUsage);
     }
 }
 
@@ -2115,23 +2573,25 @@ static int ApplyZeroPointAxisI(const WeightTransformParam *param, int value)
 }
 
 WeightScaleTensors Scheduler::EncodeQuantizationScaleTensor(OpType forOp, std::unique_ptr<IWeightEncodingConfig> encodingParams,
-    const std::vector<int> &depthOffsets, const Quantization &ofmQuantization, const SchedulerTensor *scales)
+    int weightDepthBase, const std::vector<int> &depthOffsets, const Quantization &ofmQuantization, const SchedulerTensor *scales)
 {
-    SchedulerTensor scaleTens;
+    SchedulerTensor scaleTens(DataType::UInt8, {0});
     scaleTens.dataType = DataType::Int32;
     if ( scales == nullptr ) scales = &scaleTens;
-    return TryEncodeWeightAndScaleTensor(forOp, encodingParams.get(), depthOffsets, nullptr, scales, {}, ofmQuantization, false, true);
+    return TryEncodeWeightAndScaleTensor(
+        forOp, encodingParams.get(), weightDepthBase, depthOffsets, nullptr, scales, {}, ofmQuantization, false, true);
 }
 
 WeightScaleTensors Scheduler::EncodeWeightAndScaleTensor(OpType forOp, std::unique_ptr<IWeightEncodingConfig> encodingParams,
-    const std::vector<int> &depthOffsets, const SchedulerTensor *weightTens, const SchedulerTensor *scaleTens,
-    const Quantization &weightQuantization, const Quantization &ofmQuantization)
+    int weightDepthBase, const std::vector<int> &depthOffsets, const SchedulerTensor *weightTens,
+    const SchedulerTensor *scaleTens, const Quantization &weightQuantization, const Quantization &ofmQuantization)
 {
     bool doWeights = true;
     bool doScales = true;
 
     // Check cache for weight tensors already encoded with this configuration.
-    auto cacheKey = TensorCacheKey(encodingParams.get(), depthOffsets, weightTens->bufferView, weightTens->equivalenceId);
+    auto cacheKey = TensorCacheKey(
+        encodingParams.get(), weightDepthBase, depthOffsets, weightTens->bufferView, weightTens->equivalenceId);
     auto pos = _tensorCache.find(cacheKey);
     std::shared_ptr<NpuWeightTensor> cachedWeightsTensor;
     if ( pos != _tensorCache.end() )
@@ -2150,8 +2610,8 @@ WeightScaleTensors Scheduler::EncodeWeightAndScaleTensor(OpType forOp, std::uniq
     }
 
     // Attempt the encode (may fail)
-    WeightScaleTensors result = TryEncodeWeightAndScaleTensor(forOp, encodingParams.get(), depthOffsets, weightTens,
-        scaleTens, weightQuantization, ofmQuantization, doWeights, doScales);
+    WeightScaleTensors result = TryEncodeWeightAndScaleTensor(forOp, encodingParams.get(), weightDepthBase,
+        depthOffsets, weightTens, scaleTens, weightQuantization, ofmQuantization, doWeights, doScales);
 
     if ( doWeights )
     {
@@ -2162,7 +2622,7 @@ WeightScaleTensors Scheduler::EncodeWeightAndScaleTensor(OpType forOp, std::uniq
     else
     {
         // Going to reuse a cached tensor for weights (must alias if memory areas don't match).
-        if ( cachedWeightsTensor->memArea == weightTens->memArea )
+        if ( cachedWeightsTensor->memArea.Compatible(weightTens->memArea) )
         {
             result.npuWeightsTensor = std::move(cachedWeightsTensor);
         }
@@ -2179,13 +2639,14 @@ WeightScaleTensors Scheduler::EncodeWeightAndScaleTensor(OpType forOp, std::uniq
 }
 
 WeightScaleTensors Scheduler::TryEncodeWeightAndScaleTensor(OpType forOp, IWeightEncodingConfig *encodingParams,
-    const std::vector<int> &depthOffsets, const SchedulerTensor *weightTens, const SchedulerTensor *scaleTens,
+    int weightDepthBase, const std::vector<int> &depthOffsets, const SchedulerTensor *weightTens, const SchedulerTensor *scaleTens,
     const Quantization &weightQuantization, const Quantization &ofmQuantization, bool doWeights, bool doScales)
 {
     assert(doWeights || doScales);
 
     // Create tensor to hold encoded output
     auto npuTensor = std::make_shared<NpuWeightTensor>();
+    npuTensor->uid = GenerateUniqueId();
     int rangeIndex = 0;
     int maxBufferLen[2] = {};
     std::vector<uint8_t> encodedStream;
@@ -2236,20 +2697,24 @@ WeightScaleTensors Scheduler::TryEncodeWeightAndScaleTensor(OpType forOp, IWeigh
     int scaleStreamsRequired = 1;
     int streamsRequired = _arch->WeightEncoder()->StreamsRequired(encodingParams, ohwiShape, scaleStreamsRequired);
     std::bitset<64> distinctWeights[8];
+    std::vector<int> rangeSizes;
 
     if ( weightTens == nullptr ) streamsRequired = scaleStreamsRequired;
 
     // Note: in case of multiple cores, each core's weights are interleaved in O-dimension
     const int depthOffsetSize = int(depthOffsets.size());
+    assert(depthOffsetSize > 1);
+    rangeSizes.reserve(depthOffsetSize);
     for ( int idx = 0; idx < depthOffsetSize - 1; ++idx )
     {
         int depthOffset = depthOffsets[idx];
+        int weightDepthOffset = depthOffset + weightDepthBase;
 
         // Do not generate for offsets outside the OFM
         assert(depthOffset >= 0 && depthOffset < channels);
         int depthLength = depthOffsets[idx + 1] - depthOffset;
 
-        int bufferStartOffset = int(encodedStream.size());
+        size_t bufferStartOffset = encodedStream.size();
 
         // For each stream, deinterleave weights/scales from the larger volume
         // and generate separate compressed streams.
@@ -2264,8 +2729,8 @@ WeightScaleTensors Scheduler::TryEncodeWeightAndScaleTensor(OpType forOp, IWeigh
             {
                 // Encode Scales and biases
                 const uint8_t *biases = scaleTens->bufferView.HasBuffer() ? scaleTens->bufferView.RawData<uint8_t>() : nullptr;
-                int biasCount = scaleTens->bufferView.HasBuffer() ? scaleTens->bufferView.ViewShape().Depth() : depthOffset + depthLength;
-                scaleSource->SetSource(biases, biasCount, depthOffset, depthLength, stream);
+                int biasCount = scaleTens->bufferView.HasBuffer() ? scaleTens->bufferView.ViewShape().Depth() : weightDepthOffset + depthLength;
+                scaleSource->SetSource(biases, biasCount, weightDepthOffset, depthLength, stream);
                 if ( scaleSource->Elements() == 0 )
                 {
                     // No more elements left to encode
@@ -2286,7 +2751,7 @@ WeightScaleTensors Scheduler::TryEncodeWeightAndScaleTensor(OpType forOp, IWeigh
 
                 // Encode Weights
                 ohwiShape = (forOp == OpType::DepthwiseConv2D) ? ohwiShape.WithDepth(depthLength) : ohwiShape.WithBatch(depthLength);
-                weightSource->SetSource(weightsData, depthOffset, ohwiShape, weightTens->bufferView.StrideBytes(), stream);
+                weightSource->SetSource(weightsData, weightDepthOffset, ohwiShape, weightTens->bufferView.StrideBytes(), stream);
                 auto weightInfo = _arch->WeightEncoder()->EncodeWeights(encodingParams, weightSource.get(), encodedStream);
                 range.weightBytes = weightInfo.encodedSize;
                 totalWeightBytes += weightInfo.encodedSize;
@@ -2310,7 +2775,9 @@ WeightScaleTensors Scheduler::TryEncodeWeightAndScaleTensor(OpType forOp, IWeigh
         }
 
         // Remember maximum encoded length for DoubleBuffering
-        maxBufferLen[idx % 2] = std::max(maxBufferLen[idx % 2], int(encodedStream.size()) - bufferStartOffset);
+        int rangeSize = int(encodedStream.size() - bufferStartOffset);
+        maxBufferLen[idx % 2] = std::max(maxBufferLen[idx % 2], rangeSize);
+        rangeSizes.push_back(rangeSize);
     }
 
     // Reduce stored memory usage as much as possible
@@ -2321,9 +2788,10 @@ WeightScaleTensors Scheduler::TryEncodeWeightAndScaleTensor(OpType forOp, IWeigh
     Shape storageShape(1, 1, 1, streamSize);
     npuTensor->bufferView = BufferView(buf, 0, 8, storageShape, Shape());
     npuTensor->dataType = DataType::UInt8;
+    npuTensor->rangeSizes = std::move(rangeSizes);
     npuTensor->maxRangeBytes = std::max(maxBufferLen[0], maxBufferLen[1]);
-    npuTensor->doubleBufferSize = maxBufferLen[0] + maxBufferLen[1];
-    npuTensor->doubleBufferOffset = maxBufferLen[0];
+    npuTensor->doubleBufferSizes[0] = maxBufferLen[0];
+    npuTensor->doubleBufferSizes[1] = maxBufferLen[1];
     npuTensor->totalSourceBytes = totalSourceBytes;
     npuTensor->totalWeightBytes = totalWeightBytes;
     npuTensor->subStreams = subStreams;

@@ -5,6 +5,7 @@ import os
 import sys
 import struct
 from builtins import bytes
+import binascii
 
 nocolor = False
 
@@ -47,8 +48,10 @@ def print_error(msg):
 
 def ascii_char(c):
     '''Return the ASCII or (.) representation of the input character.'''
-    if ord(c) >= 32 and ord(c) <= 126:
-        return c
+    if isinstance(c, str):
+        c = ord(c)
+    if c >= 32 and c <= 126:
+        return chr(c)
     return '.'
 
 
@@ -61,12 +64,12 @@ def hex_dump(data, size=16):
     '''
     def print_line(line):
         print("%s | %s" % (
-            line.encode("hex"),
+            binascii.hexlify(line).decode(),
             "".join([ascii_char(c) for c in line])
         ))
         pass
 
-    for i in range(0, len(data) / size):
+    for i in range(0, len(data) // size):
         data_line = data[i * size:i * size + size]
         print_line(data_line)
 
@@ -102,6 +105,9 @@ def a2sguid(a):
 
 def aguid(b, big=False):
     '''RFC4122 binary GUID as int array.'''
+    if len(b) < 16:
+        for i in range(16 - len(b)):
+            b += b'\0'
     a, b, c, d = struct.unpack("%sIHH8s" % (">" if big else "<"), b)
     return [a, b, c] + [_c for _c in d]
 
@@ -165,3 +171,18 @@ def flatten_firmware_objects(base_objects):
         if "objects" in _object and len(_object["objects"]) > 0:
             objects += flatten_firmware_objects(_object["objects"])
     return objects
+
+def utf8_decode_safe(byte_array):
+    '''Safely decode a byte array into a UTF-8 string.
+
+    Args:
+        byte_array (bytes): Unsafe (presumably) UTF-8 encoded string
+
+    Returns:
+        str: A proper string OR a 0x-prefixed hex representation of input byte array
+    '''
+
+    try:
+        return byte_array.decode("utf-8")
+    except UnicodeDecodeError:
+        return "0x[{}]".format(byte_array.hex())

@@ -2278,6 +2278,17 @@ def test_main_openapi_const(output_file: Path) -> None:
     )
 
 
+def test_main_openapi_const_optional_values(output_file: Path) -> None:
+    """Do not treat optional non-literal const values as schema defaults."""
+    run_main_and_assert(
+        input_path=OPEN_API_DATA_PATH / "const_optional_values_31.yaml",
+        output_path=output_file,
+        input_file_type="openapi",
+        assert_func=assert_file_content,
+        expected_file="const_optional_values_31.py",
+    )
+
+
 @pytest.mark.parametrize(
     ("output_model", "expected_output"),
     [
@@ -4163,6 +4174,24 @@ def test_main_openapi_item_schema_requires_32(output_file: Path) -> None:
             "paths",
             "parameters",
             "requestbodies",
+        ],
+    )
+
+
+def test_main_openapi_querystring_parameter_requires_32(output_file: Path) -> None:
+    """Test OpenAPI 3.1 ignores OpenAPI 3.2 querystring parameters."""
+    run_main_and_assert(
+        input_path=OPEN_API_DATA_PATH / "querystring_parameter_31.yaml",
+        output_path=output_file,
+        input_file_type="openapi",
+        assert_func=assert_file_content,
+        expected_file="querystring_parameter_31.py",
+        extra_args=[
+            "--disable-timestamp",
+            "--openapi-scopes",
+            "schemas",
+            "paths",
+            "parameters",
         ],
     )
 

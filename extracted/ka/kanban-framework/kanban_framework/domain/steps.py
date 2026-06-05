@@ -137,18 +137,14 @@ def _get_steps(mode: str, custom_steps: dict[str, list[StepDef]] | None = None) 
             return result
     except (OSError, ValueError, KeyError):
         pass
-    if mode == "quick":
-        return QUICK_STEPS
     return LIGHTWEIGHT_STEPS
 
 
-def _get_phase_order(lightweight: bool, quick: bool = False,
-                     custom_order: list[str] | None = None,
+def _get_phase_order(custom_order: list[str] | None = None,
                      workflow: dict | None = None,
                      mode: str | None = None,
                      kanban_dir=None) -> list[Phase | str]:
     if custom_order is not None:
         return custom_order
-    return Scheduler.dispatch_order(lightweight=lightweight, quick=quick,
-                                     mode=mode, workflow=workflow,
+    return Scheduler.dispatch_order(mode=mode, workflow=workflow,
                                      kanban_dir=kanban_dir)

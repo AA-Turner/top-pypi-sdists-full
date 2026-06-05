@@ -193,6 +193,7 @@ struct PyFitConfig {
     noise_offset: Option<String>,
 
     firth: Option<bool>,
+    robust_identification: Option<String>,
     gpu: Option<String>,
     device: Option<String>,
 
@@ -5890,6 +5891,7 @@ fn gaussian_reml_fit_blocks_forward<'py>(
         nullspace_dims: vec![0; s_list.len()],
         linear_constraints: None,
         firth_bias_reduction: false,
+        robust_identification: gam::RobustIdentification::Off,
         adaptive_regularization: None,
         penalty_shrinkage_floor: None,
         rho_prior: Default::default(),
@@ -6330,6 +6332,7 @@ fn gaussian_reml_fit_with_constraints_forward<'py>(
         nullspace_dims: vec![0; s_list.len()],
         linear_constraints: constraints_opt.clone(),
         firth_bias_reduction: false,
+        robust_identification: gam::RobustIdentification::Off,
         adaptive_regularization: None,
         penalty_shrinkage_floor: Some(1e-6),
         rho_prior: Default::default(),
@@ -9142,6 +9145,34 @@ const SAE_SPHERE_BASIS_SIZE: usize = 7;
 /// (`O(K·N·256·p)` for periodic atoms). See
 /// [`gam::terms::sae_manifold::SaeManifoldTerm::seed_coords_by_decoder_projection`].
 const SAE_OOS_PROJECTION_GRID_RESOLUTION: usize = 256;
+
+fn seed_oos_softmax_logits_from_projection_residuals(
+    term: &mut gam::terms::sae_manifold::SaeManifoldTerm,
+    target: ArrayView2<'_, f64>,
+    tau: f64,
+) {
+    let (n_obs, p_out) = target.dim();
+    let k_atoms = term.k_atoms();
+    let mut seeded_logits = Array2::<f64>::zeros((n_obs, k_atoms));
+    let mut decoded = vec![0.0_f64; p_out];
+    for row in 0..n_obs {
+        for atom_idx in 0..k_atoms {
+            term.atoms[atom_idx].fill_decoded_row(row, &mut decoded);
+            let mut err = 0.0_f64;
+            for out_col in 0..p_out {
+                let diff = target[[row, out_col]] - decoded[out_col];
+                err += diff * diff;
+            }
+            seeded_logits[[row, atom_idx]] = -err / tau;
+        }
+        let reference = seeded_logits[[row, k_atoms - 1]];
+        for atom_idx in 0..k_atoms {
+            seeded_logits[[row, atom_idx]] -= reference;
+        }
+    }
+    term.assignment.logits.assign(&seeded_logits);
+}
+
 /// Duchon nullspace knob `m` for a SAE-manifold atom of latent dimension
 /// `dim`, sized so the native reproducing-norm Gram (`PenaltySource::Primary`)
 /// on the scale-free polyharmonic basis is well-posed in every dimension.
@@ -9426,6 +9457,12 @@ fn sae_manifold_fit<'py>(
         analytic_penalties,
         top_k,
         jumprelu_threshold,
+        true,
+        // This precomputed-basis entry point hands the term verbatim seeds;
+        // routing-seed refinement is owned by the higher-level `fit_minimal`
+        // auto path, so do not re-seed here (random_state unused when off).
+        false,
+        0,
     )
 }
 
@@ -9456,6 +9493,9 @@ fn sae_manifold_fit_inner<'py>(
     analytic_penalties: Option<String>,
     top_k: Option<usize>,
     jumprelu_threshold: f64,
+    native_ard_enabled: bool,
+    seed_refine_routing: bool,
+    seed_refine_random_state: u64,
 ) -> PyResult<Py<PyDict>> {
     let analytic_penalties: Option<serde_json::Value> = match analytic_penalties {
         Some(s) => Some(serde_json::from_str(&s).map_err(|e| py_value_error(e.to_string()))?),
@@ -9687,7 +9727,39 @@ fn sae_manifold_fit_inner<'py>(
             .map_err(py_value_error)?;
     }
 
-    let log_ard: Vec<Array1<f64>> = atom_dim.iter().map(|&d| Array1::<f64>::zeros(d)).collect();
+    // Cold-start routing seed refinement (#629, #630). The cold residual-logit
+    // seed is computed at the cold (shared-across-atoms) coordinates and cannot
+    // separate planted disjoint atoms, so the joint solve starts in the
+    // near-uniform routing saddle. Alternate the closed-form coordinate
+    // projection (the #628 OOS mechanism) and the weighted LSQ decoder refit a
+    // few times to place each row in the correct atom basin before the joint
+    // Arrow-Schur fit. Gated to cold multi-atom softmax / IBP-MAP fits by the
+    // caller; warm starts and JumpReLU keep their supplied seed.
+    if seed_refine_routing
+        && k_atoms > 1
+        && matches!(assignment_kind.as_str(), "softmax" | "ibp_map")
+    {
+        sae_em_refine_routing_seed(
+            &mut base_term,
+            z_view,
+            &basis_sizes,
+            assignment_kind.as_str(),
+            tau,
+            seed_refine_random_state,
+        )
+        .map_err(py_value_error)?;
+    }
+
+    let log_ard: Vec<Array1<f64>> = atom_dim
+        .iter()
+        .map(|&d| {
+            if native_ard_enabled {
+                Array1::<f64>::zeros(d)
+            } else {
+                Array1::<f64>::zeros(0)
+            }
+        })
+        .collect();
     // Drive ρ (sparsity / smoothing λ's + per-atom ARD precisions) through the
     // one generic outer cascade — the same engine the GAM REML path uses
     // (`OuterProblem::run` → `plan()` → derivative-free / FD outer strategy).
@@ -10408,6 +10480,138 @@ fn sae_decoder_lsq_init(
     Ok(out)
 }
 
+/// EM-style seed refinement that resolves the cold-start routing collapse of
+/// the training fit (issues #629, #630) before the joint Arrow-Schur solve.
+///
+/// The cold residual-logit seed ([`sae_residual_seed_logits`]) is computed at
+/// the cold latent coordinates (the per-atom PCA/atan2 seed). Those coordinates
+/// are *shared* across atoms (the seed places the same leading component on
+/// every atom), so each atom's independent LSQ fit against the full response is
+/// equally mediocre on every row: the per-row residual barely separates the
+/// atoms and the logit seed stays near the symmetric saddle the random jitter
+/// cannot escape. The joint solver then never routes (the planted disjoint
+/// atoms collapse to a near-uniform mixture, negative R²).
+///
+/// This is the exact dual of the frozen-decoder OOS fix (#628): there, each row
+/// is placed in the correct latent basin by projecting it onto every atom's
+/// *known* decoder over a dense manifold grid
+/// ([`SaeManifoldTerm::seed_coords_by_decoder_projection`]). Here the decoder is
+/// being *learned*, so we alternate the two cheap closed-form steps the OOS path
+/// and the existing seed already provide:
+///
+/// 1. **Coordinate E-step** — project each row's per-atom latent onto the
+///    current decoder over the manifold grid. This separates the atoms'
+///    geometries: a row generated from atom `k` snaps to the coordinate where
+///    atom `k` reconstructs it well, while the off-atoms snap to wherever their
+///    current decoder is least wrong on that row.
+/// 2. **Decoder M-step** — refit every atom's decoder by the same weighted joint
+///    LSQ used for the cold init ([`sae_decoder_lsq_init`]), now at the
+///    *separated* coordinates, so each atom's block specializes toward the rows
+///    it actually explains.
+/// 3. **Routing seed** — recompute the mean-centred residual logits
+///    ([`sae_residual_seed_logits`]) at the refined geometry. With the atoms now
+///    geometrically distinct, the per-row residual is decisive and the seed is
+///    one-hot for the planted disjoint oracle.
+///
+/// A handful of rounds converges this alternation for separable atoms while
+/// leaving an already-routed warm fit at its fixed point (the projection finds
+/// the same basin, the LSQ recovers the same decoder). Atoms whose evaluator has
+/// no projection grid (Duchon / Euclidean patch) are left untouched by step 1,
+/// so the refinement degrades gracefully to the existing cold seed for them.
+///
+/// Only invoked for cold-start multi-atom softmax / IBP-MAP fits; JumpReLU keeps
+/// its margin-above-threshold gate seed and warm starts are respected verbatim.
+fn sae_em_refine_routing_seed(
+    term: &mut gam::terms::sae_manifold::SaeManifoldTerm,
+    z: ArrayView2<'_, f64>,
+    basis_sizes: &[usize],
+    assignment_kind: &str,
+    tau: f64,
+    random_state: u64,
+) -> Result<(), String> {
+    const SAE_SEED_REFINE_ROUNDS: usize = 4;
+    const SAE_RESIDUAL_SEED_GAIN: f64 = 4.0;
+    // Same tiny seed-keyed logit jitter the cold-start path applies (issue
+    // #178): the refined residual logits are decisive (O(gain)), so this 1e-3
+    // perturbation does not change which atom wins, but it keeps distinct
+    // `random_state` values on distinct inner Newton trajectories and fixed
+    // seeds bit-identical. Without it, the deterministic EM seed would erase
+    // the seed-dependence the cold-start jitter installed upstream.
+    const SAE_RANDOM_STATE_LOGIT_JITTER: f64 = 1.0e-3;
+    let k_atoms = basis_sizes.len();
+    let n_obs = z.nrows();
+    if k_atoms <= 1 || n_obs == 0 {
+        return Ok(());
+    }
+    let m_max = basis_sizes.iter().copied().max().unwrap_or(0);
+    if m_max == 0 {
+        return Ok(());
+    }
+    for _ in 0..SAE_SEED_REFINE_ROUNDS {
+        // 1. Coordinate E-step: project each row onto the current decoder.
+        term.seed_coords_by_decoder_projection(z, SAE_OOS_PROJECTION_GRID_RESOLUTION)?;
+        // Snapshot the refreshed per-atom basis `Φ_k(t_k)` as a padded
+        // (K, N, m_max) stack for the closed-form seed helpers.
+        let mut basis3 = Array3::<f64>::zeros((k_atoms, n_obs, m_max));
+        for atom_idx in 0..k_atoms {
+            let phi = &term.atoms[atom_idx].basis_values;
+            let m_k = basis_sizes[atom_idx];
+            if phi.dim() != (n_obs, m_k) {
+                return Err(format!(
+                    "sae_em_refine_routing_seed: atom {atom_idx} basis is {:?}, expected ({n_obs}, {m_k})",
+                    phi.dim()
+                ));
+            }
+            for row in 0..n_obs {
+                for c in 0..m_k {
+                    basis3[[atom_idx, row, c]] = phi[[row, c]];
+                }
+            }
+        }
+        // 2. Decoder M-step: weighted joint LSQ at the refined coordinates,
+        //    using the current routing as the responsibility weights.
+        let decoder = sae_decoder_lsq_init(
+            basis3.view(),
+            basis_sizes,
+            z,
+            term.assignment.logits.view(),
+            assignment_kind,
+            tau,
+        )?;
+        for atom_idx in 0..k_atoms {
+            let m_k = basis_sizes[atom_idx];
+            let p_out = term.atoms[atom_idx].decoder_coefficients.ncols();
+            let dst = &mut term.atoms[atom_idx].decoder_coefficients;
+            for c in 0..m_k {
+                for out_col in 0..p_out {
+                    dst[[c, out_col]] = decoder[[atom_idx, c, out_col]];
+                }
+            }
+        }
+        // 3. Routing seed: mean-centred residual logits at the refined geometry.
+        let logits =
+            sae_residual_seed_logits(basis3.view(), basis_sizes, z, SAE_RESIDUAL_SEED_GAIN)?;
+        term.assignment.logits.assign(&logits);
+    }
+    // Re-apply the seed-keyed jitter the deterministic refinement above erased,
+    // so `random_state` keeps perturbing the inner Newton trajectory (#178).
+    let mut state = random_state
+        .wrapping_mul(6364136223846793005)
+        .wrapping_add(1442695040888963407);
+    for row in 0..n_obs {
+        for atom_idx in 0..k_atoms {
+            state = state
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
+            // Map top 53 bits to a double in [0, 1), then to [-1, 1).
+            let u = ((state >> 11) as f64) * f64::from_bits(0x3CA0000000000000);
+            let signed = 2.0 * u - 1.0;
+            term.assignment.logits[[row, atom_idx]] += SAE_RANDOM_STATE_LOGIT_JITTER * signed;
+        }
+    }
+    Ok(())
+}
+
 /// Build (phi, jet, penalty) for a periodic 1-D atom — same math as
 /// `periodic_basis_with_jet`, but plain Rust so the helper can be reused by
 /// [`sae_manifold_build_inputs`] without Python in the loop.
@@ -11101,6 +11305,7 @@ fn sae_build_atom_plans(
     initial_logits = None,
     initial_coords = None,
     jumprelu_threshold = 0.0,
+    native_ard_enabled = true,
 ))]
 fn sae_manifold_fit_minimal<'py>(
     py: Python<'py>,
@@ -11124,6 +11329,7 @@ fn sae_manifold_fit_minimal<'py>(
     initial_logits: Option<PyReadonlyArray2<'py, f64>>,
     initial_coords: Option<PyReadonlyArray3<'py, f64>>,
     jumprelu_threshold: f64,
+    native_ard_enabled: bool,
 ) -> PyResult<Py<PyDict>> {
     let z_view = z.as_array();
     let (n_obs, _p_out) = z_view.dim();
@@ -11354,6 +11560,13 @@ fn sae_manifold_fit_minimal<'py>(
         analytic_penalties,
         top_k,
         jumprelu_threshold,
+        native_ard_enabled,
+        // Refine the cold routing seed (alternating coordinate projection +
+        // weighted decoder LSQ) only when BOTH the logits and the coordinates
+        // are cold — i.e. the auto seed is in control. A user-supplied warm
+        // start (amortized encoder, #357) is respected verbatim.
+        logits_are_cold && initial_coords.is_none(),
+        random_state,
     )?;
     // Attach per-atom build plans so OOS predict can rebuild design without Python.
     let plans_py = PyList::empty(py);
@@ -11743,24 +11956,7 @@ fn sae_manifold_predict_oos<'py>(
             .map_err(py_value_error)?;
     }
     if !logits_are_warm && assignment_kind == "softmax" {
-        let mut seeded_logits = Array2::<f64>::zeros((n_obs, k_atoms));
-        let mut decoded = vec![0.0_f64; p_out];
-        for row in 0..n_obs {
-            for atom_idx in 0..k_atoms {
-                term.atoms[atom_idx].fill_decoded_row(row, &mut decoded);
-                let mut err = 0.0_f64;
-                for out_col in 0..p_out {
-                    let diff = x_view[[row, out_col]] - decoded[out_col];
-                    err += diff * diff;
-                }
-                seeded_logits[[row, atom_idx]] = -err / tau;
-            }
-            let reference = seeded_logits[[row, k_atoms - 1]];
-            for atom_idx in 0..k_atoms {
-                seeded_logits[[row, atom_idx]] -= reference;
-            }
-        }
-        term.assignment.logits.assign(&seeded_logits);
+        seed_oos_softmax_logits_from_projection_residuals(&mut term, x_view, tau);
     }
     let log_ard: Vec<Array1<f64>> = effective_atom_dim
         .iter()
@@ -11778,6 +11974,9 @@ fn sae_manifold_predict_oos<'py>(
         )
         .map_err(py_value_error)?;
 
+    if !logits_are_warm && assignment_kind == "softmax" {
+        seed_oos_softmax_logits_from_projection_residuals(&mut term, x_view, tau);
+    }
     let mut assignments = term.assignment.assignments();
     let mut fitted = term.fitted();
     if let Some(k_top) = top_k {
@@ -13063,6 +13262,7 @@ fn glm_reml_fit_latent_impl(
         nullspace_dims: vec![0],
         linear_constraints: None,
         firth_bias_reduction: Some(false),
+        robust_identification: gam::RobustIdentification::Off,
         penalty_shrinkage_floor: None,
         rho_prior: RhoPrior::Flat,
         kronecker_penalty_system: None,
@@ -14144,6 +14344,7 @@ fn gaussian_reml_fit_formula_table_impl(
         nullspace_dims: vec![0; s_list.len()],
         linear_constraints: None,
         firth_bias_reduction: false,
+        robust_identification: gam::RobustIdentification::Off,
         adaptive_regularization: None,
         penalty_shrinkage_floor: None,
         rho_prior: Default::default(),
@@ -25065,33 +25266,19 @@ fn predict_columns(
     Ok(columns)
 }
 
-/// Residual dispersion `φ̂` for the conformal calibration scale, mirroring the
-/// CLI/summary convention: Gaussian → σ̂², Gamma → fixed φ (else 1/σ̂ as the
-/// reciprocal-dispersion proxy), every other family → 1.0 (φ fixed at 1).
-fn conformal_dispersion_phi(fit: &gam::estimate::UnifiedFitResult, family: &LikelihoodSpec) -> f64 {
-    match family.response {
-        ResponseFamily::Gaussian => fit.standard_deviation * fit.standard_deviation,
-        ResponseFamily::Gamma => fit.likelihood_scale.fixed_phi().unwrap_or_else(|| {
-            if fit.standard_deviation.is_finite() && fit.standard_deviation > 0.0 {
-                1.0 / fit.standard_deviation
-            } else {
-                1.0
-            }
-        }),
-        _ => 1.0,
-    }
-}
-
-/// Build the held-out calibration data needed by the conformal calibrator: the
-/// calibration design `X_cal`, its linear predictor `η_cal = X_cal·β̂ + offset`,
-/// the offset, and the calibration response `y_cal`. The response column is
-/// resolved from the saved formula and must be present in the calibration
-/// dataset (calibration is *labeled* held-out data, unlike a predict batch).
-fn conformal_calibration_arrays(
+/// Build the held-out calibration fold needed by the conformal calibrator: a
+/// `PredictInput` over the calibration design (so the model's own predict
+/// engine produces `μ̂(x_cal)` and `s(x_cal)` at exactly those points,
+/// identically to the test path) and the calibration response `y_cal`. The
+/// response column is resolved from the saved formula and must be present in
+/// the calibration dataset (calibration is *labeled* held-out data, unlike a
+/// predict batch). The fold carries its own design and may be of ANY size,
+/// independent of the training set — it is never bound to the training rows.
+fn conformal_calibration_fold(
     model: &FittedModel,
     fit: &gam::estimate::UnifiedFitResult,
     calibration: EncodedDataset,
-) -> Result<(Array2<f64>, Array1<f64>, Array1<f64>, Array1<f64>), String> {
+) -> Result<(gam::predict::PredictInput, Array1<f64>), String> {
     if !matches!(model.predict_model_class(), PredictModelClass::Standard) {
         return Err(format!(
             "conformal calibration currently supports only standard GAM models; got '{}'",
@@ -25100,6 +25287,8 @@ fn conformal_calibration_arrays(
     }
     let col_map = calibration.column_map();
     let offset = resolve_offset_column(&calibration, &col_map, model.offset_column.as_deref())?;
+    let offset_noise =
+        resolve_offset_column(&calibration, &col_map, model.noise_offset_column.as_deref())?;
     let response_name = response_column_name(&model.payload().formula).ok_or_else(|| {
         "conformal calibration: could not resolve the response column from the saved formula"
             .to_string()
@@ -25111,19 +25300,27 @@ fn conformal_calibration_arrays(
         )
     })?;
     let y = calibration.values.column(response_col).to_owned();
-    // Design and β̂ define the (on the calibration fold) linear predictor
-    // η = X·β̂ + offset, which `from_fit` maps through ALO into genuine
-    // held-out predictors for the nonconformity scores.
-    let design = design_matrix_dense(model, calibration)?;
-    if design.ncols() != fit.beta.len() {
+    // Build the calibration-fold predict input the same way the test batch is
+    // built, so the predict engine yields μ̂(x_cal) and s(x_cal) from exactly
+    // the same source used at test time.
+    let cal_input = build_predict_input_for_model(
+        model,
+        calibration.values.view(),
+        &col_map,
+        model.training_headers.as_ref(),
+        &offset,
+        &offset_noise,
+        false,
+    )?;
+    let design_cols = cal_input.design.ncols();
+    if design_cols != fit.beta.len() {
         return Err(format!(
             "conformal calibration design has {} columns but the fit has {} coefficients",
-            design.ncols(),
+            design_cols,
             fit.beta.len()
         ));
     }
-    let eta = design.dot(&fit.beta) + &offset;
-    Ok((design, eta, offset, y))
+    Ok((cal_input, y))
 }
 
 /// Conformal-calibrated prediction columns. Runs the model-based full-
@@ -25177,15 +25374,10 @@ fn predict_columns_conformal(
         ..gam::predict::PredictUncertaintyOptions::default()
     };
 
-    let (cal_design, cal_eta, cal_offset, cal_y) =
-        conformal_calibration_arrays(model, &fit, calibration)?;
-    let phi = conformal_dispersion_phi(&fit, &family);
-    let train = gam::predict::ConformalTrainingData {
-        design: &cal_design,
-        eta: &cal_eta,
-        offset: &cal_offset,
+    let (cal_input, cal_y) = conformal_calibration_fold(model, &fit, calibration)?;
+    let calibration_fold = gam::predict::ConformalCalibrationFold {
+        input: cal_input,
         y: cal_y.view(),
-        phi,
     };
     let prediction = gam::predict::predict_full_uncertainty_conformal(
         predictor.as_ref(),
@@ -25193,7 +25385,7 @@ fn predict_columns_conformal(
         &fit,
         &family,
         &uncertainty_options,
-        &train,
+        &calibration_fold,
     )
     .map_err(|err| format!("conformal prediction failed: {err}"))?;
 
@@ -28180,6 +28372,15 @@ fn parse_fit_config(config_json: Option<&str>) -> Result<(FitConfig, Option<Stri
     }
     if let Some(flag) = py_config.firth {
         fit_config.firth = flag;
+    }
+    if let Some(raw) = py_config.robust_identification {
+        fit_config.robust_identification =
+            gam::RobustIdentification::parse(&raw).ok_or_else(|| {
+                format!(
+                    "invalid robust_identification '{}'; expected off, auto, or force",
+                    raw
+                )
+            })?;
     }
     if let Some(raw_gpu) = py_config.gpu {
         fit_config.gpu_policy = gam::gpu::GpuPolicy::parse(&raw_gpu).ok_or_else(|| {
@@ -31405,6 +31606,7 @@ mod tests {
             nullspace_dims: vec![0; s_list.len()],
             linear_constraints: None,
             firth_bias_reduction: false,
+            robust_identification: gam::RobustIdentification::Off,
             adaptive_regularization: None,
             penalty_shrinkage_floor: None,
             rho_prior: Default::default(),

@@ -247,7 +247,7 @@ class CACertificateReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_iot as interfaces_iot
             
-            c_aCertificate_reference = interfaces_iot.CACertificateReference(
+            c_a_certificate_reference = interfaces_iot.CACertificateReference(
                 ca_certificate_arn="caCertificateArn",
                 ca_certificate_id="caCertificateId"
             )

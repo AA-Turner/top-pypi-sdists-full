@@ -660,7 +660,7 @@ class CfnAnnotationStore(
             self,
             *,
             annotation_type: typing.Optional[builtins.str] = None,
-            format_to_header: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            format_to_header: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             schema: typing.Any = None,
         ) -> None:
             '''The store's parsing options.
@@ -713,13 +713,13 @@ class CfnAnnotationStore(
         @builtins.property
         def format_to_header(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''The store's header key to column name mapping.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-omics-annotationstore-tsvstoreoptions.html#cfn-omics-annotationstore-tsvstoreoptions-formattoheader
             '''
             result = self._values.get("format_to_header")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def schema(self) -> typing.Any:
@@ -6513,7 +6513,7 @@ def _typecheckingstub__68b9968e466757cfc2e4ee7eb053201b466a44d185aa6082edce78e85
 def _typecheckingstub__14b0c73be5d34083c239713770a8134020bc8cab75d4b0a1a82a28463074bb3d(
     *,
     annotation_type: typing.Optional[builtins.str] = None,
-    format_to_header: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    format_to_header: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     schema: typing.Any = None,
 ) -> None:
     """Type checking stubs"""

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: orq-ai-sdk
-Version: 4.9.30
+Version: 4.10.2
 Summary: Python Client SDK for the Orq API.
 Author: Orq
 Project-URL: repository, https://github.com/orq-ai/orq-python.git
@@ -214,8 +214,6 @@ with Orq(
 
 ### [Agents](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/agents/README.md)
 
-* [post_v2_agents_a2a](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/agents/README.md#post_v2_agents_a2a) - Register external A2A agent
-* [post_v2_agents_key_card_refresh](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/agents/README.md#post_v2_agents_key_card_refresh) - Refresh A2A agent card
 * [create](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/agents/README.md#create) - Create agent
 * [list](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/agents/README.md#list) - List agents
 * [delete](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/agents/README.md#delete) - Delete agent
@@ -225,8 +223,9 @@ with Orq(
 * [~~run~~](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/agents/README.md#run) - Run an agent with configuration :warning: **Deprecated**
 * [~~stream_run~~](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/agents/README.md#stream_run) - Run agent with streaming response :warning: **Deprecated**
 * [~~stream~~](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/agents/README.md#stream) - Stream agent execution in real-time :warning: **Deprecated**
+* [post_v2_agents_key_card_refresh](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/agents/README.md#post_v2_agents_key_card_refresh) - Refresh A2A agent card
 
-### [Agents.Responses](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/orqresponses/README.md)
+#### [Agents.Responses](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/orqresponses/README.md)
 
 * [create](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/orqresponses/README.md#create) - Create response
 * [get](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/orqresponses/README.md#get) - Get response
@@ -236,13 +235,18 @@ with Orq(
 * [create](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/annotations/README.md#create) - Annotate a span
 * [delete](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/annotations/README.md#delete) - Remove an annotation from a span
 
+### [ApiKeys](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/apikeys/README.md)
+
+* [list](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/apikeys/README.md#list) - List API keys
+* [create](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/apikeys/README.md#create) - Create a new API key
+* [list_capabilities](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/apikeys/README.md#list_capabilities) - List capability catalog
+* [get](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/apikeys/README.md#get) - Retrieve an API key
+* [delete](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/apikeys/README.md#delete) - Delete an API key
+* [update](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/apikeys/README.md#update) - Update an API key
+
 ### [Chunking](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/chunking/README.md)
 
 * [parse](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/chunking/README.md#parse) - Parse text
-
-### [Contacts](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/contacts/README.md)
-
-* [create](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/contacts/README.md#create) - Update user information
 
 ### [Datasets](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/datasets/README.md)
 
@@ -265,10 +269,6 @@ with Orq(
 * [get_config](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/deployments/README.md#get_config) - Get config
 * [stream](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/deployments/README.md#stream) - Stream
 
-#### [~~Deployments.Metrics~~](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/metrics/README.md)
-
-* [~~create~~](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/metrics/README.md#create) - Add metrics :warning: **Deprecated**
-
 ### [Evals](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/evals/README.md)
 
 * [all](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/evals/README.md#all) - Get all Evaluators
@@ -280,8 +280,8 @@ with Orq(
 
 ### [Feedback](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/feedback/README.md)
 
-* [post_v2_feedback](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/feedback/README.md#post_v2_feedback)
 * [post_v2_feedback_remove](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/feedback/README.md#post_v2_feedback_remove)
+* [post_v2_feedback](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/feedback/README.md#post_v2_feedback)
 
 ### [Files](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/files/README.md)
 
@@ -313,8 +313,8 @@ with Orq(
 * [list](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/identities/README.md#list) - List identities
 * [create](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/identities/README.md#create) - Create an identity
 * [retrieve](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/identities/README.md#retrieve) - Retrieve an identity
-* [update](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/identities/README.md#update) - Update an identity
 * [delete](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/identities/README.md#delete) - Delete an identity
+* [update](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/identities/README.md#update) - Update an identity
 
 ### [Knowledge](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/knowledge/README.md)
 
@@ -356,6 +356,33 @@ with Orq(
 * [update_document](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/memorystores/README.md#update_document) - Update a specific memory document
 * [delete_document](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/memorystores/README.md#delete_document) - Delete a specific memory document
 
+### [Models](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/models/README.md)
+
+* [create](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/models/README.md#create) - Create custom model
+* [create_autorouter](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/models/README.md#create_autorouter) - Create autorouter custom model
+* [update_autorouter](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/models/README.md#update_autorouter) - Update autorouter custom model
+* [create_aws_bedrock](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/models/README.md#create_aws_bedrock) - Create AWS Bedrock custom model
+* [validate_aws_bedrock](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/models/README.md#validate_aws_bedrock) - Validate AWS Bedrock inference profile
+* [update_aws_bedrock](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/models/README.md#update_aws_bedrock) - Update AWS Bedrock custom model
+* [azure_foundry_deployments](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/models/README.md#azure_foundry_deployments) - List Azure Foundry deployments under a resource
+* [import_litellm](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/models/README.md#import_litellm) - Import models from LiteLLM
+* [list_litellm](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/models/README.md#list_litellm) - List models from configured LiteLLM instance
+* [create_openai_like](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/models/README.md#create_openai_like) - Create OpenAI-compatible custom model
+* [update_openai_like](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/models/README.md#update_openai_like) - Update OpenAI-compatible custom model
+* [validate](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/models/README.md#validate) - Validate model endpoint
+* [create_vertex](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/models/README.md#create_vertex) - Create Vertex AI custom model
+* [delete](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/models/README.md#delete) - Delete custom model
+* [update](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/models/README.md#update) - Update custom model
+* [enable](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/models/README.md#enable) - Enable model for workspace
+* [disable](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/models/README.md#disable) - Disable model for workspace
+* [list](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/models/README.md#list) - List models
+
+### [Pii](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/pii/README.md)
+
+* [detect](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/pii/README.md#detect) - Detect PII
+* [redact](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/pii/README.md#redact) - Redact PII
+* [restore](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/pii/README.md#restore) - Restore redacted text
+
 ### [Policies](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/policies/README.md)
 
 * [list](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/policies/README.md#list) - List policies
@@ -382,9 +409,9 @@ with Orq(
 * [list_versions](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/prompts/README.md#list_versions) - List all prompt versions
 * [get_version](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/prompts/README.md#get_version) - Retrieve a prompt version
 
-### [Remoteconfigs](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/remoteconfigs/README.md)
+### [Reporting](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/reporting/README.md)
 
-* [retrieve](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/remoteconfigs/README.md#retrieve) - Retrieve a remote config
+* [query](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/reporting/README.md#query) - Query reporting metrics
 
 ### [Responses](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/responses/README.md)
 
@@ -495,8 +522,6 @@ import os
 
 
 with Orq(
-    environment="<value>",
-    contact_id="<id>",
     api_key=os.getenv("ORQ_API_KEY", ""),
 ) as orq:
 
@@ -708,7 +733,7 @@ with Orq(
     res = None
     try:
 
-        res = orq.feedback.post_v2_feedback()
+        res = orq.evals.all(limit=10)
 
         # Handle response
         print(res)
@@ -723,7 +748,7 @@ with Orq(
         print(e.raw_response)
 
         # Depending on the method different errors may be thrown
-        if isinstance(e, models.PostV2FeedbackFeedbackResponseBody):
+        if isinstance(e, models.GetEvalsEvalsResponseBody):
             print(e.data.message)  # str
 ```
 
@@ -731,7 +756,7 @@ with Orq(
 **Primary error:**
 * [`OrqError`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/orqerror.py): The base class for HTTP error responses.
 
-<details><summary>Less common errors (47)</summary>
+<details><summary>Less common errors (41)</summary>
 
 <br />
 
@@ -742,48 +767,42 @@ with Orq(
 
 
 **Inherit from [`OrqError`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/orqerror.py)**:
-* [`HonoAPIError`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/honoapierror.py): Applicable to 10 of 153 methods.*
-* [`PostV2FeedbackFeedbackResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/postv2feedbackfeedbackresponsebody.py): Bad Request. Status code `400`. Applicable to 1 of 153 methods.*
-* [`InvokeEvalEvalsResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/invokeevalevalsresponsebody.py): Bad request. Status code `400`. Applicable to 1 of 153 methods.*
-* [`PostV2AgentsA2aAgentsResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/postv2agentsa2aagentsresponsebody.py): Invalid request or agent card fetch failed. Status code `400`. Applicable to 1 of 153 methods.*
-* [`PostV2AgentsKeyCardRefreshAgentsResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/postv2agentskeycardrefreshagentsresponsebody.py): Invalid request - Agent is not an A2A agent or card fetch failed. Status code `400`. Applicable to 1 of 153 methods.*
-* [`CreateAgentScheduleSchedulesResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/createagentscheduleschedulesresponsebody.py): Invalid schedule type, expression, or sub-hour cadence. Status code `400`. Applicable to 1 of 153 methods.*
-* [`UpdateAgentScheduleSchedulesResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/updateagentscheduleschedulesresponsebody.py): Invalid type, expression, or sub-hour cadence. Status code `400`. Applicable to 1 of 153 methods.*
-* [`TriggerAgentScheduleSchedulesResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/triggeragentscheduleschedulesresponsebody.py): Schedule is inactive. Status code `400`. Applicable to 1 of 153 methods.*
-* [`PostV2FeedbackFeedbackResponseResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/postv2feedbackfeedbackresponseresponsebody.py): Workspace ID is not found on the request. Status code `404`. Applicable to 1 of 153 methods.*
-* [`PostV2FeedbackRemoveFeedbackResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/postv2feedbackremovefeedbackresponsebody.py): Workspace ID is not found on the request. Status code `404`. Applicable to 1 of 153 methods.*
-* [`GetEvalsEvalsResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/getevalsevalsresponsebody.py): Workspace ID is not found on the request. Status code `404`. Applicable to 1 of 153 methods.*
-* [`CreateEvalEvalsResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/createevalevalsresponsebody.py): Workspace ID is not found on the request. Status code `404`. Applicable to 1 of 153 methods.*
-* [`UpdateEvalEvalsResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/updateevalevalsresponsebody.py): Workspace ID is not found on the request. Status code `404`. Applicable to 1 of 153 methods.*
-* [`DeleteEvalResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/deleteevalresponsebody.py): Workspace ID is not found on the request. Status code `404`. Applicable to 1 of 153 methods.*
-* [`InvokeEvalEvalsResponseResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/invokeevalevalsresponseresponsebody.py): Workspace ID is not found on the request. Status code `404`. Applicable to 1 of 153 methods.*
-* [`GetV2EvaluatorsIDVersionsEvalsResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/getv2evaluatorsidversionsevalsresponsebody.py): Evaluator not found. Status code `404`. Applicable to 1 of 153 methods.*
-* [`RetrieveIdentityIdentitiesResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/retrieveidentityidentitiesresponsebody.py): Identity not found. Status code `404`. Applicable to 1 of 153 methods.*
-* [`UpdateIdentityIdentitiesResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/updateidentityidentitiesresponsebody.py): Identity not found. Status code `404`. Applicable to 1 of 153 methods.*
-* [`DeleteIdentityResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/deleteidentityresponsebody.py): Identity not found. Status code `404`. Applicable to 1 of 153 methods.*
-* [`PostV2AgentsKeyCardRefreshAgentsResponseResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/postv2agentskeycardrefreshagentsresponseresponsebody.py): Agent not found. Status code `404`. Applicable to 1 of 153 methods.*
-* [`DeleteAgentResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/deleteagentresponsebody.py): Agent not found. The specified agent key does not exist in the workspace or has already been deleted. Status code `404`. Applicable to 1 of 153 methods.*
-* [`RetrieveAgentRequestAgentsResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/retrieveagentrequestagentsresponsebody.py): Agent not found. The specified agent key does not exist in the workspace or you do not have permission to access it. Status code `404`. Applicable to 1 of 153 methods.*
-* [`UpdateAgentAgentsResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/updateagentagentsresponsebody.py): Agent not found. The specified agent key does not exist in the workspace or you do not have permission to modify it. Status code `404`. Applicable to 1 of 153 methods.*
-* [`StreamRunAgentAgentsResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/streamrunagentagentsresponsebody.py): Model not found. Status code `404`. Applicable to 1 of 153 methods.*
-* [`StreamAgentAgentsResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/streamagentagentsresponsebody.py): Agent not found. Status code `404`. Applicable to 1 of 153 methods.*
-* [`UpdatePromptResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/updatepromptresponsebody.py): Prompt not found. Status code `404`. Applicable to 1 of 153 methods.*
-* [`DeletePromptResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/deletepromptresponsebody.py): Prompt not found. Status code `404`. Applicable to 1 of 153 methods.*
-* [`GetPromptVersionPromptsResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/getpromptversionpromptsresponsebody.py): Not Found - The prompt or prompt version does not exist. Status code `404`. Applicable to 1 of 153 methods.*
-* [`UpdateToolToolsResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/updatetooltoolsresponsebody.py): Tool not found. Status code `404`. Applicable to 1 of 153 methods.*
-* [`GetV2ToolsToolIDVersionsToolsResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/getv2toolstoolidversionstoolsresponsebody.py): Tool not found. Status code `404`. Applicable to 1 of 153 methods.*
-* [`GetV2ToolsToolIDVersionsVersionIDToolsResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/getv2toolstoolidversionsversionidtoolsresponsebody.py): Tool or version not found. Status code `404`. Applicable to 1 of 153 methods.*
-* [`CreateAgentScheduleSchedulesResponseResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/createagentscheduleschedulesresponseresponsebody.py): Agent (or agent version, when agent_tag is set) not found. Status code `404`. Applicable to 1 of 153 methods.*
-* [`DeleteAgentScheduleResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/deleteagentscheduleresponsebody.py): Schedule not found, or belongs to a different agent. Status code `404`. Applicable to 1 of 153 methods.*
-* [`RetrieveAgentScheduleSchedulesResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/retrieveagentscheduleschedulesresponsebody.py): Schedule not found, or belongs to a different agent. Status code `404`. Applicable to 1 of 153 methods.*
-* [`UpdateAgentScheduleSchedulesResponseResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/updateagentscheduleschedulesresponseresponsebody.py): Schedule or agent version not found. Status code `404`. Applicable to 1 of 153 methods.*
-* [`TriggerAgentScheduleSchedulesResponseResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/triggeragentscheduleschedulesresponseresponsebody.py): Schedule not found, or belongs to a different agent. Status code `404`. Applicable to 1 of 153 methods.*
-* [`PostV2AgentsA2aAgentsResponseResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/postv2agentsa2aagentsresponseresponsebody.py): Agent with this key already exists. Status code `409`. Applicable to 1 of 153 methods.*
-* [`CreateModerationRouterModerationsResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/createmoderationroutermoderationsresponsebody.py): Returns validation error. Status code `422`. Applicable to 1 of 153 methods.*
-* [`CreateTranscriptionRouterAudioTranscriptionsResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/createtranscriptionrouteraudiotranscriptionsresponsebody.py): Returns validation error. Status code `422`. Applicable to 1 of 153 methods.*
-* [`CreateTranslationRouterAudioTranslationsResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/createtranslationrouteraudiotranslationsresponsebody.py): Returns validation error. Status code `422`. Applicable to 1 of 153 methods.*
-* [`InvokeEvalEvalsResponse500ResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/invokeevalevalsresponse500responsebody.py): Error running the evaluator. Status code `500`. Applicable to 1 of 153 methods.*
-* [`RetrieveIdentityIdentitiesResponseResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/retrieveidentityidentitiesresponseresponsebody.py): Failed to fetch metrics. Status code `500`. Applicable to 1 of 153 methods.*
+* [`HonoAPIError`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/honoapierror.py): Applicable to 10 of 177 methods.*
+* [`InvokeEvalEvalsResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/invokeevalevalsresponsebody.py): Bad request. Status code `400`. Applicable to 1 of 177 methods.*
+* [`PostV2AgentsKeyCardRefreshAgentsResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/postv2agentskeycardrefreshagentsresponsebody.py): Invalid request - Agent is not an A2A agent or card fetch failed. Status code `400`. Applicable to 1 of 177 methods.*
+* [`PostV2FeedbackFeedbackResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/postv2feedbackfeedbackresponsebody.py): Bad Request. Status code `400`. Applicable to 1 of 177 methods.*
+* [`CreateAgentScheduleSchedulesResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/createagentscheduleschedulesresponsebody.py): Invalid schedule type, expression, or sub-hour cadence. Status code `400`. Applicable to 1 of 177 methods.*
+* [`UpdateAgentScheduleSchedulesResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/updateagentscheduleschedulesresponsebody.py): Invalid type, expression, or sub-hour cadence. Status code `400`. Applicable to 1 of 177 methods.*
+* [`TriggerAgentScheduleSchedulesResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/triggeragentscheduleschedulesresponsebody.py): Schedule is inactive. Status code `400`. Applicable to 1 of 177 methods.*
+* [`GetEvalsEvalsResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/getevalsevalsresponsebody.py): Workspace ID is not found on the request. Status code `404`. Applicable to 1 of 177 methods.*
+* [`CreateEvalEvalsResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/createevalevalsresponsebody.py): Workspace ID is not found on the request. Status code `404`. Applicable to 1 of 177 methods.*
+* [`UpdateEvalEvalsResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/updateevalevalsresponsebody.py): Workspace ID is not found on the request. Status code `404`. Applicable to 1 of 177 methods.*
+* [`DeleteEvalResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/deleteevalresponsebody.py): Workspace ID is not found on the request. Status code `404`. Applicable to 1 of 177 methods.*
+* [`InvokeEvalEvalsResponseResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/invokeevalevalsresponseresponsebody.py): Workspace ID is not found on the request. Status code `404`. Applicable to 1 of 177 methods.*
+* [`GetV2EvaluatorsIDVersionsEvalsResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/getv2evaluatorsidversionsevalsresponsebody.py): Evaluator not found. Status code `404`. Applicable to 1 of 177 methods.*
+* [`DeleteAgentResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/deleteagentresponsebody.py): Agent not found. The specified agent key does not exist in the workspace or has already been deleted. Status code `404`. Applicable to 1 of 177 methods.*
+* [`RetrieveAgentRequestAgentsResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/retrieveagentrequestagentsresponsebody.py): Agent not found. The specified agent key does not exist in the workspace or you do not have permission to access it. Status code `404`. Applicable to 1 of 177 methods.*
+* [`UpdateAgentAgentsResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/updateagentagentsresponsebody.py): Agent not found. The specified agent key does not exist in the workspace or you do not have permission to modify it. Status code `404`. Applicable to 1 of 177 methods.*
+* [`StreamRunAgentAgentsResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/streamrunagentagentsresponsebody.py): Model not found. Status code `404`. Applicable to 1 of 177 methods.*
+* [`StreamAgentAgentsResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/streamagentagentsresponsebody.py): Agent not found. Status code `404`. Applicable to 1 of 177 methods.*
+* [`PostV2AgentsKeyCardRefreshAgentsResponseResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/postv2agentskeycardrefreshagentsresponseresponsebody.py): Agent not found. Status code `404`. Applicable to 1 of 177 methods.*
+* [`UpdatePromptResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/updatepromptresponsebody.py): Prompt not found. Status code `404`. Applicable to 1 of 177 methods.*
+* [`DeletePromptResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/deletepromptresponsebody.py): Prompt not found. Status code `404`. Applicable to 1 of 177 methods.*
+* [`GetPromptVersionPromptsResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/getpromptversionpromptsresponsebody.py): Not Found - The prompt or prompt version does not exist. Status code `404`. Applicable to 1 of 177 methods.*
+* [`UpdateToolToolsResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/updatetooltoolsresponsebody.py): Tool not found. Status code `404`. Applicable to 1 of 177 methods.*
+* [`GetV2ToolsToolIDVersionsToolsResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/getv2toolstoolidversionstoolsresponsebody.py): Tool not found. Status code `404`. Applicable to 1 of 177 methods.*
+* [`GetV2ToolsToolIDVersionsVersionIDToolsResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/getv2toolstoolidversionsversionidtoolsresponsebody.py): Tool or version not found. Status code `404`. Applicable to 1 of 177 methods.*
+* [`PostV2FeedbackRemoveFeedbackResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/postv2feedbackremovefeedbackresponsebody.py): Workspace ID is not found on the request. Status code `404`. Applicable to 1 of 177 methods.*
+* [`PostV2FeedbackFeedbackResponseResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/postv2feedbackfeedbackresponseresponsebody.py): Workspace ID is not found on the request. Status code `404`. Applicable to 1 of 177 methods.*
+* [`CreateAgentScheduleSchedulesResponseResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/createagentscheduleschedulesresponseresponsebody.py): Agent (or agent version, when agent_tag is set) not found. Status code `404`. Applicable to 1 of 177 methods.*
+* [`DeleteAgentScheduleResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/deleteagentscheduleresponsebody.py): Schedule not found, or belongs to a different agent. Status code `404`. Applicable to 1 of 177 methods.*
+* [`RetrieveAgentScheduleSchedulesResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/retrieveagentscheduleschedulesresponsebody.py): Schedule not found, or belongs to a different agent. Status code `404`. Applicable to 1 of 177 methods.*
+* [`UpdateAgentScheduleSchedulesResponseResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/updateagentscheduleschedulesresponseresponsebody.py): Schedule or agent version not found. Status code `404`. Applicable to 1 of 177 methods.*
+* [`TriggerAgentScheduleSchedulesResponseResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/triggeragentscheduleschedulesresponseresponsebody.py): Schedule not found, or belongs to a different agent. Status code `404`. Applicable to 1 of 177 methods.*
+* [`CreateModerationRouterModerationsResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/createmoderationroutermoderationsresponsebody.py): Returns validation error. Status code `422`. Applicable to 1 of 177 methods.*
+* [`CreateTranscriptionRouterAudioTranscriptionsResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/createtranscriptionrouteraudiotranscriptionsresponsebody.py): Returns validation error. Status code `422`. Applicable to 1 of 177 methods.*
+* [`CreateTranslationRouterAudioTranslationsResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/createtranslationrouteraudiotranslationsresponsebody.py): Returns validation error. Status code `422`. Applicable to 1 of 177 methods.*
+* [`InvokeEvalEvalsResponse500ResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/invokeevalevalsresponse500responsebody.py): Error running the evaluator. Status code `500`. Applicable to 1 of 177 methods.*
 * [`ResponseValidationError`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/responsevalidationerror.py): Type mismatch between the response data and the expected Pydantic model. Provides access to the Pydantic validation error via the `cause` attribute.
 
 </details>

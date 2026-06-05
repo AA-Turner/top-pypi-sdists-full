@@ -1,5 +1,5 @@
 //
-// SPDX-FileCopyrightText: Copyright 2024-2025 Arm Limited and/or its affiliates <open-source-office@arm.com>
+// SPDX-FileCopyrightText: Copyright 2024-2026 Arm Limited and/or its affiliates <open-source-office@arm.com>
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -42,6 +42,7 @@ class GraphIrOptimiser : public GraphOptimiser
 private:
     Operation *ConstPropagation(Graph *const graph, Operation *const operation);
     Operation *RewriteConst(Graph *const graph, Operation *const operation);
+    Operation *RewriteIdentityTranspose(Graph *const graph, Operation *const operation);
     Operation *ConvertAttributes(Graph *const graph, Operation *const operation);
     Operation *ConvertAttributeTensors(Graph *const graph, Operation *const operation);
     Operation *ConvertResizeOffsets(Graph *const graph, Operation *const operation);
@@ -76,7 +77,9 @@ private:
     Operation *ReshapeReverse(Graph *const graph, Operation *const operation);
     void MoveToConsumer(const Operation *const operation, Operation *const cons);
     Operation *MoveSplitSliceToConsumer(Graph *const, Operation *const operation);
+    Operation *MoveConcatSliceToProducer(Graph *const graph, Operation *const operation);
     Operation *UnrollKernelStrides(Graph *const, Operation *const operation);
+    Operation *ResetKernelAttributes(Graph *const, Operation *const operation);
     Operation *RewriteIdentityResize(Graph *const graph, Operation *const operation);
     Operation *RewriteNonConstWeightOp(Graph *const, Operation *const operation);
     Operation *RewriteConv3D(Graph *const, Operation *const operation);
@@ -91,7 +94,9 @@ private:
     bool CanFuseMultipleRescalesOnConsumer(Operation *const consumer, Operation *const rescale1,
         Operation *const rescale2, const Quantization &q1, const Quantization &q2);
     // Checks for OFM-fusing
-    bool CanFuseRescaleOnProducer(Operation *const producer, Quantization &newQuant, DataType newType);
+    bool CanFuseRescaleOnProducer(Operation *const producer, Quantization &newQuant, DataType newType,
+        const Quantization *newIFMQuant = nullptr, DataType newIFMType = DataType::None,
+        const Quantization *newIFM2Quant = nullptr, DataType newIFM2Type = DataType::None);
 
 
 
@@ -117,6 +122,7 @@ private:
             {},
             {
                 &GraphIrOptimiser::RewriteConst,
+                &GraphIrOptimiser::RewriteIdentityTranspose,
             },
         },
         {
@@ -170,6 +176,7 @@ private:
                 &GraphIrOptimiser::RewriteNonConstWeightOp,
                 &GraphIrOptimiser::RewriteConv3D,
                 &GraphIrOptimiser::RealiseKernelPadding,
+                &GraphIrOptimiser::ResetKernelAttributes,
                 &GraphIrOptimiser::RewritePad,
                 &GraphIrOptimiser::RewriteTable,
                 &GraphIrOptimiser::RewriteCast,
@@ -197,7 +204,8 @@ private:
             {},
             {
                 &GraphIrOptimiser::MergeTransposes,
-                &GraphIrOptimiser::MoveSplitSliceToConsumer
+                &GraphIrOptimiser::MoveSplitSliceToConsumer,
+                &GraphIrOptimiser::MoveConcatSliceToProducer
             }
         },
         {

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "seeq"
-version = "66.149.0.20260602"
+version = "66.150.0.20260604"
 description = "The Seeq SDK for Python"
 readme = "README.md"
 requires-python = ">=2.7"

@@ -6,7 +6,7 @@ Commands:
 
 The ``wait`` command is a thin Click handler over
 :func:`notebooklm.cli.services.research.execute_research_wait` — the polling
-loop, P1.T2 task-id pinning, and import orchestration live in the service.
+loop, task-id pinning, and import orchestration live in the service.
 This module owns input validation, spinner I/O, rendering, and exit codes.
 """
 
@@ -88,28 +88,30 @@ def research_status(ctx, notebook_id, json_output, client_auth):
             status = await client.research.poll(nb_id_resolved)
 
             if json_output:
-                json_output_response(status)
+                # ``ResearchTask`` is a typed dataclass; serialize via its
+                # legacy dict shape so JSON output is unchanged.
+                json_output_response(status.to_public_dict())
                 return
 
-            status_val = status.get("status", "unknown")
+            status_val = status.status
 
             if status_val == "no_research":
                 console.print("[dim]No research running[/dim]")
             elif status_val == "in_progress":
-                query = status.get("query", "")
+                query = status.query
                 console.print(f"[yellow]Research in progress:[/yellow] {query}")
                 console.print("[dim]Use 'research wait' to wait for completion[/dim]")
             elif status_val == "completed":
-                query = status.get("query", "")
-                sources = status.get("sources", [])
-                summary = status.get("summary", "")
+                query = status.query
+                sources = [src.to_public_dict() for src in status.sources]
+                summary = status.summary
                 console.print(f"[green]Research completed:[/green] {query}")
                 display_research_sources(sources)
 
                 if summary:
                     console.print(f"\n[bold]Summary:[/bold]\n{summary[:_SUMMARY_PREVIEW_CHARS]}")
 
-                display_report(status.get("report", ""))
+                display_report(status.report)
 
                 console.print("\n[dim]Use 'research wait --import-all' to import sources[/dim]")
             else:
@@ -155,7 +157,7 @@ def research_wait(
       notebooklm research wait --json
     """
     if cited_only and not import_all:
-        # Per ADR-015 §2: under --json this flag-combination conflict must
+        # Per ADR-0015 §2: under --json this flag-combination conflict must
         # emit the typed JSON envelope and exit 1 (VALIDATION_ERROR), not
         # ride Click's parse-time UsageError path (exit 2, usage text on
         # stderr, no JSON on stdout). Under text mode we preserve the
@@ -168,7 +170,9 @@ def research_wait(
                 json_output,
                 1,
             )
-        raise click.UsageError("--cited-only requires --import-all")
+        raise click.UsageError(  # cli-input-validation: --cited-only requires --import-all
+            "--cited-only requires --import-all"
+        )
 
     nb_id = require_notebook(notebook_id)
     plan = ResearchWaitPlan(

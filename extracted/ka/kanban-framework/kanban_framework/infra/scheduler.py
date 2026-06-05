@@ -37,6 +37,23 @@ class Scheduler:
             agents.append({"name": name, "file": str(f)})
         return agents
 
+    @staticmethod
+    def _load_phase_order_from_json(path) -> list:
+        """Extract phase_order from a workflow JSON file."""
+        try:
+            import json
+            data = json.loads(path.read_text(encoding="utf-8"))
+            phase_names = data.get("phase_order", [])
+            resolved = []
+            for pn in phase_names:
+                try:
+                    resolved.append(Phase(pn))
+                except ValueError:
+                    resolved.append(pn)
+            return resolved
+        except Exception:
+            return []
+
     # Deprecated since v0.84 — kept for backward compat.
     PHASE_ORDER = [
         Phase.PLAN,
@@ -46,58 +63,34 @@ class Scheduler:
         Phase.ARCHIVE,
     ]
 
-    LIGHTWEIGHT_PHASE_ORDER = [
-        Phase.PLAN,
-        Phase.EXECUTE,
-        Phase.EVALUATE,
-        Phase.USER_DECISION,
-        Phase.ARCHIVE,
-    ]
-
-    QUICK_PHASE_ORDER = [
-        Phase.EXECUTE,
-        Phase.USER_DECISION,
-        Phase.ARCHIVE,
-    ]
-
     LIGHTWEIGHT_EVAL_ROLES = [
         {"name": "review", "agent_type": "general-purpose"},
     ]
 
-    _BUILTIN_MODES: dict[str, list[Phase]] = {
-        "lightweight": [Phase.PLAN, Phase.EXECUTE, Phase.EVALUATE, Phase.USER_DECISION, Phase.ARCHIVE],
-        "quick":       [Phase.EXECUTE, Phase.USER_DECISION, Phase.ARCHIVE],
-    }
-
-    BUILTIN_MODE_NAMES = frozenset(("lightweight", "quick"))
-
     @classmethod
     def get_modes(cls, workflow: dict | None = None,
-                  kanban_dir: Path | None = None) -> dict[str, list[Phase | str]]:
-        """Return mode definitions from workflow.json + .kanban/workflows/ directory.
+                  kanban_dir=None) -> dict[str, list]:
+        """Return mode definitions from workflow.json + directories.
 
-        Priority: workflow.json modes > directory files > builtin defaults.
+        Priority: workflow.json modes > .kanban/workflows/ > package workflows/.
         """
         from pathlib import Path as _Path
-        # Start with builtin base
-        result: dict[str, list[Phase | str]] = {}
-        for name in cls.BUILTIN_MODE_NAMES:
-            result[name] = list(cls._BUILTIN_MODES.get(name, cls.PHASE_ORDER))
+        result: dict[str, list] = {}
 
-        # Scan .kanban/workflows/ directory
+        # Scan package workflows/ for available modes
+        pkg_dir = Path(__file__).resolve().parent.parent / "workflows"
+        if pkg_dir.is_dir():
+            for wf_file in sorted(pkg_dir.glob("*.json")):
+                name = wf_file.stem
+                if name not in result:
+                    result[name] = cls._load_phase_order_from_json(wf_file)
+
+        # Scan .kanban/workflows/ for user/installed modes (overrides package)
         if kanban_dir and isinstance(kanban_dir, _Path):
-            from kanban_framework.domain.workflow_loader import merge_workflow_modes
-            dir_modes = merge_workflow_modes(workflow or {}, kanban_dir)
-            for name, cfg in dir_modes.items():
-                phase_names = cfg.get("phase_order", []) if isinstance(cfg, dict) else []
-                resolved: list[Phase | str] = []
-                for pn in phase_names:
-                    try:
-                        resolved.append(Phase(pn))
-                    except ValueError:
-                        resolved.append(pn)
-                if resolved:
-                    result[name] = resolved
+            user_dir = kanban_dir / "workflows"
+            if user_dir.is_dir():
+                for wf_file in sorted(user_dir.glob("*.json")):
+                    result[wf_file.stem] = cls._load_phase_order_from_json(wf_file)
 
         # workflow.json modes (highest priority)
         if workflow and isinstance(workflow, dict):
@@ -113,20 +106,15 @@ class Scheduler:
                             resolved.append(pn)
                     if resolved:
                         result[name] = resolved
-        return result if result else dict(cls._BUILTIN_MODES)
+
+        return result
 
     @classmethod
-    def eval_roles(cls, lightweight: bool = False, mode: str | None = None,
+    def eval_roles(cls, mode: str | None = None,
                    kanban_dir: Path | None = None) -> list[dict]:
-        if lightweight:
-            return list(cls.LIGHTWEIGHT_EVAL_ROLES)
-        if mode == "quick":
-            return []  # quick mode has no evaluate phase
-        if mode == "lightweight":
-            return list(cls.LIGHTWEIGHT_EVAL_ROLES)
-        if mode and mode not in cls.BUILTIN_MODE_NAMES:
-            return cls._derive_eval_roles(mode, kanban_dir)
-        return list(cls.LIGHTWEIGHT_EVAL_ROLES)
+        """Derive eval roles from the mode's evaluate phase step definitions."""
+        from kanban_framework.infra.consts import Consts
+        return cls._derive_eval_roles(mode or Consts.DEFAULT_MODE, kanban_dir)
 
     @classmethod
     def _derive_eval_roles(cls, mode: str, kanban_dir: Path | None = None) -> list[dict]:
@@ -164,46 +152,39 @@ class Scheduler:
         return list(cls.PLAN_REVIEW_DIMENSIONS)
 
     @classmethod
-    def retrospective_roles(cls, lightweight: bool = False) -> list[dict]:
-        if lightweight:
-            return [{"name": "acceptance_writer", "agent_type": "general-purpose"}]
+    def retrospective_roles(cls, mode: str | None = None) -> list[dict]:
         return list(cls.RETROSPECTIVE_ROLES)
 
     @classmethod
-    def dispatch_order(cls, lightweight: bool = False, quick: bool = False,
-                       custom_order: list[str] | None = None,
+    def dispatch_order(cls, custom_order: list[str] | None = None,
                        workflow: dict | None = None,
-                       kanban_dir: Path | None = None,
-                       mode: str | None = None) -> list[Phase | str]:
+                       kanban_dir=None,
+                       mode: str | None = None) -> list:
         if custom_order is not None:
             return list(custom_order)
-        if mode and mode not in Scheduler.BUILTIN_MODE_NAMES:
-            modes = cls.get_modes(workflow, kanban_dir=kanban_dir)
-            if mode in modes:
-                return list(modes[mode])
-        mode = mode if mode in Scheduler.BUILTIN_MODE_NAMES else ("quick" if quick else "lightweight")
+        from kanban_framework.infra.consts import Consts
+        resolved_mode = mode or Consts.DEFAULT_MODE
         modes = cls.get_modes(workflow, kanban_dir=kanban_dir)
-        if mode in modes:
-            order = list(modes[mode])
+        if resolved_mode in modes:
+            order = list(modes[resolved_mode])
         else:
-            order = list(cls._BUILTIN_MODES.get(mode, cls.PHASE_ORDER))
+            order = list(cls.PHASE_ORDER)
         # Apply extensions if present
         if workflow and isinstance(workflow, dict) and workflow.get("extensions"):
             from kanban_framework.domain.workflow_extensions import WorkflowExtension
             ext = WorkflowExtension(workflow)
-            if ext.is_active_for_mode(mode):
+            if ext.is_active_for_mode(resolved_mode):
                 str_order = [p.value if isinstance(p, Phase) else str(p) for p in order]
-                str_order = ext.build_phase_order(str_order, mode=mode)
+                str_order = ext.build_phase_order(str_order, mode=resolved_mode)
                 return [Phase(p) for p in str_order]
         return order
 
     @classmethod
-    def next_phase(cls, current, lightweight: bool = False, quick: bool = False,
-                   custom_order: list[str] | None = None,
+    def next_phase(cls, current, custom_order: list[str] | None = None,
                    workflow: dict | None = None,
                    mode: str | None = None,
                    kanban_dir: Path | None = None) -> Phase | str | None:
-        order = custom_order if custom_order is not None else cls._dispatch_from_mode(lightweight, quick, workflow, mode, kanban_dir)
+        order = custom_order if custom_order is not None else cls._dispatch_from_mode(workflow, mode, kanban_dir)
         try:
             idx = order.index(current)
             return order[idx + 1]
@@ -211,9 +192,11 @@ class Scheduler:
             return None
 
     @classmethod
-    def previous_phase(cls, current, lightweight: bool = False, quick: bool = False,
-                       custom_order: list[str] | None = None) -> Phase | str | None:
-        order = custom_order if custom_order is not None else cls._base_order(lightweight, quick)
+    def previous_phase(cls, current, custom_order: list[str] | None = None,
+                       workflow: dict | None = None,
+                       mode: str | None = None,
+                       kanban_dir=None) -> Phase | str | None:
+        order = custom_order if custom_order is not None else cls._base_order(workflow, mode, kanban_dir)
         try:
             idx = order.index(current)
             if idx > 0:
@@ -223,34 +206,30 @@ class Scheduler:
         return None
 
     @classmethod
-    def _base_order(cls, lightweight: bool, quick: bool, workflow: dict | None = None,
+    def _base_order(cls, workflow: dict | None = None,
                     mode: str | None = None,
-                    kanban_dir: Path | None = None) -> list[Phase | str]:
-        if mode and mode not in Scheduler.BUILTIN_MODE_NAMES:
-            modes = cls.get_modes(workflow, kanban_dir=kanban_dir)
-            if mode in modes:
-                return list(modes[mode])
-        mode = mode if mode in Scheduler.BUILTIN_MODE_NAMES else ("quick" if quick else "lightweight")
+                    kanban_dir=None) -> list:
+        from kanban_framework.infra.consts import Consts
+        resolved_mode = mode or Consts.DEFAULT_MODE
         modes = cls.get_modes(workflow, kanban_dir=kanban_dir)
-        if mode in modes:
-            order = list(modes[mode])
+        if resolved_mode in modes:
+            order = list(modes[resolved_mode])
         else:
-            order = [p for p in cls._BUILTIN_MODES.get(mode, cls.PHASE_ORDER)]
-        # Apply extensions for builtin modes too
+            order = list(cls.PHASE_ORDER)
         if workflow and isinstance(workflow, dict) and workflow.get("extensions"):
             from kanban_framework.domain.workflow_extensions import WorkflowExtension
             ext = WorkflowExtension(workflow)
-            if ext.is_active_for_mode(mode):
+            if ext.is_active_for_mode(resolved_mode):
                 str_order = [p.value if isinstance(p, Phase) else str(p) for p in order]
-                str_order = ext.build_phase_order(str_order, mode=mode)
+                str_order = ext.build_phase_order(str_order, mode=resolved_mode)
                 return [Phase(p) for p in str_order]
         return order
 
     @classmethod
-    def _dispatch_from_mode(cls, lightweight: bool, quick: bool, workflow: dict | None = None,
+    def _dispatch_from_mode(cls, workflow: dict | None = None,
                             mode: str | None = None,
                             kanban_dir: Path | None = None) -> list[Phase | str]:
-        return cls._base_order(lightweight, quick, workflow, mode, kanban_dir)
+        return cls._base_order(workflow, mode, kanban_dir)
 
     @staticmethod
     def compute_parallel_batches(subtasks: list[dict]) -> list[list[dict]]:

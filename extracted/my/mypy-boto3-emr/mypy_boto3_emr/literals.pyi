@@ -56,6 +56,7 @@ __all__ = (
     "ListInstancesPaginatorName",
     "ListNotebookExecutionsPaginatorName",
     "ListSecurityConfigurationsPaginatorName",
+    "ListSessionsPaginatorName",
     "ListStepsPaginatorName",
     "ListStudioSessionMappingsPaginatorName",
     "ListStudiosPaginatorName",
@@ -79,6 +80,7 @@ __all__ = (
     "ScaleDownBehaviorType",
     "ScalingStrategyType",
     "ServiceName",
+    "SessionStateType",
     "SpotProvisioningAllocationStrategyType",
     "SpotProvisioningTimeoutActionType",
     "StatisticType",
@@ -191,6 +193,7 @@ ListInstanceGroupsPaginatorName = Literal["list_instance_groups"]
 ListInstancesPaginatorName = Literal["list_instances"]
 ListNotebookExecutionsPaginatorName = Literal["list_notebook_executions"]
 ListSecurityConfigurationsPaginatorName = Literal["list_security_configurations"]
+ListSessionsPaginatorName = Literal["list_sessions"]
 ListStepsPaginatorName = Literal["list_steps"]
 ListStudioSessionMappingsPaginatorName = Literal["list_studio_session_mappings"]
 ListStudiosPaginatorName = Literal["list_studios"]
@@ -228,6 +231,9 @@ ReconfigurationTypeType = Literal["MERGE", "OVERWRITE"]
 RepoUpgradeOnBootType = Literal["NONE", "SECURITY"]
 ScaleDownBehaviorType = Literal["TERMINATE_AT_INSTANCE_HOUR", "TERMINATE_AT_TASK_COMPLETION"]
 ScalingStrategyType = Literal["ADVANCED", "DEFAULT"]
+SessionStateType = Literal[
+    "BUSY", "FAILED", "IDLE", "STARTED", "STARTING", "SUBMITTED", "TERMINATED", "TERMINATING"
+]
 SpotProvisioningAllocationStrategyType = Literal[
     "capacity-optimized",
     "capacity-optimized-prioritized",
@@ -600,6 +606,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -627,6 +634,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -712,6 +720,7 @@ PaginatorName = Literal[
     "list_instances",
     "list_notebook_executions",
     "list_security_configurations",
+    "list_sessions",
     "list_steps",
     "list_studio_session_mappings",
     "list_studios",

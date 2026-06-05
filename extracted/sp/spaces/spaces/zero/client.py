@@ -142,7 +142,13 @@ def schedule(
         return res
 
     if isinstance(res, QuotaInfos): # pragma: no cover
-        requested = duration.seconds if duration is not None else DEFAULT_SCHEDULE_DURATION
+        if meta.approve_result == 'pending-overquota-exceeded':
+            message = (
+                "You have too many ZeroGPU credits allocated to running tasks. "
+                "Try again once some of those tasks have completed."
+            )
+            raise error("ZeroGPU pending credits exceeded", message)
+        requested = round(duration_seconds)
         requested *= 2 if gpu_size == 'xlarge' else 1
         if res.wait < timedelta(0):
             message = (
@@ -173,8 +179,9 @@ def schedule(
                         f"{TOKENS_SETTINGS_URL}"
                     )
                 elif auth == 'regular':
+                    pro_quota_minutes = 40  # TODO: Dynamic value from Spaces API
                     message += (
-                        f"Subscribe to Hugging Face PRO to get 25 min of ZeroGPU quota a day - "
+                        f"Subscribe to Hugging Face PRO to get {pro_quota_minutes} min of ZeroGPU quota a day - "
                         f"{SUBSCRIBE_TO_PRO_URL}"
                     )
                 elif auth == 'pro':

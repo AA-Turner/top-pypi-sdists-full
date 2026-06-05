@@ -69,7 +69,7 @@ def makeGuid(fileName=None):
 
     :param string fileName: name of file
     """
-    myMd5 = hashlib.md5()
+    myMd5 = hashlib.md5(usedforsecurity=False)
     if fileName:
         try:
             with open(fileName, "rb") as fd:
@@ -78,7 +78,7 @@ def makeGuid(fileName=None):
         except Exception:
             return None
     else:
-        myMd5.update(str(random.getrandbits(128)).encode())
+        myMd5.update(str(random.getrandbits(128)).encode())  # nosec B311
 
     md5HexString = myMd5.hexdigest().upper()
     return generateGuid(md5HexString, "MD5")
@@ -106,8 +106,8 @@ def generateGuid(checksum, checksumtype):
             return guid
 
     # Failed to use the check sum, generate a new guid
-    myMd5 = hashlib.md5()
-    myMd5.update(str(random.getrandbits(128)).encode())
+    myMd5 = hashlib.md5(usedforsecurity=False)
+    myMd5.update(str(random.getrandbits(128)).encode())  # nosec B311
     md5HexString = myMd5.hexdigest()
     guid = "{}-{}-{}-{}-{}".format(
         md5HexString[0:8],
@@ -213,7 +213,7 @@ def getMD5ForFiles(fileList):
     :type fileList: python:list
     """
     fileList.sort()
-    hashMD5 = hashlib.md5()
+    hashMD5 = hashlib.md5(usedforsecurity=False)
     for filePath in fileList:
         if os.path.isdir(filePath):
             continue

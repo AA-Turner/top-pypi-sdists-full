@@ -25,6 +25,44 @@ try:
 except ImportError:
     CUPY_AVAILABLE = False
 
+# =====================================================================
+# CuPy Kernels definition for fusion of operations (Zero-Allocation)
+# =====================================================================
+if CUPY_AVAILABLE:
+    # Kernel for Poisson Ratio: y / max(q, eps)
+    ppgmlem_ratio_kernel = cp.ElementwiseKernel(
+        'float32 y, float32 q, float32 eps',
+        'float32 out',
+        '''
+        float q_safe = q < eps ? eps : q;
+        out = y / q_safe;
+        ''',
+        'ppgmlem_ratio_kernel'
+    )
+
+    # Kernel for Preconditioned Update & Clamp
+    # Formula: lambda + alpha * (backproj - sens - grad_U) / (sens + delta * hess_U + gamma)
+    ppgmlem_update_kernel = cp.ElementwiseKernel(
+        'float32 lam_in, float32 backproj, float32 sens, float32 grad_u, float32 hess_u, float32 alpha, float32 delta, float32 gamma, float32 eps',
+        'float32 lam_out, float32 gradient_out',
+        '''
+        float numerator = backproj - sens - grad_u;
+        float denominator = sens + delta * hess_u + gamma;
+        
+        // Prevent division by zero or negative preconditioners
+        float denom_safe = denominator < eps ? eps : denominator;
+        
+        // Full preconditioned gradient step
+        float step = alpha * (numerator / denom_safe);
+        
+        float new_val = lam_in + step;
+        lam_out = new_val > 0.0f ? new_val : 0.0f; // Clamp positive
+        
+        // Output the strict mathematical gradient for stopping criteria
+        gradient_out = numerator / denom_safe;
+        ''',
+        'ppgmlem_update_kernel'
+    )
 
 def PPGMLEM(
     SMatrix: Union['SMatrix_DENSE', 'SMatrix_CSR', 'SMatrix_SELL'],
@@ -41,6 +79,7 @@ def PPGMLEM(
     potential_radius: int = 2,
     stop_criterion: StopCriterionType = StopCriterionType.MAX_ITERATIONS,
     stop_threshold: float = 100.0,
+    stop_window_size: int = 5,
     isSavingEachIteration: bool = True,
     isCostFunction: bool = False,
     withTumor: bool = True,
@@ -77,6 +116,7 @@ def PPGMLEM(
         potential_radius: Neighborhood radius in pixels
         stop_criterion: Criterion for stopping the iterations (StopCriterionType enum)
         stop_threshold: Threshold value for the stopping criterion (for MAX_iterations, this is ignored)
+        stop_window_size: Window size (used to avoid early stop due to oscillations)
         preconditioner_type: Type of preconditioner to use (default: NONE)
         isSavingEachIteration: If True, saves intermediate results
         isCostFunction: If True, computes and saves cost function history
@@ -92,6 +132,7 @@ def PPGMLEM(
         - cost_history: List of cost function values (None if not requested)
     """
     xp = get_array_module(SMatrix)
+    is_gpu = (xp.__name__ == 'cupy')
     Z, X = SMatrix.Z, SMatrix.X
     ZX = Z * X
 
@@ -100,9 +141,12 @@ def PPGMLEM(
 
     y_flat = xp.asarray(y.T.flatten().astype(xp.float32))
     lambda_flat = xp.full(ZX, 0.1, dtype=xp.float32)
+    ratio_buffer = xp.empty_like(y_flat)
+    gradient_buffer = xp.empty_like(lambda_flat)
 
     # Pre-compute sensitivity (A^T * 1)
-    sens_img = xp.maximum(backward_projection(SMatrix, xp.ones(SMatrix.N * SMatrix.T, dtype=xp.float32)), 1e-10)
+    sens_img = backward_projection(SMatrix, xp.ones(SMatrix.N * SMatrix.T, dtype=xp.float32))
+    xp.maximum(sens_img, 1e-10, out=sens_img)
 
     alpha = calculate_step_size(SMatrix, eta, numIterations_stepCalculation, show_logs) if alpha == "auto" else alpha
 
@@ -112,28 +156,55 @@ def PPGMLEM(
     saved_lambda = []
     saved_indices_list = []
     cost_history = [] if isCostFunction else None
+    window_history = []
 
     description = f"AOT-BioMaps -- PPGMLEM ({SMatrix.matrix_type.name}) with {potential_type.name} (shape: {potential_shape.name}, radius: {potential_radius}) β={beta} ---- {'WITH' if withTumor else 'WITHOUT'} TUMOR ---- {SMatrix.device.upper()}"
     iterator = trange(numIterations, desc=description) if show_logs else range(numIterations)
 
     for it in iterator:
-        prev_lambda = lambda_flat.copy()
+        prev_lambda = lambda_flat.copy() if stop_criterion != StopCriterionType.MAX_ITERATIONS else None
+
         q_flat = forward_projection(SMatrix, lambda_flat)
 
+        if is_gpu:
+            ppgmlem_ratio_kernel(y_flat, q_flat, 1e-10, ratio_buffer)
+        else:
+            np.maximum(q_flat, 1e-10, out=q_flat)
+            np.divide(y_flat, q_flat, out=ratio_buffer)
+
+        backproj_ratio = backward_projection(SMatrix, ratio_buffer)
+
         # Compute potential Gradient & Hessian dynamically
-        grad_U, hess_U, U_value = get_potential_function(potential_type, SMatrix, lambda_flat, beta=beta, delta=delta, shape=potential_shape, radius=potential_radius, compute_grad=True, compute_hess=True, compute_energy=isCostFunction)
+        grad_U, hess_U, U_value = get_potential_function(potential_type, SMatrix, lambda_flat, beta=beta, delta=delta, shape=potential_shape, radius=potential_radius, compute_grad=True, compute_hess=True, compute_energy=isCostFunction, use_surrogate_hessian=False)
 
         # Track cost function (Negative Log-Likelihood + Penalty)
         if isCostFunction:
-            cost_history.append(float(xp.sum(xp.maximum(q_flat, 1e-10) - y_flat * xp.log(xp.maximum(q_flat, 1e-10))) + U_value))
+            q_safe = xp.maximum(q_flat, 1e-10)
+            cost_history.append(float(xp.sum(q_safe - y_flat * xp.log(q_safe)) + U_value))
 
         # PPGMLEM Update: λ = λ + α * (A^T * (y / Ax) - A^T * 1 - grad_U / (A^T * 1 + δ * hess_U + γ))
-        lambda_flat = clamp_positive(SMatrix, lambda_flat + alpha * (backward_projection(SMatrix, y_flat / xp.maximum(q_flat, 1e-10)) - sens_img - grad_U / xp.maximum(sens_img + delta * hess_U + gamma, 1e-10)))
+        if is_gpu:
+            # We output both the new lambda and the exact preconditioned gradient for the stopping criterion
+            ppgmlem_update_kernel(
+                lambda_flat, backproj_ratio, sens_img, grad_U, hess_U, 
+                float(alpha), float(delta), float(gamma), 1e-10, 
+                lambda_flat, gradient_buffer # Outputs
+            )
+        else:
+            # Fallback CPU In-Place (with correctly grouped parenthesis!)
+            numerator = backproj_ratio - sens_img - grad_U
+            denominator = sens_img + delta * hess_U + gamma
+            np.maximum(denominator, 1e-10, out=denominator)
+            
+            gradient_buffer = numerator / denominator
+            lambda_flat += float(alpha) * gradient_buffer
+            np.maximum(lambda_flat, 0.0, out=lambda_flat)
 
         # Stopping Criterion
         if stop_criterion != StopCriterionType.MAX_ITERATIONS:
             ground_truth = SMatrix.experiment.OpticImage.phantom if withTumor else SMatrix.experiment.OpticImage.laser.intensity
-            isStop, val = check_stopping_criterion(SMatrix, lambda_flat, prev_lambda, stop_criterion, stop_threshold, cost_history, ground_truth)
+            gradient_for_stop = gradient_buffer if stop_criterion == StopCriterionType.GRADIENT_NORM else None
+            isStop, val = check_stopping_criterion(SMatrix, lambda_flat, prev_lambda, stop_criterion, stop_threshold, window_size=stop_window_size, history=cost_history, ground_truth=ground_truth, gradient=gradient_for_stop, window_history=window_history)
             if show_logs and show_criterion:
                 iterator.set_postfix_str(f"{stop_criterion.name}: {val:.2e}")
             if isStop:

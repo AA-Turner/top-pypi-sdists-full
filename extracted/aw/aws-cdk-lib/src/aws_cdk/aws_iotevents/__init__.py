@@ -142,7 +142,7 @@ class CfnAlarmModel(
                         range_key_type="rangeKeyType",
                         range_key_value="rangeKeyValue"
                     ),
-                    dynamo_dBv2=iotevents.CfnAlarmModel.DynamoDBv2Property(
+                    dynamo_d_bv2=iotevents.CfnAlarmModel.DynamoDBv2Property(
                         table_name="tableName",
         
                         # the properties below are optional
@@ -645,7 +645,7 @@ class CfnAlarmModel(
                         range_key_type="rangeKeyType",
                         range_key_value="rangeKeyValue"
                     ),
-                    dynamo_dBv2=iotevents.CfnAlarmModel.DynamoDBv2Property(
+                    dynamo_d_bv2=iotevents.CfnAlarmModel.DynamoDBv2Property(
                         table_name="tableName",
                 
                         # the properties below are optional
@@ -1063,7 +1063,7 @@ class CfnAlarmModel(
                             range_key_type="rangeKeyType",
                             range_key_value="rangeKeyValue"
                         ),
-                        dynamo_dBv2=iotevents.CfnAlarmModel.DynamoDBv2Property(
+                        dynamo_d_bv2=iotevents.CfnAlarmModel.DynamoDBv2Property(
                             table_name="tableName",
                 
                             # the properties below are optional
@@ -1661,7 +1661,7 @@ class CfnAlarmModel(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_iotevents as iotevents
                 
-                dynamo_dBProperty = iotevents.CfnAlarmModel.DynamoDBProperty(
+                dynamo_db_property = iotevents.CfnAlarmModel.DynamoDBProperty(
                     hash_key_field="hashKeyField",
                     hash_key_value="hashKeyValue",
                     table_name="tableName",
@@ -1892,7 +1892,7 @@ class CfnAlarmModel(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_iotevents as iotevents
                 
-                dynamo_dBv2_property = iotevents.CfnAlarmModel.DynamoDBv2Property(
+                dynamo_d_bv2_property = iotevents.CfnAlarmModel.DynamoDBv2Property(
                     table_name="tableName",
                 
                     # the properties below are optional
@@ -2939,7 +2939,7 @@ class CfnAlarmModelProps:
                             range_key_type="rangeKeyType",
                             range_key_value="rangeKeyValue"
                         ),
-                        dynamo_dBv2=iotevents.CfnAlarmModel.DynamoDBv2Property(
+                        dynamo_d_bv2=iotevents.CfnAlarmModel.DynamoDBv2Property(
                             table_name="tableName",
             
                             # the properties below are optional
@@ -3525,7 +3525,7 @@ class CfnDetectorModel(
                         range_key_type="rangeKeyType",
                         range_key_value="rangeKeyValue"
                     ),
-                    dynamo_dBv2=iotevents.CfnDetectorModel.DynamoDBv2Property(
+                    dynamo_d_bv2=iotevents.CfnDetectorModel.DynamoDBv2Property(
                         table_name="tableName",
                 
                         # the properties below are optional
@@ -4367,7 +4367,7 @@ class CfnDetectorModel(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_iotevents as iotevents
                 
-                dynamo_dBProperty = iotevents.CfnDetectorModel.DynamoDBProperty(
+                dynamo_db_property = iotevents.CfnDetectorModel.DynamoDBProperty(
                     hash_key_field="hashKeyField",
                     hash_key_value="hashKeyValue",
                     table_name="tableName",
@@ -4598,7 +4598,7 @@ class CfnDetectorModel(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_iotevents as iotevents
                 
-                dynamo_dBv2_property = iotevents.CfnDetectorModel.DynamoDBv2Property(
+                dynamo_d_bv2_property = iotevents.CfnDetectorModel.DynamoDBv2Property(
                     table_name="tableName",
                 
                     # the properties below are optional
@@ -4709,7 +4709,7 @@ class CfnDetectorModel(
                             range_key_type="rangeKeyType",
                             range_key_value="rangeKeyValue"
                         ),
-                        dynamo_dBv2=iotevents.CfnDetectorModel.DynamoDBv2Property(
+                        dynamo_d_bv2=iotevents.CfnDetectorModel.DynamoDBv2Property(
                             table_name="tableName",
                 
                             # the properties below are optional
@@ -5419,7 +5419,7 @@ class CfnDetectorModel(
                                 range_key_type="rangeKeyType",
                                 range_key_value="rangeKeyValue"
                             ),
-                            dynamo_dBv2=iotevents.CfnDetectorModel.DynamoDBv2Property(
+                            dynamo_d_bv2=iotevents.CfnDetectorModel.DynamoDBv2Property(
                                 table_name="tableName",
                 
                                 # the properties below are optional
@@ -5607,7 +5607,7 @@ class CfnDetectorModel(
                                 range_key_type="rangeKeyType",
                                 range_key_value="rangeKeyValue"
                             ),
-                            dynamo_dBv2=iotevents.CfnDetectorModel.DynamoDBv2Property(
+                            dynamo_d_bv2=iotevents.CfnDetectorModel.DynamoDBv2Property(
                                 table_name="tableName",
                 
                                 # the properties below are optional
@@ -5797,7 +5797,7 @@ class CfnDetectorModel(
                                 range_key_type="rangeKeyType",
                                 range_key_value="rangeKeyValue"
                             ),
-                            dynamo_dBv2=iotevents.CfnDetectorModel.DynamoDBv2Property(
+                            dynamo_d_bv2=iotevents.CfnDetectorModel.DynamoDBv2Property(
                                 table_name="tableName",
                 
                                 # the properties below are optional
@@ -5931,7 +5931,7 @@ class CfnDetectorModel(
                                 range_key_type="rangeKeyType",
                                 range_key_value="rangeKeyValue"
                             ),
-                            dynamo_dBv2=iotevents.CfnDetectorModel.DynamoDBv2Property(
+                            dynamo_d_bv2=iotevents.CfnDetectorModel.DynamoDBv2Property(
                                 table_name="tableName",
                 
                                 # the properties below are optional
@@ -6717,7 +6717,7 @@ class CfnDetectorModel(
                             range_key_type="rangeKeyType",
                             range_key_value="rangeKeyValue"
                         ),
-                        dynamo_dBv2=iotevents.CfnDetectorModel.DynamoDBv2Property(
+                        dynamo_d_bv2=iotevents.CfnDetectorModel.DynamoDBv2Property(
                             table_name="tableName",
                 
                             # the properties below are optional

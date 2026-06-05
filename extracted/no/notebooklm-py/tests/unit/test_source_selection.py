@@ -37,7 +37,7 @@ def mock_core():
     """Create a mock Session.
 
     After Wave 8 of session-decoupling, ``ChatAPI.ask`` reaches the network
-    through its injected :class:`SessionTransport` collaborator via
+    through its injected :class:`RuntimeTransport` collaborator via
     ``self._transport.perform_authed_post`` (constructor-injected by the
     ``_chat_from_mock_core`` helper below, which maps the bag-of-attributes
     ``mock_core`` fixture onto the four keyword-only collaborator slots).
@@ -115,7 +115,7 @@ def mock_core():
 
     # Assemble the bag-of-attributes fixture in one ``SimpleNamespace`` call
     # so every collaborator slot ``ChatAPI`` and ``ArtifactsAPI`` read from
-    # the fixture lands at construction time. ADR-007 specifically forbids
+    # the fixture lands at construction time. ADR-0007 specifically forbids
     # the ``core.<attr> = <value>`` re-assignment pattern (which is why this
     # is *not* built via ``make_fake_core`` + post-construction stubs); the
     # SimpleNamespace constructor satisfies the policy by setting every
@@ -149,9 +149,10 @@ def mock_core():
     core = SimpleNamespace(
         rpc_executor=SimpleNamespace(rpc_call=rpc_call),
         # ``rpc_call`` mirrors ``rpc_executor.rpc_call`` so the SimpleNamespace
-        # also satisfies the composite ``ArtifactsRuntime`` Protocol
-        # (``RpcCaller`` + ``AsyncWorkRuntime`` + ``DrainHookRegistration``)
-        # when threaded into ``ArtifactsAPI`` as the runtime adapter.
+        # also satisfies the composite ``ArtifactsRuntime`` shape
+        # (``RpcCaller`` + ``LoopGuard`` + ``OperationScopeProvider`` +
+        # ``DrainHookRegistration``) when threaded into ``ArtifactsAPI`` as
+        # the runtime adapter.
         rpc_call=rpc_call,
         auth=auth,
         next_reqid=AsyncMock(return_value=100000),
@@ -176,7 +177,7 @@ def mock_notebooks_api():
 def _chat_from_mock_core(mock_core, *, notebooks=None) -> ChatAPI:
     """Build a ``ChatAPI`` from the ``mock_core`` fixture's surfaces.
 
-    Wave 8 of session-decoupling (ADR-014 Rule 2 Corollary): ``ChatAPI``
+    Wave 8 of session-decoupling (ADR-0014 Rule 2 Corollary): ``ChatAPI``
     takes its four direct collaborators by keyword arg. The legacy single-
     arg ``ChatAPI(mock_core)`` form is gone; this helper preserves the
     test shape by mapping the bag-of-attributes mock_core fixture onto

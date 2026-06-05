@@ -102,7 +102,7 @@ class CfnAppMonitor(
             # the properties below are optional
             app_monitor_configuration=rum.CfnAppMonitor.AppMonitorConfigurationProperty(
                 allow_cookies=False,
-                enable_xRay=False,
+                enable_x_ray=False,
                 excluded_pages=["excludedPages"],
                 favorite_pages=["favoritePages"],
                 guest_role_arn="guestRoleArn",
@@ -504,7 +504,7 @@ class CfnAppMonitor(
                 
                 app_monitor_configuration_property = rum.CfnAppMonitor.AppMonitorConfigurationProperty(
                     allow_cookies=False,
-                    enable_xRay=False,
+                    enable_x_ray=False,
                     excluded_pages=["excludedPages"],
                     favorite_pages=["favoritePages"],
                     guest_role_arn="guestRoleArn",
@@ -901,7 +901,7 @@ class CfnAppMonitor(
             self,
             *,
             name: builtins.str,
-            dimension_keys: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            dimension_keys: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
             event_pattern: typing.Optional[builtins.str] = None,
             namespace: typing.Optional[builtins.str] = None,
             unit_label: typing.Optional[builtins.str] = None,
@@ -992,7 +992,7 @@ class CfnAppMonitor(
         @builtins.property
         def dimension_keys(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''This field is a map of field paths to dimension names.
 
             It defines the dimensions to associate with this metric in CloudWatch . The value of this field is used only if the metric destination is ``CloudWatch`` . If the metric destination is ``Evidently`` , the value of ``DimensionKeys`` is ignored.
@@ -1000,7 +1000,7 @@ class CfnAppMonitor(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rum-appmonitor-metricdefinition.html#cfn-rum-appmonitor-metricdefinition-dimensionkeys
             '''
             result = self._values.get("dimension_keys")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def event_pattern(self) -> typing.Optional[builtins.str]:
@@ -1335,7 +1335,7 @@ class CfnAppMonitorProps:
                 # the properties below are optional
                 app_monitor_configuration=rum.CfnAppMonitor.AppMonitorConfigurationProperty(
                     allow_cookies=False,
-                    enable_xRay=False,
+                    enable_x_ray=False,
                     excluded_pages=["excludedPages"],
                     favorite_pages=["favoritePages"],
                     guest_role_arn="guestRoleArn",
@@ -1712,7 +1712,7 @@ def _typecheckingstub__78c04a50ef32713cea26d41602085c025ced86700aa160ec7d04d54d4
 def _typecheckingstub__001da0942488042bedaa7bac57ce421214804f088803aac4b0f5c16385fb5991(
     *,
     name: builtins.str,
-    dimension_keys: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    dimension_keys: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     event_pattern: typing.Optional[builtins.str] = None,
     namespace: typing.Optional[builtins.str] = None,
     unit_label: typing.Optional[builtins.str] = None,

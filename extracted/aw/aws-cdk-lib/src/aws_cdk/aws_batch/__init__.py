@@ -273,11 +273,11 @@ You can tag any instances launched by your managed EC2 ComputeEnvironments by us
 # vpc: ec2.IVpc
 
 
-tag_cE = batch.ManagedEc2EcsComputeEnvironment(self, "CEThatMakesTaggedInstnaces",
+tag_ce = batch.ManagedEc2EcsComputeEnvironment(self, "CEThatMakesTaggedInstnaces",
     vpc=vpc
 )
 
-Tags.of(tag_cE).add("super", "salamander")
+Tags.of(tag_ce).add("super", "salamander")
 ```
 
 Unmanaged `ComputeEnvironment`s do not support `maxvCpus` or `minvCpus` because you must provision and manage the instances yourself;
@@ -6618,7 +6618,7 @@ class CfnJobDefinition(
             self,
             *,
             type: builtins.str,
-            options: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         ) -> None:
             '''The FireLens configuration for the container.
 
@@ -6670,7 +6670,7 @@ class CfnJobDefinition(
         @builtins.property
         def options(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''The options to use when configuring the log router.
 
             This field is optional and can be used to specify a custom configuration file or to add additional metadata, such as the task, task definition, cluster, and container instance details to the log event. If specified, the syntax to use is ``"options":{"enable-ecs-log-metadata":"true|false","config-file-type:"s3|file","config-file-value":"arn:aws:s3:::mybucket/fluent.conf|filepath"}`` . For more information, see `Creating a task definition that uses a FireLens configuration <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/using_firelens.html#firelens-taskdef>`_ in the *Amazon Elastic Container Service Developer Guide* .
@@ -6678,7 +6678,7 @@ class CfnJobDefinition(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-jobdefinition-firelensconfiguration.html#cfn-batch-jobdefinition-firelensconfiguration-options
             '''
             result = self._values.get("options")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -28463,7 +28463,7 @@ def _typecheckingstub__2b088f865053d4cfdc2700de70d732a768d630a892a20da6fda19303d
 def _typecheckingstub__012b674cbcf1ea538c209d328bedd805776a59df4892337af673d8b565f4f57d(
     *,
     type: builtins.str,
-    options: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

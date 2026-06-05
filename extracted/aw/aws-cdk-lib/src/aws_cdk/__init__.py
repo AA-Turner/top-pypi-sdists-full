@@ -260,11 +260,8 @@ Nested stacks also support the use of Docker image and file assets.
 
 ## Accessing resources in a different stack
 
-You can access resources in a different stack, as long as they are in the
-same account and AWS Region (see [next section](#accessing-resources-in-a-different-stack-and-region) for an exception).
-The following example defines the stack `stack1`,
-which defines an Amazon S3 bucket. Then it defines a second stack, `stack2`,
-which takes the bucket from stack1 as a constructor property.
+You can pass resource references between stacks freely, including across regions and
+accounts. The CDK automatically wires the underlying CloudFormation mechanism for you.
 
 ```python
 prod = {"account": "123456789012", "region": "us-east-1"}
@@ -278,19 +275,8 @@ stack2 = StackThatExpectsABucket(app, "Stack2",
 )
 ```
 
-If the AWS CDK determines that the resource is in the same account and
-Region, but in a different stack, it automatically synthesizes AWS
-CloudFormation
-[Exports](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-stack-exports.html)
-in the producing stack and an
-[Fn::ImportValue](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/intrinsic-function-reference-importvalue.html)
-in the consuming stack to transfer that information from one stack to the
-other.
-
-## Accessing resources in a different stack and region
-
-You can access resources in a different stack and region. For example, you can create
-a CloudFront distribution in `us-east-2` that references an ACM certificate in `us-east-1`.
+This also works across regions. For example, you can create a CloudFront distribution
+in `us-east-2` that references an ACM certificate in `us-east-1`:
 
 ```python
 from aws_cdk import Environment, Environment
@@ -318,73 +304,68 @@ cloudfront.Distribution(stack2, "Distribution",
 )
 ```
 
-### Cross-stack reference strength
+### Reference strength
 
-The context key `@aws-cdk/core:defaultCrossStackReferences` controls the mechanism used for
-cross-stack references. It accepts three values: `"strong"` (default), `"weak"`, and `"both"`.
+Every cross-stack reference has a *strength* that determines the CloudFormation mechanism
+used to pass the value and the coupling it creates between stacks. There are three
+strengths:
 
-**Strong references** (default) create a tight coupling between stacks. For same-region references,
-the producer creates a CloudFormation Export and the consumer uses `Fn::ImportValue`. For
-cross-region references, a pair of Custom Resources (ExportWriter/ExportReader) write values to
-SSM Parameters in the consuming region. In both cases, the producing stack cannot be deleted
-while consumers exist.
+**Strong** (default) — the producing stack cannot be deleted while any consumer exists.
+This is enforced by CloudFormation itself.
 
-**Weak references** use `Fn::GetStackOutput`, a CloudFormation intrinsic that reads an output
-directly from the producing stack. This is simpler (no extra infrastructure), but the producing
-stack can be deleted independently of its consumers.
+**Weak** — uses `Fn::GetStackOutput` to read an output directly from the producing stack.
+No coupling is created: the producing stack or resource can be deleted independently.
+This means consuming stacks may temporarily reference a nonexistent resource until they
+are updated as well.
 
-**Both** is a transitional state used during migration from strong to weak. The producer keeps
-the strong-side artifacts (Export for same-region, ExportWriter for cross-region), and also adds
-a plain Output. The consumer switches to `Fn::GetStackOutput`. This ensures the consumer is no
-longer dependent on the strong mechanism before it is removed.
+**Both** — a transitional state used when migrating from strong to weak. The producer
+keeps the strong-side artifacts while the consumer switches to `Fn::GetStackOutput`.
+Once all consumers have been deployed with the weak mechanism, the strong-side artifacts
+can be safely removed.
 
-Configure the reference strength in your `cdk.json`:
+The exact CloudFormation realization depends on the strength and whether the reference
+crosses region or account boundaries:
 
-```json
-{
-  "context": {
-    "@aws-cdk/core:defaultCrossStackReferences": "strong"
-  }
-}
-```
-
-> [!NOTE]
-> When using `"strong"` references, the feature is built on Custom Resources, which are restricted
-> to a CloudFormation response body size limitation of
-> [4096 bytes](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/crpg-ref-responses.html).
-> To prevent deployment errors, we recommend limiting the use of nested stacks and minimizing
-> the length of stack names.
-
-The full behavior is summarized in the following table:
-
-|                            | Flag=strong/unset                                 | Flag=both                                                                                    | Flag=weak                                                  |
-|----------------------------|---------------------------------------------------|----------------------------------------------------------------------------------------------|------------------------------------------------------------|
-| Same account and region    | Generates a `Fn::ImportValue` reference           | Generates a `Fn::GetStackOutput` reference AND an Export, but not the `Fn::ImportValue`      | Generates a `Fn::GetStackOutput` reference                 |
-| Same account, cross-region | Generates a pair of `ExportWriter`/`ExportReader` | Generates a `Fn::GetStackOutput` reference AND an `ExportWriter`, but not the `ExportReader` | Generates a `Fn::GetStackOutput` reference                 |
+|                            | Strong (default)                                  | Both                                                                                         | Weak                                                            |
+|----------------------------|---------------------------------------------------|----------------------------------------------------------------------------------------------|-----------------------------------------------------------------|
+| Same account and region    | Generates a `Fn::ImportValue` reference           | Generates a `Fn::GetStackOutput` reference AND an Export, but not the `Fn::ImportValue`      | Generates a `Fn::GetStackOutput` reference                      |
+| Same account, cross-region | Generates a pair of `ExportWriter`/`ExportReader` | Generates a `Fn::GetStackOutput` reference AND an `ExportWriter`, but not the `ExportReader` | Generates a `Fn::GetStackOutput` reference                      |
 | Cross-account              | Not possible. Falls back to weak.                 | Generates a `Fn::GetStackOutput` reference + cross-account role                              | Generates a `Fn::GetStackOutput` reference + cross-account role |
 
-### Migrating from strong to weak references
+> [!NOTE]
+> Strong cross-region references rely on Custom Resources, which are restricted to a
+> CloudFormation response body size of
+> [4096 bytes](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/crpg-ref-responses.html).
+> To prevent deployment errors, limit the use of nested stacks and minimize stack name length.
 
-If you have existing stacks deployed with strong references and want to switch to weak
-references, you must do so in two deployments to avoid the
-[deadly embrace](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/best-practices.html)
-problem:
+### The deadly embrace
 
-**DEPLOYMENT 1**: set the flag to `"both"` and deploy.
+Strong references create a *deadly embrace*: a circular dependency between stacks that
+prevents any of them from being updated or deleted. This happens because CloudFormation
+Exports cannot be removed while any other stack imports them, and the producing stack
+cannot be updated to remove the Export as long as the consuming stack still has a
+`Fn::ImportValue` referencing it.
 
-```json
-{
-  "context": {
-    "@aws-cdk/core:defaultCrossStackReferences": "both"
-  }
-}
+In practice, you hit the deadly embrace when you try to remove a resource that is
+referenced by another stack. CloudFormation will reject the update with an error like:
+
+```text
+Export Stack1:ExportsOutputFnGetAtt-****** cannot be deleted as it is in use by Stack2
 ```
 
-This adds `Fn::GetStackOutput` references in the consumers (weak) while keeping the
-strong-side artifacts in the producer (Export for same-region, ExportWriter for cross-region).
-After this deployment, consumers no longer depend on the strong mechanism.
+The solution is to first weaken the reference (switching the consumer away from
+`Fn::ImportValue`), deploy, and then remove the resource. The sections below explain
+how to do this.
 
-**DEPLOYMENT 2**: set the flag to `"weak"` and deploy.
+### Controlling reference strength
+
+There are three ways to control the strength of cross-stack references, each operating
+at a different scope:
+
+#### App-wide: context key
+
+Set `@aws-cdk/core:defaultCrossStackReferences` in `cdk.json` to change the default for
+all references in the app:
 
 ```json
 {
@@ -394,41 +375,120 @@ After this deployment, consumers no longer depend on the strong mechanism.
 }
 ```
 
-This removes the strong-side infrastructure entirely (Exports for same-region,
-ExportWriter/ExportReader for cross-region). All references now use the lightweight
-`Fn::GetStackOutput` mechanism.
+You can also set this on a specific scope (stack, construct) using
+`CrossStackReferences.of(scope).consume(strength)`:
 
-### Removing automatic cross-stack references
+```python
+# consumer: Stack
 
-The automatic references created by CDK when you use resources across stacks
-are convenient, but may block your deployments if you want to remove the
-resources that are referenced in this way. You will see an error like:
-
-```text
-Export Stack1:ExportsOutputFnGetAtt-****** cannot be deleted as it is in use by Stack1
+# All references consumed by this stack will be weak
+CrossStackReferences.of(consumer).consume(ReferenceStrength.WEAK)
 ```
 
-Let's say there is a Bucket in the `stack1`, and the `stack2` references its
-`bucket.bucketName`. You now want to remove the bucket and run into the error above.
+#### Per-resource: `CrossStackReferences.of(resource).produce(strength)`
 
-It's not safe to remove `stack1.bucket` while `stack2` is still using it, so
-unblocking yourself from this is a two-step process. This is how it works:
+Override the strength for all references pointing at a specific resource:
 
-DEPLOYMENT 1: break the relationship
+```python
+# producer: Stack
+# consumer: Stack
 
-* Make sure `stack2` no longer references `bucket.bucketName` (maybe the consumer
-  stack now uses its own bucket, or it writes to an AWS DynamoDB table, or maybe you just
-  remove the Lambda Function altogether).
-* In the `stack1` class, call `this.exportValue(this.bucket.bucketName)`. This
-  will make sure the CloudFormation Export continues to exist while the relationship
-  between the two stacks is being broken.
-* Deploy (this will effectively only change the `stack2`, but it's safe to deploy both).
 
-DEPLOYMENT 2: remove the resource
+bucket = s3.Bucket(producer, "SharedBucket")
+CrossStackReferences.of(bucket).produce(ReferenceStrength.WEAK)
 
-* You are now free to remove the `bucket` resource from `stack1`.
-* Don't forget to remove the `exportValue()` call as well.
-* Deploy again (this time only the `stack1` will be changed -- the bucket will be deleted).
+# This reference will use Fn::GetStackOutput regardless of the global setting
+CfnOutput(consumer, "BucketName", value=bucket.bucket_name)
+```
+
+Other resources in the same stack continue to use the global default.
+
+#### Per-usage: `Stack.consumeReference()`
+
+Override the strength of a single reference usage without affecting other usages of the
+same resource:
+
+```python
+from aws_cdk import Environment
+# topic: sns.Topic
+
+
+consumer = Stack(app, "Consumer",
+    env=Environment(account="123456789012", region="us-east-1")
+)
+sns.Subscription(consumer, "Subscription",
+    topic=sns.Topic.from_topic_arn(consumer, "Topic",
+        Stack.consume_reference(topic.topic_arn, ReferenceStrength.WEAK)),
+    endpoint="https://example.com/webhook",
+    protocol=sns.SubscriptionProtocol.HTTPS
+)
+```
+
+The `consumeListReference` method is the equivalent for string list references.
+
+### Resolving the deadly embrace
+
+To remove a resource that has strong cross-stack references, you must weaken the
+references before removing the resource. There are two approaches depending on whether
+you want to weaken all references to the resource or just a specific one.
+
+#### Weakening all references to a resource
+
+Use `CrossStackReferences.of(resource).produce(...)` to weaken every reference pointing
+at the resource. This requires two deployments before you can remove it:
+
+DEPLOYMENT 1: switch to `BOTH` (keeps the strong-side artifacts while consumers switch
+to the weak mechanism)
+
+```python
+# bucket: s3.Bucket
+
+CrossStackReferences.of(bucket).produce(ReferenceStrength.BOTH)
+```
+
+DEPLOYMENT 2: switch to `WEAK` (removes the strong-side artifacts now that no consumer
+depends on them)
+
+```python
+# bucket: s3.Bucket
+
+CrossStackReferences.of(bucket).produce(ReferenceStrength.WEAK)
+```
+
+DEPLOYMENT 3: remove the bucket from `stack1` and any references from `stack2`.
+
+#### Weakening a single reference
+
+Use `Stack.consumeReference()` to weaken just one specific usage. This is useful when
+a resource is referenced from multiple stacks, and you only want to decouple one of them.
+The same two-deployment migration applies:
+
+DEPLOYMENT 1: wrap the reference with `consumeReference` (defaults to `BOTH`)
+
+```python
+# bucket: s3.Bucket
+# consumer: Stack
+
+
+# Previously: bucket.bucketArn was used directly
+CfnOutput(consumer, "BucketArn",
+    value=Stack.consume_reference(bucket.bucket_arn)
+)
+```
+
+DEPLOYMENT 2: switch to `WEAK`
+
+```python
+# bucket: s3.Bucket
+# consumer: Stack
+
+
+CfnOutput(consumer, "BucketArn",
+    value=Stack.consume_reference(bucket.bucket_arn, ReferenceStrength.WEAK)
+)
+```
+
+DEPLOYMENT 3: remove the resource or the reference as needed.
 
 ## Durations
 
@@ -2180,6 +2240,7 @@ import abc
 import builtins
 import datetime
 import enum
+import importlib as _importlib
 import typing
 
 import jsii
@@ -2755,6 +2816,7 @@ class Annotations(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.Annotations"):
         "context": "context",
         "default_stack_synthesizer": "defaultStackSynthesizer",
         "outdir": "outdir",
+        "performance_reporting": "performanceReporting",
         "policy_validation_beta1": "policyValidationBeta1",
         "post_cli_context": "postCliContext",
         "property_injectors": "propertyInjectors",
@@ -2771,6 +2833,7 @@ class AppProps:
         context: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         default_stack_synthesizer: typing.Optional["IReusableStackSynthesizer"] = None,
         outdir: typing.Optional[builtins.str] = None,
+        performance_reporting: typing.Optional[builtins.bool] = None,
         policy_validation_beta1: typing.Optional[typing.Sequence["IPolicyValidationPluginBeta1"]] = None,
         post_cli_context: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         property_injectors: typing.Optional[typing.Sequence["IPropertyInjector"]] = None,
@@ -2784,6 +2847,7 @@ class AppProps:
         :param context: Additional context values for the application. Context set by the CLI or the ``context`` key in ``cdk.json`` has precedence. Context can be read from any construct using ``node.getContext(key)``. Default: - no additional context
         :param default_stack_synthesizer: The stack synthesizer to use by default for all Stacks in the App. The Stack Synthesizer controls aspects of synthesis and deployment, like how assets are referenced and what IAM roles to use. For more information, see the README of the main CDK package. Default: - A ``DefaultStackSynthesizer`` with default settings
         :param outdir: The output directory into which to emit synthesized artifacts. You should never need to set this value. By default, the value you pass to the CLI's ``--output`` flag will be used, and if you change it to a different directory the CLI will fail to pick up the generated Cloud Assembly. This property is intended for internal and testing use. Default: - If this value is *not* set, considers the environment variable ``CDK_OUTDIR``. If ``CDK_OUTDIR`` is not defined, uses a temp directory.
+        :param performance_reporting: Produce a performance counter report if supported by the CLI. The performance report will be produced if the total synthesis time exceeds 10 seconds/stack, unless this property is used to switch the report off altogether (set to ``false``). Default: Value of 'aws:cdk:performance-reporting' context key
         :param policy_validation_beta1: (deprecated) Validation plugins to run after synthesis. Default: - no validation plugins
         :param post_cli_context: Additional context values for the application. Context provided here has precedence over context set by: - The CLI via --context - The ``context`` key in ``cdk.json`` - The ``AppProps.context`` property This property is recommended over the ``AppProps.context`` property since you can make final decision over which context value to take in your app. Context can be read from any construct using ``node.getContext(key)``. Default: - no additional context
         :param property_injectors: A list of IPropertyInjector attached to this App. Default: - no PropertyInjectors
@@ -2816,6 +2880,7 @@ class AppProps:
             check_type(argname="argument context", value=context, expected_type=type_hints["context"])
             check_type(argname="argument default_stack_synthesizer", value=default_stack_synthesizer, expected_type=type_hints["default_stack_synthesizer"])
             check_type(argname="argument outdir", value=outdir, expected_type=type_hints["outdir"])
+            check_type(argname="argument performance_reporting", value=performance_reporting, expected_type=type_hints["performance_reporting"])
             check_type(argname="argument policy_validation_beta1", value=policy_validation_beta1, expected_type=type_hints["policy_validation_beta1"])
             check_type(argname="argument post_cli_context", value=post_cli_context, expected_type=type_hints["post_cli_context"])
             check_type(argname="argument property_injectors", value=property_injectors, expected_type=type_hints["property_injectors"])
@@ -2832,6 +2897,8 @@ class AppProps:
             self._values["default_stack_synthesizer"] = default_stack_synthesizer
         if outdir is not None:
             self._values["outdir"] = outdir
+        if performance_reporting is not None:
+            self._values["performance_reporting"] = performance_reporting
         if policy_validation_beta1 is not None:
             self._values["policy_validation_beta1"] = policy_validation_beta1
         if post_cli_context is not None:
@@ -2911,6 +2978,19 @@ class AppProps:
         '''
         result = self._values.get("outdir")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def performance_reporting(self) -> typing.Optional[builtins.bool]:
+        '''Produce a performance counter report if supported by the CLI.
+
+        The performance report will be produced if the total synthesis time
+        exceeds 10 seconds/stack, unless this property is used to switch the
+        report off altogether (set to ``false``).
+
+        :default: Value of 'aws:cdk:performance-reporting' context key
+        '''
+        result = self._values.get("performance_reporting")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def policy_validation_beta1(
@@ -7932,7 +8012,6 @@ class CfnOutput(CfnElement, metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.CfnO
 
     Example::
 
-        import aws_cdk.aws_s3 as s3
         # cluster: eks.Cluster
         
         # add service account
@@ -8124,7 +8203,6 @@ class CfnOutputProps:
 
         Example::
 
-            import aws_cdk.aws_s3 as s3
             # cluster: eks.Cluster
             
             # add service account
@@ -9231,6 +9309,23 @@ class CfnResource(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast(None, jsii.invoke(self, "addPropertyOverride", [property_path, value]))
 
+    @jsii.member(jsii_name="applyCrossStackReferenceStrength")
+    def apply_cross_stack_reference_strength(
+        self,
+        strength: "ReferenceStrength",
+    ) -> None:
+        '''Sets the cross-stack reference strength for this resource.
+
+        When set, any cross-stack reference to this resource will use the specified
+        strength instead of the global default from the consuming stack's context.
+
+        :param strength: - The reference strength to use for this resource.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__70385a6d2a388294c96e561a2676a598096cad0a016cb9a4a152a10d6988a435)
+            check_type(argname="argument strength", value=strength, expected_type=type_hints["strength"])
+        return typing.cast(None, jsii.invoke(self, "applyCrossStackReferenceStrength", [strength]))
+
     @jsii.member(jsii_name="applyRemovalPolicy")
     def apply_removal_policy(
         self,
@@ -9321,13 +9416,13 @@ class CfnResource(
         return typing.cast(typing.Any, jsii.invoke(self, "getMetadata", [key]))
 
     @jsii.member(jsii_name="obtainDependencies")
-    def obtain_dependencies(self) -> typing.List[typing.Union["Stack", "CfnResource"]]:
+    def obtain_dependencies(self) -> typing.List[typing.Union["CfnResource", "Stack"]]:
         '''Retrieves an array of resources this resource depends on.
 
         This assembles dependencies on resources across stacks (including nested stacks)
         automatically.
         '''
-        return typing.cast(typing.List[typing.Union["Stack", "CfnResource"]], jsii.invoke(self, "obtainDependencies", []))
+        return typing.cast(typing.List[typing.Union["CfnResource", "Stack"]], jsii.invoke(self, "obtainDependencies", []))
 
     @jsii.member(jsii_name="obtainResourceDependencies")
     def obtain_resource_dependencies(self) -> typing.List["CfnResource"]:
@@ -10147,7 +10242,7 @@ class CfnStackProps:
         self,
         *,
         notification_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-        parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "IResolvable"]] = None,
+        parameters: typing.Optional[typing.Union["IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         template_url: typing.Optional[builtins.str] = None,
         timeout_in_minutes: typing.Optional[jsii.Number] = None,
@@ -10215,7 +10310,7 @@ class CfnStackProps:
     @builtins.property
     def parameters(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "IResolvable"]]:
+    ) -> typing.Optional[typing.Union["IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
         '''The set value pairs that represent the parameters passed to CloudFormation when this nested stack is created.
 
         Each parameter has a name corresponding to a parameter defined in the embedded template and a value representing the value that you want to set for the parameter.
@@ -10230,7 +10325,7 @@ class CfnStackProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-stack.html#cfn-cloudformation-stack-parameters
         '''
         result = self._values.get("parameters")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "IResolvable"]], result)
+        return typing.cast(typing.Optional[typing.Union["IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List["CfnTag"]]:
@@ -12139,6 +12234,68 @@ class CopyOptions:
         return "CopyOptions(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+class CrossStackReferences(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.CrossStackReferences",
+):
+    '''Ergonomic API for configuring cross-stack reference strength on a construct.
+
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        import aws_cdk as cdk
+        
+        cross_stack_references = cdk.CrossStackReferences.of(self)
+    '''
+
+    @jsii.member(jsii_name="of")
+    @builtins.classmethod
+    def of(cls, scope: "_constructs_77d1e7e8.IConstruct") -> "CrossStackReferences":
+        '''Returns a ``CrossStackReferences`` configurator for the given construct.
+
+        :param scope: The construct to configure.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5d39f520952f65878a31b60995299e736410f2e33d4654c83a8820d02c756756)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+        return typing.cast("CrossStackReferences", jsii.sinvoke(cls, "of", [scope]))
+
+    @jsii.member(jsii_name="consume")
+    def consume(self, strength: "ReferenceStrength") -> None:
+        '''Set the default reference strength used when this scope consumes references from other stacks.
+
+        This controls the consuming side: sets the context key that determines how
+        incoming cross-stack references are resolved for this scope and its descendants.
+
+        Equivalent to ``scope.node.setContext(DEFAULT_CROSS_STACK_REFERENCES, strength)``.
+
+        :param strength: - The reference strength to use.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dc9676fcb310183ecc0fed74b0690d54da7408f44351b169c507b7a96196407e)
+            check_type(argname="argument strength", value=strength, expected_type=type_hints["strength"])
+        return typing.cast(None, jsii.invoke(self, "consume", [strength]))
+
+    @jsii.member(jsii_name="produce")
+    def produce(self, strength: "ReferenceStrength") -> None:
+        '''Set how this resource is referenced when consumed from another stack.
+
+        This controls the producing side: any cross-stack reference pointing at
+        this resource will use the specified strength instead of the global default.
+
+        Equivalent to ``scope.applyCrossStackReferenceStrength(strength)``.
+
+        :param strength: - The reference strength to use.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__84088964eebda366d56574b7ac2c5d6800bbf9375915f5cc99893eb028e15fdc)
+            check_type(argname="argument strength", value=strength, expected_type=type_hints["strength"])
+        return typing.cast(None, jsii.invoke(self, "produce", [strength]))
 
 
 @jsii.data_type(
@@ -14927,26 +15084,28 @@ class Environment:
 
         Example::
 
-            import aws_cdk as cdk
-            import aws_cdk.aws_cloudwatch as cloudwatch
-            
-            
-            app = cdk.App()
-            stack = cdk.Stack(app, "Stack", env=cdk.Environment(region="us-west-2"))
-            
-            global_table = dynamodb.TableV2(stack, "GlobalTable",
-                partition_key=dynamodb.Attribute(name="pk", type=dynamodb.AttributeType.STRING),
-                replicas=[dynamodb.ReplicaTableProps(region="us-east-1"), dynamodb.ReplicaTableProps(region="us-east-2")
-                ]
+            from aws_cdk import Environment, Environment
+            stack1 = Stack(app, "Stack1",
+                env=Environment(
+                    region="us-east-1"
+                )
+            )
+            cert = acm.Certificate(stack1, "Cert",
+                domain_name="*.example.com",
+                validation=acm.CertificateValidation.from_dns(route53.PublicHostedZone.from_hosted_zone_id(stack1, "Zone", "Z0329774B51CGXTDQV3X"))
             )
             
-            # metric is only for the table in us-west-2
-            metric = global_table.metric_consumed_read_capacity_units()
-            
-            cloudwatch.Alarm(self, "Alarm",
-                metric=metric,
-                evaluation_periods=1,
-                threshold=1
+            stack2 = Stack(app, "Stack2",
+                env=Environment(
+                    region="us-east-2"
+                )
+            )
+            cloudfront.Distribution(stack2, "Distribution",
+                default_behavior=cloudfront.BehaviorOptions(
+                    origin=origins.HttpOrigin("example.com")
+                ),
+                domain_names=["dev.example.com"],
+                certificate=cert
             )
         '''
         if __debug__:
@@ -17914,6 +18073,18 @@ class IPolicyValidationContext(typing_extensions.Protocol):
     '''Context available to the validation plugin.'''
 
     @builtins.property
+    @jsii.member(jsii_name="appConstruct")
+    def app_construct(self) -> "_constructs_77d1e7e8.IConstruct":
+        '''The root construct of the app being validated.
+
+        Plugins may walk this tree for typed L1 property access and token
+        resolution via ``Stack.of(node).resolve()``. The tree is finalized and
+        should be treated as read-only; mutations have no effect on synthesized
+        output.
+        '''
+        ...
+
+    @builtins.property
     @jsii.member(jsii_name="templatePaths")
     def template_paths(self) -> typing.List[builtins.str]:
         '''The absolute path of all templates to be processed.'''
@@ -17924,6 +18095,18 @@ class _IPolicyValidationContextProxy:
     '''Context available to the validation plugin.'''
 
     __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.IPolicyValidationContext"
+
+    @builtins.property
+    @jsii.member(jsii_name="appConstruct")
+    def app_construct(self) -> "_constructs_77d1e7e8.IConstruct":
+        '''The root construct of the app being validated.
+
+        Plugins may walk this tree for typed L1 property access and token
+        resolution via ``Stack.of(node).resolve()``. The tree is finalized and
+        should be treated as read-only; mutations have no effect on synthesized
+        output.
+        '''
+        return typing.cast("_constructs_77d1e7e8.IConstruct", jsii.get(self, "appConstruct"))
 
     @builtins.property
     @jsii.member(jsii_name="templatePaths")
@@ -17945,6 +18128,20 @@ class IPolicyValidationContextBeta1(typing_extensions.Protocol):
     '''
 
     @builtins.property
+    @jsii.member(jsii_name="appConstruct")
+    def app_construct(self) -> "_constructs_77d1e7e8.IConstruct":
+        '''(deprecated) The root construct of the app being validated.
+
+        Plugins may walk this tree for typed L1 property access and token
+        resolution via ``Stack.of(node).resolve()``. The tree is finalized and
+        should be treated as read-only; mutations have no effect on synthesized
+        output.
+
+        :stability: deprecated
+        '''
+        ...
+
+    @builtins.property
     @jsii.member(jsii_name="templatePaths")
     def template_paths(self) -> typing.List[builtins.str]:
         '''(deprecated) The absolute path of all templates to be processed.
@@ -17963,6 +18160,20 @@ class _IPolicyValidationContextBeta1Proxy:
     '''
 
     __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.IPolicyValidationContextBeta1"
+
+    @builtins.property
+    @jsii.member(jsii_name="appConstruct")
+    def app_construct(self) -> "_constructs_77d1e7e8.IConstruct":
+        '''(deprecated) The root construct of the app being validated.
+
+        Plugins may walk this tree for typed L1 property access and token
+        resolution via ``Stack.of(node).resolve()``. The tree is finalized and
+        should be treated as read-only; mutations have no effect on synthesized
+        output.
+
+        :stability: deprecated
+        '''
+        return typing.cast("_constructs_77d1e7e8.IConstruct", jsii.get(self, "appConstruct"))
 
     @builtins.property
     @jsii.member(jsii_name="templatePaths")
@@ -22365,6 +22576,47 @@ class _ReferenceProxy(Reference):
 typing.cast(typing.Any, Reference).__jsii_proxy_class__ = lambda : _ReferenceProxy
 
 
+@jsii.enum(jsii_type="aws-cdk-lib.ReferenceStrength")
+class ReferenceStrength(enum.Enum):
+    '''Controls how cross-stack references to a resource are resolved.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        # bucket: s3.Bucket
+        # consumer: Stack
+        
+        
+        CfnOutput(consumer, "BucketArn",
+            value=Stack.consume_reference(bucket.bucket_arn, ReferenceStrength.WEAK)
+        )
+    '''
+
+    STRONG = "STRONG"
+    '''Strong reference: uses CloudFormation Export/Import (same region) or ExportWriter/ExportReader custom resources (cross-region).
+
+    The producing stack cannot be deleted while consumers exist.
+    '''
+    WEAK = "WEAK"
+    '''Weak reference: uses Fn::GetStackOutput to read an output directly from the producing stack.
+
+    The producing stack or resource can be deleted independently of consumers.
+    This will cause infrastructure in consuming stacks to temporarily reference a nonexistant
+    resource until the consumers are updated as well, causing any accesses in that time
+    frame to fail.
+
+    Strong references prevent this.
+    '''
+    BOTH = "BOTH"
+    '''Both strong and weak mechanisms are created (transitional state).
+
+    Use this when migrating from strong to weak. The producer keeps the
+    strong-side artifacts and also adds a plain Output. The consumer
+    switches to Fn::GetStackOutput.
+    '''
+
+
 class RemovalPolicies(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.RemovalPolicies"):
     '''Manages removal policies for all resources within a construct scope, overriding any existing policies by default.
 
@@ -23149,6 +23401,26 @@ class Resource(
             type_hints = typing.get_type_hints(_typecheckingstub__f6205fdb97a6e809ad8be1edd5047aba48fa457be4543da186027361b3415004)
             check_type(argname="argument construct", value=construct, expected_type=type_hints["construct"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isResource", [construct]))
+
+    @jsii.member(jsii_name="applyCrossStackReferenceStrength")
+    def apply_cross_stack_reference_strength(
+        self,
+        strength: "ReferenceStrength",
+    ) -> None:
+        '''Override the cross-stack reference strength for this resource.
+
+        When set, any cross-stack reference to this resource will use the specified
+        mechanism instead of the global default determined by the
+        ``@aws-cdk/core:defaultCrossStackReferences`` context key. This is useful for
+        selectively weakening specific references to avoid the "deadly embrace" problem
+        without changing the app-wide default.
+
+        :param strength: - The reference strength to use for this resource.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__db7128e321c1335c70b92aa35d5d29504fb5f0c758dd579caf19404cdfff153f)
+            check_type(argname="argument strength", value=strength, expected_type=type_hints["strength"])
+        return typing.cast(None, jsii.invoke(self, "applyCrossStackReferenceStrength", [strength]))
 
     @jsii.member(jsii_name="applyRemovalPolicy")
     def apply_removal_policy(self, policy: "RemovalPolicy") -> None:
@@ -24441,6 +24713,67 @@ class Stack(
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="consumeListReference")
+    @builtins.classmethod
+    def consume_list_reference(
+        cls,
+        value: typing.Sequence[builtins.str],
+        strength: typing.Optional["ReferenceStrength"] = None,
+    ) -> typing.List[builtins.str]:
+        '''Override the reference strength for a specific cross-stack string list reference.
+
+        This is the string list equivalent of ``consumeReference``.
+
+        :param value: A tokenized string list reference.
+        :param strength: The reference strength to use. Defaults to ``BOTH``.
+
+        :return: A token that resolves to the same value but uses the overridden strength.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0d4bb62cde9913a88fb6f8e11271338827a9399a4e1bdea794a3aa02c9515509)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+            check_type(argname="argument strength", value=strength, expected_type=type_hints["strength"])
+        return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "consumeListReference", [value, strength]))
+
+    @jsii.member(jsii_name="consumeReference")
+    @builtins.classmethod
+    def consume_reference(
+        cls,
+        value: builtins.str,
+        strength: typing.Optional["ReferenceStrength"] = None,
+    ) -> builtins.str:
+        '''Override the reference strength for a specific cross-stack reference value.
+
+        Use this to weaken (or strengthen) an individual reference without
+        affecting other references to the same resource. For example::
+
+           from aws_cdk import Environment
+           # producerStack defines an SNS topic
+           # topic: sns.Topic
+
+
+           # consumerStack subscribes to it with a weak reference,
+           # so the producer can be torn down without blocking on this consumer
+           consumer_stack = Stack(app, "Consumer",
+               env=Environment(account="123456789012", region="us-east-1")
+           )
+           sns.Subscription(consumer_stack, "Subscription",
+               topic=sns.Topic.from_topic_arn(consumer_stack, "Topic", Stack.consume_reference(topic.topic_arn)),
+               endpoint="https://example.com/webhook",
+               protocol=sns.SubscriptionProtocol.HTTPS
+           )
+
+        :param value: A tokenized string reference (e.g. ``bucket.bucketArn``).
+        :param strength: The reference strength to use. Defaults to ``BOTH``.
+
+        :return: A token that resolves to the same value but uses the overridden strength.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a73f89d0e5d6eb8f94294c281b5cba96f83428f4d5438307c905c7167d365c8a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+            check_type(argname="argument strength", value=strength, expected_type=type_hints["strength"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "consumeReference", [value, strength]))
 
     @jsii.member(jsii_name="isStack")
     @builtins.classmethod
@@ -31594,6 +31927,7 @@ class App(Stage, metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.App"):
         context: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         default_stack_synthesizer: typing.Optional["IReusableStackSynthesizer"] = None,
         outdir: typing.Optional[builtins.str] = None,
+        performance_reporting: typing.Optional[builtins.bool] = None,
         policy_validation_beta1: typing.Optional[typing.Sequence["IPolicyValidationPluginBeta1"]] = None,
         post_cli_context: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         property_injectors: typing.Optional[typing.Sequence["IPropertyInjector"]] = None,
@@ -31607,6 +31941,7 @@ class App(Stage, metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.App"):
         :param context: Additional context values for the application. Context set by the CLI or the ``context`` key in ``cdk.json`` has precedence. Context can be read from any construct using ``node.getContext(key)``. Default: - no additional context
         :param default_stack_synthesizer: The stack synthesizer to use by default for all Stacks in the App. The Stack Synthesizer controls aspects of synthesis and deployment, like how assets are referenced and what IAM roles to use. For more information, see the README of the main CDK package. Default: - A ``DefaultStackSynthesizer`` with default settings
         :param outdir: The output directory into which to emit synthesized artifacts. You should never need to set this value. By default, the value you pass to the CLI's ``--output`` flag will be used, and if you change it to a different directory the CLI will fail to pick up the generated Cloud Assembly. This property is intended for internal and testing use. Default: - If this value is *not* set, considers the environment variable ``CDK_OUTDIR``. If ``CDK_OUTDIR`` is not defined, uses a temp directory.
+        :param performance_reporting: Produce a performance counter report if supported by the CLI. The performance report will be produced if the total synthesis time exceeds 10 seconds/stack, unless this property is used to switch the report off altogether (set to ``false``). Default: Value of 'aws:cdk:performance-reporting' context key
         :param policy_validation_beta1: (deprecated) Validation plugins to run after synthesis. Default: - no validation plugins
         :param post_cli_context: Additional context values for the application. Context provided here has precedence over context set by: - The CLI via --context - The ``context`` key in ``cdk.json`` - The ``AppProps.context`` property This property is recommended over the ``AppProps.context`` property since you can make final decision over which context value to take in your app. Context can be read from any construct using ``node.getContext(key)``. Default: - no additional context
         :param property_injectors: A list of IPropertyInjector attached to this App. Default: - no PropertyInjectors
@@ -31619,6 +31954,7 @@ class App(Stage, metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.App"):
             context=context,
             default_stack_synthesizer=default_stack_synthesizer,
             outdir=outdir,
+            performance_reporting=performance_reporting,
             policy_validation_beta1=policy_validation_beta1,
             post_cli_context=post_cli_context,
             property_injectors=property_injectors,
@@ -31656,6 +31992,37 @@ class App(Stage, metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.App"):
             type_hints = typing.get_type_hints(_typecheckingstub__41e11a4ae5cb788014dc602796fe5eabf74680964a5670046b019d6971088ca6)
             check_type(argname="argument construct", value=construct, expected_type=type_hints["construct"])
         return typing.cast(typing.Optional["Stage"], jsii.sinvoke(cls, "of", [construct]))
+
+    @jsii.member(jsii_name="synth")
+    def synth(
+        self,
+        *,
+        aspect_stabilization: typing.Optional[builtins.bool] = None,
+        error_on_duplicate_synth: typing.Optional[builtins.bool] = None,
+        force: typing.Optional[builtins.bool] = None,
+        skip_validation: typing.Optional[builtins.bool] = None,
+        validate_on_synthesis: typing.Optional[builtins.bool] = None,
+    ) -> "_CloudAssembly_c693643e":
+        '''Synthesize this App into a cloud assembly.
+
+        Once an assembly has been synthesized, it cannot be modified. Subsequent
+        calls will return the same assembly.
+
+        :param aspect_stabilization: Whether or not run the stabilization loop while invoking Aspects. The stabilization loop runs multiple passes of the construct tree when invoking Aspects. Without the stabilization loop, Aspects that are created by other Aspects are not run and new nodes that are created at higher points on the construct tree by an Aspect will not inherit their parent aspects. Default: false
+        :param error_on_duplicate_synth: Whether or not to throw a warning instead of an error if the construct tree has been mutated since the last synth. Default: true
+        :param force: Force a re-synth, even if the stage has already been synthesized. This is used by tests to allow for incremental verification of the output. Do not use in production. Default: false
+        :param skip_validation: Should we skip construct validation. Default: - false
+        :param validate_on_synthesis: Whether the stack should be validated after synthesis to check for error metadata. Default: - false
+        '''
+        options = StageSynthesisOptions(
+            aspect_stabilization=aspect_stabilization,
+            error_on_duplicate_synth=error_on_duplicate_synth,
+            force=force,
+            skip_validation=skip_validation,
+            validate_on_synthesis=validate_on_synthesis,
+        )
+
+        return typing.cast("_CloudAssembly_c693643e", jsii.invoke(self, "synth", [options]))
 
 
 @jsii.data_type(
@@ -36415,7 +36782,7 @@ class CfnStack(CfnResource, metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.CfnS
         id: builtins.str,
         *,
         notification_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-        parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "IResolvable"]] = None,
+        parameters: typing.Optional[typing.Union["IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         template_url: typing.Optional[builtins.str] = None,
         timeout_in_minutes: typing.Optional[jsii.Number] = None,
@@ -36604,14 +36971,14 @@ class CfnStack(CfnResource, metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.CfnS
     @jsii.member(jsii_name="parameters")
     def parameters(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "IResolvable"]]:
+    ) -> typing.Optional[typing.Union["IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
         '''The set value pairs that represent the parameters passed to CloudFormation when this nested stack is created.'''
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "IResolvable"]], jsii.get(self, "parameters"))
+        return typing.cast(typing.Optional[typing.Union["IResolvable", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "parameters"))
 
     @parameters.setter
     def parameters(
         self,
-        value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "IResolvable"]],
+        value: typing.Optional[typing.Union["IResolvable", typing.Mapping[builtins.str, builtins.str]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f3fb0b9b7598b79bde64721506e8cfa836e6901da44b747530857a860a1cc111)
@@ -41092,6 +41459,7 @@ __all__ = [
     "ConstructSelector",
     "ContextProvider",
     "CopyOptions",
+    "CrossStackReferences",
     "CustomResource",
     "CustomResourceProps",
     "CustomResourceProvider",
@@ -41207,6 +41575,7 @@ __all__ = [
     "PropertyInjectors",
     "PropertyMergeStrategy",
     "Reference",
+    "ReferenceStrength",
     "RemovalPolicies",
     "RemovalPolicy",
     "RemovalPolicyOptions",
@@ -41577,332 +41946,674 @@ __all__ = [
     "triggers",
 ]
 
+# Type-checking-only imports for static analyzers (pyright/mypy).
+# At runtime TYPE_CHECKING is False, preserving lazy loading.
+if typing.TYPE_CHECKING:
+    from . import alexa_ask as alexa_ask
+    from . import assertions as assertions
+    from . import aws_accessanalyzer as aws_accessanalyzer
+    from . import aws_acmpca as aws_acmpca
+    from . import aws_aiops as aws_aiops
+    from . import aws_amazonmq as aws_amazonmq
+    from . import aws_amplify as aws_amplify
+    from . import aws_amplifyuibuilder as aws_amplifyuibuilder
+    from . import aws_apigateway as aws_apigateway
+    from . import aws_apigatewayv2 as aws_apigatewayv2
+    from . import aws_apigatewayv2_authorizers as aws_apigatewayv2_authorizers
+    from . import aws_apigatewayv2_integrations as aws_apigatewayv2_integrations
+    from . import aws_appconfig as aws_appconfig
+    from . import aws_appflow as aws_appflow
+    from . import aws_appintegrations as aws_appintegrations
+    from . import aws_applicationautoscaling as aws_applicationautoscaling
+    from . import aws_applicationinsights as aws_applicationinsights
+    from . import aws_applicationsignals as aws_applicationsignals
+    from . import aws_appmesh as aws_appmesh
+    from . import aws_apprunner as aws_apprunner
+    from . import aws_appstream as aws_appstream
+    from . import aws_appsync as aws_appsync
+    from . import aws_apptest as aws_apptest
+    from . import aws_aps as aws_aps
+    from . import aws_arcregionswitch as aws_arcregionswitch
+    from . import aws_arczonalshift as aws_arczonalshift
+    from . import aws_athena as aws_athena
+    from . import aws_auditmanager as aws_auditmanager
+    from . import aws_autoscaling as aws_autoscaling
+    from . import aws_autoscaling_common as aws_autoscaling_common
+    from . import aws_autoscaling_hooktargets as aws_autoscaling_hooktargets
+    from . import aws_autoscalingplans as aws_autoscalingplans
+    from . import aws_awsexternalanthropic as aws_awsexternalanthropic
+    from . import aws_b2bi as aws_b2bi
+    from . import aws_backup as aws_backup
+    from . import aws_backupgateway as aws_backupgateway
+    from . import aws_batch as aws_batch
+    from . import aws_bcmdataexports as aws_bcmdataexports
+    from . import aws_bcmpricingcalculator as aws_bcmpricingcalculator
+    from . import aws_bedrock as aws_bedrock
+    from . import aws_bedrockagentcore as aws_bedrockagentcore
+    from . import aws_bedrockmantle as aws_bedrockmantle
+    from . import aws_billingconductor as aws_billingconductor
+    from . import aws_braket as aws_braket
+    from . import aws_budgets as aws_budgets
+    from . import aws_cases as aws_cases
+    from . import aws_cassandra as aws_cassandra
+    from . import aws_ce as aws_ce
+    from . import aws_certificatemanager as aws_certificatemanager
+    from . import aws_chatbot as aws_chatbot
+    from . import aws_chime as aws_chime
+    from . import aws_cleanrooms as aws_cleanrooms
+    from . import aws_cleanroomsml as aws_cleanroomsml
+    from . import aws_cloud9 as aws_cloud9
+    from . import aws_cloudformation as aws_cloudformation
+    from . import aws_cloudfront as aws_cloudfront
+    from . import aws_cloudfront_origins as aws_cloudfront_origins
+    from . import aws_cloudtrail as aws_cloudtrail
+    from . import aws_cloudwatch as aws_cloudwatch
+    from . import aws_cloudwatch_actions as aws_cloudwatch_actions
+    from . import aws_codeartifact as aws_codeartifact
+    from . import aws_codebuild as aws_codebuild
+    from . import aws_codecommit as aws_codecommit
+    from . import aws_codeconnections as aws_codeconnections
+    from . import aws_codedeploy as aws_codedeploy
+    from . import aws_codeguruprofiler as aws_codeguruprofiler
+    from . import aws_codegurureviewer as aws_codegurureviewer
+    from . import aws_codepipeline as aws_codepipeline
+    from . import aws_codepipeline_actions as aws_codepipeline_actions
+    from . import aws_codestar as aws_codestar
+    from . import aws_codestarconnections as aws_codestarconnections
+    from . import aws_codestarnotifications as aws_codestarnotifications
+    from . import aws_cognito as aws_cognito
+    from . import aws_cognito_identitypool as aws_cognito_identitypool
+    from . import aws_comprehend as aws_comprehend
+    from . import aws_computeoptimizer as aws_computeoptimizer
+    from . import aws_config as aws_config
+    from . import aws_connect as aws_connect
+    from . import aws_connectcampaigns as aws_connectcampaigns
+    from . import aws_connectcampaignsv2 as aws_connectcampaignsv2
+    from . import aws_controltower as aws_controltower
+    from . import aws_cur as aws_cur
+    from . import aws_customerprofiles as aws_customerprofiles
+    from . import aws_databrew as aws_databrew
+    from . import aws_datapipeline as aws_datapipeline
+    from . import aws_datasync as aws_datasync
+    from . import aws_datazone as aws_datazone
+    from . import aws_dax as aws_dax
+    from . import aws_deadline as aws_deadline
+    from . import aws_detective as aws_detective
+    from . import aws_devicefarm as aws_devicefarm
+    from . import aws_devopsagent as aws_devopsagent
+    from . import aws_devopsguru as aws_devopsguru
+    from . import aws_directconnect as aws_directconnect
+    from . import aws_directoryservice as aws_directoryservice
+    from . import aws_dlm as aws_dlm
+    from . import aws_dms as aws_dms
+    from . import aws_docdb as aws_docdb
+    from . import aws_docdbelastic as aws_docdbelastic
+    from . import aws_dsql as aws_dsql
+    from . import aws_dynamodb as aws_dynamodb
+    from . import aws_ec2 as aws_ec2
+    from . import aws_ecr as aws_ecr
+    from . import aws_ecr_assets as aws_ecr_assets
+    from . import aws_ecs as aws_ecs
+    from . import aws_ecs_patterns as aws_ecs_patterns
+    from . import aws_efs as aws_efs
+    from . import aws_eks as aws_eks
+    from . import aws_eks_v2 as aws_eks_v2
+    from . import aws_elasticache as aws_elasticache
+    from . import aws_elasticbeanstalk as aws_elasticbeanstalk
+    from . import aws_elasticloadbalancing as aws_elasticloadbalancing
+    from . import aws_elasticloadbalancingv2 as aws_elasticloadbalancingv2
+    from . import aws_elasticloadbalancingv2_actions as aws_elasticloadbalancingv2_actions
+    from . import aws_elasticloadbalancingv2_targets as aws_elasticloadbalancingv2_targets
+    from . import aws_elasticsearch as aws_elasticsearch
+    from . import aws_elementalinference as aws_elementalinference
+    from . import aws_emr as aws_emr
+    from . import aws_emrcontainers as aws_emrcontainers
+    from . import aws_emrserverless as aws_emrserverless
+    from . import aws_entityresolution as aws_entityresolution
+    from . import aws_events as aws_events
+    from . import aws_events_targets as aws_events_targets
+    from . import aws_eventschemas as aws_eventschemas
+    from . import aws_evidently as aws_evidently
+    from . import aws_evs as aws_evs
+    from . import aws_finspace as aws_finspace
+    from . import aws_fis as aws_fis
+    from . import aws_fms as aws_fms
+    from . import aws_forecast as aws_forecast
+    from . import aws_frauddetector as aws_frauddetector
+    from . import aws_fsx as aws_fsx
+    from . import aws_gamelift as aws_gamelift
+    from . import aws_gameliftstreams as aws_gameliftstreams
+    from . import aws_globalaccelerator as aws_globalaccelerator
+    from . import aws_globalaccelerator_endpoints as aws_globalaccelerator_endpoints
+    from . import aws_glue as aws_glue
+    from . import aws_grafana as aws_grafana
+    from . import aws_greengrass as aws_greengrass
+    from . import aws_greengrassv2 as aws_greengrassv2
+    from . import aws_groundstation as aws_groundstation
+    from . import aws_guardduty as aws_guardduty
+    from . import aws_healthimaging as aws_healthimaging
+    from . import aws_healthlake as aws_healthlake
+    from . import aws_iam as aws_iam
+    from . import aws_identitystore as aws_identitystore
+    from . import aws_imagebuilder as aws_imagebuilder
+    from . import aws_inspector as aws_inspector
+    from . import aws_inspectorv2 as aws_inspectorv2
+    from . import aws_interconnect as aws_interconnect
+    from . import aws_internetmonitor as aws_internetmonitor
+    from . import aws_invoicing as aws_invoicing
+    from . import aws_iot as aws_iot
+    from . import aws_iotanalytics as aws_iotanalytics
+    from . import aws_iotcoredeviceadvisor as aws_iotcoredeviceadvisor
+    from . import aws_iotevents as aws_iotevents
+    from . import aws_iotfleethub as aws_iotfleethub
+    from . import aws_iotfleetwise as aws_iotfleetwise
+    from . import aws_iotsitewise as aws_iotsitewise
+    from . import aws_iotthingsgraph as aws_iotthingsgraph
+    from . import aws_iottwinmaker as aws_iottwinmaker
+    from . import aws_iotwireless as aws_iotwireless
+    from . import aws_ivs as aws_ivs
+    from . import aws_ivschat as aws_ivschat
+    from . import aws_kafkaconnect as aws_kafkaconnect
+    from . import aws_kendra as aws_kendra
+    from . import aws_kendraranking as aws_kendraranking
+    from . import aws_kinesis as aws_kinesis
+    from . import aws_kinesisanalytics as aws_kinesisanalytics
+    from . import aws_kinesisanalyticsv2 as aws_kinesisanalyticsv2
+    from . import aws_kinesisfirehose as aws_kinesisfirehose
+    from . import aws_kinesisvideo as aws_kinesisvideo
+    from . import aws_kms as aws_kms
+    from . import aws_lakeformation as aws_lakeformation
+    from . import aws_lambda as aws_lambda
+    from . import aws_lambda_destinations as aws_lambda_destinations
+    from . import aws_lambda_event_sources as aws_lambda_event_sources
+    from . import aws_lambda_nodejs as aws_lambda_nodejs
+    from . import aws_launchwizard as aws_launchwizard
+    from . import aws_lex as aws_lex
+    from . import aws_licensemanager as aws_licensemanager
+    from . import aws_lightsail as aws_lightsail
+    from . import aws_location as aws_location
+    from . import aws_logs as aws_logs
+    from . import aws_logs_destinations as aws_logs_destinations
+    from . import aws_lookoutequipment as aws_lookoutequipment
+    from . import aws_lookoutmetrics as aws_lookoutmetrics
+    from . import aws_lookoutvision as aws_lookoutvision
+    from . import aws_m2 as aws_m2
+    from . import aws_macie as aws_macie
+    from . import aws_managedblockchain as aws_managedblockchain
+    from . import aws_mediaconnect as aws_mediaconnect
+    from . import aws_mediaconvert as aws_mediaconvert
+    from . import aws_medialive as aws_medialive
+    from . import aws_mediapackage as aws_mediapackage
+    from . import aws_mediapackagev2 as aws_mediapackagev2
+    from . import aws_mediastore as aws_mediastore
+    from . import aws_mediatailor as aws_mediatailor
+    from . import aws_memorydb as aws_memorydb
+    from . import aws_mpa as aws_mpa
+    from . import aws_msk as aws_msk
+    from . import aws_mwaa as aws_mwaa
+    from . import aws_mwaaserverless as aws_mwaaserverless
+    from . import aws_neptune as aws_neptune
+    from . import aws_neptunegraph as aws_neptunegraph
+    from . import aws_networkfirewall as aws_networkfirewall
+    from . import aws_networkmanager as aws_networkmanager
+    from . import aws_nimblestudio as aws_nimblestudio
+    from . import aws_notifications as aws_notifications
+    from . import aws_notificationscontacts as aws_notificationscontacts
+    from . import aws_novaact as aws_novaact
+    from . import aws_oam as aws_oam
+    from . import aws_observabilityadmin as aws_observabilityadmin
+    from . import aws_odb as aws_odb
+    from . import aws_omics as aws_omics
+    from . import aws_opensearchserverless as aws_opensearchserverless
+    from . import aws_opensearchservice as aws_opensearchservice
+    from . import aws_opsworks as aws_opsworks
+    from . import aws_opsworkscm as aws_opsworkscm
+    from . import aws_organizations as aws_organizations
+    from . import aws_osis as aws_osis
+    from . import aws_panorama as aws_panorama
+    from . import aws_paymentcryptography as aws_paymentcryptography
+    from . import aws_pcaconnectorad as aws_pcaconnectorad
+    from . import aws_pcaconnectorscep as aws_pcaconnectorscep
+    from . import aws_pcs as aws_pcs
+    from . import aws_personalize as aws_personalize
+    from . import aws_pinpoint as aws_pinpoint
+    from . import aws_pinpointemail as aws_pinpointemail
+    from . import aws_pipes as aws_pipes
+    from . import aws_proton as aws_proton
+    from . import aws_qbusiness as aws_qbusiness
+    from . import aws_qldb as aws_qldb
+    from . import aws_quicksight as aws_quicksight
+    from . import aws_ram as aws_ram
+    from . import aws_rbin as aws_rbin
+    from . import aws_rds as aws_rds
+    from . import aws_redshift as aws_redshift
+    from . import aws_redshiftserverless as aws_redshiftserverless
+    from . import aws_refactorspaces as aws_refactorspaces
+    from . import aws_rekognition as aws_rekognition
+    from . import aws_resiliencehub as aws_resiliencehub
+    from . import aws_resourceexplorer2 as aws_resourceexplorer2
+    from . import aws_resourcegroups as aws_resourcegroups
+    from . import aws_robomaker as aws_robomaker
+    from . import aws_rolesanywhere as aws_rolesanywhere
+    from . import aws_route53 as aws_route53
+    from . import aws_route53_patterns as aws_route53_patterns
+    from . import aws_route53_targets as aws_route53_targets
+    from . import aws_route53globalresolver as aws_route53globalresolver
+    from . import aws_route53profiles as aws_route53profiles
+    from . import aws_route53recoverycontrol as aws_route53recoverycontrol
+    from . import aws_route53recoveryreadiness as aws_route53recoveryreadiness
+    from . import aws_route53resolver as aws_route53resolver
+    from . import aws_rtbfabric as aws_rtbfabric
+    from . import aws_rum as aws_rum
+    from . import aws_s3 as aws_s3
+    from . import aws_s3_assets as aws_s3_assets
+    from . import aws_s3_deployment as aws_s3_deployment
+    from . import aws_s3_notifications as aws_s3_notifications
+    from . import aws_s3express as aws_s3express
+    from . import aws_s3files as aws_s3files
+    from . import aws_s3objectlambda as aws_s3objectlambda
+    from . import aws_s3outposts as aws_s3outposts
+    from . import aws_s3tables as aws_s3tables
+    from . import aws_s3vectors as aws_s3vectors
+    from . import aws_sagemaker as aws_sagemaker
+    from . import aws_sam as aws_sam
+    from . import aws_scheduler as aws_scheduler
+    from . import aws_scheduler_targets as aws_scheduler_targets
+    from . import aws_sdb as aws_sdb
+    from . import aws_secretsmanager as aws_secretsmanager
+    from . import aws_securityagent as aws_securityagent
+    from . import aws_securityhub as aws_securityhub
+    from . import aws_securitylake as aws_securitylake
+    from . import aws_servicecatalog as aws_servicecatalog
+    from . import aws_servicecatalogappregistry as aws_servicecatalogappregistry
+    from . import aws_servicediscovery as aws_servicediscovery
+    from . import aws_ses as aws_ses
+    from . import aws_ses_actions as aws_ses_actions
+    from . import aws_shield as aws_shield
+    from . import aws_signer as aws_signer
+    from . import aws_simspaceweaver as aws_simspaceweaver
+    from . import aws_smsvoice as aws_smsvoice
+    from . import aws_sns as aws_sns
+    from . import aws_sns_subscriptions as aws_sns_subscriptions
+    from . import aws_sqs as aws_sqs
+    from . import aws_ssm as aws_ssm
+    from . import aws_ssmcontacts as aws_ssmcontacts
+    from . import aws_ssmguiconnect as aws_ssmguiconnect
+    from . import aws_ssmincidents as aws_ssmincidents
+    from . import aws_ssmquicksetup as aws_ssmquicksetup
+    from . import aws_sso as aws_sso
+    from . import aws_stepfunctions as aws_stepfunctions
+    from . import aws_stepfunctions_tasks as aws_stepfunctions_tasks
+    from . import aws_supportapp as aws_supportapp
+    from . import aws_synthetics as aws_synthetics
+    from . import aws_systemsmanagersap as aws_systemsmanagersap
+    from . import aws_timestream as aws_timestream
+    from . import aws_transfer as aws_transfer
+    from . import aws_uxc as aws_uxc
+    from . import aws_verifiedpermissions as aws_verifiedpermissions
+    from . import aws_voiceid as aws_voiceid
+    from . import aws_vpclattice as aws_vpclattice
+    from . import aws_waf as aws_waf
+    from . import aws_wafregional as aws_wafregional
+    from . import aws_wafv2 as aws_wafv2
+    from . import aws_wisdom as aws_wisdom
+    from . import aws_workspaces as aws_workspaces
+    from . import aws_workspacesinstances as aws_workspacesinstances
+    from . import aws_workspacesthinclient as aws_workspacesthinclient
+    from . import aws_workspacesweb as aws_workspacesweb
+    from . import aws_xray as aws_xray
+    from . import cloud_assembly_schema as cloud_assembly_schema
+    from . import cloudformation_include as cloudformation_include
+    from . import custom_resources as custom_resources
+    from . import cx_api as cx_api
+    from . import interfaces as interfaces
+    from . import lambda_layer_awscli as lambda_layer_awscli
+    from . import lambda_layer_node_proxy_agent as lambda_layer_node_proxy_agent
+    from . import pipelines as pipelines
+    from . import region_info as region_info
+    from . import triggers as triggers
+
 publication.publish()
 
-# Loading modules to ensure their types are registered with the jsii runtime library
-from . import alexa_ask
-from . import assertions
-from . import aws_accessanalyzer
-from . import aws_acmpca
-from . import aws_aiops
-from . import aws_amazonmq
-from . import aws_amplify
-from . import aws_amplifyuibuilder
-from . import aws_apigateway
-from . import aws_apigatewayv2
-from . import aws_apigatewayv2_authorizers
-from . import aws_apigatewayv2_integrations
-from . import aws_appconfig
-from . import aws_appflow
-from . import aws_appintegrations
-from . import aws_applicationautoscaling
-from . import aws_applicationinsights
-from . import aws_applicationsignals
-from . import aws_appmesh
-from . import aws_apprunner
-from . import aws_appstream
-from . import aws_appsync
-from . import aws_apptest
-from . import aws_aps
-from . import aws_arcregionswitch
-from . import aws_arczonalshift
-from . import aws_athena
-from . import aws_auditmanager
-from . import aws_autoscaling
-from . import aws_autoscaling_common
-from . import aws_autoscaling_hooktargets
-from . import aws_autoscalingplans
-from . import aws_awsexternalanthropic
-from . import aws_b2bi
-from . import aws_backup
-from . import aws_backupgateway
-from . import aws_batch
-from . import aws_bcmdataexports
-from . import aws_bcmpricingcalculator
-from . import aws_bedrock
-from . import aws_bedrockagentcore
-from . import aws_bedrockmantle
-from . import aws_billingconductor
-from . import aws_braket
-from . import aws_budgets
-from . import aws_cases
-from . import aws_cassandra
-from . import aws_ce
-from . import aws_certificatemanager
-from . import aws_chatbot
-from . import aws_chime
-from . import aws_cleanrooms
-from . import aws_cleanroomsml
-from . import aws_cloud9
-from . import aws_cloudformation
-from . import aws_cloudfront
-from . import aws_cloudfront_origins
-from . import aws_cloudtrail
-from . import aws_cloudwatch
-from . import aws_cloudwatch_actions
-from . import aws_codeartifact
-from . import aws_codebuild
-from . import aws_codecommit
-from . import aws_codeconnections
-from . import aws_codedeploy
-from . import aws_codeguruprofiler
-from . import aws_codegurureviewer
-from . import aws_codepipeline
-from . import aws_codepipeline_actions
-from . import aws_codestar
-from . import aws_codestarconnections
-from . import aws_codestarnotifications
-from . import aws_cognito
-from . import aws_cognito_identitypool
-from . import aws_comprehend
-from . import aws_computeoptimizer
-from . import aws_config
-from . import aws_connect
-from . import aws_connectcampaigns
-from . import aws_connectcampaignsv2
-from . import aws_controltower
-from . import aws_cur
-from . import aws_customerprofiles
-from . import aws_databrew
-from . import aws_datapipeline
-from . import aws_datasync
-from . import aws_datazone
-from . import aws_dax
-from . import aws_deadline
-from . import aws_detective
-from . import aws_devicefarm
-from . import aws_devopsagent
-from . import aws_devopsguru
-from . import aws_directconnect
-from . import aws_directoryservice
-from . import aws_dlm
-from . import aws_dms
-from . import aws_docdb
-from . import aws_docdbelastic
-from . import aws_dsql
-from . import aws_dynamodb
-from . import aws_ec2
-from . import aws_ecr
-from . import aws_ecr_assets
-from . import aws_ecs
-from . import aws_ecs_patterns
-from . import aws_efs
-from . import aws_eks
-from . import aws_eks_v2
-from . import aws_elasticache
-from . import aws_elasticbeanstalk
-from . import aws_elasticloadbalancing
-from . import aws_elasticloadbalancingv2
-from . import aws_elasticloadbalancingv2_actions
-from . import aws_elasticloadbalancingv2_targets
-from . import aws_elasticsearch
-from . import aws_elementalinference
-from . import aws_emr
-from . import aws_emrcontainers
-from . import aws_emrserverless
-from . import aws_entityresolution
-from . import aws_events
-from . import aws_events_targets
-from . import aws_eventschemas
-from . import aws_evidently
-from . import aws_evs
-from . import aws_finspace
-from . import aws_fis
-from . import aws_fms
-from . import aws_forecast
-from . import aws_frauddetector
-from . import aws_fsx
-from . import aws_gamelift
-from . import aws_gameliftstreams
-from . import aws_globalaccelerator
-from . import aws_globalaccelerator_endpoints
-from . import aws_glue
-from . import aws_grafana
-from . import aws_greengrass
-from . import aws_greengrassv2
-from . import aws_groundstation
-from . import aws_guardduty
-from . import aws_healthimaging
-from . import aws_healthlake
-from . import aws_iam
-from . import aws_identitystore
-from . import aws_imagebuilder
-from . import aws_inspector
-from . import aws_inspectorv2
-from . import aws_interconnect
-from . import aws_internetmonitor
-from . import aws_invoicing
-from . import aws_iot
-from . import aws_iotanalytics
-from . import aws_iotcoredeviceadvisor
-from . import aws_iotevents
-from . import aws_iotfleethub
-from . import aws_iotfleetwise
-from . import aws_iotsitewise
-from . import aws_iotthingsgraph
-from . import aws_iottwinmaker
-from . import aws_iotwireless
-from . import aws_ivs
-from . import aws_ivschat
-from . import aws_kafkaconnect
-from . import aws_kendra
-from . import aws_kendraranking
-from . import aws_kinesis
-from . import aws_kinesisanalytics
-from . import aws_kinesisanalyticsv2
-from . import aws_kinesisfirehose
-from . import aws_kinesisvideo
-from . import aws_kms
-from . import aws_lakeformation
-from . import aws_lambda
-from . import aws_lambda_destinations
-from . import aws_lambda_event_sources
-from . import aws_lambda_nodejs
-from . import aws_launchwizard
-from . import aws_lex
-from . import aws_licensemanager
-from . import aws_lightsail
-from . import aws_location
-from . import aws_logs
-from . import aws_logs_destinations
-from . import aws_lookoutequipment
-from . import aws_lookoutmetrics
-from . import aws_lookoutvision
-from . import aws_m2
-from . import aws_macie
-from . import aws_managedblockchain
-from . import aws_mediaconnect
-from . import aws_mediaconvert
-from . import aws_medialive
-from . import aws_mediapackage
-from . import aws_mediapackagev2
-from . import aws_mediastore
-from . import aws_mediatailor
-from . import aws_memorydb
-from . import aws_mpa
-from . import aws_msk
-from . import aws_mwaa
-from . import aws_mwaaserverless
-from . import aws_neptune
-from . import aws_neptunegraph
-from . import aws_networkfirewall
-from . import aws_networkmanager
-from . import aws_nimblestudio
-from . import aws_notifications
-from . import aws_notificationscontacts
-from . import aws_novaact
-from . import aws_oam
-from . import aws_observabilityadmin
-from . import aws_odb
-from . import aws_omics
-from . import aws_opensearchserverless
-from . import aws_opensearchservice
-from . import aws_opsworks
-from . import aws_opsworkscm
-from . import aws_organizations
-from . import aws_osis
-from . import aws_panorama
-from . import aws_paymentcryptography
-from . import aws_pcaconnectorad
-from . import aws_pcaconnectorscep
-from . import aws_pcs
-from . import aws_personalize
-from . import aws_pinpoint
-from . import aws_pinpointemail
-from . import aws_pipes
-from . import aws_proton
-from . import aws_qbusiness
-from . import aws_qldb
-from . import aws_quicksight
-from . import aws_ram
-from . import aws_rbin
-from . import aws_rds
-from . import aws_redshift
-from . import aws_redshiftserverless
-from . import aws_refactorspaces
-from . import aws_rekognition
-from . import aws_resiliencehub
-from . import aws_resourceexplorer2
-from . import aws_resourcegroups
-from . import aws_robomaker
-from . import aws_rolesanywhere
-from . import aws_route53
-from . import aws_route53_patterns
-from . import aws_route53_targets
-from . import aws_route53globalresolver
-from . import aws_route53profiles
-from . import aws_route53recoverycontrol
-from . import aws_route53recoveryreadiness
-from . import aws_route53resolver
-from . import aws_rtbfabric
-from . import aws_rum
-from . import aws_s3
-from . import aws_s3_assets
-from . import aws_s3_deployment
-from . import aws_s3_notifications
-from . import aws_s3express
-from . import aws_s3files
-from . import aws_s3objectlambda
-from . import aws_s3outposts
-from . import aws_s3tables
-from . import aws_s3vectors
-from . import aws_sagemaker
-from . import aws_sam
-from . import aws_scheduler
-from . import aws_scheduler_targets
-from . import aws_sdb
-from . import aws_secretsmanager
-from . import aws_securityagent
-from . import aws_securityhub
-from . import aws_securitylake
-from . import aws_servicecatalog
-from . import aws_servicecatalogappregistry
-from . import aws_servicediscovery
-from . import aws_ses
-from . import aws_ses_actions
-from . import aws_shield
-from . import aws_signer
-from . import aws_simspaceweaver
-from . import aws_smsvoice
-from . import aws_sns
-from . import aws_sns_subscriptions
-from . import aws_sqs
-from . import aws_ssm
-from . import aws_ssmcontacts
-from . import aws_ssmguiconnect
-from . import aws_ssmincidents
-from . import aws_ssmquicksetup
-from . import aws_sso
-from . import aws_stepfunctions
-from . import aws_stepfunctions_tasks
-from . import aws_supportapp
-from . import aws_synthetics
-from . import aws_systemsmanagersap
-from . import aws_timestream
-from . import aws_transfer
-from . import aws_uxc
-from . import aws_verifiedpermissions
-from . import aws_voiceid
-from . import aws_vpclattice
-from . import aws_waf
-from . import aws_wafregional
-from . import aws_wafv2
-from . import aws_wisdom
-from . import aws_workspaces
-from . import aws_workspacesinstances
-from . import aws_workspacesthinclient
-from . import aws_workspacesweb
-from . import aws_xray
-from . import cloud_assembly_schema
-from . import cloudformation_include
-from . import custom_resources
-from . import cx_api
-from . import interfaces
-from . import lambda_layer_awscli
-from . import lambda_layer_node_proxy_agent
-from . import pipelines
-from . import region_info
-from . import triggers
+_SUBMODULES = {
+    "alexa_ask",
+    "assertions",
+    "aws_accessanalyzer",
+    "aws_acmpca",
+    "aws_aiops",
+    "aws_amazonmq",
+    "aws_amplify",
+    "aws_amplifyuibuilder",
+    "aws_apigateway",
+    "aws_apigatewayv2",
+    "aws_apigatewayv2_authorizers",
+    "aws_apigatewayv2_integrations",
+    "aws_appconfig",
+    "aws_appflow",
+    "aws_appintegrations",
+    "aws_applicationautoscaling",
+    "aws_applicationinsights",
+    "aws_applicationsignals",
+    "aws_appmesh",
+    "aws_apprunner",
+    "aws_appstream",
+    "aws_appsync",
+    "aws_apptest",
+    "aws_aps",
+    "aws_arcregionswitch",
+    "aws_arczonalshift",
+    "aws_athena",
+    "aws_auditmanager",
+    "aws_autoscaling",
+    "aws_autoscaling_common",
+    "aws_autoscaling_hooktargets",
+    "aws_autoscalingplans",
+    "aws_awsexternalanthropic",
+    "aws_b2bi",
+    "aws_backup",
+    "aws_backupgateway",
+    "aws_batch",
+    "aws_bcmdataexports",
+    "aws_bcmpricingcalculator",
+    "aws_bedrock",
+    "aws_bedrockagentcore",
+    "aws_bedrockmantle",
+    "aws_billingconductor",
+    "aws_braket",
+    "aws_budgets",
+    "aws_cases",
+    "aws_cassandra",
+    "aws_ce",
+    "aws_certificatemanager",
+    "aws_chatbot",
+    "aws_chime",
+    "aws_cleanrooms",
+    "aws_cleanroomsml",
+    "aws_cloud9",
+    "aws_cloudformation",
+    "aws_cloudfront",
+    "aws_cloudfront_origins",
+    "aws_cloudtrail",
+    "aws_cloudwatch",
+    "aws_cloudwatch_actions",
+    "aws_codeartifact",
+    "aws_codebuild",
+    "aws_codecommit",
+    "aws_codeconnections",
+    "aws_codedeploy",
+    "aws_codeguruprofiler",
+    "aws_codegurureviewer",
+    "aws_codepipeline",
+    "aws_codepipeline_actions",
+    "aws_codestar",
+    "aws_codestarconnections",
+    "aws_codestarnotifications",
+    "aws_cognito",
+    "aws_cognito_identitypool",
+    "aws_comprehend",
+    "aws_computeoptimizer",
+    "aws_config",
+    "aws_connect",
+    "aws_connectcampaigns",
+    "aws_connectcampaignsv2",
+    "aws_controltower",
+    "aws_cur",
+    "aws_customerprofiles",
+    "aws_databrew",
+    "aws_datapipeline",
+    "aws_datasync",
+    "aws_datazone",
+    "aws_dax",
+    "aws_deadline",
+    "aws_detective",
+    "aws_devicefarm",
+    "aws_devopsagent",
+    "aws_devopsguru",
+    "aws_directconnect",
+    "aws_directoryservice",
+    "aws_dlm",
+    "aws_dms",
+    "aws_docdb",
+    "aws_docdbelastic",
+    "aws_dsql",
+    "aws_dynamodb",
+    "aws_ec2",
+    "aws_ecr",
+    "aws_ecr_assets",
+    "aws_ecs",
+    "aws_ecs_patterns",
+    "aws_efs",
+    "aws_eks",
+    "aws_eks_v2",
+    "aws_elasticache",
+    "aws_elasticbeanstalk",
+    "aws_elasticloadbalancing",
+    "aws_elasticloadbalancingv2",
+    "aws_elasticloadbalancingv2_actions",
+    "aws_elasticloadbalancingv2_targets",
+    "aws_elasticsearch",
+    "aws_elementalinference",
+    "aws_emr",
+    "aws_emrcontainers",
+    "aws_emrserverless",
+    "aws_entityresolution",
+    "aws_events",
+    "aws_events_targets",
+    "aws_eventschemas",
+    "aws_evidently",
+    "aws_evs",
+    "aws_finspace",
+    "aws_fis",
+    "aws_fms",
+    "aws_forecast",
+    "aws_frauddetector",
+    "aws_fsx",
+    "aws_gamelift",
+    "aws_gameliftstreams",
+    "aws_globalaccelerator",
+    "aws_globalaccelerator_endpoints",
+    "aws_glue",
+    "aws_grafana",
+    "aws_greengrass",
+    "aws_greengrassv2",
+    "aws_groundstation",
+    "aws_guardduty",
+    "aws_healthimaging",
+    "aws_healthlake",
+    "aws_iam",
+    "aws_identitystore",
+    "aws_imagebuilder",
+    "aws_inspector",
+    "aws_inspectorv2",
+    "aws_interconnect",
+    "aws_internetmonitor",
+    "aws_invoicing",
+    "aws_iot",
+    "aws_iotanalytics",
+    "aws_iotcoredeviceadvisor",
+    "aws_iotevents",
+    "aws_iotfleethub",
+    "aws_iotfleetwise",
+    "aws_iotsitewise",
+    "aws_iotthingsgraph",
+    "aws_iottwinmaker",
+    "aws_iotwireless",
+    "aws_ivs",
+    "aws_ivschat",
+    "aws_kafkaconnect",
+    "aws_kendra",
+    "aws_kendraranking",
+    "aws_kinesis",
+    "aws_kinesisanalytics",
+    "aws_kinesisanalyticsv2",
+    "aws_kinesisfirehose",
+    "aws_kinesisvideo",
+    "aws_kms",
+    "aws_lakeformation",
+    "aws_lambda",
+    "aws_lambda_destinations",
+    "aws_lambda_event_sources",
+    "aws_lambda_nodejs",
+    "aws_launchwizard",
+    "aws_lex",
+    "aws_licensemanager",
+    "aws_lightsail",
+    "aws_location",
+    "aws_logs",
+    "aws_logs_destinations",
+    "aws_lookoutequipment",
+    "aws_lookoutmetrics",
+    "aws_lookoutvision",
+    "aws_m2",
+    "aws_macie",
+    "aws_managedblockchain",
+    "aws_mediaconnect",
+    "aws_mediaconvert",
+    "aws_medialive",
+    "aws_mediapackage",
+    "aws_mediapackagev2",
+    "aws_mediastore",
+    "aws_mediatailor",
+    "aws_memorydb",
+    "aws_mpa",
+    "aws_msk",
+    "aws_mwaa",
+    "aws_mwaaserverless",
+    "aws_neptune",
+    "aws_neptunegraph",
+    "aws_networkfirewall",
+    "aws_networkmanager",
+    "aws_nimblestudio",
+    "aws_notifications",
+    "aws_notificationscontacts",
+    "aws_novaact",
+    "aws_oam",
+    "aws_observabilityadmin",
+    "aws_odb",
+    "aws_omics",
+    "aws_opensearchserverless",
+    "aws_opensearchservice",
+    "aws_opsworks",
+    "aws_opsworkscm",
+    "aws_organizations",
+    "aws_osis",
+    "aws_panorama",
+    "aws_paymentcryptography",
+    "aws_pcaconnectorad",
+    "aws_pcaconnectorscep",
+    "aws_pcs",
+    "aws_personalize",
+    "aws_pinpoint",
+    "aws_pinpointemail",
+    "aws_pipes",
+    "aws_proton",
+    "aws_qbusiness",
+    "aws_qldb",
+    "aws_quicksight",
+    "aws_ram",
+    "aws_rbin",
+    "aws_rds",
+    "aws_redshift",
+    "aws_redshiftserverless",
+    "aws_refactorspaces",
+    "aws_rekognition",
+    "aws_resiliencehub",
+    "aws_resourceexplorer2",
+    "aws_resourcegroups",
+    "aws_robomaker",
+    "aws_rolesanywhere",
+    "aws_route53",
+    "aws_route53_patterns",
+    "aws_route53_targets",
+    "aws_route53globalresolver",
+    "aws_route53profiles",
+    "aws_route53recoverycontrol",
+    "aws_route53recoveryreadiness",
+    "aws_route53resolver",
+    "aws_rtbfabric",
+    "aws_rum",
+    "aws_s3",
+    "aws_s3_assets",
+    "aws_s3_deployment",
+    "aws_s3_notifications",
+    "aws_s3express",
+    "aws_s3files",
+    "aws_s3objectlambda",
+    "aws_s3outposts",
+    "aws_s3tables",
+    "aws_s3vectors",
+    "aws_sagemaker",
+    "aws_sam",
+    "aws_scheduler",
+    "aws_scheduler_targets",
+    "aws_sdb",
+    "aws_secretsmanager",
+    "aws_securityagent",
+    "aws_securityhub",
+    "aws_securitylake",
+    "aws_servicecatalog",
+    "aws_servicecatalogappregistry",
+    "aws_servicediscovery",
+    "aws_ses",
+    "aws_ses_actions",
+    "aws_shield",
+    "aws_signer",
+    "aws_simspaceweaver",
+    "aws_smsvoice",
+    "aws_sns",
+    "aws_sns_subscriptions",
+    "aws_sqs",
+    "aws_ssm",
+    "aws_ssmcontacts",
+    "aws_ssmguiconnect",
+    "aws_ssmincidents",
+    "aws_ssmquicksetup",
+    "aws_sso",
+    "aws_stepfunctions",
+    "aws_stepfunctions_tasks",
+    "aws_supportapp",
+    "aws_synthetics",
+    "aws_systemsmanagersap",
+    "aws_timestream",
+    "aws_transfer",
+    "aws_uxc",
+    "aws_verifiedpermissions",
+    "aws_voiceid",
+    "aws_vpclattice",
+    "aws_waf",
+    "aws_wafregional",
+    "aws_wafv2",
+    "aws_wisdom",
+    "aws_workspaces",
+    "aws_workspacesinstances",
+    "aws_workspacesthinclient",
+    "aws_workspacesweb",
+    "aws_xray",
+    "cloud_assembly_schema",
+    "cloudformation_include",
+    "custom_resources",
+    "cx_api",
+    "interfaces",
+    "lambda_layer_awscli",
+    "lambda_layer_node_proxy_agent",
+    "pipelines",
+    "region_info",
+    "triggers",
+}
+
+def __getattr__(name: str) -> object:
+    if name in _SUBMODULES:
+        mod = _importlib.import_module(f".{name}", __name__)
+        globals()[name] = mod
+        return mod
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+def __dir__() -> "list[str]":
+    return [*__all__, *_SUBMODULES]
+
+import sys as _sys
+setattr(_sys.modules[__name__], "__getattr__", __getattr__)
+setattr(_sys.modules[__name__], "__dir__", __dir__)
 
 def _typecheckingstub__61ff01594fca944c5be657263f73148214d4e08f5f84d8fbb9ad71c63fde54e8(
     *,
@@ -42001,6 +42712,7 @@ def _typecheckingstub__ef2fee5e91b22ed9e2b91aa309be73835ddfb834f19eb3d41540c7e38
     context: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
     default_stack_synthesizer: typing.Optional[IReusableStackSynthesizer] = None,
     outdir: typing.Optional[builtins.str] = None,
+    performance_reporting: typing.Optional[builtins.bool] = None,
     policy_validation_beta1: typing.Optional[typing.Sequence[IPolicyValidationPluginBeta1]] = None,
     post_cli_context: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
     property_injectors: typing.Optional[typing.Sequence[IPropertyInjector]] = None,
@@ -42755,6 +43467,12 @@ def _typecheckingstub__e340b61f684215fcb94d252c520e9bcc509c45926e9f2e5afc7d39004
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__70385a6d2a388294c96e561a2676a598096cad0a016cb9a4a152a10d6988a435(
+    strength: ReferenceStrength,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__8570110d1ab37276230f4f064e5cb13f761914d97258121c4873f4b0f565b155(
     policy: typing.Optional[RemovalPolicy] = None,
     *,
@@ -42886,7 +43604,7 @@ def _typecheckingstub__b4a89ebbdf831c87a631869cbefb7a1b6d6a2f1ce5b8030f61d58f473
 def _typecheckingstub__9fb527d4bac73dc363319bbe1cf2be973d3eb9db93eb4ec913a8151682c3f223(
     *,
     notification_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-    parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], IResolvable]] = None,
+    parameters: typing.Optional[typing.Union[IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     template_url: typing.Optional[builtins.str] = None,
     timeout_in_minutes: typing.Optional[jsii.Number] = None,
@@ -43068,6 +43786,24 @@ def _typecheckingstub__80d5759670f4f104ff92870b1bbd513c39e43f1023a912e9dbdce77f9
     exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
     follow: typing.Optional[SymlinkFollowMode] = None,
     ignore_mode: typing.Optional[IgnoreMode] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5d39f520952f65878a31b60995299e736410f2e33d4654c83a8820d02c756756(
+    scope: _constructs_77d1e7e8.IConstruct,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dc9676fcb310183ecc0fed74b0690d54da7408f44351b169c507b7a96196407e(
+    strength: ReferenceStrength,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__84088964eebda366d56574b7ac2c5d6800bbf9375915f5cc99893eb028e15fdc(
+    strength: ReferenceStrength,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -44531,6 +45267,12 @@ def _typecheckingstub__f6205fdb97a6e809ad8be1edd5047aba48fa457be4543da186027361b
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__db7128e321c1335c70b92aa35d5d29504fb5f0c758dd579caf19404cdfff153f(
+    strength: ReferenceStrength,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__6695af80c1fedde1bce659ecfd4adaa992f8d80a9991731fd956c6031773a81e(
     policy: RemovalPolicy,
 ) -> None:
@@ -44753,6 +45495,20 @@ def _typecheckingstub__835828a2dac25cb8eb22f32985554296e8bd61463c8cc32bb2df4c1f4
     synthesizer: typing.Optional[IStackSynthesizer] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     termination_protection: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0d4bb62cde9913a88fb6f8e11271338827a9399a4e1bdea794a3aa02c9515509(
+    value: typing.Sequence[builtins.str],
+    strength: typing.Optional[ReferenceStrength] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a73f89d0e5d6eb8f94294c281b5cba96f83428f4d5438307c905c7167d365c8a(
+    value: builtins.str,
+    strength: typing.Optional[ReferenceStrength] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -46407,7 +47163,7 @@ def _typecheckingstub__a8594abaf48bfc733fdc85ceff8c2d40dba03f52ce866519ff597396f
     id: builtins.str,
     *,
     notification_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-    parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], IResolvable]] = None,
+    parameters: typing.Optional[typing.Union[IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     template_url: typing.Optional[builtins.str] = None,
     timeout_in_minutes: typing.Optional[jsii.Number] = None,
@@ -46440,7 +47196,7 @@ def _typecheckingstub__c9c77d10e222f51987b4f16f428d98153c077789a4dc99f5943c9a4b1
     pass
 
 def _typecheckingstub__f3fb0b9b7598b79bde64721506e8cfa836e6901da44b747530857a860a1cc111(
-    value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], IResolvable]],
+    value: typing.Optional[typing.Union[IResolvable, typing.Mapping[builtins.str, builtins.str]]],
 ) -> None:
     """Type checking stubs"""
     pass

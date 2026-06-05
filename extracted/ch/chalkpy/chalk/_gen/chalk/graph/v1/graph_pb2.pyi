@@ -4,6 +4,7 @@ from chalk._gen.chalk.expression.v1 import expression_pb2 as _expression_pb2
 from chalk._gen.chalk.graph.v1 import sources_pb2 as _sources_pb2
 from chalk._gen.chalk.graph.v2 import sources_pb2 as _sources_pb2_1
 from chalk._gen.chalk.lsp.v1 import lsp_pb2 as _lsp_pb2
+from chalk._gen.chalk.symbolic_value.v1 import symbolic_value_pb2 as _symbolic_value_pb2
 from google.protobuf import duration_pb2 as _duration_pb2
 from google.protobuf import empty_pb2 as _empty_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
@@ -140,6 +141,7 @@ class Graph(_message.Message):
         "model_references",
         "online_store_configs",
         "captured_global_values",
+        "symbolic_value_explicits",
     )
     FEATURE_SETS_FIELD_NUMBER: _ClassVar[int]
     RESOLVERS_FIELD_NUMBER: _ClassVar[int]
@@ -154,6 +156,7 @@ class Graph(_message.Message):
     MODEL_REFERENCES_FIELD_NUMBER: _ClassVar[int]
     ONLINE_STORE_CONFIGS_FIELD_NUMBER: _ClassVar[int]
     CAPTURED_GLOBAL_VALUES_FIELD_NUMBER: _ClassVar[int]
+    SYMBOLIC_VALUE_EXPLICITS_FIELD_NUMBER: _ClassVar[int]
     feature_sets: _containers.RepeatedCompositeFieldContainer[FeatureSet]
     resolvers: _containers.RepeatedCompositeFieldContainer[Resolver]
     stream_resolvers: _containers.RepeatedCompositeFieldContainer[StreamResolver]
@@ -167,6 +170,7 @@ class Graph(_message.Message):
     model_references: _containers.RepeatedCompositeFieldContainer[ModelReference]
     online_store_configs: _containers.RepeatedCompositeFieldContainer[OnlineStoreConfig]
     captured_global_values: _containers.RepeatedCompositeFieldContainer[CapturedGlobalValue]
+    symbolic_value_explicits: _containers.RepeatedCompositeFieldContainer[_symbolic_value_pb2.SymbolicValue]
     def __init__(
         self,
         feature_sets: _Optional[_Iterable[_Union[FeatureSet, _Mapping]]] = ...,
@@ -182,6 +186,7 @@ class Graph(_message.Message):
         model_references: _Optional[_Iterable[_Union[ModelReference, _Mapping]]] = ...,
         online_store_configs: _Optional[_Iterable[_Union[OnlineStoreConfig, _Mapping]]] = ...,
         captured_global_values: _Optional[_Iterable[_Union[CapturedGlobalValue, _Mapping]]] = ...,
+        symbolic_value_explicits: _Optional[_Iterable[_Union[_symbolic_value_pb2.SymbolicValue, _Mapping]]] = ...,
     ) -> None: ...
 
 class OverlayGraph(_message.Message):
@@ -923,6 +928,63 @@ class ResolverOutput(_message.Message):
         df: _Optional[_Union[DataFrameType, _Mapping]] = ...,
     ) -> None: ...
 
+class ResolverAsSymbolicValue(_message.Message):
+    __slots__ = ("success", "failure")
+    SUCCESS_FIELD_NUMBER: _ClassVar[int]
+    FAILURE_FIELD_NUMBER: _ClassVar[int]
+    success: ResolverSymbolicValueOutputs
+    failure: ConversionError
+    def __init__(
+        self,
+        success: _Optional[_Union[ResolverSymbolicValueOutputs, _Mapping]] = ...,
+        failure: _Optional[_Union[ConversionError, _Mapping]] = ...,
+    ) -> None: ...
+
+class ResolverSymbolicValueOutputs(_message.Message):
+    __slots__ = ("outputs",)
+    OUTPUTS_FIELD_NUMBER: _ClassVar[int]
+    outputs: _containers.RepeatedCompositeFieldContainer[ResolverOutputSymbolicValue]
+    def __init__(self, outputs: _Optional[_Iterable[_Union[ResolverOutputSymbolicValue, _Mapping]]] = ...) -> None: ...
+
+class ResolverOutputSymbolicValue(_message.Message):
+    __slots__ = ("output_feature_fqn", "root_ref", "fallible")
+    OUTPUT_FEATURE_FQN_FIELD_NUMBER: _ClassVar[int]
+    ROOT_REF_FIELD_NUMBER: _ClassVar[int]
+    FALLIBLE_FIELD_NUMBER: _ClassVar[int]
+    output_feature_fqn: str
+    root_ref: _symbolic_value_pb2.SymbolicValue
+    fallible: bool
+    def __init__(
+        self,
+        output_feature_fqn: _Optional[str] = ...,
+        root_ref: _Optional[_Union[_symbolic_value_pb2.SymbolicValue, _Mapping]] = ...,
+        fallible: bool = ...,
+    ) -> None: ...
+
+class ConversionError(_message.Message):
+    __slots__ = ("message", "uri", "line", "character", "end_line", "end_character")
+    MESSAGE_FIELD_NUMBER: _ClassVar[int]
+    URI_FIELD_NUMBER: _ClassVar[int]
+    LINE_FIELD_NUMBER: _ClassVar[int]
+    CHARACTER_FIELD_NUMBER: _ClassVar[int]
+    END_LINE_FIELD_NUMBER: _ClassVar[int]
+    END_CHARACTER_FIELD_NUMBER: _ClassVar[int]
+    message: str
+    uri: str
+    line: int
+    character: int
+    end_line: int
+    end_character: int
+    def __init__(
+        self,
+        message: _Optional[str] = ...,
+        uri: _Optional[str] = ...,
+        line: _Optional[int] = ...,
+        character: _Optional[int] = ...,
+        end_line: _Optional[int] = ...,
+        end_character: _Optional[int] = ...,
+    ) -> None: ...
+
 class Resolver(_message.Message):
     __slots__ = (
         "fqn",
@@ -944,6 +1006,7 @@ class Resolver(_message.Message):
         "resource_hint",
         "is_static",
         "accelerate_python",
+        "converted",
         "is_total",
         "unique_on",
         "partitioned_by",
@@ -977,6 +1040,7 @@ class Resolver(_message.Message):
     RESOURCE_HINT_FIELD_NUMBER: _ClassVar[int]
     IS_STATIC_FIELD_NUMBER: _ClassVar[int]
     ACCELERATE_PYTHON_FIELD_NUMBER: _ClassVar[int]
+    CONVERTED_FIELD_NUMBER: _ClassVar[int]
     IS_TOTAL_FIELD_NUMBER: _ClassVar[int]
     UNIQUE_ON_FIELD_NUMBER: _ClassVar[int]
     PARTITIONED_BY_FIELD_NUMBER: _ClassVar[int]
@@ -1009,6 +1073,7 @@ class Resolver(_message.Message):
     resource_hint: ResourceHint
     is_static: bool
     accelerate_python: AcceleratePython
+    converted: ResolverAsSymbolicValue
     is_total: bool
     unique_on: _containers.RepeatedScalarFieldContainer[str]
     partitioned_by: _containers.RepeatedScalarFieldContainer[str]
@@ -1043,6 +1108,7 @@ class Resolver(_message.Message):
         resource_hint: _Optional[_Union[ResourceHint, str]] = ...,
         is_static: bool = ...,
         accelerate_python: _Optional[_Union[AcceleratePython, str]] = ...,
+        converted: _Optional[_Union[ResolverAsSymbolicValue, _Mapping]] = ...,
         is_total: bool = ...,
         unique_on: _Optional[_Iterable[str]] = ...,
         partitioned_by: _Optional[_Iterable[str]] = ...,

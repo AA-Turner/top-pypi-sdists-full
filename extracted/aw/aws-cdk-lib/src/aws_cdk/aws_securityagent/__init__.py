@@ -439,7 +439,7 @@ class CfnAgentSpace(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_securityagent as securityagent
                 
-                a_wSResources_property = securityagent.CfnAgentSpace.AWSResourcesProperty(
+                a_ws_resources_property = securityagent.CfnAgentSpace.AWSResourcesProperty(
                     iam_roles=["iamRoles"],
                     lambda_function_arns=["lambdaFunctionArns"],
                     log_groups=["logGroups"],
@@ -983,9 +983,9 @@ class CfnApplication(
         
         cfn_application = securityagent.CfnApplication(self, "MyCfnApplication",
             default_kms_key_id="defaultKmsKeyId",
-            id_cConfiguration=securityagent.CfnApplication.IdCConfigurationProperty(
-                id_cApplication_arn="idCApplicationArn",
-                id_cInstance_arn="idCInstanceArn"
+            id_c_configuration=securityagent.CfnApplication.IdCConfigurationProperty(
+                id_c_application_arn="idCApplicationArn",
+                id_c_instance_arn="idCInstanceArn"
             ),
             role_arn="roleArn",
             tags=[CfnTag(
@@ -1238,9 +1238,9 @@ class CfnApplication(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_securityagent as securityagent
                 
-                id_cConfiguration_property = securityagent.CfnApplication.IdCConfigurationProperty(
-                    id_cApplication_arn="idCApplicationArn",
-                    id_cInstance_arn="idCInstanceArn"
+                id_c_configuration_property = securityagent.CfnApplication.IdCConfigurationProperty(
+                    id_c_application_arn="idCApplicationArn",
+                    id_c_instance_arn="idCInstanceArn"
                 )
             '''
             if __debug__:
@@ -1319,9 +1319,9 @@ class CfnApplicationProps:
             
             cfn_application_props = securityagent.CfnApplicationProps(
                 default_kms_key_id="defaultKmsKeyId",
-                id_cConfiguration=securityagent.CfnApplication.IdCConfigurationProperty(
-                    id_cApplication_arn="idCApplicationArn",
-                    id_cInstance_arn="idCInstanceArn"
+                id_c_configuration=securityagent.CfnApplication.IdCConfigurationProperty(
+                    id_c_application_arn="idCApplicationArn",
+                    id_c_instance_arn="idCInstanceArn"
                 ),
                 role_arn="roleArn",
                 tags=[CfnTag(

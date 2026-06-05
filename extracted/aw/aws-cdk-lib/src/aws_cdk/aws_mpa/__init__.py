@@ -637,7 +637,7 @@ class CfnApprovalTeam(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_mpa as mpa
                 
-                mof_nApproval_strategy_property = mpa.CfnApprovalTeam.MofNApprovalStrategyProperty(
+                mof_n_approval_strategy_property = mpa.CfnApprovalTeam.MofNApprovalStrategyProperty(
                     min_approvals_required=123
                 )
             '''

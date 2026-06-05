@@ -2,8 +2,10 @@ from chalk._gen.chalk.auth.v1 import audit_pb2 as _audit_pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from chalk._gen.chalk.server.v1 import environment_pb2 as _environment_pb2
 from chalk._gen.chalk.server.v1 import team_pb2 as _team_pb2
+from google.api import field_behavior_pb2 as _field_behavior_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
+from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
 from typing import (
@@ -431,17 +433,19 @@ class CloudComponentContainerRegistryRequest(_message.Message):
     ) -> None: ...
 
 class CloudComponentCluster(_message.Message):
-    __slots__ = ("name", "designator", "kubernetes_version", "dns_zone", "data_plane_redis")
+    __slots__ = ("name", "designator", "kubernetes_version", "dns_zone", "data_plane_redis", "dataplane_controller")
     NAME_FIELD_NUMBER: _ClassVar[int]
     DESIGNATOR_FIELD_NUMBER: _ClassVar[int]
     KUBERNETES_VERSION_FIELD_NUMBER: _ClassVar[int]
     DNS_ZONE_FIELD_NUMBER: _ClassVar[int]
     DATA_PLANE_REDIS_FIELD_NUMBER: _ClassVar[int]
+    DATAPLANE_CONTROLLER_FIELD_NUMBER: _ClassVar[int]
     name: str
     designator: str
     kubernetes_version: str
     dns_zone: str
     data_plane_redis: DataPlaneRedis
+    dataplane_controller: DataplaneController
     def __init__(
         self,
         name: _Optional[str] = ...,
@@ -449,6 +453,7 @@ class CloudComponentCluster(_message.Message):
         kubernetes_version: _Optional[str] = ...,
         dns_zone: _Optional[str] = ...,
         data_plane_redis: _Optional[_Union[DataPlaneRedis, _Mapping]] = ...,
+        dataplane_controller: _Optional[_Union[DataplaneController, _Mapping]] = ...,
     ) -> None: ...
 
 class DataPlaneRedis(_message.Message):
@@ -469,20 +474,77 @@ class DataPlaneRedis(_message.Message):
         cloud_secret_name: _Optional[str] = ...,
     ) -> None: ...
 
+class DataplaneController(_message.Message):
+    __slots__ = ("tier", "available_tiers", "node_pool", "restricted_node_pool")
+    class Tier(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+        __slots__ = ()
+        TIER_UNSPECIFIED: _ClassVar[DataplaneController.Tier]
+        TIER_DISABLED: _ClassVar[DataplaneController.Tier]
+        TIER_SMALL: _ClassVar[DataplaneController.Tier]
+        TIER_MEDIUM: _ClassVar[DataplaneController.Tier]
+        TIER_LARGE: _ClassVar[DataplaneController.Tier]
+
+    TIER_UNSPECIFIED: DataplaneController.Tier
+    TIER_DISABLED: DataplaneController.Tier
+    TIER_SMALL: DataplaneController.Tier
+    TIER_MEDIUM: DataplaneController.Tier
+    TIER_LARGE: DataplaneController.Tier
+    class TierInfo(_message.Message):
+        __slots__ = ("tier", "max_containers", "max_scaling_groups", "memory", "cpu", "replicas")
+        TIER_FIELD_NUMBER: _ClassVar[int]
+        MAX_CONTAINERS_FIELD_NUMBER: _ClassVar[int]
+        MAX_SCALING_GROUPS_FIELD_NUMBER: _ClassVar[int]
+        MEMORY_FIELD_NUMBER: _ClassVar[int]
+        CPU_FIELD_NUMBER: _ClassVar[int]
+        REPLICAS_FIELD_NUMBER: _ClassVar[int]
+        tier: DataplaneController.Tier
+        max_containers: int
+        max_scaling_groups: int
+        memory: str
+        cpu: str
+        replicas: int
+        def __init__(
+            self,
+            tier: _Optional[_Union[DataplaneController.Tier, str]] = ...,
+            max_containers: _Optional[int] = ...,
+            max_scaling_groups: _Optional[int] = ...,
+            memory: _Optional[str] = ...,
+            cpu: _Optional[str] = ...,
+            replicas: _Optional[int] = ...,
+        ) -> None: ...
+
+    TIER_FIELD_NUMBER: _ClassVar[int]
+    AVAILABLE_TIERS_FIELD_NUMBER: _ClassVar[int]
+    NODE_POOL_FIELD_NUMBER: _ClassVar[int]
+    RESTRICTED_NODE_POOL_FIELD_NUMBER: _ClassVar[int]
+    tier: DataplaneController.Tier
+    available_tiers: _containers.RepeatedCompositeFieldContainer[DataplaneController.TierInfo]
+    node_pool: str
+    restricted_node_pool: str
+    def __init__(
+        self,
+        tier: _Optional[_Union[DataplaneController.Tier, str]] = ...,
+        available_tiers: _Optional[_Iterable[_Union[DataplaneController.TierInfo, _Mapping]]] = ...,
+        node_pool: _Optional[str] = ...,
+        restricted_node_pool: _Optional[str] = ...,
+    ) -> None: ...
+
 class DeploymentManifest(_message.Message):
-    __slots__ = ("cluster_deployment", "vpc_deployment", "create", "delete", "update", "event_bus")
+    __slots__ = ("cluster_deployment", "vpc_deployment", "create", "delete", "update", "event_bus", "chalk_api_host")
     CLUSTER_DEPLOYMENT_FIELD_NUMBER: _ClassVar[int]
     VPC_DEPLOYMENT_FIELD_NUMBER: _ClassVar[int]
     CREATE_FIELD_NUMBER: _ClassVar[int]
     DELETE_FIELD_NUMBER: _ClassVar[int]
     UPDATE_FIELD_NUMBER: _ClassVar[int]
     EVENT_BUS_FIELD_NUMBER: _ClassVar[int]
+    CHALK_API_HOST_FIELD_NUMBER: _ClassVar[int]
     cluster_deployment: ClusterDeploymentManifest
     vpc_deployment: VpcDeploymentManifest
     create: DeploymentManifestCreate
     delete: DeploymentManifestDelete
     update: DeploymentManifestUpdate
     event_bus: str
+    chalk_api_host: str
     def __init__(
         self,
         cluster_deployment: _Optional[_Union[ClusterDeploymentManifest, _Mapping]] = ...,
@@ -491,6 +553,7 @@ class DeploymentManifest(_message.Message):
         delete: _Optional[_Union[DeploymentManifestDelete, _Mapping]] = ...,
         update: _Optional[_Union[DeploymentManifestUpdate, _Mapping]] = ...,
         event_bus: _Optional[str] = ...,
+        chalk_api_host: _Optional[str] = ...,
     ) -> None: ...
 
 class DeploymentManifestCreate(_message.Message):

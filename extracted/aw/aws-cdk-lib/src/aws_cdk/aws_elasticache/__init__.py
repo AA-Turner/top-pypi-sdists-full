@@ -2642,7 +2642,7 @@ class CfnParameterGroup(
         *,
         cache_parameter_group_family: builtins.str,
         description: builtins.str,
-        properties: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::ElastiCache::ParameterGroup``.
@@ -2805,14 +2805,14 @@ class CfnParameterGroup(
     @jsii.member(jsii_name="properties")
     def properties(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''A comma-delimited list of parameter name/value pairs.'''
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], jsii.get(self, "properties"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "properties"))
 
     @properties.setter
     def properties(
         self,
-        value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ad995d05e00fe4d7296f16776a975d33eb5d75180391440607e5d71ae30d1f08)
@@ -2849,7 +2849,7 @@ class CfnParameterGroupProps:
         *,
         cache_parameter_group_family: builtins.str,
         description: builtins.str,
-        properties: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnParameterGroup``.
@@ -2923,7 +2923,7 @@ class CfnParameterGroupProps:
     @builtins.property
     def properties(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''A comma-delimited list of parameter name/value pairs.
 
         For example::
@@ -2934,7 +2934,7 @@ class CfnParameterGroupProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-parametergroup.html#cfn-elasticache-parametergroup-properties
         '''
         result = self._values.get("properties")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
@@ -3031,7 +3031,7 @@ class CfnReplicationGroup(
             num_cache_clusters=123,
             num_node_groups=123,
             port=123,
-            preferred_cache_cluster_aZs=["preferredCacheClusterAZs"],
+            preferred_cache_cluster_a_zs=["preferredCacheClusterAZs"],
             preferred_maintenance_window="preferredMaintenanceWindow",
             primary_cluster_id="primaryClusterId",
             replicas_per_node_group=123,
@@ -4796,7 +4796,7 @@ class CfnReplicationGroupProps:
                 num_cache_clusters=123,
                 num_node_groups=123,
                 port=123,
-                preferred_cache_cluster_aZs=["preferredCacheClusterAZs"],
+                preferred_cache_cluster_a_zs=["preferredCacheClusterAZs"],
                 preferred_maintenance_window="preferredMaintenanceWindow",
                 primary_cluster_id="primaryClusterId",
                 replicas_per_node_group=123,
@@ -6075,6 +6075,7 @@ class CfnServerlessCache(
             final_snapshot_name="finalSnapshotName",
             kms_key_id="kmsKeyId",
             major_engine_version="majorEngineVersion",
+            network_type="networkType",
             reader_endpoint=elasticache.CfnServerlessCache.EndpointProperty(
                 address="address",
                 port="port"
@@ -6105,6 +6106,7 @@ class CfnServerlessCache(
         final_snapshot_name: typing.Optional[builtins.str] = None,
         kms_key_id: typing.Optional[typing.Union[builtins.str, "_IKeyRef_d4fc6ef3"]] = None,
         major_engine_version: typing.Optional[builtins.str] = None,
+        network_type: typing.Optional[builtins.str] = None,
         reader_endpoint: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnServerlessCache.EndpointProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         security_group_ids: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"]]] = None,
         snapshot_arns_to_restore: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -6126,6 +6128,7 @@ class CfnServerlessCache(
         :param final_snapshot_name: The name of the final snapshot taken of a cache before the cache is deleted.
         :param kms_key_id: The ID of the AWS Key Management Service (KMS) key that is used to encrypt data at rest in the serverless cache.
         :param major_engine_version: The version number of the engine the serverless cache is compatible with.
+        :param network_type: The network type for the serverless cache. Valid values are ipv4, ipv6, or dual_stack.
         :param reader_endpoint: Represents the information required for client programs to connect to a cache node. This value is read-only.
         :param security_group_ids: The IDs of the EC2 security groups associated with the serverless cache.
         :param snapshot_arns_to_restore: The ARN of the snapshot from which to restore data into the new cache.
@@ -6148,6 +6151,7 @@ class CfnServerlessCache(
             final_snapshot_name=final_snapshot_name,
             kms_key_id=kms_key_id,
             major_engine_version=major_engine_version,
+            network_type=network_type,
             reader_endpoint=reader_endpoint,
             security_group_ids=security_group_ids,
             snapshot_arns_to_restore=snapshot_arns_to_restore,
@@ -6481,6 +6485,19 @@ class CfnServerlessCache(
         jsii.set(self, "majorEngineVersion", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="networkType")
+    def network_type(self) -> typing.Optional[builtins.str]:
+        '''The network type for the serverless cache.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "networkType"))
+
+    @network_type.setter
+    def network_type(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bf4a42d0a8e428b5d09e700c7a150e757e0e61e715630dec4d4f4cc08759ad62)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "networkType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="readerEndpoint")
     def reader_endpoint(
         self,
@@ -6782,7 +6799,7 @@ class CfnServerlessCache(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_elasticache as elasticache
                 
-                e_cPUPer_second_property = elasticache.CfnServerlessCache.ECPUPerSecondProperty(
+                e_cpu_per_second_property = elasticache.CfnServerlessCache.ECPUPerSecondProperty(
                     maximum=123,
                     minimum=123
                 )
@@ -6912,6 +6929,7 @@ class CfnServerlessCache(
         "final_snapshot_name": "finalSnapshotName",
         "kms_key_id": "kmsKeyId",
         "major_engine_version": "majorEngineVersion",
+        "network_type": "networkType",
         "reader_endpoint": "readerEndpoint",
         "security_group_ids": "securityGroupIds",
         "snapshot_arns_to_restore": "snapshotArnsToRestore",
@@ -6934,6 +6952,7 @@ class CfnServerlessCacheProps:
         final_snapshot_name: typing.Optional[builtins.str] = None,
         kms_key_id: typing.Optional[typing.Union[builtins.str, "_IKeyRef_d4fc6ef3"]] = None,
         major_engine_version: typing.Optional[builtins.str] = None,
+        network_type: typing.Optional[builtins.str] = None,
         reader_endpoint: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnServerlessCache.EndpointProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         security_group_ids: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"]]] = None,
         snapshot_arns_to_restore: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -6953,6 +6972,7 @@ class CfnServerlessCacheProps:
         :param final_snapshot_name: The name of the final snapshot taken of a cache before the cache is deleted.
         :param kms_key_id: The ID of the AWS Key Management Service (KMS) key that is used to encrypt data at rest in the serverless cache.
         :param major_engine_version: The version number of the engine the serverless cache is compatible with.
+        :param network_type: The network type for the serverless cache. Valid values are ipv4, ipv6, or dual_stack.
         :param reader_endpoint: Represents the information required for client programs to connect to a cache node. This value is read-only.
         :param security_group_ids: The IDs of the EC2 security groups associated with the serverless cache.
         :param snapshot_arns_to_restore: The ARN of the snapshot from which to restore data into the new cache.
@@ -6998,6 +7018,7 @@ class CfnServerlessCacheProps:
                 final_snapshot_name="finalSnapshotName",
                 kms_key_id="kmsKeyId",
                 major_engine_version="majorEngineVersion",
+                network_type="networkType",
                 reader_endpoint=elasticache.CfnServerlessCache.EndpointProperty(
                     address="address",
                     port="port"
@@ -7024,6 +7045,7 @@ class CfnServerlessCacheProps:
             check_type(argname="argument final_snapshot_name", value=final_snapshot_name, expected_type=type_hints["final_snapshot_name"])
             check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
             check_type(argname="argument major_engine_version", value=major_engine_version, expected_type=type_hints["major_engine_version"])
+            check_type(argname="argument network_type", value=network_type, expected_type=type_hints["network_type"])
             check_type(argname="argument reader_endpoint", value=reader_endpoint, expected_type=type_hints["reader_endpoint"])
             check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
             check_type(argname="argument snapshot_arns_to_restore", value=snapshot_arns_to_restore, expected_type=type_hints["snapshot_arns_to_restore"])
@@ -7049,6 +7071,8 @@ class CfnServerlessCacheProps:
             self._values["kms_key_id"] = kms_key_id
         if major_engine_version is not None:
             self._values["major_engine_version"] = major_engine_version
+        if network_type is not None:
+            self._values["network_type"] = network_type
         if reader_endpoint is not None:
             self._values["reader_endpoint"] = reader_endpoint
         if security_group_ids is not None:
@@ -7155,6 +7179,17 @@ class CfnServerlessCacheProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-serverlesscache.html#cfn-elasticache-serverlesscache-majorengineversion
         '''
         result = self._values.get("major_engine_version")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def network_type(self) -> typing.Optional[builtins.str]:
+        '''The network type for the serverless cache.
+
+        Valid values are ipv4, ipv6, or dual_stack.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-serverlesscache.html#cfn-elasticache-serverlesscache-networktype
+        '''
+        result = self._values.get("network_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -8964,7 +8999,7 @@ def _typecheckingstub__86f3b322f4ea3d0cc63e18e1b285cc656e6d789289e29668aa7acce95
     *,
     cache_parameter_group_family: builtins.str,
     description: builtins.str,
-    properties: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -9015,7 +9050,7 @@ def _typecheckingstub__131595ea286a946147c38535eb5fcf0537b68b2132e909e191998a1e3
     pass
 
 def _typecheckingstub__ad995d05e00fe4d7296f16776a975d33eb5d75180391440607e5d71ae30d1f08(
-    value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9030,7 +9065,7 @@ def _typecheckingstub__56da2ad187e00defe2d3a6812e7eea3611b1990da4526952f58e2f80c
     *,
     cache_parameter_group_family: builtins.str,
     description: builtins.str,
-    properties: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -9572,6 +9607,7 @@ def _typecheckingstub__f204522453489e8198605933b3b942062e9c202c1099285663a7d772a
     final_snapshot_name: typing.Optional[builtins.str] = None,
     kms_key_id: typing.Optional[typing.Union[builtins.str, _IKeyRef_d4fc6ef3]] = None,
     major_engine_version: typing.Optional[builtins.str] = None,
+    network_type: typing.Optional[builtins.str] = None,
     reader_endpoint: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServerlessCache.EndpointProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     security_group_ids: typing.Optional[typing.Sequence[typing.Union[builtins.str, _ISecurityGroupRef_efa4ff18]]] = None,
     snapshot_arns_to_restore: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -9677,6 +9713,12 @@ def _typecheckingstub__618e7242f4c8d6ea2092e93310602455166596d1a96215a2fb33d826b
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__bf4a42d0a8e428b5d09e700c7a150e757e0e61e715630dec4d4f4cc08759ad62(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__d7e3145e59d2b03c61c29dd7fc18ce6d775561dcfa018b131c81d1f6e06fcd65(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnServerlessCache.EndpointProperty]],
 ) -> None:
@@ -9763,6 +9805,7 @@ def _typecheckingstub__58b8c0bd8ed5d4d4b90b896e92a64fc113ba2b7b80dfa7075b8fad4b0
     final_snapshot_name: typing.Optional[builtins.str] = None,
     kms_key_id: typing.Optional[typing.Union[builtins.str, _IKeyRef_d4fc6ef3]] = None,
     major_engine_version: typing.Optional[builtins.str] = None,
+    network_type: typing.Optional[builtins.str] = None,
     reader_endpoint: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServerlessCache.EndpointProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     security_group_ids: typing.Optional[typing.Sequence[typing.Union[builtins.str, _ISecurityGroupRef_efa4ff18]]] = None,
     snapshot_arns_to_restore: typing.Optional[typing.Sequence[builtins.str]] = None,

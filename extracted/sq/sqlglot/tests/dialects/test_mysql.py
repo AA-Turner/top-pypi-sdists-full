@@ -229,7 +229,7 @@ class TestMySQL(Validator):
             "CREATE TABLE x (id int not null auto_increment, primary key (id))",
             write={
                 "mysql": "CREATE TABLE x (id INT NOT NULL AUTO_INCREMENT, PRIMARY KEY (id))",
-                "sqlite": "CREATE TABLE x (id INTEGER NOT NULL AUTOINCREMENT PRIMARY KEY)",
+                "sqlite": "CREATE TABLE x (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT)",
             },
         )
         self.validate_identity("ALTER TABLE t ALTER INDEX i INVISIBLE")
@@ -243,6 +243,13 @@ class TestMySQL(Validator):
         )
         self.validate_identity(
             "UPDATE foo JOIN bar ON TRUE SET foo.a = bar.a WHERE foo.id = bar.id"
+        )
+        self.validate_identity(
+            "UPDATE items, month SET items.price = month.price WHERE items.id = month.id"
+        )
+        self.validate_identity("UPDATE a CROSS JOIN b SET a.x = 1")
+        self.validate_identity(
+            "UPDATE a, b LEFT JOIN c ON b.id = c.id SET a.x = 1, b.y = 2, c.z = 3"
         )
 
         # PARTITION BY RANGE - simple column
@@ -1757,6 +1764,56 @@ COMMENT='客户账户表'"""
                 "mysql": "SELECT LEAD(col1, 1) RESPECT NULLS OVER (ORDER BY col2) FROM table1",
                 "oracle": "SELECT LEAD(col1, 1) RESPECT NULLS OVER (ORDER BY col2 NULLS FIRST) FROM table1",
                 "snowflake": "SELECT LEAD(col1, 1) RESPECT NULLS OVER (ORDER BY col2 NULLS FIRST) FROM table1",
+            },
+        )
+
+    def test_null_ordering_simulation_resolves_ordered_against_projection(self):
+        # NULLS LAST simulation substitutes the matching projection's sub-AST
+        # into the CASE so it resolves in FROM-clause scope (MySQL error 1052).
+        self.validate_all(
+            "SELECT e.employee_id FROM employees AS e LEFT JOIN employee_positions AS ep"
+            " ON e.employee_id = ep.employee_id"
+            " ORDER BY CASE WHEN e.employee_id IS NULL THEN 1 ELSE 0 END, e.employee_id",
+            read={
+                "duckdb": (
+                    "SELECT e.employee_id FROM employees e"
+                    " LEFT JOIN employee_positions ep ON e.employee_id = ep.employee_id"
+                    " ORDER BY employee_id"
+                ),
+            },
+        )
+        self.validate_all(
+            "SELECT e.employee_id AS emp FROM employees AS e LEFT JOIN employee_positions AS ep"
+            " ON TRUE ORDER BY CASE WHEN e.employee_id IS NULL THEN 1 ELSE 0 END, e.employee_id",
+            read={
+                "duckdb": (
+                    "SELECT e.employee_id AS emp FROM employees e"
+                    " LEFT JOIN employee_positions ep ON TRUE ORDER BY emp"
+                ),
+            },
+        )
+        self.validate_all(
+            "SELECT e.employee_id FROM employees AS e LEFT JOIN employee_positions AS ep ON TRUE"
+            " ORDER BY CASE WHEN e.employee_id IS NULL THEN 1 ELSE 0 END, e.employee_id",
+            read={
+                "duckdb": (
+                    "SELECT e.employee_id FROM employees e"
+                    " LEFT JOIN employee_positions ep ON TRUE ORDER BY e.employee_id"
+                ),
+            },
+        )
+        self.validate_all(
+            "SELECT (-1) * col AS col FROM t1 LEFT JOIN t2 USING (id)"
+            " ORDER BY CASE WHEN (-1) * col IS NULL THEN 1 ELSE 0 END, (-1) * col",
+            read={
+                "duckdb": "SELECT (-1) * col AS col FROM t1 LEFT JOIN t2 USING(id) ORDER BY col",
+            },
+        )
+        self.validate_all(
+            "SELECT t1.x + t2.y AS s FROM t1 JOIN t2 ON t1.id = t2.id"
+            " ORDER BY CASE WHEN t1.x + t2.y IS NULL THEN 1 ELSE 0 END, t1.x + t2.y",
+            read={
+                "duckdb": "SELECT t1.x + t2.y AS s FROM t1 JOIN t2 ON t1.id = t2.id ORDER BY s",
             },
         )
 

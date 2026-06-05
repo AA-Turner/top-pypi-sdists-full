@@ -6,6 +6,7 @@ __all__ = ["DecodeResponse", "RpcExecutor"]
 
 import json
 import logging
+import math
 import time
 from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Any, NoReturn, Protocol
@@ -13,6 +14,8 @@ from urllib.parse import urlencode
 
 import httpx
 
+from ._auth_refresh_retry import RefreshBudget, refresh_and_count
+from ._deadline import RuntimeDeadline
 from ._env import get_default_language
 from ._idempotency import (
     IDEMPOTENCY_REGISTRY,
@@ -44,9 +47,9 @@ from .rpc import (
 if TYPE_CHECKING:
     from ._client_metrics import ClientMetrics
     from ._kernel import Kernel
-    from ._session_auth import AuthRefreshCoordinator
-    from ._session_contracts import RpcCaller
-    from ._session_transport import SessionTransport
+    from ._runtime.auth import AuthRefreshCoordinator
+    from ._runtime.contracts import RpcCaller
+    from ._runtime.transport import RuntimeTransport
 
 logger = logging.getLogger(__name__)
 
@@ -58,18 +61,16 @@ class DecodeResponse(Protocol):
 class RpcExecutor:
     """Owns raw batchexecute RPC encode, transport dispatch, decode, and retry.
 
-    ADR-014 Rule 5 (Wave 4 of the session-decoupling plan): constructor takes
-    its four runtime collaborators (Kernel, SessionTransport,
-    AuthRefreshCoordinator, ClientMetrics) directly via keyword-only arguments
-    instead of reaching them through a Session-shaped owner. The old
-    ``RpcOwner`` Protocol was deleted in the same PR.
+    Per ADR-0014 Rule 5, the constructor takes its four runtime collaborators
+    (Kernel, RuntimeTransport, AuthRefreshCoordinator, ClientMetrics) directly
+    via keyword-only arguments rather than reaching them through an owner facade.
     """
 
     def __init__(
         self,
         *,
         kernel: Kernel,
-        transport: SessionTransport,
+        transport: RuntimeTransport,
         auth_refresh: AuthRefreshCoordinator,
         metrics: ClientMetrics,
         decode_response: DecodeResponse,
@@ -100,6 +101,8 @@ class RpcExecutor:
         *,
         disable_internal_retries: bool = False,
         operation_variant: str | None = None,
+        _refresh_budget: RefreshBudget | None = None,
+        _retry_deadline: RuntimeDeadline | None = None,
     ) -> Any:
         """Run an RPC wrapped with telemetry and request-id bookkeeping.
 
@@ -115,6 +118,25 @@ class RpcExecutor:
         the :class:`IdempotencyRegistry` lookup in :meth:`_execute_once` so the
         executor can pick a method-variant-specific policy for wire shapes
         such as ``ADD_SOURCE`` and ``CREATE_NOTE``.
+
+        ``_refresh_budget`` carries the shared once-per-logical-call
+        :class:`notebooklm._auth_refresh_retry.RefreshBudget` across the
+        decode-time retry recursion so the HTTP-status refresh layer (in the
+        chain) and the decoded-RPC refresh layer (here) cannot both refresh on
+        the same logical call (issue #1205). Like ``_is_retry`` it is an
+        internal-only parameter (leading underscore): external callers leave it
+        ``None``; :meth:`_execute_once` mints one and threads it through the
+        chain and the retry recursion.
+
+        ``_retry_deadline`` carries the logical call's aggregate
+        :class:`notebooklm._deadline.RuntimeDeadline` (started from
+        ``timeout_provider`` on the first ``_execute_once``) across the
+        decode-time retry recursion so the post-refresh sleep is clamped to the
+        remaining budget instead of overshooting it (issue #1271) — symmetric
+        with ``RetryMiddleware`` on the HTTP-status layer. Like
+        ``_refresh_budget`` it is internal-only and minted once per logical
+        call; threading it through the recursion keeps the budget anchored to
+        the original start time rather than resetting it on the retry leg.
         """
         # Pre-open guard — preserves the historical ``RuntimeError`` surface by
         # routing through ``Kernel.get_http_client()`` (which raises the same
@@ -139,6 +161,8 @@ class RpcExecutor:
                 _is_retry,
                 disable_internal_retries=disable_internal_retries,
                 operation_variant=operation_variant,
+                _refresh_budget=_refresh_budget,
+                _retry_deadline=_retry_deadline,
             )
 
         self._metrics.increment(rpc_calls_started=1)
@@ -158,6 +182,8 @@ class RpcExecutor:
                 _is_retry,
                 disable_internal_retries=disable_internal_retries,
                 operation_variant=operation_variant,
+                _refresh_budget=_refresh_budget,
+                _retry_deadline=_retry_deadline,
             )
         finally:
             if _reqid_token is not None:
@@ -173,9 +199,30 @@ class RpcExecutor:
         *,
         disable_internal_retries: bool = False,
         operation_variant: str | None = None,
+        _refresh_budget: RefreshBudget | None = None,
+        _retry_deadline: RuntimeDeadline | None = None,
     ) -> Any:
         start = time.perf_counter()
         logger.debug("RPC %s starting", method.name)
+
+        # Mint the shared once-per-logical-call refresh budget on the FIRST
+        # ``_execute_once`` of a logical call (``_refresh_budget is None``). The
+        # same instance is threaded into the chain (so the HTTP-status refresh
+        # layer in ``AuthRefreshMiddleware`` consumes it) AND into the
+        # decode-time retry recursion below, so a ``wire-401 → refresh →
+        # decoded-auth-error`` sequence drives ONE refresh (issue #1205).
+        # Standalone ``_execute_once`` test calls pass ``None`` and get a fresh
+        # budget, preserving the single-refresh-per-call contract in isolation.
+        #
+        # The aggregate ``RuntimeDeadline`` is minted on the SAME first
+        # ``_execute_once`` and threaded through the retry recursion alongside
+        # the budget (issue #1271), so the decode-time post-refresh sleep is
+        # clamped to the time remaining since the logical call began rather than
+        # restarting the clock on the retry leg.
+        if _refresh_budget is None:
+            _refresh_budget = RefreshBudget()
+        if _retry_deadline is None:
+            _retry_deadline = self._start_retry_deadline()
 
         # Consult the idempotency registry. The registry is the single
         # source of truth for "how should this RPC behave under retry?";
@@ -210,6 +257,7 @@ class RpcExecutor:
                 log_label=f"RPC {method.name}",
                 disable_internal_retries=effective_disable_internal_retries,
                 rpc_method=method.name,
+                refresh_budget=_refresh_budget,
             )
         except TransportAuthExpired as exc:
             # Preserve the historical raw transport exception on refresh failure.
@@ -274,11 +322,23 @@ class RpcExecutor:
             # auth-shaped error surfaced. Re-POSTing would duplicate the side
             # effect (issue #1157), so we surface the original error and let
             # the caller's probe-then-create wrapper disambiguate instead.
+            #
+            # ``_refresh_budget.consume()`` is the LAST guard and MUST remain
+            # last: it is side-effecting (claims the single refresh allowance),
+            # so it relies on ``and`` short-circuit to only consume when every
+            # other condition already holds. Reordering it earlier would burn
+            # the budget on calls that then fall through to a plain raise. It is
+            # the shared once-per-logical-call allowance: it returns ``False``
+            # once the HTTP-status layer (``AuthRefreshMiddleware``) has already
+            # refreshed on this call, suppressing a redundant decode-time
+            # refresh (issue #1205), and it returns ``False`` on the
+            # ``_is_retry`` recursion leg — replacing the old ``not _is_retry``
+            # gate — so the decode-time retry stays bounded to one.
             if (
-                not _is_retry
-                and not effective_disable_internal_retries
+                not effective_disable_internal_retries
                 and self._refresh_callback_enabled_provider()
                 and self._is_auth_error(exc)
+                and _refresh_budget.consume()
             ):
                 refreshed = await self.try_refresh_and_retry(
                     method,
@@ -288,6 +348,8 @@ class RpcExecutor:
                     exc,
                     disable_internal_retries=disable_internal_retries,
                     operation_variant=operation_variant,
+                    _refresh_budget=_refresh_budget,
+                    _retry_deadline=_retry_deadline,
                 )
                 return refreshed
 
@@ -421,21 +483,65 @@ class RpcExecutor:
         *,
         disable_internal_retries: bool = False,
         operation_variant: str | None = None,
+        _refresh_budget: RefreshBudget,
+        _retry_deadline: RuntimeDeadline | None = None,
     ) -> Any | None:
-        """Refresh auth after a decode-time auth error and retry once."""
-        logger.info("RPC %s auth error detected, attempting token refresh", method.name)
+        """Refresh auth after a decode-time auth error and retry once.
 
-        try:
-            await self._auth_refresh.await_refresh()
-        except Exception as refresh_error:
-            logger.warning("Token refresh failed: %s", refresh_error)
-            raise original_error from refresh_error
+        Shares the refresh body with the HTTP-status layer via
+        :func:`notebooklm._auth_refresh_retry.refresh_and_count`. The
+        decoded-RPC layer's refresh-failure shape is the ORIGINAL ``RPCError``
+        (``original_error``) re-raised ``from refresh_error`` — callers and
+        tests pin that exact identity, distinct from the chain layer's
+        ``TransportAuthExpired``.
 
-        refresh_retry_delay = self._refresh_retry_delay_provider()
-        if refresh_retry_delay > 0:
-            await self._sleep(refresh_retry_delay)
+        Unlike the HTTP-status layer, this method increments
+        ``rpc_auth_retries`` too (via the shared helper); before the #1205
+        consolidation only the chain layer counted the auth retry, which was
+        an accidental divergence.
 
-        logger.info("Token refresh successful, retrying RPC %s", method.name)
+        ``_refresh_budget`` is REQUIRED (no default): this method is only
+        reached from :meth:`_execute_once` after its
+        ``_refresh_budget.consume()`` gate returned ``True``, so the caller
+        always holds the already-consumed shared budget. Forcing it to be
+        passed forecloses a contrived direct call from minting a fresh budget
+        on the retry leg and allowing a second refresh.
+
+        ``_retry_deadline`` carries the logical call's aggregate
+        :class:`notebooklm._deadline.RuntimeDeadline` so the decode-time retry
+        honors the timeout the same way the HTTP-status layer does (issue
+        #1271): :func:`refresh_and_count` clamps the post-refresh sleep to the
+        remaining budget, and once that sleep returns an exhausted deadline
+        makes this method *give up* — re-raising ``original_error`` instead of
+        issuing a retry POST that would run past the aggregate timeout, exactly
+        as ``RetryMiddleware`` re-raises rather than re-invoking the chain. The
+        deadline is also threaded into the retry :meth:`rpc_call` so the
+        recursion keeps the same anchored deadline. ``None`` reproduces the
+        historical unclamped sleep and unconditional retry (e.g. when
+        ``timeout_provider`` yields a ``None`` / non-finite timeout).
+        """
+        await refresh_and_count(
+            refresh=self._auth_refresh.await_refresh,
+            on_refresh_failure=lambda _refresh_error: original_error,
+            sleep=self._sleep,
+            refresh_retry_delay=self._refresh_retry_delay_provider(),
+            log_label=f"RPC {method.name}",
+            logger=logger,
+            metrics=self._metrics,
+            retry_deadline=_retry_deadline,
+        )
+
+        # Give up symmetrically with ``RetryMiddleware`` (issue #1271): if the
+        # aggregate budget is already spent after the (clamped) post-refresh
+        # sleep, re-raise the original decoded auth error instead of issuing a
+        # retry POST that would overshoot the logical call's timeout. The
+        # refresh still happened (a productive side effect — the next call on
+        # this client benefits from the fresh token), mirroring the HTTP layer
+        # where the refresh middleware runs independently of the retry budget.
+        if _retry_deadline is not None and _retry_deadline.expired():
+            logger.warning("%s", _retry_deadline.timeout_message(f"RPC {method.name} auth retry"))
+            raise original_error
+
         return await self.rpc_call(
             method,
             params,
@@ -444,7 +550,25 @@ class RpcExecutor:
             _is_retry=True,
             disable_internal_retries=disable_internal_retries,
             operation_variant=operation_variant,
+            _refresh_budget=_refresh_budget,
+            _retry_deadline=_retry_deadline,
         )
+
+    def _start_retry_deadline(self) -> RuntimeDeadline | None:
+        """Start the logical call's aggregate deadline from ``timeout_provider``.
+
+        Mirrors ``RetryMiddleware._start_retry_deadline`` so both auth-retry
+        layers derive their deadline from the same client timeout source
+        (``lifecycle._timeout``) and treat a ``None`` or non-finite timeout the
+        same way: ``None`` (no clamp), preserving the historical unclamped
+        post-refresh sleep when the operator disabled the aggregate timeout. The
+        ``None`` guard precedes ``float()`` so a disabled timeout returns no
+        deadline instead of raising ``TypeError`` mid-call.
+        """
+        timeout = self._timeout_provider()
+        if timeout is None or not math.isfinite(float(timeout)):
+            return None
+        return RuntimeDeadline.start(float(timeout))
 
 
 if TYPE_CHECKING:

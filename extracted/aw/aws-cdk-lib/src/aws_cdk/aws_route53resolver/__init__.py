@@ -2570,7 +2570,7 @@ class CfnResolverDNSSECConfig(
         # The values are placeholders you should change.
         from aws_cdk import aws_route53resolver as route53resolver
         
-        cfn_resolver_dNSSECConfig = route53resolver.CfnResolverDNSSECConfig(self, "MyCfnResolverDNSSECConfig",
+        cfn_resolver_dnssec_config = route53resolver.CfnResolverDNSSECConfig(self, "MyCfnResolverDNSSECConfig",
             resource_id="resourceId"
         )
     '''
@@ -2721,7 +2721,7 @@ class CfnResolverDNSSECConfigProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_route53resolver as route53resolver
             
-            cfn_resolver_dNSSECConfig_props = route53resolver.CfnResolverDNSSECConfigProps(
+            cfn_resolver_dnssec_config_props = route53resolver.CfnResolverDNSSECConfigProps(
                 resource_id="resourceId"
             )
         '''

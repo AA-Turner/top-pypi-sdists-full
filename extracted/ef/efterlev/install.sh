@@ -42,10 +42,13 @@ if ! command -v uv >/dev/null 2>&1; then
   exit 1
 fi
 
-# 2. Install (or update) the efterlev CLI. --reinstall keeps it on the latest
-#    published release, so re-running this script is also the upgrade path.
+# 2. Install (or update) the efterlev CLI. --force installs the latest
+#    published release AND overwrites any existing `efterlev` executable —
+#    including one left by pipx or an older uv. (Plain --reinstall errors with
+#    "Executable already exists" in that case and strands the user on the old
+#    version.) So re-running this script is also the clean upgrade path.
 info "Installing the efterlev CLI..."
-uv tool install --reinstall efterlev
+uv tool install --force efterlev
 
 # 3. Friendly next steps.
 if command -v efterlev >/dev/null 2>&1; then

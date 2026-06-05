@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: storage3
-Version: 2.30.1
+Version: 2.31.0
 Summary: Supabase Storage client for Python.
 Author: Joel Lee, Leon Fedden, Daniel Reinón García, Leynier Gutiérrez González, Anand Krishna
 Author-email: Joel Lee <joel@joellee.org>, Leon Fedden <leonfedden@gmail.com>, Daniel Reinón García <danielreinon@outlook.com>, Leynier Gutiérrez González <leynier41@gmail.com>, Anand Krishna <anand2312@proton.me>
@@ -12,7 +12,7 @@ Requires-Dist: httpx[http2]>=0.26,<0.29
 Requires-Dist: deprecation>=2.1.0
 Requires-Dist: pydantic>=2.11.7
 Requires-Dist: yarl>=1.20.1
-Requires-Dist: pyiceberg>=0.10.0
+Requires-Dist: pyiceberg>=0.10.0 ; extra == 'iceberg'
 Maintainer: Leonardo Santiago
 Maintainer-email: Leonardo Santiago <leonardo.santiago@supabase.io>
 Requires-Python: >=3.9
@@ -20,6 +20,7 @@ Project-URL: changelog, https://github.com/supabase/supabase-py/tree/main/CHANGE
 Project-URL: documentation, https://supabase.github.io/storage-py
 Project-URL: homepage, https://supabase.github.io/storage-py
 Project-URL: repository, https://github.com/supabase/supabase-py
+Provides-Extra: iceberg
 Description-Content-Type: text/markdown
 
 # Storage-py

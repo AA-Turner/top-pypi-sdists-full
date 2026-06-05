@@ -98,7 +98,27 @@ bool EthosU55Constraints::SupportsFusedReverse(OpType opType, ReverseType revers
 namespace
 {
 // Check that IFM-scales are supported
-bool SupportedIFMQuant(OpType opType, const Quantization &ifmQuant, const Quantization &ifm2Quant)
+bool SupportsAdvancedAddSubIFMScaling(const QuantizedScale &ifmScale, const QuantizedScale &ifm2Scale, DataType ifmType)
+{
+    const int ifmBits = DataTypeSizeBits(ifmType);
+    if ( ifmBits != 8 && ifmBits != 16 )
+    {
+        return false;
+    }
+
+    const auto reducedIfmScale = QuantizedScale::ReduceScale(ifmScale);
+    const auto reducedIfm2Scale = QuantizedScale::ReduceScale(ifm2Scale);
+    if ( reducedIfmScale == reducedIfm2Scale )
+    {
+        return false;
+    }
+
+    const QuantizedScale fixedShiftScale(1 << (ifmBits == 8 ? 19 : 14), 0);
+    const QuantizedScale maxScale = reducedIfm2Scale < reducedIfmScale ? reducedIfmScale : reducedIfm2Scale;
+    return maxScale == fixedShiftScale;
+}
+
+bool SupportedIFMQuant(OpType opType, const Quantization &ifmQuant, const Quantization &ifm2Quant, DataType ifmType, DataType ofmType)
 {
     // Per-channel IFM scaling is not supported
     if ( ifmQuant.scales.size() > 1 || ifm2Quant.scales.size() > 1 )
@@ -110,10 +130,19 @@ bool SupportedIFMQuant(OpType opType, const Quantization &ifmQuant, const Quanti
     // Binary IFM-fusing constraints for Add/Sub
     if ( opType == OpType::Add || opType == OpType::Sub )
     {
-        // TODO MLBEDSW-10115: Support full 32-bit (advanced) rescale (with nonzero shift)
-        // For now only allow 16-bit (simple) rescale with shift == 0
+        // 32-bit output requires unit IFM scaling
+        if ( DataTypeSizeBits(ofmType) > 16 && (ifmScale != QuantizedScale::Unit() || ifm2Scale != QuantizedScale::Unit()) )
+            return false;
+
+        // Allow 16-bit (simple) rescale with shift == 0
         if ( ifmScale.shift == 0 && ifm2Scale.shift == 0 && int16_t(ifmScale.scale) == ifmScale.scale &&
              int16_t(ifm2Scale.scale) == ifm2Scale.scale )
+        {
+            return true;
+        }
+        // Allow 32-bit (advanced) rescale when the unscaled input can be
+        // represented by the fixed left shift used by the hardware.
+        if ( SupportsAdvancedAddSubIFMScaling(ifmScale, ifm2Scale, ifmType) )
         {
             return true;
         }
@@ -127,7 +156,7 @@ bool SupportedIFMQuant(OpType opType, const Quantization &ifmQuant, const Quanti
     return ifmScale == QuantizedScale::Unit();
 }
 // Check that OFM-scales are supported
-bool SupportedOFMQuant(OpType opType, EthosU55NpuOp npuOp, const Quantization &ofmQuant, DataType ifmType)
+bool SupportedOFMQuant(OpType opType, EthosU55NpuOp npuOp, const Quantization &ofmQuant, DataType ifmType, DataType ofmType)
 {
     // Reject per-channel scaling for opTypes that do not support it
     if ( IsElementwise(opType) || opType == OpType::ReduceSum || opType == OpType::AvgPool || opType == OpType::Table || opType == OpType::MatMul )
@@ -162,8 +191,8 @@ bool SupportedOFMQuant(OpType opType, EthosU55NpuOp npuOp, const Quantization &o
         {
             return ofmScale == QuantizedScale::Unit();
         }
-        // Elementwise supports shift-only if input is 32-bit
-        return DataTypeSizeBits(ifmType) < 32 || ofmScale.scale == 1;
+        // Elementwise supports shift-only if input or output is 32-bit
+        return (DataTypeSizeBits(ifmType) < 32 && DataTypeSizeBits(ofmType) < 32) || ofmScale.scale == 1;
     }
     return ofmScale == QuantizedScale::Unit();
 }
@@ -185,11 +214,11 @@ bool EthosU55Constraints::SupportsQuantization(OpType opType, const Quantization
         return false;
     }
     // Validate that quantization is valid
-    if ( !SupportedIFMQuant(opType, ifmQuant, ifm2Quant) )
+    if ( !SupportedIFMQuant(opType, ifmQuant, ifm2Quant, ifmType, ofmType) )
     {
         return false;
     }
-    if ( !SupportedOFMQuant(opType, npuOp, ofmQuant, ifmType) )
+    if ( !SupportedOFMQuant(opType, npuOp, ofmQuant, ifmType, ofmType) )
     {
         return false;
     }
@@ -796,18 +825,23 @@ Flags<QueryResult> EthosU55Constraints::OperatorQuery(OpType opType, const ArchO
         {
             const int ofmBits = DataTypeSizeBits(ofmType);
             assert(ofmBits == 32 || ofmBits == 64);
+            result.Set(QueryResult::HasRequirements);
             // Depth has additional constraints for 64-bit and 32-bit copies since they're expanded in RCS generation
             const int depthMultiplier = ofmBits == 64 ? 4 : 2;
             const int maxDepth = MAX_AXIS / depthMultiplier;
-            if ( ofmShape.Depth() > maxDepth )
+            if ( req )
             {
-                if ( req )
+                req->req.Set(ArchRequirement::Tensor);
+                // The int16 reinterpretation in Ethos-U55 RCS generation only supports linear format.
+                ArchTensorRequirement *tr = &req->tensor;
+                Set(*tr, TensorUsage::OFM, DataType::None, TensorFormat::NHWC);
+                if ( ofmShape.Depth() > maxDepth )
                 {
                     req->req.Set(ArchRequirement::Decompose);
                     req->decomposeProps.Set(ArchProperty::DataTypeLegalisation);
-                    Set(req->tensor, TensorUsage::OFM, DataType::None, TensorFormat::Unknown, ofmShape.WithDepth(maxDepth));
+                    tr->shape = ofmShape.WithDepth(maxDepth);
                 }
-                result.Set(QueryResult::HasRequirements);
+                Set(*NextTensor(tr, usedTensors), TensorUsage::IFM, TensorFormat::NHWC);
             }
         }
     }

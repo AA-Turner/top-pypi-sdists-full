@@ -36,7 +36,7 @@ class SourceGetResult:
 
 async def execute_source_get(client: NotebookLMClient, plan: SourceGetPlan) -> SourceGetResult:
     """Fetch a single source."""
-    src = await client.sources.get(plan.notebook_id, plan.source_id)
+    src = await client.sources.get_or_none(plan.notebook_id, plan.source_id)
     return SourceGetResult(notebook_id=plan.notebook_id, source_id=plan.source_id, source=src)
 
 
@@ -103,15 +103,13 @@ async def execute_source_guide(
 ) -> SourceGuideResult:
     """Fetch an AI-generated source summary and keywords."""
     guide = await client.sources.get_guide(plan.notebook_id, plan.source_id)
-    if not isinstance(guide, dict):
-        guide = {}
-    summary = guide.get("summary", "")
-    keywords = guide.get("keywords", [])
+    summary = guide.summary
+    keywords = guide.keywords
     keyword_strings = (
         tuple(
             keyword.strip() for keyword in keywords if isinstance(keyword, str) and keyword.strip()
         )
-        if isinstance(keywords, list)
+        if isinstance(keywords, (list, tuple))
         else ()
     )
     return SourceGuideResult(

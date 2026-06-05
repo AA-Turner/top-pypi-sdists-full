@@ -156,7 +156,7 @@ template.has_resource_properties("AWS::S3::BucketPolicy", {
             "Effect": "Deny",
             "Action": "s3:*",
             "Principal": {"AWS": "*"},
-            "Condition": {"Bool": {"aws:_secure_transport": "false"}}
+            "Condition": {"Bool": {"aws:secure_transport": "false"}}
         }
         ]
     }

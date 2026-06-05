@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: aws-cdk.cx-api
-Version: 2.257.0
+Version: 2.258.0
 Summary: Cloud executable protocol
 Home-page: https://github.com/aws/aws-cdk
 Author: Amazon Web Services
@@ -10,20 +10,22 @@ Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: JavaScript
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved
 Classifier: Framework :: AWS CDK
 Classifier: Framework :: AWS CDK :: 2
-Requires-Python: ~=3.10
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
 Requires-Dist: aws-cdk.cloud-assembly-schema>=53.25.0
-Requires-Dist: jsii<2.0.0,>=1.130.0
+Requires-Dist: jsii<2.0.0,>=1.133.0
 Requires-Dist: publication>=0.0.3
 Requires-Dist: typeguard==2.13.3
 

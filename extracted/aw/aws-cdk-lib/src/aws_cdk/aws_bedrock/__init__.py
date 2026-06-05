@@ -282,7 +282,7 @@ class CfnAgent(
         prompt_override_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAgent.PromptOverrideConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         skip_resource_in_use_check_on_delete: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        test_alias_tags: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        test_alias_tags: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
     ) -> None:
         '''Create a new ``AWS::Bedrock::Agent``.
 
@@ -846,17 +846,17 @@ class CfnAgent(
     @jsii.member(jsii_name="testAliasTags")
     def test_alias_tags(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''Metadata that you can assign to a resource as key-value pairs.
 
         For more information, see the following resources:.
         '''
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], jsii.get(self, "testAliasTags"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "testAliasTags"))
 
     @test_alias_tags.setter
     def test_alias_tags(
         self,
-        value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0adf24775a3a1362c3b4eeb79adc26cdf461e3c52ade9a1522d271295bf0d775)
@@ -891,7 +891,7 @@ class CfnAgent(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_bedrock as bedrock
                 
-                a_pISchema_property = bedrock.CfnAgent.APISchemaProperty(
+                a_pi_schema_property = bedrock.CfnAgent.APISchemaProperty(
                     payload="payload",
                     s3=bedrock.CfnAgent.S3IdentifierProperty(
                         s3_bucket_name="s3BucketName",
@@ -3233,7 +3233,7 @@ class CfnAgentProps:
         prompt_override_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAgent.PromptOverrideConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         skip_resource_in_use_check_on_delete: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        test_alias_tags: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        test_alias_tags: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnAgent``.
 
@@ -3655,7 +3655,7 @@ class CfnAgentProps:
     @builtins.property
     def test_alias_tags(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''Metadata that you can assign to a resource as key-value pairs. For more information, see the following resources:.
 
         - `Tag naming limits and requirements <https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html#tag-conventions>`_
@@ -3664,7 +3664,7 @@ class CfnAgentProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-agent.html#cfn-bedrock-agent-testaliastags
         '''
         result = self._values.get("test_alias_tags")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5533,7 +5533,7 @@ class CfnBlueprint(
         blueprint_name: builtins.str,
         schema: typing.Any,
         type: builtins.str,
-        kms_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        kms_encryption_context: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         kms_key_id: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -5717,14 +5717,14 @@ class CfnBlueprint(
     @jsii.member(jsii_name="kmsEncryptionContext")
     def kms_encryption_context(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''Name-value pairs to include as an encryption context.'''
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], jsii.get(self, "kmsEncryptionContext"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "kmsEncryptionContext"))
 
     @kms_encryption_context.setter
     def kms_encryption_context(
         self,
-        value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9dd7c2213aa68308e06ad8faf37f220972d3cc98e87609fbab559134d8803b82)
@@ -5777,7 +5777,7 @@ class CfnBlueprintProps:
         blueprint_name: builtins.str,
         schema: typing.Any,
         type: builtins.str,
-        kms_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        kms_encryption_context: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         kms_key_id: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -5871,13 +5871,13 @@ class CfnBlueprintProps:
     @builtins.property
     def kms_encryption_context(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''Name-value pairs to include as an encryption context.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-blueprint.html#cfn-bedrock-blueprint-kmsencryptioncontext
         '''
         result = self._values.get("kms_encryption_context")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
     @builtins.property
     def kms_key_id(self) -> typing.Optional[builtins.str]:
@@ -6150,7 +6150,7 @@ class CfnDataAutomationLibrary(
             self,
             *,
             kms_key_id: builtins.str,
-            kms_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            kms_encryption_context: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         ) -> None:
             '''KMS Encryption Configuration.
 
@@ -6198,13 +6198,13 @@ class CfnDataAutomationLibrary(
         @builtins.property
         def kms_encryption_context(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
             '''KMS Encryption Context.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-dataautomationlibrary-encryptionconfiguration.html#cfn-bedrock-dataautomationlibrary-encryptionconfiguration-kmsencryptioncontext
             '''
             result = self._values.get("kms_encryption_context")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6623,7 +6623,7 @@ class CfnDataAutomationProject(
         *,
         project_name: builtins.str,
         custom_output_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataAutomationProject.CustomOutputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        kms_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        kms_encryption_context: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         kms_key_id: typing.Optional[builtins.str] = None,
         override_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataAutomationProject.OverrideConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         project_description: typing.Optional[builtins.str] = None,
@@ -6807,14 +6807,14 @@ class CfnDataAutomationProject(
     @jsii.member(jsii_name="kmsEncryptionContext")
     def kms_encryption_context(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''The AWS  encryption context to use for encryption.'''
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], jsii.get(self, "kmsEncryptionContext"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "kmsEncryptionContext"))
 
     @kms_encryption_context.setter
     def kms_encryption_context(
         self,
-        value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6cd36375cf66df3f91af57cca5986cf0e1e2e1d92450af01f6598a0f70704eda)
@@ -9223,7 +9223,7 @@ class CfnDataAutomationProject(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_bedrock as bedrock
                 
-                p_iIEntities_configuration_property = bedrock.CfnDataAutomationProject.PIIEntitiesConfigurationProperty(
+                p_ii_entities_configuration_property = bedrock.CfnDataAutomationProject.PIIEntitiesConfigurationProperty(
                     pii_entity_types=["piiEntityTypes"],
                     redaction_mask_mode="redactionMaskMode"
                 )
@@ -10241,7 +10241,7 @@ class CfnDataAutomationProjectProps:
         *,
         project_name: builtins.str,
         custom_output_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataAutomationProject.CustomOutputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        kms_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        kms_encryption_context: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         kms_key_id: typing.Optional[builtins.str] = None,
         override_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataAutomationProject.OverrideConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         project_description: typing.Optional[builtins.str] = None,
@@ -10506,13 +10506,13 @@ class CfnDataAutomationProjectProps:
     @builtins.property
     def kms_encryption_context(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''The AWS  encryption context to use for encryption.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-dataautomationproject.html#cfn-bedrock-dataautomationproject-kmsencryptioncontext
         '''
         result = self._values.get("kms_encryption_context")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
     @builtins.property
     def kms_key_id(self) -> typing.Optional[builtins.str]:
@@ -15827,7 +15827,7 @@ class CfnFlow(
         definition_substitutions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union[builtins.str, jsii.Number, builtins.bool, "_IResolvable_da3f097b"]]]] = None,
         description: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        test_alias_tags: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        test_alias_tags: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
     ) -> None:
         '''Create a new ``AWS::Bedrock::Flow``.
 
@@ -16148,14 +16148,14 @@ class CfnFlow(
     @jsii.member(jsii_name="testAliasTags")
     def test_alias_tags(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''A map of tag keys and values.'''
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], jsii.get(self, "testAliasTags"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "testAliasTags"))
 
     @test_alias_tags.setter
     def test_alias_tags(
         self,
-        value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0c8f573e426abfd3b90c4d9ff9fecb4f008835544cca9591251c138795f9dac1)
@@ -21546,7 +21546,7 @@ class CfnFlowProps:
         definition_substitutions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union[builtins.str, jsii.Number, builtins.bool, "_IResolvable_da3f097b"]]]] = None,
         description: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        test_alias_tags: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        test_alias_tags: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnFlow``.
 
@@ -21939,13 +21939,13 @@ class CfnFlowProps:
     @builtins.property
     def test_alias_tags(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
         '''A map of tag keys and values.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-flow.html#cfn-bedrock-flow-testaliastags
         '''
         result = self._values.get("test_alias_tags")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -40751,6 +40751,12 @@ class FoundationModelIdentifier(
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_OPUS_4_7"))
 
     @jsii.python.classproperty
+    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_OPUS_4_8")
+    def ANTHROPIC_CLAUDE_OPUS_4_8(cls) -> "FoundationModelIdentifier":
+        '''Base model "anthropic.claude-opus-4-8".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_OPUS_4_8"))
+
+    @jsii.python.classproperty
     @jsii.member(jsii_name="ANTHROPIC_CLAUDE_SONNET_4_20250514_V1_0")
     def ANTHROPIC_CLAUDE_SONNET_4_20250514_V1_0(cls) -> "FoundationModelIdentifier":
         '''Base model "anthropic.claude-sonnet-4-20250514-v1:0".'''
@@ -41568,7 +41574,7 @@ def _typecheckingstub__facaad57ffe16da42f099d2b7997f3e6fd3b9eba46fd226d8fb5afe28
     prompt_override_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAgent.PromptOverrideConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     skip_resource_in_use_check_on_delete: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    test_alias_tags: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    test_alias_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -41728,7 +41734,7 @@ def _typecheckingstub__f9e79489cae3525b40539f62fddb8a1f8b194bc0b1d166146c12f85a5
     pass
 
 def _typecheckingstub__0adf24775a3a1362c3b4eeb79adc26cdf461e3c52ade9a1522d271295bf0d775(
-    value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -42009,7 +42015,7 @@ def _typecheckingstub__b4f714080f6d4f9b0a3fe85a8425a8ba69698695e35d6fbd9d710ca5d
     prompt_override_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAgent.PromptOverrideConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     skip_resource_in_use_check_on_delete: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    test_alias_tags: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    test_alias_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -42280,7 +42286,7 @@ def _typecheckingstub__f30fc18d24fb84f6af985d23602089a0bfe10014de2e42af131b5519f
     blueprint_name: builtins.str,
     schema: typing.Any,
     type: builtins.str,
-    kms_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    kms_encryption_context: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     kms_key_id: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -42330,7 +42336,7 @@ def _typecheckingstub__7ef42e216fb09846368bece5ce6a3e9545529525ae50a99d9652a067c
     pass
 
 def _typecheckingstub__9dd7c2213aa68308e06ad8faf37f220972d3cc98e87609fbab559134d8803b82(
-    value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -42352,7 +42358,7 @@ def _typecheckingstub__bf95f6258abad47e6c2fe49a96a1875d9121287a505f3fdb3fd8135ec
     blueprint_name: builtins.str,
     schema: typing.Any,
     type: builtins.str,
-    kms_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    kms_encryption_context: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     kms_key_id: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -42416,7 +42422,7 @@ def _typecheckingstub__6fd33ae85bf209eaf2e7bc2035cfed7aefe8a3f6cca8cb17a780f7e0b
 def _typecheckingstub__3456e210d70315cfaaf400f5d3263f110f1cc98da3f68ac2a9bb85793be21b52(
     *,
     kms_key_id: builtins.str,
-    kms_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    kms_encryption_context: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -42445,7 +42451,7 @@ def _typecheckingstub__48d1f11084a27a96045646e74a00baea90ff4f5c949a72220c866f3e0
     *,
     project_name: builtins.str,
     custom_output_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataAutomationProject.CustomOutputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    kms_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    kms_encryption_context: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     kms_key_id: typing.Optional[builtins.str] = None,
     override_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataAutomationProject.OverrideConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     project_description: typing.Optional[builtins.str] = None,
@@ -42487,7 +42493,7 @@ def _typecheckingstub__b1ab9fb9a4352d579b68cf610175f94c8aa52cfdbbf49f7714af57669
     pass
 
 def _typecheckingstub__6cd36375cf66df3f91af57cca5986cf0e1e2e1d92450af01f6598a0f70704eda(
-    value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -42852,7 +42858,7 @@ def _typecheckingstub__acae67d63fc78195ace949c20ad8c3209d7c1972a999616c83dd5f909
     *,
     project_name: builtins.str,
     custom_output_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataAutomationProject.CustomOutputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    kms_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    kms_encryption_context: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     kms_key_id: typing.Optional[builtins.str] = None,
     override_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataAutomationProject.OverrideConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     project_description: typing.Optional[builtins.str] = None,
@@ -43372,7 +43378,7 @@ def _typecheckingstub__de6f163cc9336f6925ec17d7466e0c9a53cd276d201d3e7dcf092e2b1
     definition_substitutions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[builtins.str, jsii.Number, builtins.bool, _IResolvable_da3f097b]]]] = None,
     description: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    test_alias_tags: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    test_alias_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -43456,7 +43462,7 @@ def _typecheckingstub__00fc718d7b494a828bea538bc7c10f721679354bb6555d8e15e32b216
     pass
 
 def _typecheckingstub__0c8f573e426abfd3b90c4d9ff9fecb4f008835544cca9591251c138795f9dac1(
-    value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -43950,7 +43956,7 @@ def _typecheckingstub__bad8ab7f592d2682a6b9c1a504f97fac9b6e0a7bbbfcf4968c42f3a95
     definition_substitutions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[builtins.str, jsii.Number, builtins.bool, _IResolvable_da3f097b]]]] = None,
     description: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    test_alias_tags: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    test_alias_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -79,6 +79,12 @@ class PerfettoTrigger(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     PERFETTO_TRIGGER_TIME_INTERVAL: _ClassVar[PerfettoTrigger]
     PERFETTO_TRIGGER_HTTP: _ClassVar[PerfettoTrigger]
 
+class NetworkInspectorTrigger(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    NETWORK_INSPECTOR_TRIGGER_UNSPECIFIED: _ClassVar[NetworkInspectorTrigger]
+    NETWORK_INSPECTOR_TRIGGER_START_ON_LAUNCH: _ClassVar[NetworkInspectorTrigger]
+    NETWORK_INSPECTOR_TRIGGER_HTTP: _ClassVar[NetworkInspectorTrigger]
+
 class BranchScalingState(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     BRANCH_SCALING_STATE_UNSPECIFIED: _ClassVar[BranchScalingState]
@@ -128,6 +134,9 @@ VECTOR_CLUSTER_METRICS_SHADOW_OUTPUT_TABLE: VectorClusterMetricsShadowOutput
 PERFETTO_TRIGGER_UNSPECIFIED: PerfettoTrigger
 PERFETTO_TRIGGER_TIME_INTERVAL: PerfettoTrigger
 PERFETTO_TRIGGER_HTTP: PerfettoTrigger
+NETWORK_INSPECTOR_TRIGGER_UNSPECIFIED: NetworkInspectorTrigger
+NETWORK_INSPECTOR_TRIGGER_START_ON_LAUNCH: NetworkInspectorTrigger
+NETWORK_INSPECTOR_TRIGGER_HTTP: NetworkInspectorTrigger
 BRANCH_SCALING_STATE_UNSPECIFIED: BranchScalingState
 BRANCH_SCALING_STATE_SUCCESS: BranchScalingState
 BRANCH_SCALING_STATE_IN_PROGRESS: BranchScalingState
@@ -308,8 +317,17 @@ class RedeployDeploymentRequest(_message.Message):
         "customer_metadata",
         "display_description",
         "force_rebuild_dockerfile",
+        "build_options",
     )
     class CustomerMetadataEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
+    class BuildOptionsEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
         VALUE_FIELD_NUMBER: _ClassVar[int]
@@ -327,6 +345,7 @@ class RedeployDeploymentRequest(_message.Message):
     CUSTOMER_METADATA_FIELD_NUMBER: _ClassVar[int]
     DISPLAY_DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
     FORCE_REBUILD_DOCKERFILE_FIELD_NUMBER: _ClassVar[int]
+    BUILD_OPTIONS_FIELD_NUMBER: _ClassVar[int]
     existing_deployment_id: str
     enable_profiling: bool
     deployment_tags: _containers.RepeatedScalarFieldContainer[str]
@@ -337,6 +356,7 @@ class RedeployDeploymentRequest(_message.Message):
     customer_metadata: _containers.ScalarMap[str, str]
     display_description: str
     force_rebuild_dockerfile: bool
+    build_options: _containers.ScalarMap[str, str]
     def __init__(
         self,
         existing_deployment_id: _Optional[str] = ...,
@@ -349,6 +369,7 @@ class RedeployDeploymentRequest(_message.Message):
         customer_metadata: _Optional[_Mapping[str, str]] = ...,
         display_description: _Optional[str] = ...,
         force_rebuild_dockerfile: bool = ...,
+        build_options: _Optional[_Mapping[str, str]] = ...,
     ) -> None: ...
 
 class RedeployDeploymentResponse(_message.Message):
@@ -437,8 +458,17 @@ class PrepareDeploymentRequest(_message.Message):
         "use_grpc",
         "enable_profiling",
         "build_profile",
+        "build_options",
     )
     class CustomerMetadataEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
+    class BuildOptionsEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
         VALUE_FIELD_NUMBER: _ClassVar[int]
@@ -464,6 +494,7 @@ class PrepareDeploymentRequest(_message.Message):
     USE_GRPC_FIELD_NUMBER: _ClassVar[int]
     ENABLE_PROFILING_FIELD_NUMBER: _ClassVar[int]
     BUILD_PROFILE_FIELD_NUMBER: _ClassVar[int]
+    BUILD_OPTIONS_FIELD_NUMBER: _ClassVar[int]
     git_branch: str
     git_commit: str
     git_pr: str
@@ -482,6 +513,7 @@ class PrepareDeploymentRequest(_message.Message):
     use_grpc: bool
     enable_profiling: bool
     build_profile: _environment_pb2.DeploymentBuildProfile
+    build_options: _containers.ScalarMap[str, str]
     def __init__(
         self,
         git_branch: _Optional[str] = ...,
@@ -502,6 +534,7 @@ class PrepareDeploymentRequest(_message.Message):
         use_grpc: bool = ...,
         enable_profiling: bool = ...,
         build_profile: _Optional[_Union[_environment_pb2.DeploymentBuildProfile, str]] = ...,
+        build_options: _Optional[_Mapping[str, str]] = ...,
     ) -> None: ...
 
 class PrepareDeploymentResponse(_message.Message):
@@ -2216,6 +2249,41 @@ class StreamedDirectoryWatcherSpec(_message.Message):
         idle_file_timeout_ms: _Optional[int] = ...,
     ) -> None: ...
 
+class NetworkInspectorDaemonSpec(_message.Message):
+    __slots__ = (
+        "export_to",
+        "bucket_subdirectory",
+        "interface",
+        "filter_expression",
+        "snaplen_bytes",
+        "trigger",
+        "commit_interval_seconds",
+    )
+    EXPORT_TO_FIELD_NUMBER: _ClassVar[int]
+    BUCKET_SUBDIRECTORY_FIELD_NUMBER: _ClassVar[int]
+    INTERFACE_FIELD_NUMBER: _ClassVar[int]
+    FILTER_EXPRESSION_FIELD_NUMBER: _ClassVar[int]
+    SNAPLEN_BYTES_FIELD_NUMBER: _ClassVar[int]
+    TRIGGER_FIELD_NUMBER: _ClassVar[int]
+    COMMIT_INTERVAL_SECONDS_FIELD_NUMBER: _ClassVar[int]
+    export_to: str
+    bucket_subdirectory: str
+    interface: str
+    filter_expression: str
+    snaplen_bytes: int
+    trigger: NetworkInspectorTrigger
+    commit_interval_seconds: int
+    def __init__(
+        self,
+        export_to: _Optional[str] = ...,
+        bucket_subdirectory: _Optional[str] = ...,
+        interface: _Optional[str] = ...,
+        filter_expression: _Optional[str] = ...,
+        snaplen_bytes: _Optional[int] = ...,
+        trigger: _Optional[_Union[NetworkInspectorTrigger, str]] = ...,
+        commit_interval_seconds: _Optional[int] = ...,
+    ) -> None: ...
+
 class ObservabilityDaemonSpec(_message.Message):
     __slots__ = (
         "keep_running_when_suspended",
@@ -2230,6 +2298,7 @@ class ObservabilityDaemonSpec(_message.Message):
         "perfetto_daemon",
         "directory_watcher",
         "streamed_watcher",
+        "network_inspector_daemon",
     )
     KEEP_RUNNING_WHEN_SUSPENDED_FIELD_NUMBER: _ClassVar[int]
     REQUEST_FIELD_NUMBER: _ClassVar[int]
@@ -2243,6 +2312,7 @@ class ObservabilityDaemonSpec(_message.Message):
     PERFETTO_DAEMON_FIELD_NUMBER: _ClassVar[int]
     DIRECTORY_WATCHER_FIELD_NUMBER: _ClassVar[int]
     STREAMED_WATCHER_FIELD_NUMBER: _ClassVar[int]
+    NETWORK_INSPECTOR_DAEMON_FIELD_NUMBER: _ClassVar[int]
     keep_running_when_suspended: bool
     request: KubeResourceConfig
     limit: KubeResourceConfig
@@ -2255,6 +2325,7 @@ class ObservabilityDaemonSpec(_message.Message):
     perfetto_daemon: PerfettoDaemonSpec
     directory_watcher: DirectoryWatcherSpec
     streamed_watcher: StreamedDirectoryWatcherSpec
+    network_inspector_daemon: NetworkInspectorDaemonSpec
     def __init__(
         self,
         keep_running_when_suspended: bool = ...,
@@ -2269,6 +2340,7 @@ class ObservabilityDaemonSpec(_message.Message):
         perfetto_daemon: _Optional[_Union[PerfettoDaemonSpec, _Mapping]] = ...,
         directory_watcher: _Optional[_Union[DirectoryWatcherSpec, _Mapping]] = ...,
         streamed_watcher: _Optional[_Union[StreamedDirectoryWatcherSpec, _Mapping]] = ...,
+        network_inspector_daemon: _Optional[_Union[NetworkInspectorDaemonSpec, _Mapping]] = ...,
     ) -> None: ...
 
 class ObservabilityDaemonSchedulingSpec(_message.Message):
@@ -2840,8 +2912,17 @@ class CreateDeploymentRequest(_message.Message):
         "project_settings",
         "customer_metadata",
         "display_description",
+        "build_options",
     )
     class CustomerMetadataEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
+    class BuildOptionsEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
         VALUE_FIELD_NUMBER: _ClassVar[int]
@@ -2860,6 +2941,7 @@ class CreateDeploymentRequest(_message.Message):
     PROJECT_SETTINGS_FIELD_NUMBER: _ClassVar[int]
     CUSTOMER_METADATA_FIELD_NUMBER: _ClassVar[int]
     DISPLAY_DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
+    BUILD_OPTIONS_FIELD_NUMBER: _ClassVar[int]
     git_branch: str
     git_commit: str
     git_pr: str
@@ -2871,6 +2953,7 @@ class CreateDeploymentRequest(_message.Message):
     project_settings: _export_pb2.ProjectSettings
     customer_metadata: _containers.ScalarMap[str, str]
     display_description: str
+    build_options: _containers.ScalarMap[str, str]
     def __init__(
         self,
         git_branch: _Optional[str] = ...,
@@ -2884,6 +2967,7 @@ class CreateDeploymentRequest(_message.Message):
         project_settings: _Optional[_Union[_export_pb2.ProjectSettings, _Mapping]] = ...,
         customer_metadata: _Optional[_Mapping[str, str]] = ...,
         display_description: _Optional[str] = ...,
+        build_options: _Optional[_Mapping[str, str]] = ...,
     ) -> None: ...
 
 class CreateDeploymentResponse(_message.Message):

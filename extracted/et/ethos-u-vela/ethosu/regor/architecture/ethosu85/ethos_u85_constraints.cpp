@@ -112,7 +112,7 @@ TransposeSupport EthosU85Constraints::SupportsFusedTranspose(OpType opType, Tran
     }
     else if ( npuOp == EthosU85NpuOp::Elementwise )
     {
-        if ( transposeType == TransposeType::None || transposeType == TransposeType::NHCW || transposeType == TransposeType::NCHW )
+        if ( transposeType == TransposeType::NHCW || transposeType == TransposeType::NCHW )
         {
             return TransposeSupport::Any;
         }
@@ -120,7 +120,7 @@ TransposeSupport EthosU85Constraints::SupportsFusedTranspose(OpType opType, Tran
         return TransposeSupport::None;
     }
 
-    if ( transposeType == TransposeType::None || transposeType == TransposeType::NWHC || transposeType == TransposeType::NHCW ||
+    if ( transposeType == TransposeType::NWHC || transposeType == TransposeType::NHCW ||
          transposeType == TransposeType::NWCH || transposeType == TransposeType::NCHW || transposeType == TransposeType::NCWH )
         return TransposeSupport::Any;
 
@@ -458,9 +458,9 @@ static bool SupportedTensorAxes(Shape ifmShape, Shape ifm2Shape, Shape ofmShape)
 Flags<QueryResult> EthosU85Constraints::OperatorQuery(OpType opType, const ArchOperatorQuery *query, ArchRequirements *req)
 {
     Flags<QueryResult> result = QueryResult::Native;
-    const auto &ifmShape = query->ifm[0].shape;
-    const auto &ifm2Shape = query->ifm[1].shape;
-    const auto &ofmShape = query->ofm.shape;
+    const auto &ifmShape = query ? query->ifm[0].shape : Shape();
+    const auto &ifm2Shape = query ? query->ifm[1].shape : Shape();
+    const auto &ofmShape = query ? query->ofm.shape : Shape();
 
     // Check hardware-required substitutions first
     if ( (opType == OpType::Sigmoid) || (opType == OpType::Tanh) )
@@ -734,12 +734,16 @@ Flags<QueryResult> EthosU85Constraints::OperatorQuery(OpType opType, const ArchO
             {
                 req->req.Set(ArchRequirement::Decompose);
                 req->decomposeProps.Set(ArchProperty::KernelStride);
+                if ( opType == OpType::AvgPool )
+                {
+                    // decomposing AvgPool kernels also requires decomposition of scaling
+                    req->decomposeProps.Set(ArchProperty::Scaling);
+                }
             }
             result.Set(QueryResult::HasRequirements);
         }
 
-        if ( opType == OpType::AvgPool && (k->Size().x > 8 || k->Size().y > 8) && !k->Padding().IsZero() &&
-             query->ofm.quantization->scales.size() )
+        if ( opType == OpType::AvgPool && (k->Size().x > 8 || k->Size().y > 8) && !k->Padding().IsZero() )
         {
             if ( req )
             {

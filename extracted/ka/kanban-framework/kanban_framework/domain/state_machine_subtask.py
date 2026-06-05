@@ -107,6 +107,14 @@ def inject_subtask_steps(
         prompt = prompt.replace("$subtask_title", st_title)
         prompt = prompt.replace("$subtask_plan", plan_file)
 
+        # Knowledge preamble injection (#496)
+        from kanban_framework.domain.steps import _KNOWLEDGE_PREAMBLE_FIRST, _KNOWLEDGE_PREAMBLE_REUSE
+        kfile = td / "plan" / "knowledge_used.json"
+        preamble = _KNOWLEDGE_PREAMBLE_REUSE if kfile.is_file() else _KNOWLEDGE_PREAMBLE_FIRST
+        preamble = preamble.replace("$task_title", task.title or "")
+        preamble = preamble.replace("$task_dir", td_path)
+        prompt = preamble + prompt
+
         return result_class(
             task_id=task.id, phase="execute", step_id=step_key, step_index=0,
             total_steps=len(subtasks), description=f"执行 subtask {st_id}: {st_title}",

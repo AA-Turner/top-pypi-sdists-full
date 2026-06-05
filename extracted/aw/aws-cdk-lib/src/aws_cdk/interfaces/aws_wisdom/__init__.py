@@ -65,7 +65,7 @@ class AIAgentReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_wisdom as interfaces_wisdom
             
-            a_iAgent_reference = interfaces_wisdom.AIAgentReference(
+            a_i_agent_reference = interfaces_wisdom.AIAgentReference(
                 ai_agent_arn="aiAgentArn",
                 ai_agent_id="aiAgentId",
                 assistant_id="assistantId"
@@ -146,7 +146,7 @@ class AIAgentVersionReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_wisdom as interfaces_wisdom
             
-            a_iAgent_version_reference = interfaces_wisdom.AIAgentVersionReference(
+            a_i_agent_version_reference = interfaces_wisdom.AIAgentVersionReference(
                 ai_agent_id="aiAgentId",
                 assistant_id="assistantId",
                 version_number="versionNumber"
@@ -227,7 +227,7 @@ class AIGuardrailReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_wisdom as interfaces_wisdom
             
-            a_iGuardrail_reference = interfaces_wisdom.AIGuardrailReference(
+            a_i_guardrail_reference = interfaces_wisdom.AIGuardrailReference(
                 ai_guardrail_arn="aiGuardrailArn",
                 ai_guardrail_id="aiGuardrailId",
                 assistant_id="assistantId"
@@ -308,7 +308,7 @@ class AIGuardrailVersionReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_wisdom as interfaces_wisdom
             
-            a_iGuardrail_version_reference = interfaces_wisdom.AIGuardrailVersionReference(
+            a_i_guardrail_version_reference = interfaces_wisdom.AIGuardrailVersionReference(
                 ai_guardrail_id="aiGuardrailId",
                 assistant_id="assistantId",
                 version_number="versionNumber"
@@ -389,7 +389,7 @@ class AIPromptReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_wisdom as interfaces_wisdom
             
-            a_iPrompt_reference = interfaces_wisdom.AIPromptReference(
+            a_i_prompt_reference = interfaces_wisdom.AIPromptReference(
                 ai_prompt_arn="aiPromptArn",
                 ai_prompt_id="aiPromptId",
                 assistant_id="assistantId"
@@ -470,7 +470,7 @@ class AIPromptVersionReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_wisdom as interfaces_wisdom
             
-            a_iPrompt_version_reference = interfaces_wisdom.AIPromptVersionReference(
+            a_i_prompt_version_reference = interfaces_wisdom.AIPromptVersionReference(
                 ai_prompt_id="aiPromptId",
                 assistant_id="assistantId",
                 version_number="versionNumber"

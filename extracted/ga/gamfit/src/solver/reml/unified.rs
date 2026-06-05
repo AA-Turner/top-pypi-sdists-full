@@ -4909,7 +4909,16 @@ pub struct PenaltySubspaceTrace {
 
 impl PenaltySubspaceTrace {
     /// Compute `tr(K · A)` where `K = U_S · H_proj⁻¹ · U_Sᵀ` — the
-    /// projected logdet kernel that matches `d log|U_Sᵀ H U_S|/dτ`.
+    /// projected logdet kernel.
+    ///
+    /// `H_proj⁻¹` is the range(Sλ) block of the FULL pseudo-inverse `(H+Sλ)⁺`
+    /// (its Schur reduction onto range(Sλ)). For a penalty-supported `A`
+    /// (`A = ∂Sλ/∂τ`, whose support lies in range(Sλ)), the identity
+    /// `U_S U_Sᵀ A U_S U_Sᵀ = A` gives
+    ///   `tr(K · A) = tr((H+Sλ)⁺ · A) = d log|H + Sλ|₊ / dτ`,
+    /// i.e. the kernel differentiates the FULL identifiable-subspace logdet
+    /// `log|H + Sλ|₊` (not the narrower `log|U_Sᵀ(H+Sλ)U_S|`). See
+    /// `joint_penalty_subspace_trace_parts`.
     ///
     /// Uses the identity `tr(K · A) = tr(H_proj⁻¹ · U_Sᵀ A U_S)` so the
     /// reduction runs on the r × r subspace rather than materializing K.
@@ -7641,6 +7650,15 @@ pub fn reml_laml_evaluate(
             .n_observations
             .saturating_mul(hop.dim())
             .saturating_mul((k + ext_dim).max(1));
+        // Serial-when-large is deliberate, NOT a throughput bug: each
+        // `hessian_derivative_correction_result` is an `Xᵀ·diag(c⊙Xvₖ)·X`
+        // crossproduct that already saturates every core via faer's global
+        // parallelism (`streaming_blas_xt_diag_x` → `get_global_parallelism`).
+        // Wrapping the outer per-coordinate map in `par_iter` for large work
+        // would nest a rayon fan-out around already-parallel BLAS-3 kernels and
+        // oversubscribe the thread pool, regressing wall-clock. The small-work
+        // branch goes parallel only because each correction is too thin to fill
+        // the pool on its own, so the outer fan-out is free there.
         let parallel_corrections = correction_work <= 64_000_000;
         if parallel_corrections {
             correction_vs
@@ -7649,7 +7667,7 @@ pub fn reml_laml_evaluate(
                 .collect::<Result<Vec<_>, _>>()?
         } else {
             log::info!(
-                "[STAGE] reml_laml coord_corrections mode=serial k={} ext_dim={} n={} dim={} work={}",
+                "[STAGE] reml_laml coord_corrections mode=serial(inner-parallel) k={} ext_dim={} n={} dim={} work={}",
                 k,
                 ext_dim,
                 solution.n_observations,
@@ -19842,7 +19860,13 @@ mod tests {
         let x = array![[1.0, 0.0], [1.0, 1.0], [1.0, -1.0]];
         let eta = array![0.0, 0.4, -0.2];
         let firth_op = std::sync::Arc::new(
-            super::super::FirthDenseOperator::build(&x, &eta).expect("firth operator"),
+            super::super::RemlState::build_firth_dense_operator_for_link(
+                crate::types::StandardLink::Logit,
+                &x,
+                &eta,
+                ndarray::Array1::ones(x.nrows()).view(),
+            )
+            .expect("firth operator"),
         );
         let firth_value = firth_op.jeffreys_logdet();
 
